@@ -93,8 +93,8 @@ function partSteps(part: WorkorderPartView): WorkorderStepView[] {
 
 /**
  * A part's progress: the steps that finish the job (`done` and `skipped`) over
- * all of them. The one definition the open panel and the list cards both read,
- * so the fraction cannot differ between the card and the part it opens.
+ * all of them. The open panel counts a part this way, and the list's card is
+ * answered by the same rule on the server (`WorkorderListPart`).
  */
 function partProgress(part: WorkorderPartView): { complete: number; total: number } {
   const steps = partSteps(part);
@@ -532,9 +532,11 @@ function NewWorkorderForm({
           import("@/store/knowledge"),
           import("@/lib/knowledge"),
         ]);
-        // Always refresh: the picker must reflect what is in force now, not what
-        // the session happened to load before an administrator approved a page.
-        await useKnowledge.getState().load();
+        // Refresh only what is not in hand: a picker opened after the KB was
+        // read uses that read, and one opened in a session that never visited it
+        // reads it once. The chosen template's revision is read on its own
+        // below, so an approval that landed meanwhile is still seen.
+        if (!useKnowledge.getState().loaded) await useKnowledge.getState().load();
         if (!alive) return;
         setTemplates(
           useKnowledge.getState().tiers.flatMap((tier) =>
@@ -590,19 +592,14 @@ function NewWorkorderForm({
     let alive = true;
     void (async () => {
       try {
-        const { companyArticle, readArticle } = await import("@/lib/knowledge");
-        const view =
+        const { companyRevision, readArticleRevision } = await import("@/lib/knowledge");
+        // The one revision the workorder will bind to, not the article's whole
+        // history: the rules are all this form reads.
+        const rules =
           chosen.scope === "company"
-            ? await companyArticle(chosen.folder)
-            : await readArticle(
-                chosen.accountId,
-                chosen.nodeId,
-                chosen.nodeId,
-                chosen.folder,
-                "group",
-                chosen.parentId,
-              );
-        if (alive) setChecklist(view?.effective?.checklist ?? null);
+            ? await companyRevision(chosen.folder, chosen.revision)
+            : await readArticleRevision(chosen.accountId, chosen.nodeId, chosen.revision);
+        if (alive) setChecklist(rules?.checklist ?? null);
       } catch {
         if (alive) setChecklist(null);
       } finally {
@@ -849,6 +846,9 @@ export function WorkorderPanel() {
 
   const sessionAdmin = useSession((s) => mayAdminister(s.session?.gilbert));
   const open = useWorkorders(openWorkorder);
+  // The open workorder's checklist is read when it is opened; until it lands
+  // the detail pane shows that it is loading, not the empty surface.
+  const detailLoading = useWorkorders((s) => s.detailLoading);
   /*
    * The route decides in the end; this only decides what to offer. A summary
    * carries what the caller may administer, and the session's own admin flag
@@ -1034,23 +1034,18 @@ export function WorkorderPanel() {
                             group's -- each with its progress, the same fraction
                             the open panel shows beside the part's name. */}
                         <div className="hint" style={{ marginTop: 6 }}>
-                          {w.parts.map((part) => {
-                            const { complete, total } = partProgress(part);
-                            return (
-                              <div
-                                key={
-                                  part.scope === "global"
-                                    ? "global"
-                                    : (part.group ?? "group")
-                                }
-                              >
-                                {part.scope === "global"
-                                  ? t("Global")
-                                  : (part.group ?? "")}{" "}
-                                {complete}/{total}
-                              </div>
-                            );
-                          })}
+                          {w.parts.map((part) => (
+                            <div
+                              key={
+                                part.scope === "global"
+                                  ? "global"
+                                  : (part.group ?? "group")
+                              }
+                            >
+                              {part.scope === "global" ? t("Global") : (part.group ?? "")}{" "}
+                              {part.complete}/{part.total}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -1103,6 +1098,8 @@ export function WorkorderPanel() {
                       />
                     )}
                   </>
+                ) : detailLoading ? (
+                  <Spinner label={t("Loading…")} />
                 ) : (
                   <p className="hint">{t("Select a workorder, or create one.")}</p>
                 )}

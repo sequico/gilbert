@@ -53,7 +53,7 @@ export function isTerminalState(state: WorkorderState): boolean {
   return WORKORDER_TERMINAL_STATES.includes(state);
 }
 
-interface WorkorderTimes {
+export interface WorkorderTimes {
   by: string;
   at: string;
 }
@@ -456,6 +456,40 @@ export interface WorkorderSummary {
    */
   replacedBy?: string | null;
   /** Whether the caller is an installation administrator. */
+  canAdminister: boolean;
+}
+
+/** One part of a workorder as the list shows it: its progress and its template. */
+export interface WorkorderListPart {
+  scope: WorkorderScope;
+  /** The group's account, or null for the global part. */
+  accountId: string | null;
+  /** The group's own name for a group part, null for the global. */
+  group: string | null;
+  /** The template this part is bound to, by id and revision. */
+  template: WorkorderTemplateRef;
+  templateTitle: string | null;
+  templateRev: number | null;
+  /** The steps settled — `done` or `skipped` — and all the steps served. */
+  complete: number;
+  total: number;
+}
+
+/**
+ * One workorder as the list shows it.
+ *
+ * The cards need a name, a state and each part's progress, and nothing else:
+ * the checklist, its items and its step states are what opening a workorder
+ * reads (`WorkorderSummary`), and sending them for every row made the list
+ * grow with the work it summarised.
+ */
+export interface WorkorderListEntry {
+  uid: string;
+  name: string;
+  state: WorkorderState;
+  parts: WorkorderListPart[];
+  updated: WorkorderTimes;
+  replacedBy?: string | null;
   canAdminister: boolean;
 }
 

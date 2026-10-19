@@ -17,20 +17,56 @@
  * that into this read.
  */
 
-import type {
-  WorkorderCheckInput,
-  WorkorderCreateInput,
-  WorkorderRefChange,
-  WorkorderState,
-  WorkorderSummary,
+import {
+  isStepComplete,
+  type WorkorderCheckInput,
+  type WorkorderCreateInput,
+  type WorkorderListEntry,
+  type WorkorderRefChange,
+  type WorkorderState,
+  type WorkorderSummary,
 } from "@gilbert/shared/workorder";
 import { ApiError, apiFetch } from "@/jmap/client";
 
 export * from "@gilbert/shared/workorder";
 
-/** Every workorder the caller may see, as the route composes it. */
-export async function listWorkorders(): Promise<WorkorderSummary[]> {
-  const res = await apiFetch<{ ok: true; workorders: WorkorderSummary[] }>(
+/**
+ * One workorder as the list shows it, derived from a full summary.
+ *
+ * A route that answered a write hands back the workorder with its checklist;
+ * the card beside it needs the same progress the server's list answers, and
+ * this is that one derivation for the client — the counts the open panel and
+ * the card both read.
+ */
+export function listEntryOf(summary: WorkorderSummary): WorkorderListEntry {
+  return {
+    uid: summary.uid,
+    name: summary.name,
+    state: summary.state,
+    updated: summary.updated,
+    replacedBy: summary.replacedBy ?? null,
+    canAdminister: summary.canAdminister,
+    parts: summary.parts.map((part) => {
+      const steps = part.groups.flatMap((group) =>
+        group.items.flatMap((item) => item.steps),
+      );
+      return {
+        scope: part.scope,
+        accountId: part.accountId,
+        group: part.group,
+        template: part.checklist.template,
+        templateTitle: part.templateTitle,
+        templateRev: part.templateRev,
+        complete: steps.filter((step) => isStepComplete(step.state)).length,
+        total: steps.length,
+      };
+    }),
+  };
+}
+
+/** Every workorder the caller may see, as the list draws it. */
+export async function listWorkorders(): Promise<WorkorderListEntry[]> {
+  const res = await apiFetch<{ ok: true; workorders: WorkorderListEntry[] }>(
     "/api/workorders",
   );
   return res.workorders;

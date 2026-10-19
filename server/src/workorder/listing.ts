@@ -22,7 +22,9 @@ import {
   type ResolvedSection,
   resolveChecklist,
 } from "../shared/knowledge.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
+  isStepComplete,
   isStepCompleteForGate,
   isWorkorderDoc,
   itemKeysOf,
@@ -32,6 +34,8 @@ import {
   type WorkorderDoc,
   type WorkorderGateView,
   type WorkorderGroupView,
+  type WorkorderListEntry,
+  type WorkorderListPart,
   type WorkorderPartView,
   type WorkorderScope,
   type WorkorderStepView,
@@ -107,12 +111,12 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
       return stamp !== 0 ? stamp : String(b.node.id).localeCompare(String(a.node.id));
     })
     .slice(0, WORKORDER_LIST_MAX);
-  const out: WorkorderDoc[] = [];
-  for (const { path } of newest) {
-    const doc = await readAppJsonAt(ctx, accountId, path);
-    if (isWorkorderDoc(doc)) out.push(doc);
-  }
-  return out;
+  // The page's documents are independent, so they are fetched together: in
+  // series the registry costs one round trip per workorder on a cold read.
+  const docs = await mapLimit(newest, READ_CONCURRENCY, ({ path }) =>
+    readAppJsonAt(ctx, accountId, path),
+  );
+  return docs.filter((doc): doc is WorkorderDoc => isWorkorderDoc(doc));
 }
 
 /** The gate state over one whole workorder (ADR 0030). */
@@ -267,21 +271,31 @@ function groupsFor(
   return out;
 }
 
+/** One part this caller may see, gathered before a view is composed. */
+interface PartEntry {
+  scope: WorkorderScope;
+  accountId: string | null;
+  group: string | null;
+  def: KnowledgeChecklist | null;
+  title: string | null;
+  rev: number | null;
+  checklist: WorkorderChecklist;
+  canCheck: boolean;
+}
+
 /**
- * One workorder as the caller sees it: the global part from the root, then a
- * part for every group the caller may see.
+ * Every part the caller may see: the global one from the root, then one per
+ * group they reach.
  *
  * A member sees only their own groups' parts; an administrator sees every part
  * the Master holds, because the route reads them as the Master. A part whose
- * document is gone is omitted, never answered as an empty part. Whether the
- * workorder is the reader's at all is `maySee`'s answer, which competence
- * decides and not this view.
+ * document is gone is omitted, never answered as an empty part.
  */
-async function summaryOf(
+async function partEntries(
   reach: WorkorderReach,
   root: WorkorderDoc,
   readParts?: Map<string, WorkorderFound | null>,
-): Promise<WorkorderSummary> {
+): Promise<PartEntry[]> {
   // An administrator sees every part the Master holds; a member sees only the
   // parts of their own groups. Either way the account is the Master's to read.
   const visible = (reach.admin ? [...reach.masterGroups.keys()] : [...reach.own]).sort(
@@ -289,22 +303,6 @@ async function summaryOf(
   );
   const global = await templateDef(reach, root.checklist.template);
 
-  /*
-   * Every part this caller may see, gathered before the view is composed so
-   * the **gate** is decided once over the whole workorder: a section of one
-   * part may depend on a section of another (the global checklist or a
-   * different group's), and only the sum of all parts says whether it opens.
-   */
-  interface PartEntry {
-    scope: WorkorderScope;
-    accountId: string | null;
-    group: string | null;
-    def: KnowledgeChecklist | null;
-    title: string | null;
-    rev: number | null;
-    checklist: WorkorderChecklist;
-    canCheck: boolean;
-  }
   const entries: PartEntry[] = [
     {
       scope: "global",
@@ -327,18 +325,23 @@ async function summaryOf(
       canCheck: true,
     },
   ];
-  for (const name of visible) {
+  /*
+   * The group parts are independent documents: they are read a bounded few at
+   * a time rather than one after another, so a workorder with several parts
+   * does not cost several round trips.
+   */
+  const parts = await mapLimit(visible, READ_CONCURRENCY, async (name) => {
     const groupAccount = reach.masterGroups.get(name);
-    if (!groupAccount) continue;
+    if (!groupAccount) return null;
     // A part this request has already read -- the gates pass a check runs reads
     // them all -- is not read a second time. A group the map never looked at is
     // read here, which is the whole of the common case.
     const part = readParts?.has(groupAccount)
       ? (readParts.get(groupAccount) ?? null)
       : await findActive(reach.ctx, groupAccount, root.uid);
-    if (!part) continue;
+    if (!part) return null;
     const info = await templateDef(reach, part.doc.checklist.template);
-    entries.push({
+    const entry: PartEntry = {
       scope: "group",
       accountId: groupAccount,
       group: name,
@@ -347,15 +350,21 @@ async function summaryOf(
       rev: info.rev,
       checklist: part.doc.checklist,
       canCheck: reach.own.has(name),
-    });
-  }
+    };
+    return entry;
+  });
+  for (const part of parts) if (part) entries.push(part);
+  return entries;
+}
 
-  /*
-   * The gate over the whole workorder. Completion is read across every part; a
-   * section key is unique in the template, so one map serves them all. The
-   * ladder is the root's: a gate that opened stays open even if its
-   * prerequisite is reopened later (ADR 0030).
-   */
+/**
+ * The gate over the whole workorder.
+ *
+ * Completion is read across every part; a section key is unique in the
+ * template, so one map serves them all. The ladder is the root's: a gate that
+ * opened stays open even if its prerequisite is reopened later (ADR 0030).
+ */
+function gatesFor(root: WorkorderDoc, entries: PartEntry[]): WorkorderGates {
   const gates: WorkorderGates = {
     completion: new Map<string, boolean>(),
     latched: new Set(root.gates ?? []),
@@ -375,7 +384,22 @@ async function summaryOf(
     ))
       gates.completion.set(key, complete);
   }
+  return gates;
+}
 
+/**
+ * One workorder as the caller sees it, with its checklist.
+ *
+ * Whether the workorder is the reader's at all is `maySee`'s answer, which
+ * competence decides and not this view.
+ */
+async function summaryOf(
+  reach: WorkorderReach,
+  root: WorkorderDoc,
+  readParts?: Map<string, WorkorderFound | null>,
+): Promise<WorkorderSummary> {
+  const entries = await partEntries(reach, root, readParts);
+  const gates = gatesFor(root, entries);
   const parts: WorkorderPartView[] = entries.map((entry) => ({
     scope: entry.scope,
     accountId: entry.accountId,
@@ -400,15 +424,70 @@ async function summaryOf(
   };
 }
 
+/**
+ * One workorder as the list shows it: the same visibility and the same
+ * progress, and no checklist.
+ *
+ * The numbers are the ones the open panel draws (`partProgress` reads the same
+ * steps), decided through the same gate — so a card and the part it opens
+ * cannot disagree about how far along the work is.
+ */
+async function listEntryOf(
+  reach: WorkorderReach,
+  root: WorkorderDoc,
+  readParts?: Map<string, WorkorderFound | null>,
+): Promise<WorkorderListEntry> {
+  const entries = await partEntries(reach, root, readParts);
+  const gates = gatesFor(root, entries);
+  const parts: WorkorderListPart[] = entries.map((entry) => {
+    const groups = groupsFor(entry.def, entry.checklist, entry.accountId, gates);
+    let complete = 0;
+    let total = 0;
+    for (const group of groups) {
+      for (const item of group.items) {
+        for (const step of item.steps) {
+          total += 1;
+          if (isStepComplete(step.state)) complete += 1;
+        }
+      }
+    }
+    return {
+      scope: entry.scope,
+      accountId: entry.accountId,
+      group: entry.group,
+      template: entry.checklist.template,
+      templateTitle: entry.title,
+      templateRev: entry.rev,
+      complete,
+      total,
+    };
+  });
+  return {
+    uid: root.uid,
+    name: root.name ?? "",
+    state: root.state ?? "running",
+    parts,
+    updated: root.updated,
+    replacedBy: root.replacedBy ?? null,
+    canAdminister: reach.admin,
+  };
+}
+
 /** The newest page of what the caller may see, newest write first. */
-export async function listWorkorders(session: LiveSession): Promise<WorkorderSummary[]> {
+export async function listWorkorders(
+  session: LiveSession,
+): Promise<WorkorderListEntry[]> {
   const reach = await workorderReach(session);
   const roots = await rootDocs(reach.ctx, reach.accountId);
-  const out: WorkorderSummary[] = [];
-  for (const root of roots) {
-    if (!(await maySee(reach, root))) continue;
-    out.push(await summaryOf(reach, root));
-  }
+  /*
+   * The roots are independent, so they are composed together, a bounded few at
+   * a time: in series the list cost one round trip per workorder, and it is
+   * re-read on every change the rail carries.
+   */
+  const entries = await mapLimit(roots, READ_CONCURRENCY, async (root) =>
+    (await maySee(reach, root)) ? await listEntryOf(reach, root) : null,
+  );
+  const out = entries.filter((entry): entry is WorkorderListEntry => entry !== null);
   out.sort((a, b) => b.updated.at.localeCompare(a.updated.at));
   return out;
 }

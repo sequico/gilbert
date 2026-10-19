@@ -15,7 +15,19 @@ import { useWorkorders, WORKORDER_CHANGE_WINDOW_MS } from "@/store/workorder";
  * over a short window so a burst of them costs one read rather than one each.
  */
 
-const summary = (uid: string, name: string) => ({ uid, name }) as never;
+/*
+ * A workorder as the route answers one, narrowed to what this suite reads: the
+ * list is a card's fields (`parts`, `updated`) and a mutation's answer is the
+ * whole document, from which the store derives the card.
+ */
+const summary = (uid: string, name: string) =>
+  ({
+    uid,
+    name,
+    state: "running",
+    parts: [],
+    updated: { by: "demo@example.com", at: "2026-10-20T00:00:00.000Z" },
+  }) as never;
 
 const respond = (body: unknown) =>
   ({ ok: true, status: 200, json: async () => body }) as unknown as Response;

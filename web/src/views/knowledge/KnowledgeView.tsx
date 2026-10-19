@@ -99,17 +99,25 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     void (async () => {
       setUsedError(null);
       try {
-        const { useWorkorders } = await import("@/store/workorder");
-        await useWorkorders.getState().load();
+        /*
+         * The list already in hand answers this, and a session that never
+         * opened the panel reads the page once — the registry is not re-read
+         * (and the panel not disturbed) merely because a template was opened.
+         */
+        const [{ useWorkorders }, { listWorkorders }] = await Promise.all([
+          import("@/store/workorder"),
+          import("@/lib/workorder"),
+        ]);
+        const store = useWorkorders.getState();
+        const listed = store.loaded ? store.workorders : await listWorkorders();
         if (!alive) return;
         setUsedBy(
-          useWorkorders
-            .getState()
-            .workorders.filter((w) =>
+          listed
+            .filter((w) =>
               w.parts.some(
                 (p) =>
-                  p.checklist.template.id === templateId &&
-                  p.checklist.template.accountId === templateAccount,
+                  p.template.id === templateId &&
+                  p.template.accountId === templateAccount,
               ),
             )
             .map((w) => ({ uid: w.uid, name: w.name })),

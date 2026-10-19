@@ -29,9 +29,12 @@ import {
   closeWorkorder,
   createWorkorder,
   editWorkorderRefs,
+  listEntryOf,
   listWorkorders,
+  readWorkorder as fetchWorkorder,
   replaceWorkorder,
   type WorkorderCreateInput,
+  type WorkorderListEntry,
   type WorkorderRef,
   type WorkorderScope,
   type WorkorderState,
@@ -64,12 +67,16 @@ function installationAccountId(): string | null {
 }
 
 interface WorkorderStore {
-  workorders: WorkorderSummary[];
+  /** The list's page: a card's fields, never a checklist (see `WorkorderListEntry`). */
+  workorders: WorkorderListEntry[];
   loaded: boolean;
   loading: boolean;
   error: string | null;
   /** The open workorder's uid, or null when the panel shows the list. */
   openUid: string | null;
+  /** The open workorder in full, read when it is opened. */
+  detail: WorkorderSummary | null;
+  detailLoading: boolean;
   /** Whether the launcher's panel is open. */
   panelOpen: boolean;
   openPanel(): void;
@@ -121,6 +128,12 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
    */
   let mutationSeq = 0;
   const mutatedAt = new Map<string, number>();
+  /*
+   * Names the detail read in progress. Opening another workorder takes the
+   * next number, so an answer from the one before is discarded rather than
+   * shown over the one the reader is actually on.
+   */
+  let detailToken = 0;
   /** A refresh asked for while one is running, run again when it ends. */
   let pendingReload = false;
   /**
@@ -142,16 +155,49 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
    */
   let loadEpoch = 0;
 
-  /** Put a summary the route echoed back into the list, replacing by uid. */
+  /**
+   * Put a summary the route echoed back into the list, replacing by uid.
+   *
+   * A write answers with the whole workorder, so the card beside it is
+   * refreshed from the same answer (`listEntryOf`), and the detail pane when it
+   * is the one on screen.
+   */
   function put(summary: WorkorderSummary): void {
     mutatedAt.set(summary.uid, (mutationSeq += 1));
+    const entry = listEntryOf(summary);
     set((s) => {
       const at = s.workorders.findIndex((w) => w.uid === summary.uid);
-      if (at < 0) return { workorders: [...s.workorders, summary] };
       const workorders = s.workorders.slice();
-      workorders[at] = summary;
-      return { workorders };
+      if (at < 0) workorders.push(entry);
+      else workorders[at] = entry;
+      return {
+        workorders,
+        ...(s.openUid === summary.uid ? { detail: summary, detailLoading: false } : {}),
+      };
     });
+  }
+
+  /**
+   * The open workorder's checklist, read when it is opened.
+   *
+   * The list carries what a card shows, so the steps and items are asked for
+   * by uid — one read per open, not one per row.
+   */
+  async function loadDetail(uid: string): Promise<void> {
+    const token = ++detailToken;
+    set({ detailLoading: true });
+    try {
+      const detail = await fetchWorkorder(uid);
+      if (token !== detailToken) return;
+      if (!detail) {
+        set({ detail: null, detailLoading: false, openUid: null });
+        return;
+      }
+      set({ detail, detailLoading: false });
+    } catch (err) {
+      if (token !== detailToken) return;
+      set({ error: errorMessage(err), detailLoading: false });
+    }
   }
 
   return {
@@ -160,6 +206,8 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
     loading: false,
     error: null,
     openUid: null,
+    detail: null,
+    detailLoading: false,
     panelOpen: false,
 
     openPanel() {
@@ -189,7 +237,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
       const epoch = loadEpoch;
       set({ loading: true, error: null });
       const startedAt = mutationSeq;
-      let listed: WorkorderSummary[];
+      let listed: WorkorderListEntry[];
       try {
         listed = await listWorkorders();
       } catch (err) {
@@ -276,7 +324,16 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
     },
 
     show(uid) {
+      if (!uid) {
+        detailToken += 1;
+        set({ openUid: null, detail: null, detailLoading: false });
+        return;
+      }
       set({ openUid: uid });
+      // The detail already held for this uid is the answer this open wanted.
+      if (get().detail?.uid === uid) return;
+      set({ detail: null });
+      void loadDetail(uid);
     },
 
     async create(input) {
@@ -329,7 +386,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
          */
         put(successor);
         await get().load();
-        set({ openUid: successor.uid });
+        get().show(successor.uid);
         return true;
       } catch (err) {
         set({ error: errorMessage(err) });
@@ -365,21 +422,24 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         changeWindow = undefined;
       }
       loadEpoch += 1;
+      detailToken += 1;
       set({
         workorders: [],
         loaded: false,
         loading: false,
         error: null,
         openUid: null,
+        detail: null,
+        detailLoading: false,
         panelOpen: false,
       });
     },
   };
 });
 
-/** The open workorder's summary, or null when the panel shows the list. */
+/** The open workorder in full, or null while the list is what shows. */
 export function openWorkorder(s: WorkorderStore): WorkorderSummary | null {
-  return s.workorders.find((w) => w.uid === s.openUid) ?? null;
+  return s.detail && s.detail.uid === s.openUid ? s.detail : null;
 }
 
 // Signing out empties the store: every summary was read through the signed-in
