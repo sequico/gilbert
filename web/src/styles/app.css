@@ -2953,7 +2953,8 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .run-origin { font-size: .8em; color: var(--fg-muted); overflow-wrap: anywhere; }
 .run-when {
   font-size: .75em; color: var(--fg-faint); font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  /* Two full instants in a narrow panel: let them wrap rather than push out. */
+  overflow-wrap: anywhere;
 }
 .run-plan {
   list-style: none; margin: 0; padding: 0 0 0 2px; display: grid; gap: 2px;
