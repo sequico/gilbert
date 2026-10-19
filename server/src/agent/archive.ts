@@ -30,7 +30,7 @@ import {
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { errorMessage } from "../shared/errors.js";
 import { refusalOf } from "../shared/jmap.js";
-import { type RunRecord, RUNS_DIR, runPath } from "./runs.js";
+import { RUNS_DIR, type RunRecord, runPath } from "./runs.js";
 
 /** The drawer the archived runs sit in, under the runs folder. */
 export const RUNS_ARCHIVE_DIR = `${RUNS_DIR}/archive`;
