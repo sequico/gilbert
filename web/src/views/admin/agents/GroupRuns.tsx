@@ -196,7 +196,7 @@ export function GroupRuns({
         : await fetchGroupRunsPage(group, { offset: 0, limit: RUNS_PAGE_SERVER });
       setRuns(page.runs);
       setMore(page.more);
-      cursor.current = month ? page.after : null;
+      cursor.current = "after" in page ? page.after : null;
       setError(null);
       /*
        * The tally is the server's whole one, and it is an administrator's read:
@@ -227,7 +227,7 @@ export function GroupRuns({
           });
       setRuns((held) => [...(held ?? []), ...page.runs]);
       setMore(page.more);
-      if (month) cursor.current = page.after;
+      if ("after" in page) cursor.current = page.after;
       setError(null);
       return true;
     } catch (err) {
