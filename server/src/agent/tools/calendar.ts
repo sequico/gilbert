@@ -9,6 +9,7 @@
  */
 
 import type { Ctx } from "../../appFolder.js";
+import { cachedMail } from "../../mailCache.js";
 import { CAPABILITIES } from "../../shared/capabilities.js";
 import { refusalOf, type SetResponse } from "../../shared/jmap.js";
 import { isRecord } from "../../shared/json.js";
@@ -29,23 +30,31 @@ interface CalendarRow {
 }
 
 async function calendarsOf(ctx: Ctx, accountId: string): Promise<CalendarRow[]> {
-  const res = await clientOf(ctx).call<{ list?: unknown[] }>(
-    "Calendar/get",
-    { accountId },
-    [CAPABILITIES.calendars],
-  );
-  return (res.list ?? []).flatMap((raw) => {
-    if (!isRecord(raw) || typeof raw.id !== "string") return [];
-    const rights = isRecord(raw.myRights) ? raw.myRights : {};
-    return [
-      {
-        id: raw.id,
-        name: typeof raw.name === "string" ? raw.name : raw.id,
-        isDefault: raw.isDefault === true,
-        timeZone: typeof raw.timeZone === "string" ? raw.timeZone : null,
-        mayWrite: rights.mayWriteAll === true || rights.mayWriteOwn === true,
-      },
-    ];
+  /*
+   * One calendar list per unit of work: every calendar write resolves a name
+   * through it, so a plan of three creates read the same tree three times.
+   * `Calendar/set` forgets it (`jmap.ts`), and the TTL bounds a change made by
+   * another process.
+   */
+  return await cachedMail(ctx, accountId, "calendars", async () => {
+    const res = await clientOf(ctx).call<{ list?: unknown[] }>(
+      "Calendar/get",
+      { accountId },
+      [CAPABILITIES.calendars],
+    );
+    return (res.list ?? []).flatMap((raw) => {
+      if (!isRecord(raw) || typeof raw.id !== "string") return [];
+      const rights = isRecord(raw.myRights) ? raw.myRights : {};
+      return [
+        {
+          id: raw.id,
+          name: typeof raw.name === "string" ? raw.name : raw.id,
+          isDefault: raw.isDefault === true,
+          timeZone: typeof raw.timeZone === "string" ? raw.timeZone : null,
+          mayWrite: rights.mayWriteAll === true || rights.mayWriteOwn === true,
+        },
+      ];
+    });
   });
 }
 

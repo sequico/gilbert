@@ -278,7 +278,12 @@ export class JmapClient {
     // a run document write is a FileNode write and must not throw away the
     // mailbox list, and a mailbox write does not move the FileNode tree.
     if (methodCalls.some(([name]) => name === FILENODE_SET)) forgetRemembered();
-    if (methodCalls.some(([name]) => name === "Mailbox/set" || name === "Identity/set"))
+    if (
+      methodCalls.some(
+        ([name]) =>
+          name === "Mailbox/set" || name === "Identity/set" || name === "Calendar/set",
+      )
+    )
       forgetMailCache();
     const res = await fetch(absoluteUpstream(this.session.apiUrl, this.session.baseUrl), {
       method: "POST",

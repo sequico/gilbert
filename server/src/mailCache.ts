@@ -1,15 +1,17 @@
 /**
- * An account's mailboxes and sending identities, remembered for a moment.
+ * An account's mailboxes, sending identities and calendars, remembered for a
+ * moment.
  *
- * Both are read by several mail steps of one run, and neither changes while
- * the agent works: a step that files, drafts and answers asked the same
- * account for its folder tree three times. They are **not** kept in the tree's
+ * Each is read by several steps of one run, and none changes while the agent
+ * works: a step that files, drafts and answers asked the same account for its
+ * folder tree three times, and every calendar write resolved a name against
+ * the same list. They are **not** kept in the tree's
  * memory (`requestMemory.ts`), because a run document write is a FileNode
  * write and would throw them away before every step — the one invalidation that
  * has nothing to do with mailboxes.
  *
- * A mailbox or identity write forgets them at once (`jmap.ts`), and the TTL
- * bounds a change made by a process that did not come through this one. The
+ * A mailbox, identity or calendar write forgets them at once (`jmap.ts`), and
+ * the TTL bounds a change made by a process that did not come through this one. The
  * cache is per unit of work (a request or the agent's pass), so two
  * credentials never read each other's answer.
  */
