@@ -234,7 +234,19 @@ export async function appFolderState(ctx: Ctx, accountId: string): Promise<strin
     { accountId, ids: [] },
     [FILENODE_CAP],
   );
-  return typeof res.state === "string" ? res.state : "";
+  /*
+   * A conditional write against no state is not a weaker guarantee: it is no
+   * guarantee at all, and every writer that takes this token would lose its
+   * compare-and-set silently. An answer without one is the server failing to
+   * say where the account stands, and is refused as a failure.
+   */
+  if (typeof res.state !== "string" || !res.state)
+    throw new AppFolderError(
+      "The mail server answered no FileNode state, so a conditional write cannot be made against it.",
+      502,
+      "no_state",
+    );
+  return res.state;
 }
 
 /**
