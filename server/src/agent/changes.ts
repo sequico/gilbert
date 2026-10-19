@@ -9,6 +9,7 @@
  */
 
 import type { Ctx } from "../appFolder.js";
+import { postChatMessage, readChatMessageAt } from "../groupChat.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
@@ -22,6 +23,7 @@ import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules } from "./rules.js";
 import { listRuns, type RunRecord } from "./runs.js";
+import { readMessageForAnswer, sendMail } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
 export interface ChangesDeps {
@@ -90,6 +92,63 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
   }
   return byStart;
 }
+/** What an agent that is turned off says, in chat and by mail. */
+const OFF_NOTICE = "AI agents are turned off.";
+
+/**
+ * A pass with the agent off: nothing is decided, nothing is modelled, and the
+ * one thing that happens is an answer to the people who wrote.
+ *
+ * The owner chose this on 2026-10-19 (option 2): the off notice answers chat
+ * and mail directly, without the class-3 licence a rule must otherwise carry
+ * for outward mail. The guards are the ones that keep it from becoming a loop:
+ * a message from the agent itself is never answered, and the cursor advances
+ * once per batch, so each message is answered once.
+ *
+ * shortcut: a stranger's own auto-responder is not filtered, so an installation
+ * that turns the agent off while a vacation responder writes to the group can
+ * exchange notices. Upgrade by reading the standard auto-submitted headers (or
+ * replying once per thread) before this becomes the default state.
+ */
+export async function offPath(
+  deps: { ctx: Ctx; cursors: Map<string, EventCursor>; self: string },
+  accountId: string,
+): Promise<void> {
+  let cursor = deps.cursors.get(accountId);
+  if (!cursor) {
+    cursor = await anchorEvents(deps.ctx, accountId);
+    deps.cursors.set(accountId, cursor);
+  }
+  const read = await readAccountEvents(deps.ctx, accountId, cursor);
+  for (const event of read.events) {
+    if (event.change !== "created") continue;
+    try {
+      if (event.source === "chat") {
+        const message = await readChatMessageAt(deps.ctx, accountId, event.where);
+        if (!message || message.from === deps.self) continue;
+        await postChatMessage(deps.ctx, accountId, deps.self, OFF_NOTICE, {
+          replyTo: message.id,
+        });
+      } else if (event.source === "mail") {
+        const message = await readMessageForAnswer(deps.ctx, accountId, event.where, {
+          own: deps.self,
+          known: [],
+        });
+        if (!message?.from || message.from === deps.self) continue;
+        await sendMail(deps.ctx, accountId, {
+          to: message.from,
+          subject: OFF_NOTICE,
+          text: OFF_NOTICE,
+        });
+      }
+    } catch {
+      /* the notice is best effort: a write that fails is retried by the next
+         change, and a pass with the agent off must not fail over it */
+    }
+  }
+  deps.cursors.set(accountId, read.cursor);
+}
+
 /** The decision turn's tokens, on the run it opened or continued. */
 function withUsage(
   run: RunDoc,

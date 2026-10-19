@@ -625,7 +625,7 @@ export const draftReply = defineTool({
  * identity they send as, the folder the message is filed in, or the shape a
  * submission takes.
  */
-async function sendMail(
+export async function sendMail(
   ctx: Ctx,
   accountId: string,
   message: { to: string; subject: string; text: string },

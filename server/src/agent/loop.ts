@@ -97,7 +97,7 @@ import {
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
-import { wokeOf, workChanges } from "./changes.js";
+import { offPath, wokeOf, workChanges } from "./changes.js";
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
 import type { EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
@@ -335,16 +335,6 @@ export class AgentLoop {
     }
     summary.claimed = true;
     /*
-     * The installation's switch, read before the model: off means no pass works
-     * anything and no call is made, so the feature costs nothing while it is
-     * off. Absent is on.
-     */
-    const agentSwitch = await readAgentSwitch(this.ctx, filesAccountId(this.ctx));
-    if (!agentSwitch.enabled) {
-      summary.gaps.push("the agent is turned off for this installation");
-      return summary;
-    }
-    /*
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the
      * document and read here as the Master. A document that cannot be read
@@ -361,6 +351,23 @@ export class AgentLoop {
     this.installation = await this.readInstallationLine();
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
+    // The switch is read before the model: off means no call is made at all.
+    const agentSwitch = await readAgentSwitch(this.ctx, filesAccountId(this.ctx));
+    if (!agentSwitch.enabled) {
+      /*
+       * Off still answers the people who wrote -- in chat and by mail, with a
+       * fixed sentence and no model call -- and the owner chose that directly
+       * rather than through a rule's class-3 licence.
+       */
+      for (const accountId of accounts) {
+        await offPath(
+          { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
+          accountId,
+        ).catch(() => undefined);
+      }
+      summary.gaps.push("the agent is turned off for this installation");
+      return summary;
+    }
     // The one memory reading of the pass, and the sheets it could not read: a
     // bad sheet is said in the pass's own gaps, not silently dropped.
     const memory = await this.memory();
