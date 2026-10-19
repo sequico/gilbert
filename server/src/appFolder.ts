@@ -37,6 +37,8 @@ import {
   FILENODE_SET,
   FOLDER_PROPS,
   findAppFolderId,
+  nodeStamp,
+  STAMP_PROPS,
 } from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
@@ -111,35 +113,10 @@ export function filesAccountId(ctx: Ctx): string {
   return ownAccountForCapability(ctx.session, FILENODE_CAP) ?? "";
 }
 
-/**
- * A node's own last-write stamp: `modified`, falling back to `created`.
- *
- * The pair the Files view sorts a node by, and the pair every registry here
- * cuts its newest-first page on — the workorder roots, the knowledge articles
- * and their revisions. Each had its own copy of the same two lines, in the
- * knowledge admin written as `node.modified ?? node.created` and in the
- * workorder admin as two `typeof` checks, which agree today and would not have
- * to: a node whose `modified` is present but not a string is a page this build
- * has to place anyway, and the two readers placed it differently.
- *
- * A node carrying neither stamp is a node the server has not stamped; it sorts
- * as the empty string, last, rather than throwing the page away.
- */
-export function nodeStamp(node: FileNodeLike): string {
-  if (typeof node.modified === "string") return node.modified;
-  if (typeof node.created === "string") return node.created;
-  return "";
-}
-
-/**
- * The FileNode properties `nodeStamp` reads, named once.
- *
- * A level that is cut on a node's stamp, or one that decides whether a document
- * has moved since it was read, has to ask the server for the pair; spelling it
- * again beside each of them is how the two readers end up asking for different
- * properties.
- */
-export const STAMP_PROPS = ["created", "modified"];
+/* `nodeStamp` and `STAMP_PROPS` are the shared rule (`@gilbert/shared/appFolder`)
+ * and are re-exported here, where the server's readers have always imported
+ * them. */
+export { nodeStamp, STAMP_PROPS };
 
 /**
  * One level of the Files tree: the top level, or the children of a folder.
@@ -454,6 +431,16 @@ interface AppFileRef {
 }
 
 /**
+ * A file lookup in the app folder asks for the node's stamp beside its bytes.
+ *
+ * The stamp is what makes a remembered document (`documentTextAt`) checkable:
+ * without it every read looks like the one before it and a saved document is
+ * never fetched again. Asking is one property pair on a listing the lookup was
+ * making anyway.
+ */
+const FILE_STAMP_PROPS = [...FILE_PROPS, ...STAMP_PROPS];
+
+/**
  * Find a file by name inside a folder; `folderId` is null for the top level.
  *
  * The caller has already decided that the folder is where it means: this does
@@ -467,7 +454,7 @@ async function findInFolder(
   folderId: string | null,
   name: string,
 ): Promise<FileNodeLike | null> {
-  const files = await fileChildren(ctx, accountId, folderId, FILE_PROPS);
+  const files = await fileChildren(ctx, accountId, folderId, FILE_STAMP_PROPS);
   return (
     files.find(
       (n) => n.nodeType === "file" && n.name === name && typeof n.blobId === "string",
@@ -922,6 +909,14 @@ async function documentTextAt(
     documentType(file),
     String(file.name ?? "document.json"),
   );
+  /*
+   * A node the server did not stamp cannot be remembered: every later read
+   * would look like the same one, and a document that changed would be served
+   * from here for the life of the process. The stamp is asked for by
+   * `FILE_STAMP_PROPS`, so this is the shape a server answering without one
+   * leaves, and it is read every time rather than believed.
+   */
+  if (!stamp) return text;
   if (documentTexts.size >= DOCUMENT_TEXTS_KEPT) {
     const oldest = documentTexts.keys().next().value;
     if (oldest !== undefined) documentTexts.delete(oldest);
@@ -1007,9 +1002,6 @@ export async function listAppDir(
   return fileChildren(ctx, accountId, folderId);
 }
 
-/** The nodes a walk of a folder of documents asks for: the file, and its stamp. */
-const SHEET_NODE_PROPS = [...FILE_PROPS, ...STAMP_PROPS];
-
 /** One document of a folder of them: read, or why it could not be read. */
 interface AppSheet<T> {
   /** The document's name without its extension: what the directory files it as. */
@@ -1091,7 +1083,7 @@ export async function listAppSheets<T>(
   const rows: AppSheet<T>[] = [];
   const held = sheetReads.get(ctx) ?? new Map<string, SheetRead>();
   sheetReads.set(ctx, held);
-  for (const node of await fileChildren(ctx, accountId, folderId, SHEET_NODE_PROPS)) {
+  for (const node of await fileChildren(ctx, accountId, folderId, FILE_STAMP_PROPS)) {
     if (node.nodeType !== "file" || typeof node.name !== "string") continue;
     if (!node.name.endsWith(".json") || typeof node.blobId !== "string") continue;
     const id = node.name.slice(0, -".json".length);

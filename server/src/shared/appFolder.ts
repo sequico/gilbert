@@ -94,6 +94,33 @@ export const FILE_PROPS: string[] = [
 ];
 
 /**
+ * The FileNode properties `nodeStamp` reads, named once.
+ *
+ * A level that is cut on a node's stamp, or one that decides whether a document
+ * has moved since it was read, has to ask the server for the pair; spelling it
+ * again beside each of them is how the two readers end up asking for different
+ * properties.
+ */
+export const STAMP_PROPS: string[] = ["created", "modified"];
+
+/**
+ * A node's own last-write stamp: `modified`, falling back to `created`.
+ *
+ * The pair the Files view sorts a node by, and the pair every registry cuts its
+ * newest-first page on — the workorder roots, the knowledge articles and their
+ * revisions. Both tiers read it here, so a document remembered at its stamp and
+ * the listing that compares it cannot disagree about when it moved.
+ *
+ * A node carrying neither stamp is a node the server has not stamped; it sorts
+ * as the empty string, last, rather than throwing the page away.
+ */
+export function nodeStamp(node: { created?: unknown; modified?: unknown }): string {
+  if (typeof node.modified === "string") return node.modified;
+  if (typeof node.created === "string") return node.created;
+  return "";
+}
+
+/**
  * The least a node has to say to be judged against the rule below.
  *
  * Loose on purpose: the server reads its nodes off the wire (`FileNodeLike`,
