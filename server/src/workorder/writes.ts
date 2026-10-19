@@ -21,6 +21,7 @@ import { groupAccountsDetailed } from "../groupAccess.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { findArticleById } from "../knowledgeAdmin.js";
 import type { LiveSession } from "../sessions.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { errorMessage } from "../shared/errors.js";
 import { refusalOf } from "../shared/jmap.js";
 import {
@@ -260,7 +261,9 @@ export async function createWorkorder(
     workorderFileName(uid),
     root,
   );
-  for (const targetAccount of targets) {
+  // The parts live in different accounts and do not depend on one another:
+  // they are written together, a bounded few at a time.
+  await mapLimit(targets, READ_CONCURRENCY, async (targetAccount) => {
     const part = buildWorkorderDoc({
       uid,
       by,
@@ -274,7 +277,7 @@ export async function createWorkorder(
       workorderFileName(uid),
       part,
     );
-  }
+  });
   const summary = await readWorkorder(session, uid);
   if (!summary)
     throw new WorkorderAdminError(
@@ -307,8 +310,10 @@ async function applyStep(input: {
   state: WorkorderStepState;
   note: string;
   by: string;
+  /** A rule on the root the write already reads, e.g. the caller's reach. */
+  guard?: (found: WorkorderFound) => Promise<void> | void;
 }): Promise<WorkorderDoc> {
-  const { ctx, accountId, uid, path, state, note, by } = input;
+  const { ctx, accountId, uid, path, state, note, by, guard } = input;
   const at = new Date().toISOString();
   const written = await writeRootUnderCas(
     ctx,
@@ -338,6 +343,7 @@ async function applyStep(input: {
         updated: { by, at },
       };
     },
+    guard,
   );
   return written.doc;
 }
@@ -424,11 +430,17 @@ async function reconcileGates(
 
   for (const [key, value] of sectionCompletion(def, root.checklist, null))
     gates.completion.set(key, value);
-  for (const groupAccount of reach.masterGroups.values()) {
-    const part = await findActive(reach.ctx, groupAccount, uid);
-    parts.set(groupAccount, part);
+  // Every group's part is an independent document, so the pass reads them
+  // together rather than one round trip after another on each check.
+  const groupAccounts = [...reach.masterGroups.values()];
+  const found = await mapLimit(groupAccounts, READ_CONCURRENCY, async (accountId) => ({
+    accountId,
+    part: await findActive(reach.ctx, accountId, uid),
+  }));
+  for (const { accountId, part } of found) {
+    parts.set(accountId, part);
     if (!part) continue;
-    for (const [key, value] of sectionCompletion(def, part.doc.checklist, groupAccount))
+    for (const [key, value] of sectionCompletion(def, part.doc.checklist, accountId))
       gates.completion.set(key, value);
   }
 
@@ -522,16 +534,12 @@ export async function checkStep(
      * workorder gets everywhere else on this surface, so a refusal cannot be
      * used to discover that one exists.
      */
-    const found = await findRoot(reach.ctx, reach.accountId, uid);
-    if (!found || !(await maySee(reach, found.doc)))
-      throw new WorkorderAdminError(
-        "workorder_not_found",
-        `No workorder "${uid}" is there to check.`,
-        404,
-      );
-    // The document the gates pass reads is the one this write leaves behind:
-    // the step is on the root, so its read is already in hand under the
-    // compare-and-set's own.
+    /*
+     * The reach is asked on the document the compare-and-set already reads, so
+     * a check reads the root once, to decide and to write. The answer is the
+     * same one the read uses: a caller who may not see it is told it is not
+     * there.
+     */
     const written = await applyStep({
       ctx: reach.ctx,
       accountId: reach.accountId,
@@ -540,7 +548,18 @@ export async function checkStep(
       state,
       note,
       by: session.username,
+      guard: async (found) => {
+        if (!(await maySee(reach, found.doc)))
+          throw new WorkorderAdminError(
+            "workorder_not_found",
+            `No workorder "${uid}" is there to check.`,
+            404,
+          );
+      },
     });
+    // The document the gates pass reads is the one this write leaves behind:
+    // the step is on the root, so its read is already in hand under the
+    // compare-and-set's own.
     readParts = await recordOpenedGates(reach, uid, written);
   } else if (input?.scope === "group") {
     const group = (input.group ?? "").trim();
@@ -648,6 +667,7 @@ export async function settleStepAsAgent(input: {
       own: new Set(),
       ownAccounts: new Set(),
       defs: new Map(),
+      articleFolders: new Map(),
     },
     input.uid,
     root.doc,
@@ -740,11 +760,14 @@ export async function closeWorkorder(
       "A workorder is replaced by the one that succeeds it, which names that workorder: replace it rather than closing it into that state.",
       409,
     );
+  // The workorder as it stands, read once: it is the guard's input for a
+  // completion and the last-known state the answer is built from, so a close
+  // composes it once.
+  const current = await readWorkorder(session, id);
   // A workorder is not completed over an unfinished checklist: an open step is
   // done, or explicitly skipped with a reason, first. The guard is here, on the
   // effect, so no surface can complete around it.
   if (state === "completed") {
-    const current = await readWorkorder(session, id);
     const openSteps = (current?.parts ?? [])
       .flatMap((part) => part.groups.flatMap((group) => group.items))
       .flatMap((item) => item.steps)
@@ -756,7 +779,7 @@ export async function closeWorkorder(
         409,
       );
   }
-  return setRootState(session, id, state, null);
+  return setRootState(session, id, state, null, current);
 }
 
 /**
@@ -773,6 +796,12 @@ async function setRootState(
   id: string,
   state: WorkorderState,
   replacedBy: string | null,
+  /**
+   * The workorder as the caller already read it. A close changes the root's
+   * state and its folder, never a part, so the answer is that read with the
+   * two fields moved — composing every part again would answer nothing new.
+   */
+  previous: WorkorderSummary | null = null,
 ): Promise<WorkorderSummary> {
   const { ctx, accountId } = await masterAccount(session);
   const activeId = await ensureFolderPath(ctx, accountId, WORKORDER_FOLDER);
@@ -812,6 +841,15 @@ async function setRootState(
       `[gilbert] workorder ${id} was ${state} but its folder could not be moved:`,
       err.message,
     );
+  }
+  if (previous) {
+    return {
+      ...previous,
+      state,
+      /* Every other write preserves the successor this one may already name. */
+      ...(state === "replaced" ? { replacedBy } : {}),
+      updated: { by, at },
+    };
   }
   const summary = await readWorkorder(session, id);
   if (!summary)
@@ -912,7 +950,7 @@ export async function replaceWorkorder(
 
   const successor = await createWorkorder(session, input);
   try {
-    await setRootState(session, id, "replaced", successor.uid);
+    await setRootState(session, id, "replaced", successor.uid, predecessor);
   } catch (err) {
     const why = errorMessage(err);
     const undone = await undoSuccessor(session, successor);

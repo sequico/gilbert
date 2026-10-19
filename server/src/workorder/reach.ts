@@ -64,6 +64,14 @@ export interface WorkorderReach {
   ownAccounts: Set<string>;
   /** One template revision's rules per request, resolved once (see `templateDef`). */
   defs: Map<string, Promise<TemplateDef>>;
+  /**
+   * One template article's folder path per request, by account and article id.
+   *
+   * Finding an article by id walks the knowledge tree, and two workorders bound
+   * to two revisions of one template ask the same walk: the folder is resolved
+   * once and the revision is read from it.
+   */
+  articleFolders: Map<string, Promise<string | null>>;
 }
 
 /**
@@ -101,6 +109,7 @@ export async function workorderReach(session: LiveSession): Promise<WorkorderRea
     own,
     ownAccounts,
     defs: new Map(),
+    articleFolders: new Map(),
   };
 }
 

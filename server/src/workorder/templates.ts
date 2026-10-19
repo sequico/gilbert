@@ -43,9 +43,47 @@ export function templateDef(
   const key = `${template.accountId}:${template.id}:${template.revision}`;
   const cached = reach.defs.get(key);
   if (cached) return cached;
-  const resolved = readTemplateDef(reach.ctx, template);
+  const resolved = readTemplateDef(reach, template);
   reach.defs.set(key, resolved);
   return resolved;
+}
+
+/**
+ * The template article's folder path, resolved once per account and article.
+ *
+ * The walk that finds an article by id is the expensive half of resolving a
+ * template, and it does not depend on the revision. Two workorders bound to two
+ * revisions of one template walk the tree once and read two revisions.
+ */
+function articleFolderOf(
+  reach: WorkorderReach,
+  template: WorkorderTemplateRef,
+): Promise<string | null> {
+  const key = `${template.accountId}:${template.id}`;
+  const cached = reach.articleFolders.get(key);
+  if (cached) return cached;
+  const resolved = resolveArticleFolder(reach.ctx, template);
+  reach.articleFolders.set(key, resolved);
+  return resolved;
+}
+
+async function resolveArticleFolder(
+  ctx: Ctx,
+  template: WorkorderTemplateRef,
+): Promise<string | null> {
+  try {
+    const tierFolder = await findFolderPath(ctx, template.accountId, KNOWLEDGE_FOLDER);
+    if (!tierFolder) return null;
+    const article = await findArticleById(
+      ctx,
+      template.accountId,
+      tierFolder,
+      template.id,
+    );
+    return article?.folder ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -58,31 +96,25 @@ export function templateDef(
  * finding, not a surface taken down.
  */
 async function readTemplateDef(
-  ctx: Ctx,
+  reach: WorkorderReach,
   template: WorkorderTemplateRef,
 ): Promise<TemplateDef> {
+  const ctx = reach.ctx;
   let title: string | null = null;
   let rev: number | null = null;
   try {
-    const tierFolder = await findFolderPath(ctx, template.accountId, KNOWLEDGE_FOLDER);
-    if (!tierFolder) return { checklist: null, title, rev };
-    const article = await findArticleById(
-      ctx,
-      template.accountId,
-      tierFolder,
-      template.id,
-    );
-    if (!article) return { checklist: null, title, rev };
+    const folder = await articleFolderOf(reach, template);
+    if (!folder) return { checklist: null, title, rev };
     const state = await readAppJsonAt(
       ctx,
       template.accountId,
-      `${KNOWLEDGE_FOLDER}/${article.folder}/${STATE_FILE}`,
+      `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`,
     );
     title = isKnowledgeState(state) ? state.title : null;
     const revision = await readAppJsonAt(
       ctx,
       template.accountId,
-      `${KNOWLEDGE_FOLDER}/${article.folder}/${REVISIONS_FOLDER}/${revisionFileName(template.revision)}`,
+      `${KNOWLEDGE_FOLDER}/${folder}/${REVISIONS_FOLDER}/${revisionFileName(template.revision)}`,
     );
     if (!isKnowledgeRevision(revision)) return { checklist: null, title, rev };
     rev = revision.rev;

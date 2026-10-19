@@ -89,6 +89,12 @@ export async function writeRootUnderCas(
   uid: string,
   fail: { code: string; message: string },
   mutate: (found: WorkorderFound) => WorkorderDoc,
+  /**
+   * A rule on the document the write is about to change, run on the same read
+   * the write uses — a caller that had to read the root to decide it would ask
+   * the server the same question twice per write.
+   */
+  guard?: (found: WorkorderFound) => Promise<void> | void,
 ): Promise<WorkorderFound> {
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the document, so a write landing between the two
@@ -101,6 +107,7 @@ export async function writeRootUnderCas(
         `No workorder "${uid}" is there.`,
         404,
       );
+    if (guard) await guard(found);
     const next = mutate(found);
     try {
       await writeAppFileIn(ctx, accountId, found.folderId, workorderFileName(uid), next, {
