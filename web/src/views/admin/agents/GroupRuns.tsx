@@ -22,6 +22,12 @@ const RUNS_PAGE = 10;
 /** How many runs one server page carries: five pages of the ten drawn. */
 const RUNS_PAGE_SERVER = RUNS_PAGE * 5;
 
+/** The cursor an archive page ended at; a working-set page carries none. */
+function afterOf(page: { runs: RunSummary[]; more: boolean }): string | null {
+  const after = (page as { after?: unknown }).after;
+  return typeof after === "string" ? after : null;
+}
+
 /**
  * Stop one run, and say where it is drawn whether the stop took.
  *
@@ -196,7 +202,7 @@ export function GroupRuns({
         : await fetchGroupRunsPage(group, { offset: 0, limit: RUNS_PAGE_SERVER });
       setRuns(page.runs);
       setMore(page.more);
-      cursor.current = "after" in page ? page.after : null;
+      cursor.current = afterOf(page);
       setError(null);
       /*
        * The tally is the server's whole one, and it is an administrator's read:
@@ -227,7 +233,7 @@ export function GroupRuns({
           });
       setRuns((held) => [...(held ?? []), ...page.runs]);
       setMore(page.more);
-      if ("after" in page) cursor.current = page.after;
+      cursor.current = afterOf(page);
       setError(null);
       return true;
     } catch (err) {
