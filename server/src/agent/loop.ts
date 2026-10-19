@@ -792,7 +792,7 @@ export class AgentLoop {
           );
           return;
         }
-        await this.store(accountId, current);
+        if (!(await this.store(accountId, current))) return;
         continue;
       }
       current = spendRun(current, {
@@ -865,7 +865,7 @@ export class AgentLoop {
        * nothing that says what asked for it. The outcomes are written after the
        * wave, on the same call, further down.
        */
-      await this.store(accountId, current);
+      if (!(await this.store(accountId, current))) return;
       let wait: RunWait | null = null;
       for (;;) {
         const { ready, left } = readiness(current.plan, base);
@@ -982,7 +982,7 @@ export class AgentLoop {
           });
       }
       // The outcomes are written on the document the wave ran against, whole.
-      await this.store(accountId, current);
+      if (!(await this.store(accountId, current))) return;
       if (wait) return;
     }
   }
@@ -1180,24 +1180,38 @@ export class AgentLoop {
    *
    * The token is read first and the document is written with it — the order every
    * conditional write here uses (`runs.ts`) — so a write landing in between is
-   * refused rather than overwritten, and the attempt is retried once.
+   * refused rather than overwritten, and the attempt is retried once. A run a
+   * person stopped is read first: its ending is left exactly as they put it.
    */
-  private async store(accountId: string, run: RunDoc): Promise<void> {
+  private async store(accountId: string, run: RunDoc): Promise<boolean> {
     await this.keepClaim();
+    /*
+     * A run somebody stopped is not this process's to write any more. The check
+     * is made **before** the token is read, because a stop that landed before
+     * this store is not a lost race: the token read afterwards would be fresh
+     * and the write would succeed over the ending.
+     */
+    const before = await readRun(this.ctx, accountId, run.id);
+    // `blocked` is the one state the loop may write over: it is what an answer
+    // takes the run out of (ADR 0033). Every ending — `cancelled` among them —
+    // is the document's, not this process's.
+    if (before && before.run.state !== "running" && before.run.state !== "blocked")
+      return false;
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
       const token = await appFolderState(this.ctx, accountId);
       try {
         await replaceRun(this.ctx, accountId, run, { ifInState: token });
-        return;
+        return true;
       } catch (err) {
-        if (!retryStateMismatch(err, attempt)) break;
+        if (retryStateMismatch(err, attempt)) break;
         /*
          * The document moved under this write: somebody may have stopped the
          * run. A stopped run is left where the person put it, never overwritten
-         * by the step that was already in flight.
+         * by the step that was already in flight — and the working stops with
+         * it, rather than planning on from a document that is no longer its own.
          */
         const held = await readRun(this.ctx, accountId, run.id);
-        if (held?.run.state !== "running") return;
+        if (held?.run.state !== "running") return false;
       }
     }
     throw new Error(

@@ -75,12 +75,12 @@ const { parseInstallationDocumentDetailed } = await import("../shared/installati
 import type { InstallationModel } from "../shared/installation.js";
 
 const { modelAccess } = await import("./model.js");
-const { postChatMessage } = await import("../groupChat.js");
+const { findChatMessages, postChatMessage } = await import("../groupChat.js");
 const { createRule, rulePath } = await import("./rules.js");
 const { factPath, listFacts } = await import("./memory.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { sameSubject } = await import("../shared/memory.js");
-const { createRun, listRuns, readRun } = await import("./runs.js");
+const { createRun, listRuns, readRun, replaceRun } = await import("./runs.js");
 const { INSTRUCTION_FILE, INSTRUCTION_VERSION, readInstruction } = await import(
   "./instruction.js"
 );
@@ -736,9 +736,12 @@ test("a person's answer continues the run that asked for it", async () => {
   const agent = loop();
   await agent.start();
 
-  answerWith({ rules: [id], facts: { booking: "BK-1" } });
-  // What the answer authorises is read before the run goes on (ADR 0032): the
-  // sentence only says which booking it is, so it authorises no act.
+  /*
+   * An answer is correlated by the record, not decided: the run it continues is
+   * found from the message it replies to, so no decision call is made. What the
+   * answer authorises is read before the run goes on (ADR 0032): the sentence
+   * only says which booking it is, so it authorises no act.
+   */
   answerWith({ authorisations: [] });
   answerWith({ done: "the booking is filed under BK-1" });
   const reply = await postChatMessage(ctx, accountId, "sam@example.org", "it is BK-1", {
@@ -812,7 +815,6 @@ test("an answer is worked once, whatever the decision names beside it", async ()
   const agent = loop();
   await agent.start();
 
-  answerWith({ rules: [id, beside], facts: {} });
   answerWith({ authorisations: [] });
   answerWith({ done: "it is BK-1" });
   const reply = await postChatMessage(ctx, accountId, "sam@example.org", "it is BK-1", {
@@ -822,12 +824,162 @@ test("an answer is worked once, whatever the decision names beside it", async ()
 
   assert.equal(summary.runs, 0, "the answer opened no run of its own");
   assert.equal(summary.due, 1, "and the run it answered was worked once");
+  assert.ok(
+    seen.every((call) => !isDecision(call.system)),
+    "an answer is correlated by the record, so it costs no decision call",
+  );
   const answered = (await readRun(ctx, accountId, "parked-once"))?.run;
   assert.equal(answered?.state, "done", "to its ending");
   assert.equal(
     answered?.plan.filter((step) => step.what === `the answer in chat ${reply}`).length,
     1,
     "and the answer is on the record once, not once per rule the decision named",
+  );
+});
+
+test("an answer is worked even when no rule watches the surface it arrives on", async () => {
+  /*
+   * The question and the answer need not be on the same surface a rule watches.
+   * A rule that watches mail can ask in chat, and the person answers where they
+   * were asked. Correlating that answer is the record's job, not a rule's: if the
+   * "no rule watches this" shortcut runs first, the run stays parked for ever.
+   */
+  const id = "answer-from-mail-rule";
+  const asked = await postChatMessage(
+    ctx,
+    accountId,
+    ctx.username,
+    "is the booking confirmed?",
+  );
+  await createRun(
+    ctx,
+    accountId,
+    finishRun(
+      waitUntil(
+        startRun({
+          id: "parked-on-another-surface",
+          startedBy: {
+            rule: id,
+            instruction: null,
+            woke: "mail created: m-9",
+          },
+        }),
+        {
+          what: "is the booking confirmed?",
+          asked: { channel: "chat", id: asked },
+          until: null,
+        },
+      ),
+      "blocked",
+      { at: new Date().toISOString(), why: "waiting on a person" },
+    ),
+  );
+  // The rule watches mail only: the chat answer is a surface it does not cover.
+  await putRule(id, ["mail"]);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ authorisations: [] });
+  answerWith({ done: "confirmed" });
+  await postChatMessage(ctx, accountId, "sam@example.org", "yes, confirmed", {
+    replyTo: asked,
+  });
+  const summary = await agent.pass();
+
+  assert.equal(summary.due, 1, "the answer picks the run up");
+  const answered = (await readRun(ctx, accountId, "parked-on-another-surface"))?.run;
+  assert.equal(answered?.state, "done");
+  assert.ok(
+    seen.every((call) => !isDecision(call.system)),
+    "and it is correlated by the record, with no decision call",
+  );
+});
+
+test("the agent's own chat message opens no run and costs no model call", async () => {
+  const id = "own-message";
+  await putRule(id, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  // The agent says something, as itself; the change log reports it like any other
+  // chat message, and the loop must not read it as activity to answer.
+  await postChatMessage(ctx, accountId, ctx.username, "working on it");
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 0, "no run is opened over the agent's own words");
+  assert.equal(seen.length, 0, "and no model call is paid to read them");
+});
+
+test("a chat message that answers nothing can be answered by the fast path", async () => {
+  const id = "fast-reply";
+  await putRule(id, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ reply: "Acknowledged, @sam — no harm done." });
+  await postChatMessage(ctx, accountId, "sam@example.org", "no harm done");
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 0, "the reply opens no run");
+  const said = await findChatMessages(ctx, accountId, "Acknowledged", 5);
+  assert.equal(said[0]?.text, "Acknowledged, @sam — no harm done.");
+  assert.equal(seen.filter((call) => isDecision(call.system)).length, 1);
+});
+
+test("a run stopped while the agent works it is not overwritten, and no step follows", async () => {
+  /*
+   * The fourth ending is the person's (ADR 0034): the document they stopped is
+   * left exactly as they put it. A step that was already in flight may have
+   * landed before the stop; what must not happen is the agent writing its plan
+   * over the ending and planning on from a run that is no longer its own.
+   */
+  const stopTool = defineTool<Record<string, never>>({
+    name: "test.stop",
+    description: "stop the run it is a step of, as a member of the group would",
+    authority: "reversible",
+    writes: true,
+    spend: { steps: 1 },
+    keys: [],
+    parse: () => ({}),
+    run: async ({ ctx: toolCtx, accountId: account, run }) => {
+      const held = await readRun(toolCtx, account, run.id);
+      if (!held) return "nothing to stop";
+      await replaceRun(
+        toolCtx,
+        account,
+        finishRun(held.run, "cancelled", {
+          at: new Date().toISOString(),
+          why: "stopped by a member of the group",
+        }),
+        { ifInState: held.state },
+      );
+      return "stopped by a member";
+    },
+  });
+  const id = "stopped-mid-run";
+  await putRule(id, ["chat"]);
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, stopTool] });
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: [{ name: "test.stop", arguments: {} }],
+  });
+  await postChatMessage(ctx, accountId, "sam@example.org", "carry on");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(run.state, "cancelled", "the stop is the document that stays");
+  assert.equal(run.ended?.why, "stopped by a member of the group");
+  assert.equal(
+    run.plan.at(-1)?.state,
+    "open",
+    "and the step the agent was in the middle of is not written as worked",
+  );
+  assert.equal(
+    seen.filter((call) => isDecision(call.system)).length,
+    1,
+    "the agent did not go on planning after the stop",
   );
 });
 

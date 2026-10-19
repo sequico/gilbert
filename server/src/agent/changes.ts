@@ -215,22 +215,6 @@ export async function workChanges(
   let held: RunRecord[] | null = null;
   for (const event of read.events) {
     summary.changes += 1;
-    const candidates = rules.filter((rule) => ruleApplies(rule, event));
-    // A change no rule watches costs no model call and no step (ADR 0035).
-    if (!candidates.length) continue;
-    const woke = wokeOf(event);
-    /*
-     * The installation's memory, read once for the whole pass (ADR 0037) and
-     * handed to the decision turn as the selection this change's own words
-     * name. Each run is handed the one its own words name, which is the same
-     * change beside the facts the decision found.
-     */
-    /*
-     * What the installation holds and the group wrote above the rule: the
-     * installation's own line and the group's standing instruction reach the
-     * decision turn too, because which rules apply is asked of the same agent
-     * (ADR 0035).
-     */
     /*
      * A chat message is read once here, so the decision turn has its words
      * without spending a model call and a round trip on `chat.read`.
@@ -239,6 +223,44 @@ export async function workChanges(
       event.source === "chat" && event.change !== "destroyed"
         ? await readChatMessageAt(deps.ctx, accountId, event.where)
         : null;
+    /*
+     * The agent's own words are not activity to answer: its own status message
+     * would otherwise wake every rule that watches chat and pay a model call to
+     * read itself, each reply opening the next round.
+     */
+    if (message && message.from.toLowerCase() === deps.ctx.username.toLowerCase())
+      continue;
+    /*
+     * A message that answers a run's question continues that run and opens no
+     * run of its own (ADR 0033). The correlation is the record's — a reply to
+     * the question in chat, a mail in its thread — so it is asked before any
+     * rule and on **whatever surface the answer arrived on**: a question asked
+     * in chat by a rule that watches mail is answered in chat, and the answer
+     * is not a change that rule watches.
+     */
+    const couldAnswer =
+      (event.source === "chat" && message?.replyTo !== undefined) ||
+      (event.source === "mail" && event.change !== "destroyed");
+    if (couldAnswer) {
+      held ??= await listRuns(deps.ctx, accountId);
+      const answer = await deps.runAnsweredBy(accountId, event, held);
+      if (answer === "already") continue;
+      if (answer) {
+        summary.due += 1;
+        await deps.workRun(accountId, await deps.authoriseAnswer(answer), now);
+        continue;
+      }
+    }
+    const candidates = rules.filter((rule) => ruleApplies(rule, event));
+    // A change no rule watches costs no model call and no step (ADR 0035).
+    if (!candidates.length) continue;
+    const woke = wokeOf(event);
+    /*
+     * What the installation holds and the group wrote above the rule: the
+     * installation's own line and the group's standing instruction reach the
+     * decision turn too, because which rules apply is asked of the same agent
+     * (ADR 0035).
+     */
     const detail = message
       ? {
           from: message.from,
@@ -261,40 +283,22 @@ export async function workChanges(
     );
     if (decision.kind === "reply") {
       /*
-       * The fast path: a message that only wants words is answered by the call
-       * that decided it, instead of opening a run and a step to say the same.
+       * The fast path: a chat message that only wants words is answered by the
+       * call that decided it, instead of opening a run and a step to say the
+       * same. Other surfaces are never answered in the group's chat, so a
+       * reply chosen for them is a decision with nothing to do.
        */
-      await postChatMessage(
-        deps.ctx,
-        accountId,
-        deps.ctx.username,
-        decision.text,
-        message?.id ? { replyTo: message.id } : {},
-      );
+      if (event.source === "chat")
+        await postChatMessage(
+          deps.ctx,
+          accountId,
+          deps.ctx.username,
+          decision.text,
+          message?.id ? { replyTo: message.id } : {},
+        );
       continue;
     }
     if (decision.kind !== "decision") continue;
-    /*
-     * The run this change answers, when it answers one, is asked for **once**
-     * per event and before the rules: one person's reply continues the run that
-     * asked and opens no run of its own (ADR 0033). Asking inside the rules
-     * loop worked the same answer once per rule the decision named, the second
-     * time from the document as it stood before the first working — which
-     * wiped the steps the first had just recorded.
-     */
-    held ??= await listRuns(deps.ctx, accountId);
-    const answer = await deps.runAnsweredBy(accountId, event, held);
-    if (answer === "already") continue;
-    if (answer) {
-      summary.due += 1;
-      await deps.workRun(
-        accountId,
-        withUsage(await deps.authoriseAnswer(answer), meter),
-        now,
-        decision.facts,
-      );
-      continue;
-    }
     for (const named of decision.rules) {
       const rule = rules.find((candidate) => candidate.id === named);
       if (!rule) continue;
