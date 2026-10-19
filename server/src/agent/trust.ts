@@ -230,14 +230,18 @@ const PEER = /^\s*from\s+\S/i;
 /**
  * The account the receiving server authenticated the submission as.
  *
- * A hop that records a submission names the account in the same line, in the
- * shape every MTA uses for it — `(Authenticated sender: a@b)` or
- * `(Authenticated as a@b)` — and it is that address, not the `From:` the sender
- * wrote, that the reading compares. A line that names nobody returns null, and
- * the caller refuses: what a live Stalwart writes here is the owed probe.
+ * A hop that records a submission names the account in a **parenthesised
+ * comment** — `(Authenticated sender: a@b)` or `(Authenticated as a@b)` — and it
+ * is that address, not the `From:` the sender wrote, that the reading compares.
+ * The parentheses are the whole of the hardening: a sender that connects with a
+ * HELO containing the bare word `authenticated` writes it into the hop's
+ * `from` clause, outside any comment, and a reading that accepted the word
+ * anywhere would take that sender's account for the server's. A line whose
+ * comment names nobody returns null, and the caller refuses: what a live
+ * Stalwart writes here is the owed probe.
  */
 const AUTH_SENDER =
-  /\bauthenticated\s+(?:sender\s*(?:as\b|:)?\s*|as\s+)?<?([^\s<>()[\]"',;]+@[^\s<>()[\]"',;]+)>?/i;
+  /\(\s*authenticated(?:\s+(?:sender|as))?\s*(?:as\b|:)?\s*<?([^\s<>()[\]"',;]+@[^\s<>()[\]"',;]+)>?\s*\)/i;
 
 function submitterOf(hop: string): string | null {
   const found = AUTH_SENDER.exec(hop);
