@@ -34,9 +34,9 @@ export const rememberFactTool = defineTool({
     "the account you are working in — and one you mark `standing` is carried by " +
     "every call of this group and of no other; any fact you record is recalled " +
     "by its subject wherever in the installation it is needed. Name the facts " +
-    "it belongs with in `links`. A fact a person wrote is in force and this " +
-    "is in force and is never written over: what you conclude against it is " +
-    "recorded as a **proposal** beside it, and a person accepts or dismisses it.",
+    "it belongs with in `links`. A fact a person wrote is in force and is never " +
+    "written over: what you conclude against it is recorded as a **proposal** " +
+    "beside it, and a person accepts or dismisses it.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },

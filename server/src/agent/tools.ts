@@ -99,17 +99,16 @@ export type { AnyTool, ImageReader, ToolCall };
 export { defineTool, isGroupAddress, mayRun, readMessageForAnswer };
 
 /**
- * Every tool this build has: the half that reads, and the half that changes the
- * group's own account.
+ * Every tool this build has: the half that reads, the half that changes the
+ * group's own account, and the acts a person answers for.
  *
- * The half that writes is the reversible class of ADR 0032 and nothing beside
- * it: filing a message, a keyword, a label, a folder, a folder of Files, a move,
- * a rename, saying something in the conversation, asking a person, and
- * remembering a fact — the one that is written into the installation's own
- * memory rather than the group's account. The acts a
- * **person** must answer for — a send, a destroy, a policy override, an intent —
- * are the tools of the unit after this one, and they are what the guard's
- * act-binding exists for.
+ * Each tool declares its authority class (ADR 0032): `reversible` is the
+ * agent's own decision; `destructive` and `outward` are answered by a person's
+ * recorded word for that act (or, for an outward act, by a rule that sends, to
+ * the correspondent whose change woke it); `intent` is never answered by
+ * anything. The catalogue carries all of them, and what a call may take is
+ * `mayRun`'s answer over the run that asks — never the list's order or a
+ * caller's assumption about which half a tool is in.
  */
 export const TOOLS: readonly AnyTool[] = [
   findMessages,

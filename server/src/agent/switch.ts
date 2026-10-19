@@ -9,6 +9,7 @@
  */
 
 import { type Ctx, readAppFileAt, writeAppFileAt } from "../appFolder.js";
+import { errorMessage } from "../shared/errors.js";
 
 /** Where the switch lives, under the app folder. */
 export const AGENT_SWITCH_FILE = "agent/switch.json";
@@ -18,13 +19,29 @@ export interface AgentSwitch {
 }
 
 export async function readAgentSwitch(ctx: Ctx, accountId: string): Promise<AgentSwitch> {
+  /*
+   * Absent is on — a deployment that never chose has the agent it shipped —
+   * but a switch that is **there and unreadable** is not absent: reading it as
+   * on would re-enable an agent somebody turned off, which is the one direction
+   * of this failure that acts. It stops the pass instead, and the reason is the
+   * pass's gap.
+   */
+  let found: Awaited<ReturnType<typeof readAppFileAt>>;
   try {
-    const found = await readAppFileAt(ctx, accountId, AGENT_SWITCH_FILE);
-    if (!found) return { enabled: true };
+    found = await readAppFileAt(ctx, accountId, AGENT_SWITCH_FILE);
+  } catch (err) {
+    throw new Error(
+      `The agent's switch is there and cannot be read, so the agent does not act: ${errorMessage(err)}`,
+    );
+  }
+  if (!found) return { enabled: true };
+  try {
     const doc = JSON.parse(found.text) as { enabled?: unknown };
     return { enabled: doc.enabled !== false };
   } catch {
-    return { enabled: true };
+    throw new Error(
+      "The agent's switch is not a document this build can read, so the agent does not act; it has been left exactly as it is.",
+    );
   }
 }
 

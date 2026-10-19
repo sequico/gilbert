@@ -818,12 +818,10 @@ export async function decideEvent(
       parsed.answer.args,
       { failSoft: true },
     );
-    /*
-     * The reading turn is shown the same bounded text the loop keeps on a step
-     * and the choosing turn uses: the reads are re-sent with every later round,
-     * so a whole document here would be paid for once per round of one turn.
-     */
-    reads.push({ name: parsed.answer.name, result: boundedText(result) });
+    // The prompt bounds each reading as it is carried (`turnData`,
+    // READ_IN_PROMPT_MAX): the answer is kept whole here so that bound, and not
+    // the step outcome's smaller one, is what the model sees.
+    reads.push({ name: parsed.answer.name, result });
   }
   // The loop returns or throws on every path; this is unreachable and stated so.
   throw new ModelError("model_answer_malformed", "The model did not answer.");

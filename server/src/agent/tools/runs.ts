@@ -5,7 +5,7 @@
  * ended, what it waits for, every authorisation it holds, what it has spent.
  */
 
-import { readRun } from "../runs.js";
+import { readRunAt, RUNS_DIR } from "../runs.js";
 import { argsRecord, notFound, textArg } from "./args.js";
 import { defineTool } from "./define.js";
 
@@ -20,8 +20,10 @@ export const readRunTool = defineTool({
   keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
-    const record = await readRun(ctx, accountId, id);
-    if (!record) throw notFound(`run "${id}" in this account`);
-    return { run: record.run };
+    // A reader never writes the run, so it needs no compare-and-set token: the
+    // one-request read is the document alone, not the account state beside it.
+    const run = await readRunAt(ctx, accountId, RUNS_DIR, id);
+    if (!run) throw notFound(`run "${id}" in this account`);
+    return { run };
   },
 });
