@@ -309,6 +309,47 @@ export interface RunListing {
   problem: string | null;
 }
 
+/**
+ * A run's header, for a list: what a page draws without downloading a year of
+ * plans, outcomes and evidence.
+ *
+ * The detail is one route away (`GET /groups/:name/runs/:id`); this is the same
+ * record's identity, state, tallies and instants, and never a plan.
+ */
+export interface RunSummary {
+  id: string;
+  /** Why the document cannot be read; null when it can. */
+  problem: string | null;
+  state: RunDoc["state"] | null;
+  startedAt?: string;
+  ended: RunEnd | null;
+  /** The rule the run answers, or null when an instruction opened it. */
+  rule: string | null;
+  /** The change that woke it, in the run's own words. */
+  woke: string | null;
+  /** Steps the run has, and the failed ones among them. */
+  steps: number;
+  refused: number;
+  spent: RunSpent;
+}
+
+/** The header of one listed run: the list's one shape, in both tiers. */
+export function summarizeRun(listed: RunListing): RunSummary {
+  const run = listed.run;
+  return {
+    id: listed.id,
+    problem: listed.problem,
+    state: run?.state ?? null,
+    ...(run?.startedAt === undefined ? {} : { startedAt: run.startedAt }),
+    ended: run?.ended ?? null,
+    rule: run?.startedBy.rule ?? null,
+    woke: run?.startedBy.woke ?? null,
+    steps: run?.plan.length ?? 0,
+    refused: run?.plan.filter((step) => step.state === "failed").length ?? 0,
+    spent: run?.spent ?? { steps: 0, calls: 0, ms: 0 },
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Reading a stored run                                                */
 /* ------------------------------------------------------------------ */

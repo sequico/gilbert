@@ -16,10 +16,10 @@
  */
 import type { AgentStatus } from "@gilbert/shared/agent";
 import type { FactDoc } from "@gilbert/shared/memory";
-import type { RunListing } from "@gilbert/shared/run";
+import type { RunListing, RunSummary } from "@gilbert/shared/run";
 import { apiFetch } from "@/jmap/client";
 
-export type { AgentStatus, FactDoc, RunListing };
+export type { AgentStatus, FactDoc, RunListing, RunSummary };
 
 /** Where the installation's agent is: the claim, and how often a pass is asked for. */
 export async function fetchAgentStatus(): Promise<AgentStatus> {
@@ -36,9 +36,9 @@ export async function fetchAgentStatus(): Promise<AgentStatus> {
 export async function fetchGroupRuns(
   group: string,
   state?: "running",
-): Promise<RunListing[]> {
+): Promise<RunSummary[]> {
   const query = state ? `?state=${state}` : "";
-  const res = await apiFetch<{ runs: RunListing[] }>(
+  const res = await apiFetch<{ runs: RunSummary[] }>(
     `/api/groups/${encodeURIComponent(group)}/runs${query}`,
   );
   return res.runs;
@@ -48,11 +48,24 @@ export async function fetchGroupRuns(
 export async function fetchGroupArchive(
   group: string,
   month: string,
-): Promise<RunListing[]> {
-  const res = await apiFetch<{ runs: RunListing[] }>(
+): Promise<RunSummary[]> {
+  const res = await apiFetch<{ runs: RunSummary[] }>(
     `/api/groups/${encodeURIComponent(group)}/runs/archive?month=${encodeURIComponent(month)}`,
   );
   return res.runs;
+}
+
+/** One run whole, read when its row opens; `month` names an archived drawer. */
+export async function fetchRun(
+  group: string,
+  id: string,
+  month?: string,
+): Promise<RunListing> {
+  const query = month ? `?month=${encodeURIComponent(month)}` : "";
+  const res = await apiFetch<{ run: RunListing["run"] }>(
+    `/api/groups/${encodeURIComponent(group)}/runs/${encodeURIComponent(id)}${query}`,
+  );
+  return { id, run: res.run, problem: null };
 }
 
 /** The installation's memory: every fact the agent reasons from. */

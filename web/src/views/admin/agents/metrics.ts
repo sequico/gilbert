@@ -1,4 +1,4 @@
-import type { RunListing } from "@/lib/agentAdmin";
+import type { RunSummary } from "@/lib/agentAdmin";
 
 /** What a set of runs spent, and how they ended: the numbers the pages show. */
 export interface RunMetrics {
@@ -37,7 +37,7 @@ export function periodSince(period: MetricsPeriod, now = new Date()): Date | und
  * counted. `since` keeps a run whose end is inside the window — a run still
  * running is now, and belongs to the period being lived in.
  */
-export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics {
+export function metricsOf(list: readonly RunSummary[], since?: Date): RunMetrics {
   const total: RunMetrics = {
     runs: 0,
     steps: 0,
@@ -49,9 +49,8 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     refused: 0,
     running: 0,
   };
-  for (const listed of list) {
-    const run = listed.run;
-    if (!run) continue;
+  for (const run of list) {
+    if (!run.state) continue;
     if (since) {
       const at = run.ended ? Date.parse(run.ended.at) : Date.now();
       if (Number.isFinite(at) && at < since.getTime()) continue;
@@ -63,7 +62,7 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     total.promptTokens += run.spent.promptTokens ?? 0;
     total.completionTokens += run.spent.completionTokens ?? 0;
     total.cachedTokens += run.spent.cachedPromptTokens ?? 0;
-    total.refused += run.plan.filter((step) => step.state === "failed").length;
+    total.refused += run.refused;
     if (run.state === "running") total.running += 1;
   }
   return total;

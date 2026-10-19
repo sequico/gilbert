@@ -44,7 +44,7 @@ import {
 import { probeModel, runningModelAccess } from "../agent/model.js";
 import { parseRuleDocumentDetailed } from "../agent/rule.js";
 import { deleteRule, listRules, replaceRule } from "../agent/rules.js";
-import { listRunsForReading, readRun, replaceRun } from "../agent/runs.js";
+import { listRunsForReading, readRun, readRunAt, replaceRun } from "../agent/runs.js";
 import { AGENT_PASS_INTERVAL_MS } from "../agent/supervisor.js";
 import { readAgentSwitch, writeAgentSwitch } from "../agent/switch.js";
 import {
@@ -75,8 +75,8 @@ import {
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
 import { RULES_DIR, RuleError } from "../shared/rule.js";
-import type { RunListing } from "../shared/run.js";
-import { finishRun } from "../shared/run.js";
+import type { RunSummary } from "../shared/run.js";
+import { finishRun, summarizeRun } from "../shared/run.js";
 import {
   type Env,
   failureFor,
@@ -100,7 +100,7 @@ const memoryFailure = failureFor(MemoryError);
  * token, which is what makes the next ask a fresh walk.
  */
 const RUNS_READING_TTL_MS = 10_000;
-const runsReadings = new Map<string, { state: string; rows: RunListing[]; at: number }>();
+const runsReadings = new Map<string, { state: string; rows: RunSummary[]; at: number }>();
 
 export function registerAgentRoutes(api: Hono<Env>): void {
   /**
@@ -298,9 +298,9 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         held !== undefined &&
         held.state === token &&
         Date.now() - held.at < RUNS_READING_TTL_MS;
-      const rows: RunListing[] = fresh
+      const rows: RunSummary[] = fresh
         ? held.rows
-        : await listRunsForReading(access.ctx, access.accountId);
+        : (await listRunsForReading(access.ctx, access.accountId)).map(summarizeRun);
       if (!fresh)
         runsReadings.set(access.accountId, {
           state: token,
@@ -314,10 +314,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
        */
       return c.json({
         group: name,
-        runs:
-          state === "running"
-            ? rows.filter((listed) => listed.run?.state === "running")
-            : rows,
+        runs: state === "running" ? rows.filter((one) => one.state === "running") : rows,
       });
     } catch (err) {
       return doorFailure(c, err);
@@ -341,12 +338,42 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const runs = await listRunsForReading(
-        access.ctx,
-        access.accountId,
-        `${RUNS_ARCHIVE_DIR}/${month}`,
-      );
+      const runs = (
+        await listRunsForReading(
+          access.ctx,
+          access.accountId,
+          `${RUNS_ARCHIVE_DIR}/${month}`,
+        )
+      ).map(summarizeRun);
       return c.json({ group: name, month, runs });
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
+  /**
+   * One run whole, by the id its row carries.
+   *
+   * The list is a header; this is the record behind it, read when a person
+   * opens the row. An archived run is named by the month its drawer holds.
+   */
+  api.get("/groups/:name/runs/:id", requireSession, async (c) => {
+    const name = c.req.param("name") ?? "";
+    const month = c.req.query("month");
+    if (month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+      return c.json({ error: "bad_request", message: "month is YYYY-MM" }, 400);
+    try {
+      const access = await memberGroupAccess(c.get("session"), name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return groupDenial(c, access);
+      const dir = month ? `${RUNS_ARCHIVE_DIR}/${month}` : undefined;
+      const id = c.req.param("id") ?? "";
+      const held = dir
+        ? await readRunAt(access.ctx, access.accountId, dir, id)
+        : await readRun(access.ctx, access.accountId, id);
+      if (!held) return c.json({ error: "not_found" }, 404);
+      return c.json({ group: name, run: held.run });
     } catch (err) {
       return doorFailure(c, err);
     }

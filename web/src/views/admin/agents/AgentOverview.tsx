@@ -5,7 +5,7 @@ import {
   fetchAgentStatus,
   fetchAgentSwitch,
   fetchGroupRuns,
-  type RunListing,
+  type RunSummary,
   setAgentSwitch,
 } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
@@ -24,13 +24,13 @@ export function AgentOverview({
   facts: number;
 }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
-  const [perGroup, setPerGroup] = useState<Array<{ name: string; runs: RunListing[] }>>(
+  const [perGroup, setPerGroup] = useState<Array<{ name: string; runs: RunSummary[] }>>(
     [],
   );
   const [period, setPeriod] = useState<MetricsPeriod>("week");
   const [on, setOn] = useState<boolean | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
-  const [live, setLive] = useState<Array<{ group: string; runs: RunListing[] }>>([]);
+  const [live, setLive] = useState<Array<{ group: string; runs: RunSummary[] }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,12 +92,10 @@ export function AgentOverview({
   const running = live
     .flatMap((entry) =>
       entry.runs
-        .filter((listed) => listed.run?.state === "running")
+        .filter((listed) => listed.state === "running")
         .map((listed) => ({ group: entry.group, listed })),
     )
-    .sort((a, b) =>
-      (b.listed.run?.startedAt ?? "").localeCompare(a.listed.run?.startedAt ?? ""),
-    );
+    .sort((a, b) => (b.listed.startedAt ?? "").localeCompare(a.listed.startedAt ?? ""));
 
   // The numbers are over the history, which only the thirty-second read moves:
   // a live-row update must not walk every run again.
@@ -126,12 +124,8 @@ export function AgentOverview({
                 <span className="run-state run-state-running">{t("Running")}</span>
                 <span className="run-row-id">{listed.id}</span>
                 <span className="run-row-meta">{group}</span>
-                {listed.run?.startedBy.rule && (
-                  <span className="run-row-meta">{listed.run.startedBy.rule}</span>
-                )}
-                {listed.run?.startedBy.woke && (
-                  <span className="run-row-meta">{listed.run.startedBy.woke}</span>
-                )}
+                {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
+                {listed.woke && <span className="run-row-meta">{listed.woke}</span>}
                 <StopRun
                   group={group}
                   id={listed.id}

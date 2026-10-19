@@ -4,7 +4,9 @@ import {
   type FactDoc,
   fetchGroupArchive,
   fetchGroupRuns,
+  fetchRun,
   type RunListing,
+  type RunSummary,
   stopRun,
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
@@ -56,6 +58,106 @@ export function StopRun({
   );
 }
 
+/**
+ * The document behind one row, read when the row opens.
+ *
+ * The listing carries the header alone — a year of plans and outcomes is not
+ * what a list draws — so the full record is one request for the one row a
+ * person asks about, working set or archived drawer.
+ */
+function RunDetail({
+  group,
+  id,
+  month,
+  facts,
+}: {
+  group: string;
+  id: string;
+  month: string;
+  facts: readonly FactDoc[];
+}) {
+  const [listed, setListed] = useState<RunListing | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setListed(null);
+    setError(null);
+    void fetchRun(group, id, month || undefined)
+      .then((one) => {
+        if (alive) setListed(one);
+      })
+      .catch((err) => {
+        if (alive) setError(errorMessage(err));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [group, id, month]);
+  if (error) return <div className="error-box">{error}</div>;
+  if (!listed) return <p className="hint">{t("Loading…")}</p>;
+  return <RunCard listed={listed} facts={facts} />;
+}
+
+/** One row of the listing: its header, and its document when it opens. */
+function RunRow({
+  group,
+  row,
+  month,
+  facts,
+  onStopped,
+}: {
+  group: string;
+  row: RunSummary;
+  month: string;
+  facts: readonly FactDoc[];
+  onStopped: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="run-row" onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>
+        <span className="run-row-id">{row.id}</span>
+        <span className={`run-state run-state-${row.problem ? "unreadable" : row.state}`}>
+          {row.problem || !row.state ? t("Not readable") : t(RUN_STATE_LABELS[row.state])}
+        </span>
+        {row.problem && <span className="run-row-meta">{row.problem}</span>}
+        {row.rule && <span className="run-row-meta">{row.rule}</span>}
+        {row.state && (
+          <span className="run-row-meta">
+            {t("{steps} steps · {calls} calls", {
+              steps: row.spent.steps,
+              calls: row.spent.calls,
+            })}
+          </span>
+        )}
+        {!month && row.state === "running" && (
+          <StopRun group={group} id={row.id} onStopped={onStopped} />
+        )}
+      </summary>
+      <div className="run-row-body">
+        {open &&
+          (row.problem ? (
+            <div className="error-box">{row.problem}</div>
+          ) : (
+            <RunDetail group={group} id={row.id} month={month} facts={facts} />
+          ))}
+      </div>
+    </details>
+  );
+}
+
+/** Whether a poll changed a run's header: what the list draws and its numbers. */
+function sameHeader(a: RunSummary, b: RunSummary): boolean {
+  return (
+    a.state === b.state &&
+    a.ended?.at === b.ended?.at &&
+    a.spent.calls === b.spent.calls &&
+    a.spent.steps === b.spent.steps &&
+    a.refused === b.refused &&
+    a.steps === b.steps
+  );
+}
+
 /** The runs one group has worked, as its own account carries them. */
 export function GroupRuns({
   group,
@@ -67,7 +169,7 @@ export function GroupRuns({
   /** Keep the list current while it is on screen, for a run still in flight. */
   live?: boolean;
 }) {
-  const [runs, setRuns] = useState<RunListing[] | null>(null);
+  const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   /** A month of the archive to read instead of the working set, or "". */
@@ -99,7 +201,7 @@ export function GroupRuns({
       };
     /*
      * The poll asks for the runs in flight alone. While the set is unchanged,
-     * their fresh documents are merged into the list; when a run starts or ends
+     * their fresh headers are merged into the list; when a run starts or ends
      * the set moved, and the one full read keeps the page and the numbers true.
      */
     const timer = window.setInterval(() => {
@@ -123,8 +225,7 @@ export function GroupRuns({
             let changed = false;
             const next = held.map((one) => {
               const now = fresh.get(one.id);
-              if (!now) return one;
-              if (now.run === one.run) return one;
+              if (!now || sameHeader(now, one)) return one;
               changed = true;
               return now;
             });
@@ -150,13 +251,12 @@ export function GroupRuns({
    * is happening: the runs in flight sit above the history, each group in the
    * same order.
    */
-  const whenOf = (listed: RunListing) =>
-    listed.run?.startedAt ?? listed.run?.ended?.at ?? "";
+  const whenOf = (listed: RunSummary) => listed.startedAt ?? listed.ended?.at ?? "";
   const sorted = [...(runs ?? [])].sort((a, b) => whenOf(b).localeCompare(whenOf(a)));
   const ordered = live
     ? [
-        ...sorted.filter((one) => one.run?.state === "running"),
-        ...sorted.filter((one) => one.run?.state !== "running"),
+        ...sorted.filter((one) => one.state === "running"),
+        ...sorted.filter((one) => one.state !== "running"),
       ]
     : sorted;
   const pages = Math.max(1, Math.ceil(ordered.length / RUNS_PAGE));
@@ -197,31 +297,14 @@ export function GroupRuns({
       {runs && runs.length === 0 && <p className="hint">{t("Nothing here yet.")}</p>}
       <div style={{ marginTop: 12 }}>
         {shown.map((row) => (
-          <details key={row.id} className="run-row">
-            <summary>
-              <span className="run-row-id">{row.id}</span>
-              <span className={`run-state run-state-${row.run?.state ?? "unreadable"}`}>
-                {row.run ? t(RUN_STATE_LABELS[row.run.state]) : t("Not readable")}
-              </span>
-              {row.run?.startedBy.rule && (
-                <span className="run-row-meta">{row.run.startedBy.rule}</span>
-              )}
-              {row.run && (
-                <span className="run-row-meta">
-                  {t("{steps} steps · {calls} calls", {
-                    steps: row.run.spent.steps,
-                    calls: row.run.spent.calls,
-                  })}
-                </span>
-              )}
-              {!month && row.run?.state === "running" && (
-                <StopRun group={group} id={row.id} onStopped={() => void load()} />
-              )}
-            </summary>
-            <div className="run-row-body">
-              <RunCard listed={row} facts={facts} />
-            </div>
-          </details>
+          <RunRow
+            key={row.id}
+            group={group}
+            row={row}
+            month={month}
+            facts={facts}
+            onStopped={() => void load()}
+          />
         ))}
       </div>
       {pages > 1 && (

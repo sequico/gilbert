@@ -1,10 +1,34 @@
 import { describe, expect, it } from "vitest";
-import type { RunListing } from "@/lib/agentAdmin";
+import type { RunSummary } from "@/lib/agentAdmin";
 import { metricsOf, periodSince } from "../agents/metrics";
 
 /** One run as the listing carries it, with only the fields the tally reads. */
-function listed(id: string, run: Record<string, unknown> | null): RunListing {
-  return { id, run: run as never, problem: run ? null : "not readable" };
+function listed(id: string, run: Record<string, unknown> | null): RunSummary {
+  if (!run) {
+    return {
+      id,
+      problem: "not readable",
+      state: null,
+      ended: null,
+      rule: null,
+      woke: null,
+      steps: 0,
+      refused: 0,
+      spent: { steps: 0, calls: 0, ms: 0 },
+    };
+  }
+  const plan = (run.plan ?? []) as Array<{ state?: string }>;
+  return {
+    id,
+    problem: null,
+    state: run.state as RunSummary["state"],
+    ended: (run.ended ?? null) as RunSummary["ended"],
+    rule: null,
+    woke: null,
+    steps: plan.length,
+    refused: plan.filter((step) => step.state === "failed").length,
+    spent: run.spent as RunSummary["spent"],
+  };
 }
 
 describe("the runs' tally", () => {

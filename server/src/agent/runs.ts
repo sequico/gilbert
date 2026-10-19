@@ -89,8 +89,9 @@ async function readRunDoc(
   ctx: Ctx,
   accountId: string,
   id: string,
+  dir: string = RUNS_DIR,
 ): Promise<RunDoc | null> {
-  const path = runPath(id);
+  const path = `${dir}/${id}.json`;
   let found: Awaited<ReturnType<typeof readAppFileAt>>;
   try {
     found = await readAppFileAt(ctx, accountId, path);
@@ -109,8 +110,18 @@ export async function readRun(
   accountId: string,
   id: string,
 ): Promise<RunRecord | null> {
+  return await readRunAt(ctx, accountId, RUNS_DIR, id);
+}
+
+/** One run in a folder other than the working set — the archive's own reader. */
+export async function readRunAt(
+  ctx: Ctx,
+  accountId: string,
+  dir: string,
+  id: string,
+): Promise<RunRecord | null> {
   const state = await appFolderState(ctx, accountId);
-  const run = await readRunDoc(ctx, accountId, id);
+  const run = await readRunDoc(ctx, accountId, id, dir);
   return run ? { run, state } : null;
 }
 

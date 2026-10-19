@@ -53,6 +53,19 @@ const RUN = {
   ended: { at: "2026-10-17T09:00:00.000Z", why: "waiting for the shipper's answer" },
 };
 
+/** The run as the listing carries it: the header, never the whole document. */
+const SUMMARY = {
+  id: "surface-run",
+  problem: null,
+  state: "blocked",
+  ended: { at: "2026-10-17T09:00:00.000Z", why: "waiting for the shipper's answer" },
+  rule: "intake",
+  woke: "mail created: m-1",
+  steps: 2,
+  refused: 0,
+  spent: { steps: 1, calls: 2, ms: 800 },
+};
+
 const FACT = {
   v: 2,
   id: "fact-maersk",
@@ -96,10 +109,7 @@ describe("the agent's administration surface", () => {
    * directory, and the group's runs — each run as the listing carries it, the run
    * itself or the reason this build cannot read it.
    */
-  function stubServer(
-    runs: unknown[] = [{ id: "surface-run", run: RUN, problem: null }],
-    facts: unknown[] = [FACT],
-  ) {
+  function stubServer(runs: unknown[] = [SUMMARY], facts: unknown[] = [FACT]) {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "PUT")
         return answer({
@@ -113,6 +123,11 @@ describe("the agent's administration surface", () => {
       if (init?.method === "DELETE") return answer({ ok: true });
       if (url.startsWith("/api/groups/") && url.split("?")[0]?.endsWith("/runs"))
         return answer({ group: GROUP, runs });
+      if (
+        url.startsWith("/api/groups/") &&
+        /\/runs\/[^/?]+$/.test(url.split("?")[0] ?? "")
+      )
+        return answer({ group: GROUP, run: RUN });
       if (url.startsWith("/api/admin/groups/") && url.endsWith("/prose"))
         return answer({ instruction: "", rules: [], state: "state-1" });
       if (url === "/api/admin/groups")
@@ -221,6 +236,12 @@ describe("the agent's administration surface", () => {
     stubServer();
     await render();
     await openTab(GROUP);
+    // The list carries the header; the document is read when its row opens.
+    await act(async () => {
+      host.querySelector<HTMLElement>("summary")?.click();
+    });
+    await flush();
+    await flush();
 
     const shown = text();
     expect(shown).toContain("mail created: m-1");
@@ -242,8 +263,14 @@ describe("the agent's administration surface", () => {
     stubServer([
       {
         id: "future-run",
-        run: null,
         problem: 'The run at runs/future-run.json is not readable: "v" is 9.',
+        state: null,
+        ended: null,
+        rule: null,
+        woke: null,
+        steps: 0,
+        refused: 0,
+        spent: { steps: 0, calls: 0, ms: 0 },
       },
     ]);
     await render();

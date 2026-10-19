@@ -238,24 +238,38 @@ test("the runs a group worked are drawn as the record carries them", async () =>
   const res = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs`);
   assert.equal(res.status, 200);
   const { runs } = res.body as {
-    runs: Array<{ id: string; run: typeof run | null; problem: string | null }>;
+    runs: Array<{
+      id: string;
+      state: string | null;
+      rule: string | null;
+      woke: string | null;
+      steps: number;
+      spent: { calls: number };
+      problem: string | null;
+    }>;
   };
   const listed = runs.find((row) => row.id === "surface-run");
-  assert.ok(listed?.run, "the run the group worked is in the listing");
-  assert.equal(
-    listed.run.startedBy.woke,
-    "mail created: m-1",
-    "with the change that woke it",
-  );
-  assert.equal(listed.run.startedBy.rule, "intake", "and the rule that answered it");
-  const shown = listed.run;
+  assert.ok(listed, "the run the group worked is in the listing");
+  assert.equal(listed.state, "running", "the list says how it stands");
+  assert.equal(listed.woke, "mail created: m-1", "with the change that woke it");
+  assert.equal(listed.rule, "intake", "and the rule that answered it");
+  assert.equal(listed.steps, 2, "and how many steps it carries");
+  assert.equal(listed.spent.calls, 0, "and the tally of what it spent");
+  assert.equal(listed.problem, null, "a run this build reads has no problem");
+
+  /*
+   * The list is a header: the plan, its dependency and what each step answered
+   * are the record's, read by the one-row route when the row opens.
+   */
+  const detail = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs/surface-run`);
+  assert.equal(detail.status, 200);
+  const shown = (detail.body as { run: typeof run }).run;
   assert.deepEqual(
     shown.plan[1]?.needs,
     { step: 0, when: "done" },
     "and the dependency of the step that waits on the first",
   );
   assert.equal(shown.plan[0]?.outcome, "read one message", "with what the step answered");
-  assert.equal(shown.spent.calls, 0, "and the tally of what it spent");
 
   await writeAppFileAt(master, teamAccount, runPath("future-run"), {
     v: RUN_VERSION + 1,
@@ -263,14 +277,16 @@ test("the runs a group worked are drawn as the record carries them", async () =>
   });
   const after2 = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs`);
   const rows = (
-    after2.body as { runs: Array<{ id: string; run: unknown; problem: string | null }> }
+    after2.body as {
+      runs: Array<{ id: string; state: string | null; problem: string | null }>;
+    }
   ).runs;
   const unreadable = rows.find((row) => row.id === "future-run");
   assert.ok(
     unreadable,
     "a document this build cannot read is in the listing, not dropped",
   );
-  assert.equal(unreadable.run, null, "and it is drawn as no run at all");
+  assert.equal(unreadable.state, null, "and it is drawn as no run at all");
   assert.match(
     unreadable.problem ?? "",
     /runs\/future-run\.json/,
