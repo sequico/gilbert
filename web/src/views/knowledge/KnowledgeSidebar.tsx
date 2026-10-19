@@ -635,6 +635,19 @@ export function KnowledgeSidebar() {
   /** One tier's rows, nested by `parentId` and folded by `expanded`. */
   const renderTree = (tier: KnowledgeTierView) => {
     const out: ReactNode[] = [];
+    /*
+     * The siblings of every level, gathered once per render: filtering the
+     * whole tier per folder costs O(n) per node, which a tree of any size feels
+     * on every keystroke. A drop still reads one level through `siblingsOf`.
+     */
+    const children = new Map<string, KnowledgeSummary[]>();
+    for (const summary of tier.articles) {
+      const key = summary.parentId ?? "";
+      const list = children.get(key);
+      if (list) list.push(summary);
+      else children.set(key, [summary]);
+    }
+    for (const list of children.values()) list.sort(compareKnowledgeSiblings);
     // When the Templates filter is on, only checklist templates and the folders
     // that lead to them are shown, and those folders are opened so the template
     // is visible without a click.
@@ -653,7 +666,7 @@ export function KnowledgeSidebar() {
       return set;
     })();
     const walk = (parentId: string | null, depth: number) => {
-      for (const a of siblingsOf(tier, parentId)) {
+      for (const a of children.get(parentId ?? "") ?? []) {
         if (show && !show.has(a.nodeId)) continue;
         out.push(row(a, depth, tier));
         if (
