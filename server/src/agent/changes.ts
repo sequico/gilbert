@@ -31,7 +31,7 @@ import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules } from "./rules.js";
-import { listRuns, type RunRecord } from "./runs.js";
+import { listRunsForWorking, type RunRecord } from "./runs.js";
 import { isOwnMail, readMessageForAnswer, sendMail } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
@@ -315,7 +315,17 @@ export async function workChanges(
       (event.source === "chat" && message?.replyTo !== undefined) ||
       (event.source === "mail" && event.change !== "destroyed");
     if (couldAnswer) {
-      held ??= await listRuns(deps.ctx, accountId);
+      if (!held) {
+        /*
+         * The working listing says a document it cannot read and hands the
+         * readable runs beside it: one corrupt run must not leave the group's
+         * change page, or a person's answer, unanswered (runs.ts).
+         */
+        const listed = await listRunsForWorking(deps.ctx, accountId);
+        for (const problem of listed.problems)
+          summary.gaps.push(`${accountId}: ${problem}`);
+        held = listed.records;
+      }
       const answer = await deps.runAnsweredBy(accountId, event, held);
       if (answer === "already") continue;
       if (answer) {
@@ -394,7 +404,17 @@ export async function workChanges(
       // A run of the account that already names this rule and this change is
       // that change being worked, or the answer it already has: never a second
       // run over it.
-      held ??= await listRuns(deps.ctx, accountId);
+      if (!held) {
+        /*
+         * The working listing says a document it cannot read and hands the
+         * readable runs beside it: one corrupt run must not leave the group's
+         * change page, or a person's answer, unanswered (runs.ts).
+         */
+        const listed = await listRunsForWorking(deps.ctx, accountId);
+        for (const problem of listed.problems)
+          summary.gaps.push(`${accountId}: ${problem}`);
+        held = listed.records;
+      }
       byStart ??= runsByStart(held);
       const open = byStart.get(key);
       if (open) {
