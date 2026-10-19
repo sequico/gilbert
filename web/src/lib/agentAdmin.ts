@@ -15,7 +15,7 @@
  * refused against it — so nothing on this side has to decide it.
  */
 import type { AgentStatus } from "@gilbert/shared/agent";
-import type { RunMetrics } from "@gilbert/shared/agentMetrics";
+import { emptyMetrics, type RunMetrics } from "@gilbert/shared/agentMetrics";
 import type { FactDoc } from "@gilbert/shared/memory";
 import type { RunListing, RunSummary } from "@gilbert/shared/run";
 import { apiFetch } from "@/jmap/client";
@@ -42,10 +42,14 @@ export async function fetchAgentMetrics(
   if (since) query.set("since", since);
   if (groups.length) query.set("groups", groups.join(","));
   const suffix = query.toString();
-  return await apiFetch<{
-    groups: Array<{ name: string; metrics: RunMetrics }>;
-    total: RunMetrics;
+  const res = await apiFetch<{
+    groups?: Array<{ name: string; metrics: RunMetrics }>;
+    total?: RunMetrics;
   }>(`/api/admin/agent/metrics${suffix ? `?${suffix}` : ""}`);
+  return {
+    groups: res.groups ?? [],
+    total: res.total ?? emptyMetrics(),
+  };
 }
 
 /**
@@ -64,10 +68,10 @@ export async function fetchGroupRunsPage(
   if (opts.offset) query.set("offset", String(opts.offset));
   if (opts.limit !== undefined) query.set("limit", String(opts.limit));
   const suffix = query.toString();
-  const res = await apiFetch<{ runs: RunSummary[]; more: boolean }>(
+  const res = await apiFetch<{ runs?: RunSummary[]; more?: boolean }>(
     `/api/groups/${encodeURIComponent(group)}/runs${suffix ? `?${suffix}` : ""}`,
   );
-  return { runs: res.runs, more: res.more };
+  return { runs: res.runs ?? [], more: res.more === true };
 }
 
 /** Every run a group holds, for a reader that needs the whole set. */
@@ -97,11 +101,15 @@ export async function fetchGroupArchive(
   const query = new URLSearchParams({ month });
   if (after) query.set("after", after);
   const res = await apiFetch<{
-    runs: RunSummary[];
-    more: boolean;
-    after: string | null;
+    runs?: RunSummary[];
+    more?: boolean;
+    after?: string | null;
   }>(`/api/groups/${encodeURIComponent(group)}/runs/archive?${query.toString()}`);
-  return { runs: res.runs, more: res.more, after: res.after };
+  return {
+    runs: res.runs ?? [],
+    more: res.more === true,
+    after: typeof res.after === "string" ? res.after : null,
+  };
 }
 
 /** One run whole, read when its row opens; `month` names an archived drawer. */
@@ -134,7 +142,18 @@ export async function fetchFacts(after?: string, limit?: number): Promise<FactsR
   if (after) query.set("after", after);
   if (limit !== undefined) query.set("limit", String(limit));
   const suffix = query.toString();
-  return await apiFetch<FactsReading>(`/api/admin/memory${suffix ? `?${suffix}` : ""}`);
+  const res = await apiFetch<{
+    facts?: FactDoc[];
+    problems?: string[];
+    total?: number;
+    more?: boolean;
+  }>(`/api/admin/memory${suffix ? `?${suffix}` : ""}`);
+  return {
+    facts: res.facts ?? [],
+    problems: res.problems ?? [],
+    total: res.total ?? res.facts?.length ?? 0,
+    more: res.more === true,
+  };
 }
 
 /**
