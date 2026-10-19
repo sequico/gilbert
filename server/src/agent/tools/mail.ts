@@ -527,18 +527,27 @@ function messageTextOf(message: Record<string, unknown>): string {
 }
 
 /** Whether an address is one this group itself sends as. */
-/** The sender of one message, without reading its body. */
-export async function senderOf(
-  ctx: Ctx,
-  accountId: string,
-  id: string,
-): Promise<string | null> {
-  const answer = await clientOf(ctx).call<{
-    list?: Array<Record<string, unknown>>;
-  }>("Email/get", { accountId, ids: [id], properties: ["from"] }, [
-    CAPABILITIES.mail,
-  ]);
-  return addressesIn(answer.list?.[0]?.from)[0]?.email ?? null;
+/**
+ * The messages this process wrote — a send, a draft — so a change reading can
+ * tell the agent's own mail from activity a rule should answer. The ids are the
+ * ones the server minted; the set is bounded because it is a speed-up, never a
+ * store.
+ */
+const OWN_MAILS_KEPT = 500;
+const ownMails = new Set<string>();
+
+function rememberOwnMail(id: string): void {
+  if (ownMails.has(id)) return;
+  ownMails.add(id);
+  if (ownMails.size > OWN_MAILS_KEPT) {
+    const oldest = ownMails.values().next().value;
+    if (oldest !== undefined) ownMails.delete(oldest);
+  }
+}
+
+/** Whether this is a message this process wrote (the agent's own words). */
+export function isOwnMail(id: string): boolean {
+  return ownMails.has(id);
 }
 
 export async function isGroupAddress(
@@ -676,6 +685,7 @@ export const draftReply = defineTool({
         "The draft was not created, and the server said nothing about why.",
         409,
       );
+    rememberOwnMail(draft);
     return {
       id: draft,
       to: to.map((one) => one.email),
@@ -819,6 +829,7 @@ export const editDraft = defineTool({
         `The new draft is ${draft}, and the draft it replaces could not be removed (${refusalOf(kept)}); both are in Drafts.`,
         409,
       );
+    rememberOwnMail(draft);
     return { id: draft, replaced: id, to: nextTo.map((one) => one.email) };
   },
 });
@@ -871,6 +882,7 @@ export async function sendMail(
       "The message was not written, and the server said nothing about why.",
       409,
     );
+  rememberOwnMail(emailId);
   const submitted = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
     "EmailSubmission/set",
     {

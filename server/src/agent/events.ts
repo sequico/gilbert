@@ -131,7 +131,7 @@ export interface EventCursor {
 }
 
 /** What one read found, and where the next one resumes. */
-interface AccountEvents {
+export interface AccountEvents {
   events: AccountEvent[];
   cursor: EventCursor;
   /**

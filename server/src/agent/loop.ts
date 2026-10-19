@@ -65,7 +65,6 @@ import { randomUUID } from "node:crypto";
 import { appFolderState, type Ctx, filesAccountId, readAppFileAt } from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
-import { appFolderInstallationStore, readInstallation } from "../installation.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
@@ -104,9 +103,9 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upst
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
-import { offPath, wokeOf, workChanges } from "./changes.js";
+import { offPath, readChangesForPass, wokeOf, workChanges } from "./changes.js";
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
-import type { EventCursor } from "./events.js";
+import type { AccountEvents, EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
 import { listFacts, type MemoryStore } from "./memory.js";
 import {
@@ -320,6 +319,8 @@ export class AgentLoop {
    * otherwise be paid once per run.
    */
   private readonly passState = new Map<string, string>();
+  /** Set by the supervisor: a wait that came due asks for a pass now. */
+  onDue?: () => void;
 
   constructor(
     private readonly ctx: Ctx,
@@ -331,6 +332,7 @@ export class AgentLoop {
     this.catalogue = opts.catalogue ?? TOOLS;
     this.timers = new WaitTimers((due) => {
       this.pending.push(due);
+      this.onDue?.();
     });
   }
 
@@ -399,7 +401,7 @@ export class AgentLoop {
      * document and read here as the Master. A document that cannot be read
      * leaves the model this process already runs on.
      */
-    const model = await this.readModel();
+    const { access: model, instruction } = await this.readInstallationForPass();
     if (!model) {
       setRunningModelAccess(null);
       summary.gaps.push("the installation names no model, so this pass worked nothing");
@@ -407,7 +409,7 @@ export class AgentLoop {
     }
     this.access = model;
     setRunningModelAccess(model);
-    this.installation = await this.readInstallationLine();
+    this.installation = instruction;
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
     // The switch is read before the model: off means no call is made at all.
@@ -501,12 +503,28 @@ export class AgentLoop {
          * pass that throws here would throw again on the next beat, for ever. The
          * reason goes into the pass's gaps, which the supervisor reports.
          */
+        /*
+         * The account's changes are read first: the FileNode state they end at
+         * is the state the run listing is judged against, so the pass no longer
+         * asks the account for that state separately. A read that fails is said
+         * and the due runs are still worked from the state `workDue` reads for
+         * itself — the handed alarm is not lost with the reading.
+         */
+        let read: AccountEvents | null = null;
+        if ((this.retryAfter.get(accountId) ?? 0) <= now.getTime()) {
+          try {
+            read = await readChangesForPass(this.ctx, this.cursors, accountId);
+          } catch (err) {
+            summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+          }
+        }
         try {
           records = await this.workDue(
             accountId,
             now,
             summary,
             handed.get(accountId) ?? [],
+            read?.cursor.files,
           );
           const moved = new Set<string>();
           for (const gap of await this.archive(accountId, records, now, moved))
@@ -523,6 +541,7 @@ export class AgentLoop {
             now,
             summary,
             moved.size ? records.filter((record) => !moved.has(record.run.id)) : records,
+            read ?? undefined,
           );
           if (after) records = after;
           /*
@@ -612,6 +631,8 @@ export class AgentLoop {
     now: Date,
     summary: PassSummary,
     handed: readonly string[],
+    /** The FileNode state this pass's changes read ended at, when one was read. */
+    state?: string,
   ): Promise<RunRecord[]> {
     /*
      * The alarms hand every dated wait over exactly once, and the documents ask
@@ -623,19 +644,19 @@ export class AgentLoop {
      * crash, a pass that failed after the run was opened). Two listings asked
      * `runs/` the same thing twice, every pass, for every account.
      */
-    const state = await appFolderState(this.ctx, accountId);
+    const currentState = state ?? (await appFolderState(this.ctx, accountId));
     const read = this.runReadings.get(accountId);
     let records: RunRecord[];
-    if (read?.state === state) {
+    if (read?.state === currentState) {
       // Nothing in the account moved since the last pass: the set it read is
       // still the set, and a quiet pass walks no folder and downloads nothing.
       records = read.records;
     } else {
-      const listed = await listRunsForWorking(this.ctx, accountId, state);
+      const listed = await listRunsForWorking(this.ctx, accountId, currentState);
       for (const problem of listed.problems)
         summary.gaps.push(`${accountId}: ${problem}`);
       records = listed.records;
-      this.runReadings.set(accountId, { state, records });
+      this.runReadings.set(accountId, { state: currentState, records });
     }
     const at = new Map(records.map((record, index) => [record.run.id, index]));
     const runs = new Set(handed);
@@ -703,6 +724,8 @@ export class AgentLoop {
     now: Date,
     summary: PassSummary,
     records: readonly RunRecord[],
+    /** The changes this pass already read; `workChanges` makes its own without. */
+    read?: AccountEvents,
   ): Promise<RunRecord[] | null> {
     /*
      * The batched changes of one account. Kept as a function over what it needs
@@ -736,6 +759,7 @@ export class AgentLoop {
         now,
         summary,
         records,
+        read,
       );
       this.retryAfter.delete(accountId);
       return after;
@@ -1396,34 +1420,35 @@ export class AgentLoop {
    */
   private installation: string | undefined;
 
-  /** The provider this pass runs on, or null when the document names none. */
-  private async readModel(): Promise<ModelAccess | null> {
-    try {
-      const accountId = filesAccountId(this.ctx);
-      const found = accountId
-        ? await readAppFileAt(this.ctx, accountId, INSTALLATION_FILE)
-        : null;
-      // No document: a pass does not create one, and this deployment runs on
-      // the model its boot read.
-      if (!found) return this.access;
-      const loaded = await readInstallation(appFolderInstallationStore(this.ctx));
-      return modelAccess(loaded.document, this.allowPrivate);
-    } catch {
-      return this.access;
-    }
-  }
-
-  private async readInstallationLine(): Promise<string | undefined> {
+  /**
+   * The provider and the instruction, from one read of the installation.
+   *
+   * The document is read **once** per pass: the model is re-read so a publish
+   * applies to the run after this one, and the instruction is the same
+   * document's. An absent or unreadable document is not created by a pass — the
+   * boot is what makes one — and leaves the model and the prose this process
+   * already runs on.
+   */
+  private async readInstallationForPass(): Promise<{
+    access: ModelAccess | null;
+    instruction: string | undefined;
+  }> {
     const accountId = filesAccountId(this.ctx);
-    if (!accountId) return this.opts.installation;
+    if (!accountId)
+      return { access: this.access, instruction: this.opts.installation };
     try {
       const found = await readAppFileAt(this.ctx, accountId, INSTALLATION_FILE);
-      if (!found?.text) return this.opts.installation;
+      if (!found)
+        return { access: this.access, instruction: this.opts.installation };
       const parsed = parseInstallationDocumentDetailed(found.text);
-      if ("problem" in parsed) return this.opts.installation;
-      return parsed.doc.agent.instruction || undefined;
+      if ("problem" in parsed)
+        return { access: this.access, instruction: this.opts.installation };
+      return {
+        access: modelAccess(parsed.doc, this.allowPrivate),
+        instruction: parsed.doc.agent.instruction || undefined,
+      };
     } catch {
-      return this.opts.installation;
+      return { access: this.access, instruction: this.opts.installation };
     }
   }
 

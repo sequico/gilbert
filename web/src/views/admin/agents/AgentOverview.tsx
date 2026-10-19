@@ -42,7 +42,7 @@ export function AgentOverview({
   const groupKey = groups.map((group) => group.name).join("\n");
 
   /*
-   * One reader for the page, two rhythms: the whole history every thirty
+   * One reader for the page, two rhythms: the whole history every sixty
    * seconds (the numbers), and the runs in flight every three (the live list).
    * The running answer is a few rows, so a poll every three seconds does not
    * carry a year of documents.
@@ -80,7 +80,7 @@ export function AgentOverview({
     };
     void loadAll().catch(fail);
     void loadRunning().catch(fail);
-    const full = window.setInterval(() => void loadAll().catch(fail), 30_000);
+    const full = window.setInterval(() => void loadAll().catch(fail), 60_000);
     const running = window.setInterval(() => void loadRunning().catch(fail), 3_000);
     return () => {
       live = false;
@@ -97,7 +97,7 @@ export function AgentOverview({
     )
     .sort((a, b) => (b.listed.startedAt ?? "").localeCompare(a.listed.startedAt ?? ""));
 
-  // The numbers are over the history, which only the thirty-second read moves:
+  // The numbers are over the history, which only the sixty-second read moves:
   // a live-row update must not walk every run again.
   const rows = useMemo(() => {
     const since = periodSince(period);

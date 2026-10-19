@@ -866,15 +866,7 @@ export async function readAppFileAt(
 ): Promise<{ text: string; file: FileNodeLike } | null> {
   const { file } = await findAppFileAt(ctx, accountId, path);
   if (!file) return null;
-  const type = documentType(file);
-  const text = await downloadBlobText(
-    ctx,
-    accountId,
-    String(file.blobId),
-    type,
-    String(file.name ?? "document.json"),
-  );
-  return { text, file };
+  return { text: await documentTextAt(ctx, accountId, file, path), file };
 }
 
 /** Read and parse a JSON document, or null when it is absent or unreadable. */
@@ -896,20 +888,47 @@ export async function readAppJsonAt(
 }
 
 /**
- * The text of one document by path, remembered at the stamp it was read at.
+ * The text of one document, remembered at the stamp it was read at.
  *
  * The knowledge tree asks for one `state.json` per article on every load, and a
  * walk that downloaded each of them made the page cost grow with the number of
- * articles the company had written. A document whose node stamp has not moved
- * is answered from here instead: the stamp is the server's own last-write
- * time, so a save (which moves it) is what makes the next read go and fetch.
+ * articles the company had written. The agent then asked for the installation,
+ * the switch, the claim and a run document on every pass. A document whose node
+ * stamp has not moved is answered from here instead: the stamp is the server's
+ * own last-write time, so a save (which moves it) is what makes the next read
+ * go and fetch.
  *
  * Bounded and oldest-first: this is a speed-up, never a store. The bytes are
  * the account's own and the path is checked before this is reached, so an entry
  * says nothing a caller was not already allowed to read.
  */
-const SHEET_TEXT_KEPT = 4_000;
-const sheetTextAt = new Map<string, { stamp: string; text: string }>();
+const DOCUMENT_TEXTS_KEPT = 4_000;
+const documentTexts = new Map<string, { stamp: string; text: string }>();
+
+async function documentTextAt(
+  ctx: Ctx,
+  accountId: string,
+  file: FileNodeLike,
+  path: string,
+): Promise<string> {
+  const key = `${accountId}|${path}`;
+  const stamp = nodeStamp(file);
+  const remembered = documentTexts.get(key);
+  if (remembered?.stamp === stamp) return remembered.text;
+  const text = await downloadBlobText(
+    ctx,
+    accountId,
+    String(file.blobId),
+    documentType(file),
+    String(file.name ?? "document.json"),
+  );
+  if (documentTexts.size >= DOCUMENT_TEXTS_KEPT) {
+    const oldest = documentTexts.keys().next().value;
+    if (oldest !== undefined) documentTexts.delete(oldest);
+  }
+  documentTexts.set(key, { stamp, text });
+  return text;
+}
 
 export async function readAppSheetTextAt(
   ctx: Ctx,
@@ -918,23 +937,7 @@ export async function readAppSheetTextAt(
 ): Promise<string | null> {
   const { file } = await findAppFileAt(ctx, accountId, path);
   if (!file || typeof file.blobId !== "string") return null;
-  const key = `${accountId}|${path}`;
-  const stamp = nodeStamp(file);
-  const remembered = sheetTextAt.get(key);
-  if (remembered?.stamp === stamp) return remembered.text;
-  const text = await downloadBlobText(
-    ctx,
-    accountId,
-    file.blobId,
-    documentType(file),
-    String(file.name ?? "document.json"),
-  );
-  if (sheetTextAt.size >= SHEET_TEXT_KEPT) {
-    const oldest = sheetTextAt.keys().next().value;
-    if (oldest !== undefined) sheetTextAt.delete(oldest);
-  }
-  sheetTextAt.set(key, { stamp, text });
-  return text;
+  return await documentTextAt(ctx, accountId, file, path);
 }
 
 /** The remembered document at a path, parsed, or null when it is absent or unreadable. */

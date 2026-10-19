@@ -108,6 +108,8 @@ export interface PassableLoop {
   pass(now?: Date): Promise<PassSummary>;
   /** Give up the loop's alarms and its claim. */
   stop(): void | Promise<void>;
+  /** Set by the supervisor: a wait that came due asks for a pass now. */
+  onDue?: () => void;
 }
 
 /** What one supervised process needs. */
@@ -240,6 +242,9 @@ export function supervise(options: SupervisorOptions): AgentProcess {
     }, KICK_COALESCE_MS);
   }
 
+  // A dated wait that comes due is a reason to work now; the interval is the
+  // floor for the rest, not the only clock a wait can keep.
+  options.loop.onDue = kick;
   void pass();
   const timer = setInterval(() => void pass(), intervalMs);
   log(`[gilbert] agent: asking for a pass every ${Math.round(intervalMs / 1000)} s`);

@@ -18,7 +18,12 @@ import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
-import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
+import {
+  type AccountEvents,
+  anchorEvents,
+  type EventCursor,
+  readAccountEvents,
+} from "./events.js";
 import type { AnsweredRun, PassSummary } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
 import type { ModelAccess } from "./model.js";
@@ -27,12 +32,7 @@ import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules } from "./rules.js";
 import { listRuns, type RunRecord } from "./runs.js";
-import {
-  isGroupAddress,
-  readMessageForAnswer,
-  sendMail,
-  senderOf,
-} from "./tools/mail.js";
+import { isOwnMail, readMessageForAnswer, sendMail } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
 export interface ChangesDeps {
@@ -67,6 +67,28 @@ export interface ChangesDeps {
  * the state this page ended at.
  */
 const CHANGES_PER_PASS = 20;
+
+/**
+ * One account's changes for one pass, on the cursor the process already holds
+ * or anchored where it stands now. The reading is the same one `workChanges`
+ * used to make for itself; the pass makes it first so the FileNode state it
+ * ends at is the state the run listing is judged against.
+ */
+export async function readChangesForPass(
+  ctx: Ctx,
+  cursors: Map<string, EventCursor>,
+  accountId: string,
+): Promise<AccountEvents> {
+  let cursor = cursors.get(accountId);
+  if (!cursor) {
+    cursor = await anchorEvents(ctx, accountId);
+    cursors.set(accountId, cursor);
+  }
+  return await readAccountEvents(ctx, accountId, cursor, {
+    maxPages: 1,
+    maxChanges: CHANGES_PER_PASS,
+  });
+}
 
 /** What woke a run, in the group's own words, from the event's own parts. */
 export function wokeOf(event: AccountEvent): string {
@@ -132,15 +154,7 @@ export async function offPath(
   /** What a notice could not be delivered for: said by the pass, not swallowed. */
   problems: string[] = [],
 ): Promise<void> {
-  let cursor = deps.cursors.get(accountId);
-  if (!cursor) {
-    cursor = await anchorEvents(deps.ctx, accountId);
-    deps.cursors.set(accountId, cursor);
-  }
-  const read = await readAccountEvents(deps.ctx, accountId, cursor, {
-    maxPages: 1,
-    maxChanges: CHANGES_PER_PASS,
-  });
+  const read = await readChangesForPass(deps.ctx, deps.cursors, accountId);
   // A gap in the log is mentions this pass did not see: said, not assumed empty.
   if (read.gap) problems.push(read.gap);
   for (const event of read.events) {
@@ -241,28 +255,33 @@ export async function workChanges(
   now: Date,
   summary: PassSummary,
   records?: readonly RunRecord[],
+  preRead?: AccountEvents,
 ): Promise<RunRecord[] | null> {
-  let cursor = deps.cursors.get(accountId);
-  if (!cursor) {
-    // A first read anchors at where the account stands now: a process that
-    // starts asks for the changes after it started, never for the whole
-    // history (`events.ts`).
-    cursor = await anchorEvents(deps.ctx, accountId);
-    deps.cursors.set(accountId, cursor);
-  }
-  const read = await readAccountEvents(deps.ctx, accountId, cursor, {
-    maxPages: 1,
-    maxChanges: CHANGES_PER_PASS,
-  });
+  const read =
+    preRead ?? (await readChangesForPass(deps.ctx, deps.cursors, accountId));
   if (read.gap) summary.gaps.push(read.gap);
-  const rules = (await listRules(deps.ctx, accountId)).map((record) => record.rule);
   /**
    * The runs the account already holds: the list the pass read, or asked for
    * once when a caller has none. It is updated as the batch works, so the next
    * event sees the document this one left.
    */
   let held: RunRecord[] | null = records ? [...records] : null;
-  for (const event of read.events) {
+  /*
+   * The agent's own mail — a send in Sent, a draft in Drafts — is not activity
+   * a rule should answer, and it is known without reading the message. Removing
+   * it here is also what lets a pass whose only new mail is its own pay no rule
+   * listing at all.
+   */
+  const events = read.events.filter(
+    (event) => !(event.source === "mail" && isOwnMail(event.where)),
+  );
+  if (!events.length) {
+    // A quiet account pays no rule listing: there is nothing to apply them to.
+    deps.cursors.set(accountId, read.cursor);
+    return held;
+  }
+  const rules = (await listRules(deps.ctx, accountId)).map((record) => record.rule);
+  for (const event of events) {
     summary.changes += 1;
     /*
      * A chat message is read once here, so the decision turn has its words
@@ -279,24 +298,6 @@ export async function workChanges(
      */
     if (message && message.from.toLowerCase() === deps.ctx.username.toLowerCase())
       continue;
-    /*
-     * The agent's own sends are Email creations in the group's Sent folder. A
-     * rule watching mail would otherwise wake on every message the agent sent —
-     * and a reply begets another reply — the loop the chat skip prevents.
-     */
-    if (event.source === "mail" && event.change !== "destroyed") {
-      /*
-       * A group with no sending identity has sent nothing, and the identity
-       * read that answers `isGroupAddress` refuses that account; the check is
-       * then a "no", not a reason to fail the whole batch.
-       */
-      try {
-        const from = await senderOf(deps.ctx, accountId, event.where);
-        if (from && (await isGroupAddress(deps.ctx, accountId, from))) continue;
-      } catch {
-        // Nothing to compare: the mail is treated as group activity.
-      }
-    }
     /*
      * A message that answers a run's question continues that run and opens no
      * run of its own (ADR 0033). The correlation is the record's — a reply to
