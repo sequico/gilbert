@@ -235,7 +235,7 @@ test("the runs a group worked are drawn as the record carries them", async () =>
   );
   await writeAppFileAt(master, teamAccount, runPath(run.id), run);
 
-  const res = await call(`/api/admin/groups/${encodeURIComponent(TEAM)}/runs`);
+  const res = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs`);
   assert.equal(res.status, 200);
   const { runs } = res.body as {
     runs: Array<{ id: string; run: typeof run | null; problem: string | null }>;
@@ -261,7 +261,7 @@ test("the runs a group worked are drawn as the record carries them", async () =>
     v: RUN_VERSION + 1,
     id: "future-run",
   });
-  const after2 = await call(`/api/admin/groups/${encodeURIComponent(TEAM)}/runs`);
+  const after2 = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs`);
   const rows = (
     after2.body as { runs: Array<{ id: string; run: unknown; problem: string | null }> }
   ).runs;
@@ -282,14 +282,50 @@ test("the runs a group worked are drawn as the record carries them", async () =>
   );
 });
 
-test("a group the installation is not granted on is refused with the section it asked for", async () => {
-  const res = await call(`/api/admin/groups/${encodeURIComponent(LEGAL)}/runs`);
+test("a group the member is not in is refused with the section it asked for", async () => {
+  const res = await call(`/api/groups/${encodeURIComponent(LEGAL)}/runs`);
   assert.equal(res.status, 403);
   assert.deepEqual(
     res.body,
     { error: "group_not_accessible", need: "agent documents" },
     "the refusal is a code and the section, and the sentence is composed where it is read",
   );
+});
+
+test("a member stops a run of their group, and another group's run is not theirs", async () => {
+  const run = startRun({
+    id: "stoppable-run",
+    startedBy: { rule: "intake", instruction: null, woke: "chat created: m-9" },
+    plan: ["read the message"],
+  });
+  await writeAppFileAt(master, teamAccount, runPath(run.id), run);
+
+  const stopped = await call(
+    `/api/groups/${encodeURIComponent(TEAM)}/runs/${encodeURIComponent(run.id)}/stop`,
+    { method: "POST" },
+  );
+  assert.equal(stopped.status, 200, JSON.stringify(stopped.body));
+  const ended = (stopped.body as { run: { state: string; ended?: { why?: string } } })
+    .run;
+  assert.equal(ended.state, "cancelled", "the fourth ending, not done and not blocked");
+  assert.match(ended.ended?.why ?? "", /stopped by a member/);
+
+  const again = await call(
+    `/api/groups/${encodeURIComponent(TEAM)}/runs/${encodeURIComponent(run.id)}/stop`,
+    { method: "POST" },
+  );
+  assert.equal(again.status, 200);
+  assert.equal(
+    (again.body as { run: { state: string } }).run.state,
+    "cancelled",
+    "a run already stopped is answered as it is, not ended twice",
+  );
+
+  const denied = await call(
+    `/api/groups/${encodeURIComponent(LEGAL)}/runs/${encodeURIComponent(run.id)}/stop`,
+    { method: "POST" },
+  );
+  assert.equal(denied.status, 403, "another group's runs are not this member's to stop");
 });
 
 test("the memory is read, corrected and removed through the administration door", async () => {

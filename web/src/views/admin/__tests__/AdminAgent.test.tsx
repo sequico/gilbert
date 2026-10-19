@@ -111,7 +111,7 @@ describe("the agent's administration surface", () => {
           },
         });
       if (init?.method === "DELETE") return answer({ ok: true });
-      if (url.startsWith("/api/admin/groups/") && url.endsWith("/runs"))
+      if (url.startsWith("/api/groups/") && url.endsWith("/runs"))
         return answer({ group: GROUP, runs });
       if (url.startsWith("/api/admin/groups/") && url.endsWith("/prose"))
         return answer({ instruction: "", rules: [], state: "state-1" });

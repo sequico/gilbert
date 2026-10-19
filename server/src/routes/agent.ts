@@ -61,6 +61,7 @@ import {
 import { masterAddress } from "../config.js";
 import {
   GroupAccessError,
+  memberGroupAccess,
   openAgentSession,
   resolveGroupAccess,
 } from "../groupAccess.js";
@@ -233,43 +234,42 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * Stop a run from Administration (ADR 0034, the fourth ending): the document
-   * is ended as `cancelled`, and the pass that was working it sees the state on
-   * its next write and leaves it exactly so.
+   * Stop a run (ADR 0034, the fourth ending): the document is ended as
+   * `cancelled`, and the pass that was working it sees the state on its next
+   * write and leaves it exactly so.
+   *
+   * The gate is the member's own grant on this group, not the administrator's:
+   * a person in the group sees and stops its runs, and a group they are not in
+   * is refused like any name they cannot see.
    */
-  api.post(
-    "/admin/groups/:name/runs/:id/stop",
-    requireSession,
-    requireAdmin,
-    async (c) => {
-      const name = c.req.param("name") ?? "";
-      const id = c.req.param("id") ?? "";
-      try {
-        const access = await resolveGroupAccess(c.get("session"), name, {
-          need: "agent documents",
-        });
-        if (!access.ok) return groupDenial(c, access);
-        const record = await readRun(access.ctx, access.accountId, id);
-        if (!record) return c.json({ error: "not_found" }, 404);
-        if (record.run.state !== "running") return c.json({ run: record.run });
-        const ended = finishRun(record.run, "cancelled", {
-          at: new Date().toISOString(),
-          why: "stopped from Administration",
-        });
-        await replaceRun(access.ctx, access.accountId, ended, {
-          ifInState: record.state,
-        });
-        return c.json({ run: ended });
-      } catch (err) {
-        return doorFailure(c, err);
-      }
-    },
-  );
+  api.post("/groups/:name/runs/:id/stop", requireSession, async (c) => {
+    const name = c.req.param("name") ?? "";
+    const id = c.req.param("id") ?? "";
+    try {
+      const access = await memberGroupAccess(c.get("session"), name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return groupDenial(c, access);
+      const record = await readRun(access.ctx, access.accountId, id);
+      if (!record) return c.json({ error: "not_found" }, 404);
+      if (record.run.state !== "running") return c.json({ run: record.run });
+      const ended = finishRun(record.run, "cancelled", {
+        at: new Date().toISOString(),
+        why: "stopped by a member of the group",
+      });
+      await replaceRun(access.ctx, access.accountId, ended, {
+        ifInState: record.state,
+      });
+      return c.json({ run: ended });
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
 
-  api.get("/admin/groups/:name/runs", requireSession, requireAdmin, async (c) => {
+  api.get("/groups/:name/runs", requireSession, async (c) => {
     const name = c.req.param("name") ?? "";
     try {
-      const access = await resolveGroupAccess(c.get("session"), name, {
+      const access = await memberGroupAccess(c.get("session"), name, {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);

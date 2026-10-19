@@ -1,6 +1,6 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { useEffect, useState } from "react";
-import { type FactDoc, fetchGroupRuns, type RunListing } from "@/lib/agentAdmin";
+import { useCallback, useEffect, useState } from "react";
+import { type FactDoc, fetchGroupRuns, type RunListing, stopRun } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import { RunCard } from "@/views/admin/agent/RunCard";
 import { metricsOf } from "./metrics";
@@ -8,34 +8,103 @@ import { metricsOf } from "./metrics";
 /** How many runs one page of the listing shows, one row each. */
 const RUNS_PAGE = 10;
 
+/**
+ * Stop one run, and say where it is drawn whether the stop took.
+ *
+ * One button for both surfaces that offer it — the group's runs and the
+ * installation's current runs — because stopping a run is one action with one
+ * refusal, not two spellings of it.
+ */
+export function StopRun({
+  group,
+  id,
+  onStopped,
+}: {
+  group: string;
+  id: string;
+  onStopped?: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        disabled={busy}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setBusy(true);
+          setError(null);
+          void stopRun(group, id)
+            .then(() => onStopped?.())
+            .catch((err) => setError(errorMessage(err)))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {t("Stop")}
+      </button>
+      {error && <span className="hint">{error}</span>}
+    </>
+  );
+}
+
 /** The runs one group has worked, as its own account carries them. */
 export function GroupRuns({
   group,
   facts,
+  live = false,
 }: {
   group: string;
   facts: readonly FactDoc[];
+  /** Keep the list current while it is on screen, for a run still in flight. */
+  live?: boolean;
 }) {
   const [runs, setRuns] = useState<RunListing[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
+  const load = useCallback(async () => {
+    try {
+      setRuns(await fetchGroupRuns(group));
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }, [group]);
+
   useEffect(() => {
-    let live = true;
+    let alive = true;
     setRuns(null);
     setError(null);
     setPage(0);
-    fetchGroupRuns(group)
-      .then((rows) => live && setRuns(rows))
-      .catch((err) => live && setError(errorMessage(err)));
+    void load();
+    if (!live)
+      return () => {
+        alive = false;
+      };
+    const timer = window.setInterval(() => {
+      if (alive) void load();
+    }, 3_000);
     return () => {
-      live = false;
+      alive = false;
+      window.clearInterval(timer);
     };
-  }, [group]);
+  }, [load, live]);
 
   const metrics = runs ? metricsOf(runs) : null;
-  const pages = Math.max(1, Math.ceil((runs?.length ?? 0) / RUNS_PAGE));
-  const shown = (runs ?? []).slice(page * RUNS_PAGE, page * RUNS_PAGE + RUNS_PAGE);
+  // A live list is about what is happening: a running run is on the first page,
+  // whatever its age, and the rest keep the record's own order.
+  const ordered =
+    live && runs
+      ? [
+          ...runs.filter((one) => one.run?.state === "running"),
+          ...runs.filter((one) => one.run?.state !== "running"),
+        ]
+      : (runs ?? []);
+  const pages = Math.max(1, Math.ceil(ordered.length / RUNS_PAGE));
+  const shown = ordered.slice(page * RUNS_PAGE, page * RUNS_PAGE + RUNS_PAGE);
 
   return (
     <section>
@@ -81,6 +150,9 @@ export function GroupRuns({
                     calls: row.run.spent.calls,
                   })}
                 </span>
+              )}
+              {row.run?.state === "running" && (
+                <StopRun group={group} id={row.id} onStopped={() => void load()} />
               )}
             </summary>
             <div style={{ padding: "4px 0 12px" }}>

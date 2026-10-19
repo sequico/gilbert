@@ -86,13 +86,20 @@ agent's durable state.
   a person — not a timer in a process. On boot the agent re-arms the waits it
   finds, so a restart in the middle of a run loses nothing and a container that
   dies is not an incident.
-- **A run ends in one of three ways** — the work is done, it is blocked on a
-  person, or its budget (ADR 0031) is spent — and its ending is written down, so a
-  run that stops says why. The one that ends blocked on a person keeps the
-  question it left, and the sentence it asked it in, so the answer that comes
-  back can be recognised as addressed to it.
-- **A person can read a run** and undo by hand what can be undone: it names what
-  it touched, as references rather than copies, and the objects themselves are
+- **A run ends in one of four ways** — the work is done, it is blocked on a
+  person, its budget (ADR 0031) is spent, or a member of the group stopped it —
+  and its ending is written down, so a run that stops says why. The one that ends
+  blocked on a person keeps the question it left, and the sentence it asked it
+  in, so the answer that comes back can be recognised as addressed to it. The
+  one a person stopped is `cancelled` with the words it was stopped with, and the
+  pass that was working it leaves that ending alone rather than writing its step
+  over it.
+- **A member of the group reads its runs and stops a running one.** The gate is
+  the person's own grant on the group whose account holds the runs — not the
+  administrator's — so a member of one group neither sees nor stops another
+  group's run, and the administrator has no reach beyond the groups they are in.
+  A person can read a run and undo by hand what can be undone: it names what it
+  touched, as references rather than copies, and the objects themselves are
   Stalwart's.
 - **What the agent settles goes into the record that carries the work**: a
   workorder step changes state with the agent as its signer and the evidence in

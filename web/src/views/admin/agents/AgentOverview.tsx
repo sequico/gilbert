@@ -7,12 +7,12 @@ import {
   fetchGroupRuns,
   type RunListing,
   setAgentSwitch,
-  stopRun,
 } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
+import { StopRun } from "./GroupRuns";
 import { type MetricsPeriod, metricsOf, periodSince, type RunMetrics } from "./metrics";
 
 /** Where the agent is, and what its runs have spent: the installation's numbers. */
@@ -120,26 +120,22 @@ export function AgentOverview({
                 {listed.run?.startedBy.woke && (
                   <span className="hint">{listed.run.startedBy.woke}</span>
                 )}
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() =>
-                    void stopRun(group, listed.id).then(() =>
-                      setLive((held) =>
-                        held.map((entry) =>
-                          entry.group === group
-                            ? {
-                                ...entry,
-                                runs: entry.runs.filter((one) => one.id !== listed.id),
-                              }
-                            : entry,
-                        ),
+                <StopRun
+                  group={group}
+                  id={listed.id}
+                  onStopped={() =>
+                    setLive((held) =>
+                      held.map((entry) =>
+                        entry.group === group
+                          ? {
+                              ...entry,
+                              runs: entry.runs.filter((one) => one.id !== listed.id),
+                            }
+                          : entry,
                       ),
                     )
                   }
-                >
-                  {t("Stop")}
-                </button>
+                />
               </div>
             ))}
           </div>

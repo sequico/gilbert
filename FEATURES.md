@@ -278,8 +278,8 @@ the accounts each pass works — the Master's groups — are read from the mail
 server by that pass rather than decided at the boot, so a group added or
 withdrawn in Stalwart needs no restart.
 
-**Where the agent is, and what it did, is in Administration → Agent**
-(`web/src/views/admin/AdminAgent.tsx`): the claim the installation holds — who
+**Where the agent is, and what it did, is in Administration → AI Agents**
+(`web/src/views/admin/agents/AgentsView.tsx`): the claim the installation holds — who
 holds it and until when it is believed — with the ten-second pass beside it, and
 the model named with a link to the section that chooses it rather than a second
 set of fields. **Nothing on that page starts or stops the agent**: it is part of
@@ -290,10 +290,17 @@ on — *after step 1 if it ended Worked* — the branch that was not taken, what
 step answered, what the run spent, what it recalled — each fact resolved to its
 subject and sentence — and where it parked and why. A run written by
 another build is **said** where it would be drawn, never drawn as an empty one.
+A run ends as done, blocked on a person, out of budget or **cancelled**, and
+**any member of the group whose account holds it** reads its runs and stops a
+running one — from the group's chat, where the runs tab is live, or from the
+administration page — while another group's run is refused. A stopped run is
+left exactly as the person put it: the pass that was working it does not write
+over the ending.
 The **facts** of the installation's memory are listed with the run or the person
 each came from, and corrected or removed through the server's own route as the
-Master (`GET /api/admin/agent`, `GET /api/admin/groups/<group>/runs`,
-`GET`/`PUT`/`DELETE /api/admin/memory`; `server/src/routes/agent.ts`).
+Master (`GET /api/admin/agent`, `GET /api/groups/<group>/runs`,
+`POST /api/groups/<group>/runs/<id>/stop`, `GET`/`PUT`/`DELETE /api/admin/memory`;
+`server/src/routes/agent.ts`).
 
 # Administration
 

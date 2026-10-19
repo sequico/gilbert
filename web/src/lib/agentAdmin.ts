@@ -3,7 +3,7 @@
  * 0036, 0037).
  *
  * Three readers and three writers for the routes under `/api/admin/agent`,
- * `/api/admin/memory` and `/api/admin/groups/<group>/runs`. The shapes are the
+ * `/api/admin/memory` and `/api/groups/<group>/runs`. The shapes are the
  * server's own documents — a claim, a run and a fact are stored contracts both
  * tiers read — imported from `@gilbert/shared`, so the surface draws what the
  * agent wrote rather than a second spelling of it.
@@ -30,7 +30,7 @@ export async function fetchAgentStatus(): Promise<AgentStatus> {
 /** The runs a group has worked, each read or each said. */
 export async function fetchGroupRuns(group: string): Promise<RunListing[]> {
   const res = await apiFetch<{ runs: RunListing[] }>(
-    `/api/admin/groups/${encodeURIComponent(group)}/runs`,
+    `/api/groups/${encodeURIComponent(group)}/runs`,
   );
   return res.runs;
 }
@@ -123,10 +123,10 @@ export async function setAgentSwitch(enabled: boolean): Promise<AgentSwitch> {
   });
 }
 
-/** Stop a running run: end it as cancelled, from Administration. */
+/** Stop a running run: end it as cancelled, as a member of the group. */
 export async function stopRun(group: string, id: string): Promise<void> {
   await apiFetch(
-    `/api/admin/groups/${encodeURIComponent(group)}/runs/${encodeURIComponent(id)}/stop`,
+    `/api/groups/${encodeURIComponent(group)}/runs/${encodeURIComponent(id)}/stop`,
     {
       method: "POST",
     },

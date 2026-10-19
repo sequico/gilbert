@@ -43,13 +43,15 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("a non-admin cannot read the agent, its runs or its memory", async () => {
+test("a non-admin reads the runs of their group and nothing else of the agent", async () => {
   const agent = await call("/api/admin/agent");
   assert.equal(agent.status, 403);
   assert.equal((agent.body as { error?: string }).error, "forbidden");
 
-  const runs = await call("/api/admin/groups/team@example.org/runs");
-  assert.equal(runs.status, 403);
+  // The runs of a group the person is in are theirs to read and stop, admin
+  // marker or not (owner decision 2026-10-19); the agent's own record is not.
+  const runs = await call("/api/groups/team@example.org/runs");
+  assert.equal(runs.status, 200);
 
   const memory = await call("/api/admin/memory");
   assert.equal(memory.status, 403);

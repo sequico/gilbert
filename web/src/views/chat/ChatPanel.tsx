@@ -8,9 +8,10 @@
  * composer. Everything here is a view over the chat store; the durable data
  * lives in the group accounts' own Files.
  */
-import { CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
+import { CornerUpLeft, ListChecks, Search, Send, Smile, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
+import type { FactDoc } from "@/lib/agentAdmin";
 import {
   CHAT_MAX_TEXT,
   CHAT_PAGE,
@@ -27,12 +28,16 @@ import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
+import { GroupRuns } from "@/views/admin/agents/GroupRuns";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 
 interface ChatPanelProps {
   accounts: MailAccountInfo[];
   onClose: () => void;
 }
+
+/** The facts a run recalled, for a surface that does not list the memory. */
+const NO_FACTS: readonly FactDoc[] = [];
 
 /** One line of a message, for the search results list. */
 function snippet(text: string): string {
@@ -249,6 +254,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     if (el.scrollTop < 24) void older();
   };
 
+  // ----- what the group's agent is doing, live (ADR 0034) -----
+  const [runsOpen, setRunsOpen] = useState(false);
+
   // ----- search across the selected group's messages -----
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -261,6 +269,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     setResults(null);
     setSearching(false);
     setEmojiOpen(false);
+    setRunsOpen(false);
   }, [openAccountId]);
 
   useEffect(() => {
@@ -332,7 +341,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   // and focusing a hidden element is a silent no-op, so retry on the next
   // animation frames until the composer actually holds the focus.
   useEffect(() => {
-    if (!openAccountId || searchOpen) return;
+    if (!openAccountId || searchOpen || runsOpen) return;
     let raf = 0;
     const tick = () => {
       const input = chatInputRef.current;
@@ -344,7 +353,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     };
     tick();
     return () => cancelAnimationFrame(raf);
-  }, [openAccountId, searchOpen, open?.loading]);
+  }, [openAccountId, searchOpen, runsOpen, open?.loading]);
 
   const byId = useMemo(() => {
     const m = new Map<Id, ChatMessage>();
@@ -394,11 +403,26 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           {open && (
             <button
               type="button"
+              className={`icon-btn xs ${runsOpen ? "active" : ""}`}
+              aria-label={t("What the agent is doing")}
+              title={t("What the agent is doing")}
+              onClick={() => {
+                setRunsOpen((v) => !v);
+                setSearchOpen(false);
+              }}
+            >
+              <ListChecks size={15} />
+            </button>
+          )}
+          {open && (
+            <button
+              type="button"
               className={`icon-btn xs ${searchOpen ? "active" : ""}`}
               aria-label={t("Search messages")}
               title={t("Search messages")}
               onClick={() => {
                 setSearchOpen((v) => !v);
+                setRunsOpen(false);
               }}
             >
               <Search size={15} />
@@ -456,7 +480,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         </div>
       )}
       <div className="chat-thread" ref={threadRef} onScroll={onScroll}>
-        {searchOpen ? (
+        {runsOpen && open ? (
+          <div style={{ padding: 12 }}>
+            <GroupRuns group={open.name} facts={NO_FACTS} live />
+          </div>
+        ) : searchOpen ? (
           query.trim().length >= 2 ? (
             searching ? (
               <div className="chat-empty">{t("Searching…")}</div>
@@ -543,7 +571,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           <div className="chat-empty">{t("Pick a conversation")}</div>
         )}
       </div>
-      {open && !searchOpen && (
+      {open && !searchOpen && !runsOpen && (
         <div className="chat-composer">
           {open.replyTo && (
             <div className="chat-replybar">
