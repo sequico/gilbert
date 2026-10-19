@@ -274,7 +274,16 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       });
       if (!access.ok) return groupDenial(c, access);
       const runs: RunListing[] = await listRunsForReading(access.ctx, access.accountId);
-      return c.json({ group: name, runs });
+      /*
+       * A surface that watches a run needs the runs in flight, not the history:
+       * `?state=running` answers those alone, so a poll every few seconds does
+       * not carry a year of documents with it.
+       */
+      const rows =
+        c.req.query("state") === "running"
+          ? runs.filter((listed) => listed.run?.state === "running")
+          : runs;
+      return c.json({ group: name, runs: rows });
     } catch (err) {
       return doorFailure(c, err);
     }

@@ -27,10 +27,19 @@ export async function fetchAgentStatus(): Promise<AgentStatus> {
   return res.agent;
 }
 
-/** The runs a group has worked, each read or each said. */
-export async function fetchGroupRuns(group: string): Promise<RunListing[]> {
+/**
+ * The runs a group has worked, each read or each said.
+ *
+ * `state` narrows the answer on the server: `running` is what a live view polls,
+ * so the history is fetched once rather than every few seconds.
+ */
+export async function fetchGroupRuns(
+  group: string,
+  state?: "running",
+): Promise<RunListing[]> {
+  const query = state ? `?state=${state}` : "";
   const res = await apiFetch<{ runs: RunListing[] }>(
-    `/api/groups/${encodeURIComponent(group)}/runs`,
+    `/api/groups/${encodeURIComponent(group)}/runs${query}`,
   );
   return res.runs;
 }

@@ -39,45 +39,50 @@ export function AgentOverview({
       .catch((err) => setSwitchError(errorMessage(err)));
   }, []);
 
+  const groupKey = groups.map((group) => group.name).join("\n");
+
+  /*
+   * One reader for the page, two rhythms: the whole history every thirty
+   * seconds (the numbers), and the runs in flight every three (the live list).
+   * The running answer is a few rows, so a poll every three seconds does not
+   * carry a year of documents.
+   */
   useEffect(() => {
     let live = true;
-    Promise.all([
-      fetchAgentStatus(),
-      Promise.all(
-        groups.map(async (group) => ({
-          name: group.name,
-          runs: await fetchGroupRuns(group.name),
-        })),
-      ),
-    ])
-      .then(([agent, rows]) => {
-        if (!live) return;
-        setStatus(agent);
-        setPerGroup(rows);
-      })
-      .catch((err) => live && setError(errorMessage(err)));
-    return () => {
-      live = false;
+    const fail = (err: unknown) => {
+      if (live) setError(errorMessage(err));
     };
-  }, [groups.map((group) => group.name).join("\n")]);
-
-  const groupKey = groups.map((group) => group.name).join("\n");
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
+    const loadAll = async () => {
+      const [agent, rows] = await Promise.all([
+        fetchAgentStatus(),
+        Promise.all(
+          groups.map(async (group) => ({
+            name: group.name,
+            runs: await fetchGroupRuns(group.name),
+          })),
+        ),
+      ]);
+      if (!live) return;
+      setStatus(agent);
+      setPerGroup(rows);
+    };
+    const loadRunning = async () => {
       const rows = await Promise.all(
         groups.map(async (group) => ({
           group: group.name,
-          runs: await fetchGroupRuns(group.name),
+          runs: await fetchGroupRuns(group.name, "running"),
         })),
       );
-      if (!cancelled) setLive(rows);
+      if (live) setLive(rows);
     };
-    void tick();
-    const timer = window.setInterval(() => void tick(), 3_000);
+    void loadAll().catch(fail);
+    void loadRunning().catch(fail);
+    const full = window.setInterval(() => void loadAll().catch(fail), 30_000);
+    const running = window.setInterval(() => void loadRunning().catch(fail), 3_000);
     return () => {
-      cancelled = true;
-      window.clearInterval(timer);
+      live = false;
+      window.clearInterval(full);
+      window.clearInterval(running);
     };
   }, [groupKey]);
 
@@ -299,5 +304,6 @@ function add(a: RunMetrics, b: RunMetrics): RunMetrics {
     done: a.done + b.done,
     blocked: a.blocked + b.blocked,
     outOfBudget: a.outOfBudget + b.outOfBudget,
+    cancelled: a.cancelled + b.cancelled,
   };
 }

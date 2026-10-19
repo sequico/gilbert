@@ -28,17 +28,11 @@ const { filesAccountId, writeAppBytesAt, writeAppFileAt } = await import(
   "../appFolder.js"
 );
 const { isStateMismatch } = await import("../jmap.js");
-const { finishRun, RUN_VERSION, spendRun, startRun, touchObject, waitUntil } =
+const { finishRun, isRunDue, RUN_VERSION, spendRun, startRun, touchObject, waitUntil } =
   await import("../shared/run.js");
-const {
-  createRun,
-  dueRuns,
-  listRuns,
-  listRunsForReading,
-  readRun,
-  replaceRun,
-  RunError,
-} = await import("./runs.js");
+const { createRun, listRuns, listRunsForReading, readRun, replaceRun, RunError } =
+  await import("./runs.js");
+const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -125,18 +119,55 @@ test("only the runs whose wait has come due are ready to be re-armed", async () 
   await createRun(ctx, accountId, past);
   await createRun(ctx, accountId, future);
 
-  const due = await dueRuns(ctx, accountId, new Date());
+  const list = await listRuns(ctx, accountId);
+  const due = list.filter(({ run }) => isRunDue(run, new Date()));
   assert.deepEqual(
     due.map((record) => record.run.id),
     ["due-1"],
     "the wait that has passed is due, and the one still ahead is not",
   );
 
-  const later = await dueRuns(ctx, accountId, new Date(Date.now() + 120_000));
+  const later = list.filter(({ run }) => isRunDue(run, new Date(Date.now() + 120_000)));
   assert.deepEqual(
     later.map((record) => record.run.id).sort(),
     ["due-1", "due-2"],
     "and every wait in the past is due",
+  );
+});
+
+test("two accounts with a document at the same path do not read each other's", async () => {
+  /*
+   * The agent reads every group through one process and one `Ctx`, so the
+   * document cache is shared unless the account is part of its key. A rule id or
+   * a run id is a name a group chose: two accounts can hold the same path, and
+   * the second read must not answer with the first group's bytes.
+   */
+  const other = Object.keys(ctx.session.accounts).find(
+    (id) =>
+      id !== accountId &&
+      isGroupAccountRecord(
+        ctx.session.accounts[id] as { name?: unknown; isPersonal?: unknown },
+      ),
+  );
+  assert.ok(other, "the session holds a second account to read");
+  const document = (rule: string) =>
+    startRun({
+      id: "same-path-run",
+      startedBy: { rule, instruction: null, woke: "mail created: m-1" },
+    });
+  await createRun(ctx, accountId, document("mine"));
+  await createRun(ctx, other, document("theirs"));
+
+  const mine = await listRunsForReading(ctx, accountId);
+  const theirs = await listRunsForReading(ctx, other);
+  assert.equal(
+    mine.find((row) => row.id === "same-path-run")?.run?.startedBy.rule,
+    "mine",
+  );
+  assert.equal(
+    theirs.find((row) => row.id === "same-path-run")?.run?.startedBy.rule,
+    "theirs",
+    "the other account's document is its own",
   );
 });
 

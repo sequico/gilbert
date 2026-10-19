@@ -80,6 +80,7 @@ import { recallFacts } from "../shared/memory.js";
 import {
   appendStep,
   finishRun,
+  isRunDue,
   isRunWait,
   type RunDoc,
   type RunMessageRef,
@@ -117,14 +118,7 @@ import {
 import type { ProseLevel } from "./prose.js";
 import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
-import {
-  createRun,
-  dueRuns,
-  listRuns,
-  type RunRecord,
-  readRun,
-  replaceRun,
-} from "./runs.js";
+import { createRun, listRuns, type RunRecord, readRun, replaceRun } from "./runs.js";
 import { readAgentSwitch } from "./switch.js";
 import { type DueWait, WaitTimers } from "./timers.js";
 import {
@@ -376,10 +370,6 @@ export class AgentLoop {
       summary.gaps.push("the agent is turned off for this installation");
       return summary;
     }
-    // The one memory reading of the pass, and the sheets it could not read: a
-    // bad sheet is said in the pass's own gaps, not silently dropped.
-    const memory = await this.memory();
-    for (const problem of memory.problems) summary.gaps.push(`memory: ${problem}`);
     /*
      * A group the Master no longer works keeps no queued alarm: the queue is
      * this pass's accounts and nothing else, or a process that runs for weeks
@@ -418,7 +408,20 @@ export class AgentLoop {
         summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
       }
     }
+    /*
+     * The memory is read on the first change that needs it, not at the top of
+     * every pass: a quiet pass pays for no store it never consults. A sheet it
+     * could not read is said in the pass's own gaps, as before.
+     */
+    for (const problem of await this.memoryProblems())
+      summary.gaps.push(`memory: ${problem}`);
     return summary;
+  }
+
+  /** The sheets this pass's memory reading could not use, or none if it never read. */
+  private async memoryProblems(): Promise<string[]> {
+    if (!this.reading) return [];
+    return (await this.reading).problems;
   }
 
   /** Every run of one account whose wait has come due, worked again. */
@@ -435,17 +438,17 @@ export class AgentLoop {
      * The alarms hand every dated wait over exactly once, and the documents ask
      * the same question again: a process that has just started has fired nothing
      * yet, so a wait that came due while it was down is due on its first pass.
+     *
+     * One listing answers both questions: the waits that are due, and the runs
+     * a process did not finish — a run left `running` with no wait (a restart, a
+     * crash, a pass that failed after the run was opened). Two listings asked
+     * `runs/` the same thing twice, every pass, for every account.
      */
     const runs = new Set(handed.map((due) => due.runId));
-    for (const { run } of await dueRuns(this.ctx, accountId, now)) runs.add(run.id);
-    /*
-     * A run left `running` with no wait is a run a process did not finish --
-     * a restart, a crash, a pass that failed after the run was opened. The run
-     * is the durable state and a pass is what finishes it: nothing else would
-     * ever look at it again, and it sat running for ever.
-     */
-    for (const { run } of await listRuns(this.ctx, accountId))
+    for (const { run } of await listRuns(this.ctx, accountId)) {
+      if (isRunDue(run, now)) runs.add(run.id);
       if (run.state === "running" && run.waiting === null) runs.add(run.id);
+    }
     for (const id of runs) {
       const record = await readRun(this.ctx, accountId, id);
       if (record?.run.state !== "running") continue;
@@ -650,10 +653,14 @@ export class AgentLoop {
     if (!reply.word) return null;
     if (await isGroupAddress(this.ctx, accountId, reply.from)) return null;
     if (answeredAlready(records, "mail", event.where)) return "already";
+    const askedIds = parked
+      .map((record) => record.run.waiting?.asked?.id)
+      .filter((id): id is string => typeof id === "string");
+    const idsOf = await this.messageIdsOf(accountId, askedIds);
     for (const record of parked) {
       const asked = record.run.waiting?.asked;
       if (!asked) continue;
-      const ids = await this.messageIdsOf(accountId, asked.id);
+      const ids = idsOf.get(asked.id) ?? [];
       if (!ids.some((id) => reply.thread.includes(id))) continue;
       return {
         run: takeAnswer(
@@ -672,17 +679,40 @@ export class AgentLoop {
     return null;
   }
 
-  /** The Message-IDs a message was filed under, which a reply names in its thread. */
-  private async messageIdsOf(accountId: string, emailId: string): Promise<string[]> {
-    const answer = await clientOf(this.ctx).call<{
-      list?: Array<{ messageId?: unknown }>;
-    }>("Email/get", { accountId, ids: [emailId], properties: ["messageId"] }, [
-      CAPABILITIES.mail,
-    ]);
-    const held = answer.list?.[0]?.messageId;
-    return Array.isArray(held)
-      ? held.filter((one): one is string => typeof one === "string")
-      : [];
+  /**
+   * The Message-IDs each of these messages was filed under, in one read: a
+   * reply names them in its thread.
+   *
+   * Asking per parked run made a mail answer cost one round trip for every
+   * question the account is waiting on.
+   */
+  private async messageIdsOf(
+    accountId: string,
+    emailIds: readonly string[],
+  ): Promise<Map<string, string[]>> {
+    const idsOf = new Map<string, string[]>();
+    if (!emailIds.length) return idsOf;
+    const client = clientOf(this.ctx);
+    const size = client.maxObjectsInGet;
+    for (let at = 0; at < emailIds.length; at += size) {
+      const answer = await client.call<{
+        list?: Array<{ id?: unknown; messageId?: unknown }>;
+      }>(
+        "Email/get",
+        { accountId, ids: emailIds.slice(at, at + size), properties: ["messageId"] },
+        [CAPABILITIES.mail],
+      );
+      for (const one of answer.list ?? []) {
+        if (typeof one.id !== "string") continue;
+        idsOf.set(
+          one.id,
+          Array.isArray(one.messageId)
+            ? one.messageId.filter((id): id is string => typeof id === "string")
+            : [],
+        );
+      }
+    }
+    return idsOf;
   }
 
   /**

@@ -1,5 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type FactDoc, fetchGroupRuns, type RunListing, stopRun } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import { RunCard } from "@/views/admin/agent/RunCard";
@@ -64,6 +64,8 @@ export function GroupRuns({
   const [runs, setRuns] = useState<RunListing[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  /** The runs in flight at the last poll: a different set means the list moved. */
+  const runningIds = useRef("");
 
   const load = useCallback(async () => {
     try {
@@ -84,8 +86,34 @@ export function GroupRuns({
       return () => {
         alive = false;
       };
+    /*
+     * The poll asks for the runs in flight alone. While the set is unchanged,
+     * their fresh documents are merged into the list; when a run starts or ends
+     * the set moved, and the one full read keeps the page and the numbers true.
+     */
     const timer = window.setInterval(() => {
-      if (alive) void load();
+      void (async () => {
+        try {
+          const running = await fetchGroupRuns(group, "running");
+          if (!alive) return;
+          const ids = running
+            .map((one) => one.id)
+            .sort()
+            .join(",");
+          if (ids !== runningIds.current) {
+            runningIds.current = ids;
+            await load();
+            return;
+          }
+          setRuns((held) => {
+            if (!held) return running;
+            const fresh = new Map(running.map((one) => [one.id, one]));
+            return held.map((one) => fresh.get(one.id) ?? one);
+          });
+        } catch (err) {
+          if (alive) setError(errorMessage(err));
+        }
+      })();
     }, 3_000);
     return () => {
       alive = false;

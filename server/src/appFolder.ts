@@ -1032,6 +1032,16 @@ interface SheetRead {
 const sheetReads = new WeakMap<Ctx, Map<string, SheetRead>>();
 
 /**
+ * How many documents one process remembers.
+ *
+ * A run folder is not pruned, and this map is keyed by the document it read: an
+ * unbounded map would hold every run the process ever listed. The oldest entry
+ * is dropped when the bound is passed; a document whose entry went is read
+ * again, which is the price of the bound and only paid on a miss.
+ */
+const SHEET_READS_MAX = 2_000;
+
+/**
  * Every `.json` document in a directory of the app folder, each read or each said.
  *
  * One walk of the folder, and one answer per document: `read` turns the bytes
@@ -1065,8 +1075,15 @@ export async function listAppSheets<T>(
     if (!node.name.endsWith(".json") || typeof node.blobId !== "string") continue;
     const id = node.name.slice(0, -".json".length);
     const path = `${dir}/${node.name}`;
+    /*
+     * One process reads several accounts through one `Ctx` (the agent's), and
+     * two accounts can hold a document at the same path — a rule id is a name a
+     * group chose. The account is part of the key, or one group reads the
+     * other's rule.
+     */
+    const key = `${accountId}\u0000${path}`;
     const stamp = nodeStamp(node);
-    const remembered = held.get(path);
+    const remembered = held.get(key);
     if (remembered?.stamp === stamp) {
       rows.push({ id, doc: remembered.doc as T, problem: null });
       continue;
@@ -1082,7 +1099,11 @@ export async function listAppSheets<T>(
           node.name,
         ),
       );
-      held.set(path, { stamp, doc });
+      held.set(key, { stamp, doc });
+      if (held.size > SHEET_READS_MAX) {
+        const oldest = held.keys().next().value;
+        if (oldest !== undefined) held.delete(oldest);
+      }
       rows.push({ id, doc, problem: null });
     } catch (err) {
       rows.push({ id, doc: null, problem: errorMessage(err) });

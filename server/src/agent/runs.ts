@@ -28,12 +28,7 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
-import {
-  isRunDue,
-  parseRunDocumentDetailed,
-  type RunDoc,
-  type RunListing,
-} from "../shared/run.js";
+import { parseRunDocumentDetailed, type RunDoc, type RunListing } from "../shared/run.js";
 
 /** Where a group's runs live under its app folder: the one path constant. */
 export const RUNS_DIR = "runs";
@@ -185,13 +180,4 @@ export async function listRuns(ctx: Ctx, accountId: string): Promise<RunRecord[]
     if (row.run) records.push({ run: row.run, state });
   }
   return records;
-}
-
-/** The group's runs whose wait has come due at `now`. */
-export async function dueRuns(
-  ctx: Ctx,
-  accountId: string,
-  now: Date,
-): Promise<RunRecord[]> {
-  return (await listRuns(ctx, accountId)).filter(({ run }) => isRunDue(run, now));
 }
