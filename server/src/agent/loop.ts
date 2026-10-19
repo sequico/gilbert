@@ -288,7 +288,6 @@ export class AgentLoop {
     return await this.pass(now);
   }
 
-  /** Give up the alarms, on the way down. The claim lapses on its own. */
   /**
    * Give up the alarms, and the claim.
    *
