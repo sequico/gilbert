@@ -264,10 +264,11 @@ export const fileMessage = defineTool({
 });
 
 /**
- * The one destructive act in the catalogue, and it is a move (owner decision
- * 2026-10-18): a message goes to the account's Deleted Items folder, where it can
- * be recovered, and the person authorises it by naming the message. Nothing the
- * agent can reach destroys a document.
+ * A move to the account's Deleted Items folder, where the message can be
+ * recovered (owner decision 2026-10-18), and a person authorises it by naming
+ * the message. The catalogue's other destructive acts — replacing or removing
+ * a document, removing an empty folder — carry the same class and the same
+ * act-binding: none of them runs on the model's word alone.
  */
 export const trashMessage = defineTool({
   name: "mail.trash",
@@ -281,6 +282,19 @@ export const trashMessage = defineTool({
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "trash"),
+});
+
+export const untrashMessage = defineTool({
+  name: "mail.untrash",
+  description:
+    "Take a message of this account out of its Deleted Items folder and back " +
+    "into the inbox. It is a move, so it can be undone again; a message that is " +
+    "not in Deleted Items is left where it is.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
+  run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "inbox"),
 });
 
 export const setKeyword = defineTool({
@@ -616,6 +630,119 @@ export const draftReply = defineTool({
   },
 });
 
+/** The addresses a tool argument names, one per entry, separated by , or ;. */
+function addressesFromText(value: string | undefined): MailAddress[] | undefined {
+  if (value === undefined) return undefined;
+  return onePerAddress(
+    value
+      .split(/[,;]/)
+      .map((one) => one.trim())
+      .filter((one) => one.includes("@"))
+      .map((email) => ({ email })),
+  );
+}
+
+export const editDraft = defineTool({
+  name: "mail.editDraft",
+  description:
+    "Replace one of this account's drafts with a new one carrying the words you " +
+    "give: the old draft is destroyed and the new one keeps its thread and its " +
+    "place in Drafts. `subject`, `to` and `cc` change only when you name them " +
+    "(addresses separated by commas). The draft is not sent.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      id: textArg(args, "id"),
+      text: textArg(args, "text"),
+      subject: optionalTextArg(args, "subject"),
+      to: optionalTextArg(args, "to"),
+      cc: optionalTextArg(args, "cc"),
+    };
+  },
+  run: async ({ ctx, accountId }, { id, text, subject, to, cc }) => {
+    const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
+      "Email/get",
+      {
+        accountId,
+        ids: [id],
+        properties: [
+          "from",
+          "to",
+          "cc",
+          "bcc",
+          "subject",
+          "mailboxIds",
+          "keywords",
+          "messageId",
+          "references",
+          "inReplyTo",
+        ],
+      },
+      [CAPABILITIES.mail],
+    );
+    const original = answer.list?.[0];
+    if (!original) throw notFound(`draft "${id}" in this account`);
+    const keywords = isRecord(original.keywords) ? original.keywords : {};
+    if (keywords[DRAFT_KEYWORD] !== true)
+      throw new ToolError(
+        "not_a_draft",
+        `"${id}" is a message of the account, not a draft; a message is not rewritten.`,
+        409,
+      );
+    const nextTo = addressesFromText(to) ?? addressesIn(original.to);
+    if (!nextTo.length)
+      throw new ToolError("no_recipient", "A draft needs somebody to go to.", 422);
+    const nextCc = addressesFromText(cc) ?? addressesIn(original.cc);
+    const mailboxIds = isRecord(original.mailboxIds)
+      ? Object.fromEntries(Object.keys(original.mailboxIds).map((one) => [one, true]))
+      : {};
+    const res = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+      "Email/set",
+      {
+        accountId,
+        create: {
+          draft: {
+            from: addressesIn(original.from),
+            to: nextTo,
+            ...(nextCc.length ? { cc: nextCc } : {}),
+            ...(addressesIn(original.bcc).length
+              ? { bcc: addressesIn(original.bcc) }
+              : {}),
+            subject:
+              subject ?? (typeof original.subject === "string" ? original.subject : ""),
+            sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+            mailboxIds,
+            keywords: { [DRAFT_KEYWORD]: true, $seen: true },
+            bodyStructure: { partId: "text", type: "text/plain" },
+            bodyValues: { text: { value: text } },
+            ...(Array.isArray(original.inReplyTo) && original.inReplyTo.length
+              ? { inReplyTo: original.inReplyTo }
+              : {}),
+            ...(Array.isArray(original.references) && original.references.length
+              ? { references: original.references }
+              : {}),
+          },
+        },
+        destroy: [id],
+      },
+      [CAPABILITIES.mail],
+    );
+    const refused = res.notCreated?.draft;
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    const draft = res.created?.draft?.id;
+    if (!draft)
+      throw new ToolError(
+        "write_refused",
+        "The draft was not replaced, and the server said nothing about why.",
+        409,
+      );
+    return { id: draft, replaced: id, to: nextTo.map((one) => one.email) };
+  },
+});
+
 /**
  * Send one message from this group's own identity: written into Sent, then
  * submitted (ADR 0033).
@@ -835,6 +962,50 @@ export const renameMailFolder = defineTool({
     const refused = res.notUpdated?.[found.id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
     return { id: found.id, name: to, was: found.name };
+  },
+});
+
+export const deleteMailFolder = defineTool({
+  name: "mail.deleteFolder",
+  description:
+    "Remove an empty folder of this account's mailbox by its name. A folder " +
+    "that still holds messages is refused rather than emptied: file or move " +
+    "what is in it first. The account's system folders are kept by role and are " +
+    "not removed. The act is the folder: a person's word for it names the folder.",
+  authority: "destructive",
+  writes: true,
+  spend: { steps: 1 },
+  act: (args: { name: string }) => ({ target: args.name, content: null }),
+  parse: (raw: unknown) => ({ name: textArg(argsRecord(raw), "name") }),
+  run: async ({ ctx, accountId }, { name }) => {
+    const boxes = await mailboxesOf(ctx, accountId);
+    const found = resolveMailbox(name, boxes);
+    if (!found) throw notFound(`folder "${name}" in this account`);
+    if (found.role)
+      throw new ToolError(
+        "reserved_folder",
+        `"${found.name}" is the account's ${found.role} folder, which the mail server keeps by role and does not remove.`,
+        409,
+      );
+    const held = await clientOf(ctx).call<{ ids?: string[] }>(
+      "Email/query",
+      { accountId, filter: { inMailbox: found.id }, limit: 1 },
+      [CAPABILITIES.mail],
+    );
+    if (held.ids?.length)
+      throw new ToolError(
+        "folder_not_empty",
+        `"${found.name}" still holds messages; file or move them first, so the folder is removed only when it is empty.`,
+        409,
+      );
+    const res = await clientOf(ctx).call<SetResponse>(
+      "Mailbox/set",
+      { accountId, destroy: [found.id] },
+      [CAPABILITIES.mail],
+    );
+    const refused = res.notDestroyed?.[found.id];
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    return { name: found.name, removed: true };
   },
 });
 

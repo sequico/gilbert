@@ -9,15 +9,18 @@
 import {
   appFolderState,
   type Ctx,
+  destroyAppNode,
   documentType,
   ensureRootFolderPath,
   type FileNodeLike,
   fileChildren,
+  findVisibleFile,
   findVisibleFolder,
   nodeStamp,
   pathSegments,
   readVisibleFileBytes,
   updateAppNode,
+  writeBytesIntoVisibleFolder,
 } from "../../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../../jmap.js";
 import { APP_FOLDER_NAME, FILE_PROPS } from "../../shared/appFolder.js";
@@ -137,6 +140,118 @@ async function writeNode(
     409,
   );
 }
+
+/** The MIME a text document is written with, by its own extension. */
+const TEXT_TYPES: Record<string, string> = {
+  md: "text/markdown",
+  csv: "text/csv",
+  json: "application/json",
+  html: "text/html",
+};
+
+function textType(name: string): string {
+  const at = name.lastIndexOf(".");
+  const ext = at < 0 ? "" : name.slice(at + 1).toLowerCase();
+  return TEXT_TYPES[ext] ?? "text/plain";
+}
+
+/** A document path as its folder and its file name; the name is the last one. */
+function splitDocumentPath(path: string): { folder: string; name: string } {
+  const segments = pathSegments(path);
+  const name = segments.pop();
+  if (!name) throw new ToolError("bad_arguments", "A document path needs a file name.");
+  return { folder: segments.join("/"), name };
+}
+
+export const writeDocument = defineTool({
+  name: "files.write",
+  description:
+    "Write a text document into this account's own Files at a path — " +
+    "`Containers/2026/report.md`. Folders the path names that are missing are " +
+    "made, and the type follows the extension (`.md`, `.csv`, `.json`, " +
+    "`.html`, otherwise plain text). A document already at that path is " +
+    "refused: nothing a person filed is replaced by a write.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { path: textArg(args, "path"), text: textArg(args, "text") };
+  },
+  run: async ({ ctx, accountId }, { path, text }) => {
+    const { folder, name } = splitDocumentPath(path);
+    const held = await findVisibleFile(ctx, accountId, path);
+    if (held)
+      throw new ToolError(
+        "path_taken",
+        `"${path}" already holds a document; files.overwrite replaces it, and files.write never does.`,
+        409,
+      );
+    const bytes = new TextEncoder().encode(text);
+    const id = await writeBytesIntoVisibleFolder(
+      ctx,
+      accountId,
+      folder,
+      name,
+      bytes,
+      textType(name),
+    );
+    return { path: folder ? `${folder}/${name}` : name, id, bytes: bytes.byteLength };
+  },
+});
+
+export const overwriteDocument = defineTool({
+  name: "files.overwrite",
+  description:
+    "Replace the text of a document already in this account's Files, by the " +
+    "path it carries. The node keeps its id and its place. The act is the " +
+    "document: a person's word for it names the document, and licenses that one.",
+  authority: "destructive",
+  writes: true,
+  spend: { steps: 1 },
+  act: (args: { path: string }) => ({ target: args.path, content: null }),
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { path: textArg(args, "path"), text: textArg(args, "text") };
+  },
+  run: async ({ ctx, accountId }, { path, text }) => {
+    const { folder, name } = splitDocumentPath(path);
+    const held = await findVisibleFile(ctx, accountId, path);
+    if (!held)
+      throw notFound(
+        `document "${path}" in this account's Files (files.write creates one)`,
+      );
+    const bytes = new TextEncoder().encode(text);
+    await writeBytesIntoVisibleFolder(
+      ctx,
+      accountId,
+      folder,
+      name,
+      bytes,
+      textType(name),
+    );
+    return { path, id: String(held.file.id ?? ""), bytes: bytes.byteLength };
+  },
+});
+
+export const deleteDocument = defineTool({
+  name: "files.delete",
+  description:
+    "Remove a document of this account's own Files, by its path. The act is " +
+    "the document: a person's word for it names the document, and licenses " +
+    "that one. A folder is not removed here.",
+  authority: "destructive",
+  writes: true,
+  spend: { steps: 1 },
+  act: (args: { path: string }) => ({ target: args.path, content: null }),
+  parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
+  run: async ({ ctx, accountId }, { path }) => {
+    const held = await findVisibleFile(ctx, accountId, path);
+    if (!held?.file.id) throw notFound(`document "${path}" in this account's Files`);
+    await destroyAppNode(ctx, accountId, String(held.file.id));
+    return { path, removed: true };
+  },
+});
 
 export const createFileFolder = defineTool({
   name: "files.folder",

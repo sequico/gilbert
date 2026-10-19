@@ -764,6 +764,200 @@ test("the calendar is read and changed through its own tools", async () => {
   );
 });
 
+test("a document is written once, replaced and removed only under a word", async () => {
+  const written = await writeTool<{ id: string; path: string; bytes: number }>(
+    "files.write",
+    { path: "Journal/2026/note.md", text: "# Today\n\nContainer 12 left." },
+  );
+  assert.equal(written.path, "Journal/2026/note.md", "the folders of the path are made");
+  assert.ok(written.bytes > 0, "the words are the bytes written");
+  const read = await callTool<{ text?: string }>("files.read", {
+    path: "Journal/2026/note.md",
+  });
+  assert.match(read.text ?? "", /Container 12 left/);
+
+  await assert.rejects(
+    () => writeTool("files.write", { path: "Journal/2026/note.md", text: "again" }),
+    /already holds a document/,
+    "a write never replaces what a person filed",
+  );
+
+  const plain = plainRun();
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: plain }, "files.overwrite", {
+        path: "Journal/2026/note.md",
+        text: "Container 13 left.",
+      }),
+    /authority/,
+    "replacing a document needs a person's word",
+  );
+  const allowed = takeAuthorisation(plain, {
+    what: "replace the note with today's words",
+    authority: "destructive",
+    act: { target: "Journal/2026/note.md", content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-note" },
+  });
+  await runTool(TOOLS, { ctx, accountId, run: allowed }, "files.overwrite", {
+    path: "Journal/2026/note.md",
+    text: "Container 13 left.",
+  });
+  const changed = await callTool<{ text?: string }>("files.read", {
+    path: "Journal/2026/note.md",
+  });
+  assert.match(changed.text ?? "", /Container 13 left/);
+
+  await runTool(TOOLS, { ctx, accountId, run: allowed }, "files.delete", {
+    path: "Journal/2026/note.md",
+  });
+  await assert.rejects(
+    () => callTool("files.read", { path: "Journal/2026/note.md" }),
+    /There is no file/,
+    "a removed document is gone, not drawn blank",
+  );
+});
+
+test("a draft is replaced with new words, trash is undone, and an empty folder goes", async () => {
+  const delivered = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
+    "Email/set",
+    {
+      accountId,
+      create: {
+        c: {
+          subject: "booking 4418",
+          from: [{ email: "ops@shipper.example" }],
+          to: [{ email: "demo@example.com" }],
+          mailboxIds: { inbox: true },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const message = delivered.created?.c?.id;
+  assert.ok(message, "the message to answer is in the account");
+  const draft = await writeTool<{ id: string }>("mail.draft", {
+    id: message,
+    text: "first words",
+  });
+  const edited = await writeTool<{ id: string; replaced: string }>("mail.editDraft", {
+    id: draft.id,
+    text: "second words",
+    subject: "Re: an answer",
+  });
+  assert.equal(edited.replaced, draft.id, "the old draft is the one replaced");
+  const read = await callTool<{
+    message: { bodyValues?: Record<string, { value?: string }>; subject?: string };
+  }>("mail.read", { id: edited.id });
+  const words = Object.values(read.message.bodyValues ?? {})
+    .map((one) => one.value ?? "")
+    .join("");
+  assert.match(words, /second words/);
+  assert.equal(read.message.subject, "Re: an answer");
+
+  // The trash is a move, and the way back is one too.
+  const plain = plainRun();
+  const allowed = takeAuthorisation(plain, {
+    what: "put it in the trash",
+    authority: "destructive",
+    act: { target: message, content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-trash" },
+  });
+  await runTool(TOOLS, { ctx, accountId, run: allowed }, "mail.trash", { id: message });
+  const back = (await writeTool<{ folder: string }>("mail.untrash", {
+    id: message,
+  })) as { folder?: string };
+  assert.equal(back.folder, "Inbox", "the way back is the inbox");
+
+  // A folder that still holds something is refused; an empty one is removed
+  // under the person's word for that folder.
+  await writeTool("mail.folder", { name: "Throwaway" });
+  await writeTool("mail.file", { id: message, folder: "Throwaway" });
+  const wordForFolder = takeAuthorisation(plain, {
+    what: "remove the Throwaway folder",
+    authority: "destructive",
+    act: { target: "Throwaway", content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-folder" },
+  });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: wordForFolder }, "mail.deleteFolder", {
+        name: "Throwaway",
+      }),
+    /still holds messages/,
+    "a folder is removed only when it is empty",
+  );
+  await writeTool("mail.file", { id: message, folder: "inbox" });
+  const gone = await runTool(
+    TOOLS,
+    { ctx, accountId, run: wordForFolder },
+    "mail.deleteFolder",
+    { name: "Throwaway" },
+  );
+  assert.deepEqual(gone, { name: "Throwaway", removed: true });
+});
+
+test("the Global contacts are searchable by name and by address", async () => {
+  const { GLOBAL_CONTACTS_BOOK_NAME } = await import("../shared/globalContacts.js");
+  const book = await clientOf(ctx).call<{ created?: { b?: { id?: string } } }>(
+    "AddressBook/set",
+    { accountId, create: { b: { name: GLOBAL_CONTACTS_BOOK_NAME } } },
+    [CAPABILITIES.contacts],
+  );
+  const bookId = book.created?.b?.id;
+  assert.ok(bookId, "the directory book is made");
+  await clientOf(ctx).call(
+    "ContactCard/set",
+    {
+      accountId,
+      create: {
+        c: {
+          addressBookIds: { [bookId]: true },
+          name: { full: "Ada Lovelace" },
+          emails: { e: { address: "ada@shipper.example" } },
+          organizations: { o: { name: "Analytical Engines" } },
+        },
+      },
+    },
+    [CAPABILITIES.contacts],
+  );
+
+  const byName = await callTool<{
+    contacts: Array<{ name: string; emails: string[] }>;
+  }>("contacts.find", { query: "ada" });
+  assert.equal(byName.contacts[0]?.name, "Ada Lovelace");
+  const byEmail = await callTool<{
+    contacts: Array<{ name: string; emails: string[] }>;
+  }>("contacts.find", { query: "ada@shipper.example" });
+  assert.deepEqual(byEmail.contacts[0]?.emails, ["ada@shipper.example"]);
+  const none = await callTool<{ contacts: unknown[] }>("contacts.find", {
+    query: "nobody-by-this-name",
+  });
+  assert.equal(none.contacts.length, 0, "a miss is an empty answer, not a guess");
+});
+
+test("a mention in the chat is the local part, never the whole address", async () => {
+  const said = await writeTool<{ id: string }>("chat.say", {
+    text: "Acknowledged, @sq@greensley.company — no harm done.",
+  });
+  const read = await callTool<{ message: { text: string } }>("chat.read", {
+    id: said.id,
+  });
+  assert.equal(read.message.text, "Acknowledged, @sq — no harm done.");
+  const asked = await writeTool<{ id: string }>("chat.ask", {
+    text: "Is @sq@greensley.company happy with that?",
+  });
+  const question = await callTool<{ message: { text: string } }>("chat.read", {
+    id: asked.id,
+  });
+  assert.equal(question.message.text, "Is @sq happy with that?");
+});
+
 test("the writing tools change the group's own account", async () => {
   // A folder of the mailbox, made once and answered the same way the second
   // time: the call is safe to repeat.
@@ -921,7 +1115,13 @@ test("the writing tools change the group's own account", async () => {
   });
   assert.deepEqual(
     asked.wait,
-    { what: question, asked: { channel: "chat", id: asked.id }, until: null },
+    {
+      // A mention is the local part, as the conversation reads it; the wait
+      // carries the question exactly as it was written.
+      what: "@sam is the delivery confirmed?",
+      asked: { channel: "chat", id: asked.id },
+      until: null,
+    },
     "a question is a run waiting on a person, with no date (ADR 0034)",
   );
   const askedBack = await writeTool<{ message: { text: string } }>("chat.read", {
@@ -929,8 +1129,8 @@ test("the writing tools change the group's own account", async () => {
   });
   assert.equal(
     askedBack.message.text,
-    question,
-    "and the question is in the conversation",
+    "@sam is the delivery confirmed?",
+    "and the question is in the conversation, the mention by its local part",
   );
 });
 

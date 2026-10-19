@@ -50,6 +50,7 @@ import {
   saveEvent,
 } from "./tools/calendar.js";
 import { askInChat, findChat, readChat, sayInChat } from "./tools/chat.js";
+import { findContacts } from "./tools/contacts.js";
 import {
   type AnyTool,
   defineTool,
@@ -60,17 +61,22 @@ import {
 } from "./tools/define.js";
 import {
   createFileFolder,
+  deleteDocument,
   listFiles,
   moveFile,
+  overwriteDocument,
   readNode,
   renameFile,
+  writeDocument,
 } from "./tools/files.js";
 import { listKnowledge, proposePage, readKnowledgePage } from "./tools/knowledge.js";
 import {
   askByMail,
   createMailFolder,
   defineLabel,
+  deleteMailFolder,
   draftReply,
+  editDraft,
   fileMessage,
   findMessages,
   isGroupAddress,
@@ -82,6 +88,7 @@ import {
   sendOutward,
   setKeyword,
   trashMessage,
+  untrashMessage,
 } from "./tools/mail.js";
 import { rememberFactTool } from "./tools/memory.js";
 import { readRunTool } from "./tools/runs.js";
@@ -111,6 +118,7 @@ export const TOOLS: readonly AnyTool[] = [
   listCalendars,
   findEvents,
   readEvent,
+  findContacts,
   readChat,
   findChat,
   listFiles,
@@ -130,8 +138,14 @@ export const TOOLS: readonly AnyTool[] = [
   defineLabel,
   createMailFolder,
   renameMailFolder,
+  deleteMailFolder,
   saveEvent,
   deleteEvent,
+  writeDocument,
+  overwriteDocument,
+  deleteDocument,
+  editDraft,
+  untrashMessage,
   createFileFolder,
   moveFile,
   renameFile,

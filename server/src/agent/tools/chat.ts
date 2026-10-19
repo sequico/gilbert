@@ -120,7 +120,15 @@ export const findChat = defineTool({
  * written and silently cut.
  */
 function chatText(args: Record<string, unknown>): string {
-  const text = textArg(args, "text");
+  /*
+   * A mention is `@` and the local part, which is what the conversation reads
+   * (`mentionsName`). The model is given whole addresses and prefixes them
+   * whole, so the domain is dropped here rather than left in the message.
+   */
+  const text = textArg(args, "text").replace(
+    /@([^\s@]+)@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
+    "@$1",
+  );
   if (text.length > CHAT_MAX_TEXT)
     throw new ToolError(
       "bad_arguments",
