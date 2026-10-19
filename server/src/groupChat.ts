@@ -25,7 +25,7 @@ import {
   findFolderPath,
   writeAppFileIn,
 } from "./appFolder.js";
-import { FILENODE_GET } from "./shared/appFolder.js";
+import { APP_FOLDER_NAME, FILENODE_GET } from "./shared/appFolder.js";
 import {
   CHAT_FOLDER,
   CHAT_PAGE,
@@ -122,6 +122,26 @@ export async function readChatMessageAt(
   const nodes = await fileChildren(ctx, accountId, folderId, messageProps());
   const node = nodes.find((one) => one.name === name);
   return node ? await messageOf(ctx, accountId, node) : null;
+}
+
+/**
+ * One message by any name an agent may hold for it.
+ *
+ * An event names the message by its path in the account's tree; a search answers
+ * with its node id; and a model reading the event has been seen to keep only the
+ * file name. All three are the same message, and this is the module that knows
+ * where it is filed, so the resolution lives here rather than in each caller.
+ */
+export async function readChatMessageBy(
+  ctx: Ctx,
+  accountId: string,
+  ref: string,
+): Promise<ChatMessage | null> {
+  if (ref.includes("/")) return await readChatMessageAt(ctx, accountId, ref);
+  const byId = await readChatMessage(ctx, accountId, ref);
+  if (byId) return byId;
+  const name = ref.endsWith(".json") ? ref : `${ref}.json`;
+  return await readChatMessageAt(ctx, accountId, `${APP_FOLDER_NAME}/${CHAT_FOLDER}/${name}`);
 }
 
 /**

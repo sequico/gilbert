@@ -6,7 +6,7 @@
  * conversation rather than from a mailbox.
  */
 
-import { findChatMessages, postChatMessage, readChatMessage } from "../../groupChat.js";
+import { findChatMessages, postChatMessage, readChatMessageBy } from "../../groupChat.js";
 import { CHAT_MAX_TEXT } from "../../shared/chat.js";
 import type { RunWait } from "../../shared/run.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
@@ -18,14 +18,14 @@ const CHAT_FIND_MAX = 50;
 export const readChat = defineTool({
   name: "chat.read",
   description:
-    "Read one message of this group's own conversation, by the id a search or " +
-    "an event answered with: who posted it, when, its text, and the message it " +
-    "answers.",
+    "Read one message of this group's own conversation, by the id a search " +
+    "answered with or the address an event names: who posted it, when, its " +
+    "text, and the message it answers.",
   authority: "reversible",
   writes: false,
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
-    const message = await readChatMessage(ctx, accountId, id);
+    const message = await readChatMessageBy(ctx, accountId, id);
     if (!message) throw notFound(`chat message "${id}" in this account`);
     return { message };
   },
