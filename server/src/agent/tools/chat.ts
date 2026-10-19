@@ -12,8 +12,51 @@ import type { RunWait } from "../../shared/run.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 
-/** How many chat messages one search answers with, whatever the model asks for. */
-const CHAT_FIND_MAX = 50;
+/**
+ * How many chat messages one search answers with, whatever the model asks for.
+ *
+ * Small on purpose: every hit's text is carried into the next prompt, and a
+ * search for a common word once answered with six full messages -- thousands of
+ * tokens for a greeting. The model reads the one it needs with `chat.read`.
+ */
+const CHAT_FIND_MAX = 8;
+
+/** How much of each hit's text the answer carries. */
+const HIT_TEXT_MAX = 280;
+
+/** How much of a read message the answer carries; enough to answer from. */
+const READ_TEXT_MAX = 2_000;
+
+/** Words that identify nothing: a search for one of them is a scan of noise. */
+const STOPWORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "to",
+  "of",
+  "in",
+  "is",
+  "it",
+  "on",
+  "for",
+  "at",
+  "by",
+  "with",
+  "this",
+  "that",
+  "from",
+  "as",
+  "be",
+  "are",
+  "was",
+]);
+
+/** The first `max` characters of `text`, marked when there are more. */
+function shorten(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
 
 export const readChat = defineTool({
   name: "chat.read",
@@ -27,7 +70,7 @@ export const readChat = defineTool({
   run: async ({ ctx, accountId }, { id }) => {
     const message = await readChatMessageBy(ctx, accountId, id);
     if (!message) throw notFound(`chat message "${id}" in this account`);
-    return { message };
+    return { message: { ...message, text: shorten(message.text, READ_TEXT_MAX) } };
   },
 });
 
@@ -41,14 +84,32 @@ export const findChat = defineTool({
   writes: false,
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
+    const query = textArg(args, "query");
+    /*
+     * A search for "the" scans the conversation and answers with noise, which
+     * is then carried into the prompt: one word that identifies something is
+     * what the tool asks for.
+     */
+    const words = query.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+    if (!words.some((word) => word.length >= 3 && !STOPWORDS.has(word)))
+      throw new ToolError(
+        "bad_arguments",
+        "search for a word that identifies the message, not a stopword or a fragment",
+      );
     return {
-      query: textArg(args, "query"),
+      query,
       limit: countArg(args, "limit", CHAT_FIND_MAX) ?? CHAT_FIND_MAX,
     };
   },
-  run: async ({ ctx, accountId }, { query, limit }) => ({
-    messages: await findChatMessages(ctx, accountId, query, limit),
-  }),
+  run: async ({ ctx, accountId }, { query, limit }) => {
+    const messages = await findChatMessages(ctx, accountId, query, limit);
+    return {
+      messages: messages.map((one) => ({
+        ...one,
+        text: shorten(one.text, HIT_TEXT_MAX),
+      })),
+    };
+  },
 });
 
 /**
