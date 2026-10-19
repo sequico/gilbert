@@ -146,9 +146,10 @@ export async function offPath(
         });
         if (!message?.from || message.from === deps.self) continue;
         /*
-         * Only mail the agent was actually addressed in: a group's ordinary
-         * correspondence is not a conversation with the agent, and answering it
-         * would put the notice on every thread the group receives.
+         * Only mail the agent was addressed in **alone**: if the message also
+         * went to anybody else — the group's own address, a colleague, a Cc —
+         * the conversation is not the agent's, and it stays silent. A group's
+         * ordinary correspondence is not a conversation with the agent.
          */
         const addressed = await clientOf(deps.ctx).call<{
           list?: Array<{
@@ -165,7 +166,7 @@ export async function offPath(
           ...(one.to ?? []),
           ...(one.cc ?? []),
         ]);
-        if (!addressees.some(isMine)) continue;
+        if (addressees.length !== 1 || !isMine(addressees[0] ?? {})) continue;
         await sendMail(deps.ctx, accountId, {
           to: message.from,
           subject: OFF_NOTICE,
