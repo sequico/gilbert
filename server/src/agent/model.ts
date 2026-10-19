@@ -470,7 +470,7 @@ export async function probeModel(access: ModelAccess): Promise<ModelProbe> {
     return {
       ok: false,
       reason:
-        err instanceof ModelError && err.code === "forbidden_target"
+        err instanceof ModelError && err.code === "model_address_refused"
           ? "forbidden_target"
           : "bad_url",
     };
@@ -818,7 +818,12 @@ export async function decideEvent(
       parsed.answer.args,
       { failSoft: true },
     );
-    reads.push({ name: parsed.answer.name, result });
+    /*
+     * The reading turn is shown the same bounded text the loop keeps on a step
+     * and the choosing turn uses: the reads are re-sent with every later round,
+     * so a whole document here would be paid for once per round of one turn.
+     */
+    reads.push({ name: parsed.answer.name, result: boundedText(result) });
   }
   // The loop returns or throws on every path; this is unreachable and stated so.
   throw new ModelError("model_answer_malformed", "The model did not answer.");
@@ -926,9 +931,16 @@ function parseAuthorisations(raw: unknown, admin = false): ReadAuthorisation[] {
     if (raw !== null && typeof raw !== "string")
       throw problem('"content" in an authorisation must be text or null.');
     // Trimmed on both sides: the act's own words are, and a licence that differs
-    // from the call by the newline a model added is a licence for nothing.
+    // from the call by the newline a model added is a licence for nothing. An
+    // outward act's target is an address and the send's own act lowercases it,
+    // so the licence is lowercased the same way; an id stays as it is.
     const content = raw === null ? null : raw.trim();
-    return { authority, target: one.target.trim(), content };
+    const target = one.target.trim();
+    return {
+      authority,
+      target: authority === "outward" ? target.toLowerCase() : target,
+      content,
+    };
   });
 }
 
