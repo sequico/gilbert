@@ -237,11 +237,24 @@ async function moveMessage(
   accountId: string,
   id: string,
   folder: string,
+  opts: { allowTrash?: boolean } = {},
 ): Promise<{ id: string; folder: string }> {
   {
     const boxes = await mailboxesOf(ctx, accountId);
     const target = resolveMailbox(folder, boxes);
     if (!target) throw notFound(`folder "${folder}" in this account`);
+    /*
+     * Filing into Deleted Items is `mail.trash`'s act, and that tool carries
+     * the destructive class and the act-binding a person's word needs. The
+     * folder role is an argument of a reversible tool, so without this guard
+     * the same move is one string away from needing nobody.
+     */
+    if (!opts.allowTrash && target.role === "trash")
+      throw new ToolError(
+        "needs_authority",
+        `Filing into "${target.name}" is a move to Deleted Items: it is mail.trash, which a person authorises by naming the message.`,
+        403,
+      );
     const answer = await clientOf(ctx).call<{ list?: Array<{ mailboxIds?: unknown }> }>(
       "Email/get",
       { accountId, ids: [id], properties: ["mailboxIds"] },
@@ -277,8 +290,9 @@ export const fileMessage = defineTool({
   name: "mail.file",
   description:
     "File a message of this account into one of its folders, by the folder's " +
-    "name or its role (inbox, archive, junk, trash). The message is taken out " +
-    "of the folders it was in: it is moved, not copied.",
+    "name or its role (inbox, archive, junk). The message is taken out of the " +
+    "folders it was in: it is moved, not copied. Deleted Items is not a filing " +
+    "destination: mail.trash is that act, and a person licenses it.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
@@ -310,7 +324,8 @@ export const trashMessage = defineTool({
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
-  run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "trash"),
+  run: async ({ ctx, accountId }, { id }) =>
+    moveMessage(ctx, accountId, id, "trash", { allowTrash: true }),
 });
 
 export const untrashMessage = defineTool({
@@ -352,6 +367,17 @@ export const setKeyword = defineTool({
       throw new ToolError(
         "bad_arguments",
         `"${keyword}" is in the reserved "${G_LABEL_PREFIX}" namespace and is not one of its labels; that namespace is the product's own.`,
+      );
+    /*
+     * The two marks that say "a draft this agent wrote" are the product's,
+     * written by the draft tools alone. A tool that can put them on any message
+     * would turn `mail.editDraft`'s "only the agent's own draft" into two
+     * reversible calls followed by a destroy of a person's mail.
+     */
+    if (keyword === DRAFT_KEYWORD || keyword === AGENT_DRAFT_KEYWORD)
+      throw new ToolError(
+        "bad_arguments",
+        `"${keyword}" is a draft mark the product sets; it is not a message keyword a tool puts on.`,
       );
     const on = args.on ?? true;
     if (typeof on !== "boolean")
@@ -753,6 +779,26 @@ export const editDraft = defineTool({
     );
     const original = answer.list?.[0];
     if (!original) throw notFound(`draft "${id}" in this account`);
+    /*
+     * A draft is a message in Drafts, not a message wearing a mark: the mark can
+     * be set by a tool, the mailbox cannot. This is the check the guarantee
+     * rests on — a person's mail is never destroyed by a draft replacement.
+     */
+    const drafts = resolveMailbox("drafts", await mailboxesOf(ctx, accountId));
+    if (!drafts)
+      throw new ToolError(
+        "not_a_draft",
+        "This account has no Drafts folder, so it holds no draft to replace.",
+        409,
+      );
+    const inDrafts =
+      isRecord(original.mailboxIds) && original.mailboxIds[drafts.id] === true;
+    if (!inDrafts)
+      throw new ToolError(
+        "not_a_draft",
+        `"${id}" is not in the Drafts folder; the draft tools replace only what is there.`,
+        409,
+      );
     const keywords = isRecord(original.keywords) ? original.keywords : {};
     if (keywords[DRAFT_KEYWORD] !== true)
       throw new ToolError(
@@ -901,7 +947,18 @@ export async function sendMail(
     [CAPABILITIES.mail, CAPABILITIES.submission],
   );
   const refusedSubmit = submitted.notCreated?.s;
-  if (refusedSubmit) throw new ToolError("send_refused", refusalOf(refusedSubmit), 409);
+  if (refusedSubmit) {
+    /*
+     * The message was written into Sent before the server could accept it.
+     * Left there, it reads as mail that went out, and a model's retry files a
+     * second copy beside it. The write is taken back before the refusal is
+     * reported; a failed take-back leaves the copy, which is worse but honest.
+     */
+    await clientOf(ctx)
+      .call("Email/set", { accountId, destroy: [emailId] }, [CAPABILITIES.mail])
+      .catch(() => undefined);
+    throw new ToolError("send_refused", refusalOf(refusedSubmit), 409);
+  }
   return { id: emailId, from: from.email };
 }
 
