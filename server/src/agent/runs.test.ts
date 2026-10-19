@@ -158,9 +158,30 @@ test("a closed run older than a year moves to its month's drawer, and nothing el
     id: "still-running",
     startedBy: { rule: "intake", instruction: null, woke: "mail created: m-2" },
   });
+  /*
+   * A blocked run has an ending, but nobody is done with it: the answer that
+   * comes back is correlated against the working set, so its question is not
+   * moved to a drawer however old it is.
+   */
+  const blocked = finishRun(
+    waitUntil(
+      startRun({
+        id: "blocked-run",
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-3" },
+      }),
+      {
+        what: "the shipper's answer",
+        asked: { channel: "mail", id: "m-ask" },
+        until: null,
+      },
+    ),
+    "blocked",
+    { at: "2025-09-10T10:00:00Z", why: "waiting on a person" },
+  );
   await createRun(ctx, accountId, old);
   await createRun(ctx, accountId, recent);
   await createRun(ctx, accountId, running);
+  await createRun(ctx, accountId, blocked);
 
   const gaps = await archiveOldRuns(
     ctx,
@@ -180,6 +201,10 @@ test("a closed run older than a year moves to its month's drawer, and nothing el
   assert.ok(
     await readRun(ctx, accountId, "still-running"),
     "and a running one is never moved",
+  );
+  assert.ok(
+    await readRun(ctx, accountId, "blocked-run"),
+    "and one waiting on a person keeps its question",
   );
 });
 

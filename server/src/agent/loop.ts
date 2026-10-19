@@ -988,8 +988,28 @@ export class AgentLoop {
          * call that could not be made at all is not an answer, and leaves the run
          * where it is for the next pass.
          */
-        if (!(err instanceof ModelError) || err.code !== "model_answer_malformed")
+        if (!(err instanceof ModelError) || err.code !== "model_answer_malformed") {
+          /*
+           * The call was counted before it was made: a provider that times out
+           * was paid for, and a tally that skipped it would retry the same run
+           * for ever without ever reaching the budget. The document is written
+           * before the failure leaves, and a store that cannot be written leaves
+           * the run to the next pass.
+           */
+          current = spendRun(current, {
+            ms: Date.now() - startedMs,
+            promptTokens: meter.promptTokens,
+            completionTokens: meter.completionTokens,
+            cachedPromptTokens: meter.cachedTokens,
+          });
+          try {
+            await this.store(accountId, current, token);
+          } catch {
+            // The model error is the reason this pass stops; the run is the
+            // next pass's to read.
+          }
           throw err;
+        }
         current = spendRun(current, {
           promptTokens: meter.promptTokens,
           completionTokens: meter.completionTokens,

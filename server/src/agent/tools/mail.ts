@@ -12,7 +12,7 @@
 import { readGroupLabels, writeGroupLabels } from "../../account.js";
 import type { Ctx } from "../../appFolder.js";
 import { groupMembers } from "../../groupAccess.js";
-import { recalled } from "../../requestMemory.js";
+import { cachedMail } from "../../mailCache.js";
 import { sameAddress } from "../../shared/address.js";
 import { CAPABILITIES } from "../../shared/capabilities.js";
 import { moveMailboxPatch, refusalOf, type SetResponse } from "../../shared/jmap.js";
@@ -76,10 +76,10 @@ async function mailboxesOf(
   /*
    * One mailbox tree per unit of work: a step that files, drafts and answers
    * asked the same account for its folders three times. A mailbox write forgets
-   * it (`jmap.ts`), so a folder created in the same pass is seen by the next
-   * step rather than by the next pass.
+   * it (`jmap.ts`), and a FileNode write — a run's own document — does not; the
+   * TTL bounds a change made elsewhere (`mailCache.ts`).
    */
-  return await recalled(ctx, `agent:mailboxes:${accountId}`, async () => {
+  return await cachedMail(ctx, accountId, "mailboxes", async () => {
     const boxes: Record<string, SearchMailbox & { parentId: string | null }> = {};
     for (const box of await accountMailboxes(clientOf(ctx), accountId)) {
       if (typeof box.id !== "string" || typeof box.name !== "string") continue;
@@ -419,9 +419,8 @@ async function sendingIdentities(
   ctx: Ctx,
   accountId: string,
 ): Promise<SendingIdentity[]> {
-  // As the mailboxes: one read per pass, and an identity write is rare enough
-  // that the next pass is soon enough to see it.
-  return await recalled(ctx, `agent:identities:${accountId}`, async () => {
+  // As the mailboxes: briefly remembered, forgotten on an identity write.
+  return await cachedMail(ctx, accountId, "identities", async () => {
     const answer = await clientOf(ctx).call<{
       list?: Array<Record<string, unknown>>;
     }>("Identity/get", { accountId, ids: null }, [

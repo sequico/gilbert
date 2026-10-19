@@ -1846,7 +1846,13 @@ test("a run left running without a wait is tried again on a minute, not every pa
     first.gaps.some((gap) => gap.startsWith(`${accountId}:`)),
     "and its failure is said in the pass's gaps",
   );
-  assert.equal((await readRun(ctx, accountId, id))?.run.state, "running");
+  const failed = (await readRun(ctx, accountId, id))?.run;
+  assert.equal(failed?.state, "running");
+  assert.equal(
+    failed?.spent.calls,
+    1,
+    "the call the provider did not answer is on the run's budget",
+  );
 
   const second = await agent.pass(new Date(at.getTime() + 10_000));
   assert.equal(second.due, 0, "the next pass does not pay for the same failure");

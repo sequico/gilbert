@@ -15,6 +15,7 @@
  */
 
 import { config } from "../config.js";
+import { errorMessage } from "../shared/errors.js";
 import { WAKE_STATE_TYPES } from "../shared/push.js";
 import { absoluteUpstream, expandTemplate } from "../upstream.js";
 
@@ -52,6 +53,9 @@ export function startAgentWake(
    */
   const bufferMax = 1 << 20;
   const maxRetryMs = 30_000;
+  /** A server that never answers is not a stream: the connect gives up. */
+  const connectMs = 30_000;
+  let failing = false;
   let stopped = false;
   let controller: AbortController | null = null;
   let timer: NodeJS.Timeout | null = null;
@@ -60,6 +64,8 @@ export function startAgentWake(
   const read = async (): Promise<void> => {
     const own = new AbortController();
     controller = own;
+    const connect = setTimeout(() => own.abort(), connectMs);
+    connect.unref();
     try {
       const res = await fetch(url, {
         headers: {
@@ -68,6 +74,7 @@ export function startAgentWake(
         },
         signal: own.signal,
       });
+      clearTimeout(connect);
       if (!res.ok || !res.body) throw new Error(`the wake stream answered ${res.status}`);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -102,6 +109,10 @@ export function startAgentWake(
           const frame = buffer.slice(0, at);
           buffer = buffer.slice(at + 2);
           wait = retryMs;
+          if (failing) {
+            failing = false;
+            console.info("[gilbert] agent: the wake stream is back");
+          }
           // A frame's event name is its own line; data and comments are not.
           if (/(^|\n)event:[ \t]*state[ \t]*(\n|$)/.test(frame)) {
             try {
@@ -116,6 +127,7 @@ export function startAgentWake(
           throw new Error("the wake stream sent a frame with no end");
       }
     } catch (err) {
+      clearTimeout(connect);
       // A parser error or the cap is not the server closing: the body may still
       // be open, so it is aborted before the reconnect replaces the controller.
       own.abort();
@@ -127,8 +139,16 @@ export function startAgentWake(
     if (stopped) return;
     try {
       await read();
-    } catch {
-      // A refused, dropped or aborted stream: the interval covers the gap.
+    } catch (err) {
+      // A refused, dropped or aborted stream: the interval covers the gap. One
+      // line, not one per retry, so a deployment with no working push is not
+      // silent and not noisy.
+      if (!stopped && !failing) {
+        failing = true;
+        console.warn(
+          `[gilbert] agent: the wake stream failed, so the ten-second pass is the clock: ${errorMessage(err)}`,
+        );
+      }
     }
     if (stopped) return;
     timer = setTimeout(() => void run(), wait);

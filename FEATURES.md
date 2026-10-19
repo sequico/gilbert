@@ -339,7 +339,8 @@ withdrawn in Stalwart needs no restart.
 **A run that ended more than a year ago leaves the working set**: the agent moves
 it to `runs/archive/<year-month>/` in the same account — kept as a document,
 never deleted — so the runs folder every pass lists stays bounded to the year.
-A run still running, or one that ended inside the year, is not moved; a pass
+A run still running, one waiting on a person, or one that ended inside the year
+is not moved; a pass
 moves a bounded batch, and the archive runs even while the agent is switched
 off, because it is housekeeping rather than a decision. The runs panel reads a
 month of it back (`runs/archive/<year-month>/`), and every run carries the

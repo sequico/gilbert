@@ -11,7 +11,7 @@ import {
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import { RUN_STATE_LABELS, RunCard } from "@/views/admin/agent/RunCard";
-import { metricsOf } from "./metrics";
+import { metricsOf, sameRunHeader } from "./metrics";
 
 /** How many runs one page of the listing shows, one row each. */
 const RUNS_PAGE = 10;
@@ -154,18 +154,6 @@ function RunRow({
   );
 }
 
-/** Whether a poll changed a run's header: what the list draws and its numbers. */
-function sameHeader(a: RunSummary, b: RunSummary): boolean {
-  return (
-    a.state === b.state &&
-    a.ended?.at === b.ended?.at &&
-    a.spent.calls === b.spent.calls &&
-    a.spent.steps === b.spent.steps &&
-    a.refused === b.refused &&
-    a.steps === b.steps
-  );
-}
-
 /** The runs one group has worked, as its own account carries them. */
 export function GroupRuns({
   group,
@@ -233,7 +221,7 @@ export function GroupRuns({
             let changed = false;
             const next = held.map((one) => {
               const now = fresh.get(one.id);
-              if (!now || sameHeader(now, one)) return one;
+              if (!now || sameRunHeader(now, one)) return one;
               changed = true;
               return now;
             });

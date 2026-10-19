@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunSummary } from "@/lib/agentAdmin";
-import { metricsOf, periodSince } from "../agents/metrics";
+import { metricsOf, periodSince, sameRunHeader } from "../agents/metrics";
 
 /** One run as the listing carries it, with only the fields the tally reads. */
 function listed(id: string, run: Record<string, unknown> | null): RunSummary {
@@ -92,5 +92,19 @@ describe("the runs' tally", () => {
     expect(total.runs).toBe(0);
     expect(total.calls).toBe(0);
     expect(total.promptTokens).toBe(0);
+  });
+});
+
+describe("the list's header", () => {
+  it("sees the wall time of a wave even when no call or state moved", () => {
+    const base = listed("slow", {
+      state: "running",
+      plan: [{ state: "open" }],
+      spent: { steps: 0, calls: 1, ms: 10 },
+    });
+    expect(sameRunHeader(base, { ...base })).toBe(true);
+    expect(sameRunHeader(base, { ...base, spent: { ...base.spent, ms: 20 } })).toBe(
+      false,
+    );
   });
 });

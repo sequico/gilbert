@@ -6,7 +6,12 @@
  * A run that ended more than twelve months ago is **moved**, not deleted, to
  * `runs/archive/<year-month>/` in the same account: the record is still the
  * group's, still a document, and the month it ended in is its drawer. A run that
- * is still running, or ended inside the year, stays where it is.
+ * is still running, waiting on a person, or ended inside the year, stays where
+ * it is.
+ *
+ * A blocked run keeps its question in the working set, however old: the answer
+ * is correlated against the runs a pass reads (`changes.ts`), and a drawer is
+ * not read for it. Only an ending nobody is waiting on is archived.
  *
  * The move is a conditional FileNode write (the account's state as `ifInState`),
  * retried once like every other writer here; a move that keeps losing is a gap
@@ -51,7 +56,10 @@ const retryAt = new Map<string, number>();
  * for a run still running, which is never archived.
  */
 export function archiveMonth(run: RunRecord["run"]): string | null {
-  if (run.state === "running") return null;
+  // A run still working, or one parked on a person, is not closed: the answer
+  // that comes back is recognised against the working set, and a drawer has no
+  // reader for it.
+  if (run.state === "running" || run.state === "blocked") return null;
   const at = run.ended?.at;
   if (typeof at !== "string") return null;
   const ended = new Date(at);

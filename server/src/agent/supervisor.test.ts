@@ -565,6 +565,45 @@ test("a claim that lapses is taken over, and said once", async (t) => {
   );
 });
 
+test("stop waits for the pass in flight before releasing the claim", async (t) => {
+  /*
+   * A pass holds the installation's claim. Releasing it beside a pass that is
+   * still working hands the runs to a peer while this process is still writing
+   * them, so stop joins the pass first.
+   */
+  let release!: () => void;
+  let started = false;
+  let loopStopped = false;
+  const loop: PassableLoop = {
+    async pass(): Promise<PassSummary> {
+      started = true;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return passSummary(true, 1);
+    },
+    stop(): void {
+      loopStopped = true;
+    },
+  };
+  const { log } = collector();
+  const process = supervise({ loop, intervalMs: 10_000, log });
+  t.after(() => process.stop());
+  await waitFor(() => started);
+
+  let resolved = false;
+  const stopping = process.stop().then(() => {
+    resolved = true;
+  });
+  await sleep(20);
+  assert.equal(resolved, false, "stop does not answer while the pass is in flight");
+  assert.equal(loopStopped, false, "nor does it release the claim");
+
+  release();
+  await stopping;
+  assert.equal(loopStopped, true, "the claim is released once the pass has ended");
+});
+
 test("stop gives up the schedule and the loop's alarms", async (t) => {
   const stand = standInLoop();
   const { log } = collector();
@@ -572,7 +611,7 @@ test("stop gives up the schedule and the loop's alarms", async (t) => {
   t.after(() => process.stop());
   await sleep(30);
   const before = stand.passes;
-  process.stop();
+  await process.stop();
   assert.equal(stand.stopped, true, "the loop's own alarms are given up");
   await sleep(40);
   assert.ok(

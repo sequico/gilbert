@@ -62,13 +62,18 @@ export async function recalled<T>(
 }
 
 /**
- * Forget what every unit remembered: the one thing a write owes them.
+ * Forget what the units remembered: all of them, or the one scope named.
  *
- * Called on any write, and deliberately not scoped to the unit that wrote: a
- * reader cannot see who writes. Another request, a suite's own fixture, the
- * agent in this process -- all of them write through the same mail client, and a
- * memory only its own writer could drop would serve a listing from before a
- * write it never made. Dropping everything costs a read, and only a read.
+ * Called with no argument on any write, and deliberately not scoped to the unit
+ * that wrote: a reader cannot see who writes. Another request, a suite's own
+ * fixture, the agent in this process -- all of them write through the same mail
+ * client, and a memory only its own writer could drop would serve a listing from
+ * before a write it never made. Dropping everything costs a read, and only a
+ * read.
+ *
+ * A **pass** calls it with its own context at the start: the pass is the unit
+ * the agent's folder levels are read for, and a browser request's memory is not
+ * its to drop.
  */
 export function forgetRemembered(scope?: object): void {
   if (scope) {

@@ -127,12 +127,10 @@ interface AgentProcess {
   /** Give up the schedule, the loop's alarms and the claim it holds. */
   stop(): Promise<void>;
   /**
-   * Ask for a pass now — the push receiver calls this when Stalwart says mail or
-   * the app folder changed (chat among them; see `push.ts` for the trial-phase
-   * limit — in this phase the wake is meant for chat and email, and whether it
-   * becomes every surface is still to be decided). Bursts coalesce into one
-   * pass, and a kick that lands while a pass is running asks for one more,
-   * never two at once.
+   * Ask for a pass now — the agent's wake stream (`wake.ts`) calls this when
+   * Stalwart says mail or the app folder changed; the state types it asks for
+   * are `WAKE_STATE_TYPES`. Bursts coalesce into one pass, and a kick that lands
+   * while a pass is running asks for one more, never two at once.
    */
   kick(): void;
 }
@@ -148,8 +146,9 @@ export function supervise(options: SupervisorOptions): AgentProcess {
   const log = options.log ?? ((line: string) => console.log(line));
   const intervalMs = options.intervalMs ?? AGENT_PASS_INTERVAL_MS;
   const now = options.now ?? (() => new Date());
-  let running = false;
   let stopped = false;
+  /** The pass in flight, so stop can wait for it before releasing the claim. */
+  let inFlight: Promise<void> | null = null;
   /** A push that arrived while a pass was running asks for one more. */
   let queued = false;
   /** Pushes within this window are one reason to work. */
@@ -175,53 +174,57 @@ export function supervise(options: SupervisorOptions): AgentProcess {
    */
   let saidGaps = new Set<string>();
 
-  async function pass(): Promise<void> {
-    if (stopped) return;
-    if (running) {
+  function pass(): Promise<void> {
+    if (stopped) return Promise.resolve();
+    if (inFlight) {
       queued = true;
-      return;
+      return inFlight;
     }
-    running = true;
-    try {
-      const summary = await options.loop.pass(now());
-      if (summary.claimed) {
-        if (heldByPeer) {
-          heldByPeer = false;
-          log("[gilbert] agent: the installation's claim is this process's again");
-        }
-        if (summary.accounts === 0) {
-          if (!idle) {
-            idle = true;
+    const work = (async () => {
+      try {
+        const summary = await options.loop.pass(now());
+        if (summary.claimed) {
+          if (heldByPeer) {
+            heldByPeer = false;
+            log("[gilbert] agent: the installation's claim is this process's again");
+          }
+          if (summary.accounts === 0) {
+            if (!idle) {
+              idle = true;
+              log(
+                "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
+              );
+            }
+          } else if (idle) {
+            idle = false;
             log(
-              "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
+              "[gilbert] agent: the Master works a group again, so the agent is working it",
             );
           }
-        } else if (idle) {
-          idle = false;
+          for (const gap of summary.gaps)
+            if (!saidGaps.has(gap)) log(`[gilbert] agent: ${gap}`);
+          saidGaps = new Set(summary.gaps);
+        } else if (!heldByPeer) {
+          heldByPeer = true;
           log(
-            "[gilbert] agent: the Master works a group again, so the agent is working it",
+            "[gilbert] agent: another process holds the installation's claim, so this one waits its turn",
           );
         }
-        for (const gap of summary.gaps)
-          if (!saidGaps.has(gap)) log(`[gilbert] agent: ${gap}`);
-        saidGaps = new Set(summary.gaps);
-      } else if (!heldByPeer) {
-        heldByPeer = true;
+      } catch (err) {
         log(
-          "[gilbert] agent: another process holds the installation's claim, so this one waits its turn",
+          `[gilbert] agent: the pass failed and the next one will try again: ${errorMessage(err)}`,
         );
+      } finally {
+        if (queued && !stopped) {
+          queued = false;
+          kick();
+        }
       }
-    } catch (err) {
-      log(
-        `[gilbert] agent: the pass failed and the next one will try again: ${errorMessage(err)}`,
-      );
-    } finally {
-      running = false;
-      if (queued && !stopped) {
-        queued = false;
-        kick();
-      }
-    }
+    })();
+    inFlight = work.finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
   }
 
   /**
@@ -248,6 +251,10 @@ export function supervise(options: SupervisorOptions): AgentProcess {
       stopped = true;
       clearInterval(timer);
       if (kickTimer) clearTimeout(kickTimer);
+      // The claim is released only after the pass in flight has finished: a
+      // release beside a working pass hands the installation to a peer while
+      // this one is still writing the runs it holds.
+      await inFlight;
       await options.loop.stop();
       log("[gilbert] agent: stopping, and the claim is released");
     },

@@ -67,3 +67,21 @@ export function metricsOf(list: readonly RunSummary[], since?: Date): RunMetrics
   }
   return total;
 }
+
+/**
+ * Whether a poll changed the header a row is drawn from.
+ *
+ * `spent.ms` is part of it: a wave records its outcomes and wall time without
+ * a new model call, and an open detail reads the document when this changes.
+ */
+export function sameRunHeader(a: RunSummary, b: RunSummary): boolean {
+  return (
+    a.state === b.state &&
+    a.ended?.at === b.ended?.at &&
+    a.spent.calls === b.spent.calls &&
+    a.spent.steps === b.spent.steps &&
+    a.spent.ms === b.spent.ms &&
+    a.refused === b.refused &&
+    a.steps === b.steps
+  );
+}

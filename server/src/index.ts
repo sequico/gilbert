@@ -129,11 +129,6 @@ async function main() {
     log: (line: string) => console.log(line),
   });
   /*
-   * A change Stalwart pushes wakes a pass now, whatever surface it names: the
-   * interval stays the floor, and the push is what makes mail, chat and a file
-   * land inside a second rather than inside ten.
-   */
-  /*
    * The agent's own event stream, with the Master's credential: one upstream
    * connection, open with every tab closed. Stalwart's StateChange is the
    * reason for a pass and the interval is the floor; a stream that drops is
