@@ -532,13 +532,19 @@ export async function readWorkorderWithReach(
   reach: WorkorderReach,
   uid: string,
   readParts?: Map<string, WorkorderFound | null>,
+  /**
+   * The root the caller already holds — a write's own answer. A step write has
+   * just read or written it, and reading it again would download the document
+   * it produced; a caller with nothing in hand leaves this out.
+   */
+  held?: WorkorderDoc,
 ): Promise<WorkorderSummary | null> {
   const id = (uid ?? "").trim();
   if (!id) return null;
-  const root = await findRoot(reach.ctx, reach.accountId, id);
+  const root = held ?? (await findRoot(reach.ctx, reach.accountId, id))?.doc;
   if (!root) return null;
   // Visibility first, the same as the list: a workorder the caller may not see
   // is not composed at all.
-  if (!(await maySee(reach, root.doc))) return null;
-  return summaryOf(reach, root.doc, readParts);
+  if (!(await maySee(reach, root))) return null;
+  return summaryOf(reach, root, readParts);
 }

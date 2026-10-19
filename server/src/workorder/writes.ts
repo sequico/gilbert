@@ -526,6 +526,10 @@ export async function checkStep(
   // not read one per group a second time (empty when nothing was reconciled,
   // which leaves that read whole).
   let readParts = new Map<string, WorkorderFound | null>();
+  // The root the answer is composed from, when this request already holds it:
+  // a global check's write leaves it behind, a group's is the one read for the
+  // state rule. Reading it back would download what is already in hand.
+  let heldRoot: WorkorderDoc | null = null;
   if (input?.scope === "global") {
     /*
      * The same rule the read uses, asked before the write rather than after it:
@@ -560,6 +564,7 @@ export async function checkStep(
     // The document the gates pass reads is the one this write leaves behind:
     // the step is on the root, so its read is already in hand under the
     // compare-and-set's own.
+    heldRoot = written;
     readParts = await recordOpenedGates(reach, uid, written);
   } else if (input?.scope === "group") {
     const group = (input.group ?? "").trim();
@@ -592,6 +597,7 @@ export async function checkStep(
       note,
       by: session.username,
     });
+    heldRoot = root;
     readParts = await recordOpenedGates(reach, uid, root);
   } else
     throw new WorkorderAdminError(
@@ -599,7 +605,12 @@ export async function checkStep(
       'The scope must be "global" or "group".',
     );
 
-  const summary = await readWorkorderWithReach(reach, uid, readParts);
+  const summary = await readWorkorderWithReach(
+    reach,
+    uid,
+    readParts,
+    heldRoot ?? undefined,
+  );
   if (!summary)
     throw new WorkorderAdminError(
       "workorder_not_found",
@@ -760,26 +771,37 @@ export async function closeWorkorder(
       "A workorder is replaced by the one that succeeds it, which names that workorder: replace it rather than closing it into that state.",
       409,
     );
-  // The workorder as it stands, read once: it is the guard's input for a
-  // completion and the last-known state the answer is built from, so a close
-  // composes it once.
-  const current = await readWorkorder(session, id);
-  // A workorder is not completed over an unfinished checklist: an open step is
-  // done, or explicitly skipped with a reason, first. The guard is here, on the
-  // effect, so no surface can complete around it.
-  if (state === "completed") {
-    const openSteps = (current?.parts ?? [])
-      .flatMap((part) => part.groups.flatMap((group) => group.items))
-      .flatMap((item) => item.steps)
-      .filter((step) => step.state === "open").length;
-    if (openSteps > 0)
-      throw new WorkorderAdminError(
-        "workorder_open_steps",
-        "The workorder still has open steps: finish them, or set each one skipped with a reason, before completing it.",
-        409,
-      );
-  }
-  return setRootState(session, id, state, null, current);
+  /*
+   * The workorder as it stands, read once: it is the answer's base, and the
+   * same pass gives the reach the guard re-reads through. A close composes it
+   * once, not twice.
+   */
+  const reach = await workorderReach(session);
+  const current = await readWorkorderWithReach(reach, id);
+  /*
+   * A workorder is not completed over an unfinished checklist: an open step is
+   * done, or explicitly skipped with a reason, first. The check runs on the
+   * document the compare-and-set already reads, so a step a member reopens
+   * between this pass's first look and the write is not completed over.
+   */
+  const guard =
+    state === "completed"
+      ? async (): Promise<void> => {
+          const fresh = await readWorkorderWithReach(reach, id);
+          if (!fresh) return;
+          const openSteps = fresh.parts
+            .flatMap((part) => part.groups.flatMap((group) => group.items))
+            .flatMap((item) => item.steps)
+            .filter((step) => step.state === "open").length;
+          if (openSteps > 0)
+            throw new WorkorderAdminError(
+              "workorder_open_steps",
+              "The workorder still has open steps: finish them, or set each one skipped with a reason, before completing it.",
+              409,
+            );
+        }
+      : undefined;
+  return setRootState(session, id, state, null, current, guard);
 }
 
 /**
@@ -802,6 +824,8 @@ async function setRootState(
    * two fields moved — composing every part again would answer nothing new.
    */
   previous: WorkorderSummary | null = null,
+  /** A rule on the root the compare-and-set reads, e.g. no open steps. */
+  guard?: (found: WorkorderFound) => Promise<void> | void,
 ): Promise<WorkorderSummary> {
   const { ctx, accountId } = await masterAccount(session);
   const activeId = await ensureFolderPath(ctx, accountId, WORKORDER_FOLDER);
@@ -824,6 +848,7 @@ async function setRootState(
       ...(state === "replaced" ? { replacedBy } : {}),
       updated: { by, at },
     }),
+    guard,
   );
   /*
    * The folder is a projection of the state, not the state itself, and the move
@@ -950,7 +975,20 @@ export async function replaceWorkorder(
 
   const successor = await createWorkorder(session, input);
   try {
-    await setRootState(session, id, "replaced", successor.uid, predecessor);
+    /*
+     * The predecessor's state is checked again on the document the write reads:
+     * two replacements racing would otherwise both pass the check above and the
+     * last would win, leaving one successor named by nobody. The loser's own
+     * successor is taken back by the compensation below.
+     */
+    await setRootState(session, id, "replaced", successor.uid, predecessor, (found) => {
+      if (isTerminalState(found.doc.state ?? "running"))
+        throw new WorkorderAdminError(
+          "workorder_already_closed",
+          "That workorder is already closed, so nothing succeeds it.",
+          409,
+        );
+    });
   } catch (err) {
     const why = errorMessage(err);
     const undone = await undoSuccessor(session, successor);
