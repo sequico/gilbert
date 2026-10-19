@@ -66,8 +66,11 @@ import {
  * (`views/admin/agents/AgentOverview.tsx`).
  *
  * 212 -> 214: the cached and uncached token tiles (`AgentOverview.tsx`).
+ *
+ * 214 -> 216: a run row's unreadable label and its steps/calls summary
+ * (`views/admin/agents/GroupRuns.tsx`).
  */
-const MISSING_MAX = 214;
+const MISSING_MAX = 216;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.
