@@ -589,7 +589,9 @@ function firstLine(text: string): string {
  */
 type ModelAnswer =
   | { kind: "decision"; rules: string[]; facts: Record<string, string> }
-  | { kind: "read"; name: string; args: unknown };
+  | { kind: "read"; name: string; args: unknown }
+  /** A short chat reply with no work behind it: the fast path, one call. */
+  | { kind: "reply"; text: string };
 
 /**
  * Read one answer from the model, or say what is wrong with it.
@@ -614,11 +616,19 @@ export function parseAnswerDetailed(
   const keys = Object.keys(raw);
   const hasRules = keys.includes("rules");
   const hasRead = keys.includes("read");
-  if (hasRules === hasRead)
+  const hasReply = keys.includes("reply");
+  if ([hasRules, hasRead, hasReply].filter(Boolean).length !== 1)
     return {
       problem:
-        'The answer must carry "rules" and "facts" when it decides, or "read" when it looks something up — and never both.',
+        'The answer carries exactly one of "rules" and "facts", "read", or "reply".',
     };
+  if (hasReply) {
+    if (keys.length !== 1)
+      return { problem: 'An answer that replies carries nothing beside "reply".' };
+    if (typeof raw.reply !== "string" || !raw.reply.trim())
+      return { problem: '"reply" must be the words to say.' };
+    return { answer: { kind: "reply", text: raw.reply.trim() } };
+  }
   if (hasRead) {
     const unknown = keys.filter((key) => key !== "read");
     if (unknown.length)
@@ -747,6 +757,8 @@ export async function decideEvent(
     "\"facts\" is what the change is about, in the group's own vocabulary: which booking, which shipper, which client, and what is being asked. They are the change's own facts and sit beside the rules, not inside them. Its names are yours; its values are text.",
     "You never decide what may be done: what is allowed is the authority classes, not you, and an answer that carries a capability, a tool or an authorisation is refused.",
     `When you need the group's own state to answer, look it up first: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookups.`,
+    "In the knowledge base, list the pages first (knowledge.list) and read one by a title it returned: never guess a title.",
+    'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
     "The tools you may read with:",
     ...READING_TOOLS.map((tool) => `- ${tool.name}: ${tool.description}`),
     ...heads,
@@ -777,6 +789,7 @@ export async function decideEvent(
           );
       return parsed.answer;
     }
+    if (parsed.answer.kind === "reply") return parsed.answer;
     /*
      * The read is the turn's own to make, and `runTool` is the only door to it:
      * a name that is not in the reading catalogue (a tool that writes, or no

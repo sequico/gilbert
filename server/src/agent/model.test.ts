@@ -282,7 +282,7 @@ test("a private provider is refused unless the operator's switch allows it (the 
 test("an answer that is not the demanded shape is refused, never guessed at", async () => {
   const cases: Array<[unknown, string]> = [
     ["not an object", "must be a JSON object"],
-    [{ summary: "I decided something" }, 'carry "rules" and "facts"'],
+    [{ summary: "I decided something" }, 'exactly one of "rules" and "facts"'],
     [{ rules: ["shipper-answer"] }, '"facts" must be an object'],
     [{ rules: "shipper-answer", facts: {} }, '"rules" must be a list of rule names'],
     [

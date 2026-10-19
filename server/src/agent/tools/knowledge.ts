@@ -8,6 +8,7 @@
 import { findFolderPath } from "../../appFolder.js";
 import {
   KnowledgeAdminError,
+  listArticles,
   proposeArticle,
   readArticle,
 } from "../../knowledgeAdmin.js";
@@ -19,6 +20,24 @@ import {
 } from "../../shared/knowledge.js";
 import { argsRecord, notFound, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
+
+export const listKnowledge = defineTool({
+  name: "knowledge.list",
+  description:
+    "List the pages and folders of this account's knowledge base, with their " +
+    "titles. List before reading: a title is taken from this answer, never guessed.",
+  authority: "reversible",
+  writes: false,
+  parse: () => ({}),
+  run: async ({ ctx, accountId }) => {
+    const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
+    if (tier === null) return { pages: [] };
+    const items = await listArticles(ctx, accountId, tier);
+    return {
+      pages: items.map(({ kind, title, folder }) => ({ kind, title, folder })),
+    };
+  },
+});
 
 export const readKnowledgePage = defineTool({
   name: "knowledge.read",

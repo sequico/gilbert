@@ -231,6 +231,21 @@ export async function workChanges(
      * decision turn too, because which rules apply is asked of the same agent
      * (ADR 0035).
      */
+    /*
+     * A chat message is read once here, so the decision turn has its words
+     * without spending a model call and a round trip on `chat.read`.
+     */
+    const message =
+      event.source === "chat" && event.change !== "destroyed"
+        ? await readChatMessageAt(deps.ctx, accountId, event.where)
+        : null;
+    const detail = message
+      ? {
+          from: message.from,
+          text: message.text,
+          ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+        }
+      : null;
     const meter = usageMeter();
     const decision = await decideEvent(
       deps.access,
@@ -239,10 +254,25 @@ export async function workChanges(
         rules,
         prose: await deps.proseAbove(accountId),
         memory: recallFacts((await deps.memory()).facts, woke, accountId),
+        ...(detail ? { detail } : {}),
       },
       deps.readingCall(accountId, event, candidates),
       { meter },
     );
+    if (decision.kind === "reply") {
+      /*
+       * The fast path: a message that only wants words is answered by the call
+       * that decided it, instead of opening a run and a step to say the same.
+       */
+      await postChatMessage(
+        deps.ctx,
+        accountId,
+        deps.ctx.username,
+        decision.text,
+        message?.id ? { replyTo: message.id } : {},
+      );
+      continue;
+    }
     if (decision.kind !== "decision") continue;
     /*
      * The run this change answers, when it answers one, is asked for **once**
