@@ -92,7 +92,7 @@ export const readNode = defineTool({
         `"${path}" is ${held.file.size} bytes; a read stops at ${READ_BYTES_MAX}.`,
         413,
       );
-    const found = await readVisibleFileBytes(ctx, accountId, path);
+    const found = await readVisibleFileBytes(ctx, accountId, path, READ_BYTES_MAX);
     if (!found) throw notFound(`file "${path}" in this account's Files`);
     // A node that declares no size (or lies about it) is caught after the
     // bytes are here, before a parser or the model is handed them.

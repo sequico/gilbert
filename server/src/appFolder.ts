@@ -1181,6 +1181,8 @@ export async function readVisibleFileBytes(
   ctx: Ctx,
   accountId: string,
   path: string,
+  /** The most bytes to read; the store's own ceiling when absent. */
+  maxBytes?: number,
 ): Promise<{ bytes: Uint8Array; file: FileNodeLike; name: string } | null> {
   const found = await findVisibleFile(ctx, accountId, path);
   if (!found) return null;
@@ -1193,6 +1195,7 @@ export async function readVisibleFileBytes(
     String(found.file.blobId),
     found.name,
     type,
+    maxBytes,
   );
   return { bytes, file: found.file, name: found.name };
 }

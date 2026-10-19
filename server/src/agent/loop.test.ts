@@ -75,7 +75,7 @@ import type { InstallationModel } from "../shared/installation.js";
 
 const { modelAccess } = await import("./model.js");
 const { findChatMessages, postChatMessage } = await import("../groupChat.js");
-const { createRule, rulePath } = await import("./rules.js");
+const { createRule, deleteRule, rulePath } = await import("./rules.js");
 const { factPath, listFacts } = await import("./memory.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { sameSubject } = await import("../shared/memory.js");
@@ -2000,6 +2000,59 @@ test("the groups are worked together, not one after another", async () => {
       `neither group waited for the other to finish (arrived=${arrived}, ${account}=${line})`,
     );
   }
+});
+
+test("the agent's own send is not a change a rule watching mail wakes on", async () => {
+  /*
+   * A send creates an Email in the group's Sent folder. Leaving it as group
+   * activity would let a rule watching mail answer the agent's own reply, and
+   * every answer begets another: the loop the chat's own-message skip prevents.
+   */
+  const id = "own-send";
+  const group = "a3"; // the mock's group mailbox with its own sending identity
+  await createRule(ctx, group, { ...rule(id), sends: true });
+  const agent = loop(HOLDER, { accounts: async () => [group] });
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: [
+      {
+        name: "mail.send",
+        arguments: {
+          to: "ops@shipper.example",
+          subject: "re: the booking",
+          text: "filed with the booking",
+        },
+      },
+    ],
+  });
+  answerWith({ done: "sent the answer" });
+  await clientOf(ctx).call(
+    "Email/set",
+    {
+      accountId: group,
+      create: {
+        c: {
+          subject: "a booking to answer",
+          from: [{ email: "ops@shipper.example" }],
+          to: [{ email: "team@example.org" }],
+          mailboxIds: { inbox: true },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  await agent.pass();
+  const afterFirst = seen.length;
+
+  await agent.pass();
+  assert.equal(
+    seen.length,
+    afterFirst,
+    "the Sent message does not buy a decision call",
+  );
+  await deleteRule(ctx, group, id);
 });
 
 test("the switch off answers a mention and a mail that names the agent alone, with no model call", async () => {

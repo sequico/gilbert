@@ -425,7 +425,11 @@ export class AgentLoop {
        * thing that has to read it.
        */
       const offAccounts = [...accounts];
-      const master = filesAccountId(this.ctx);
+      // The agent's own mailbox is the session's primary **mail** account, which
+      // is not necessarily the account the installation keeps its documents in.
+      const master =
+        this.ctx.session.primaryAccounts?.[CAPABILITIES.mail] ??
+        filesAccountId(this.ctx);
       if (master && !offAccounts.includes(master)) offAccounts.push(master);
       await Promise.all(
         offAccounts.map(async (accountId) => {
@@ -521,6 +525,17 @@ export class AgentLoop {
             moved.size ? records.filter((record) => !moved.has(record.run.id)) : records,
           );
           if (after) records = after;
+          /*
+           * The filter on the pass side: the last state a store produced is
+           * remembered as the cached set's state. The next pass reads the
+           * account's state; when it is still that one, nothing but this
+           * process's own run writes moved it, and the working set is the one
+           * already held — no folder walk, no downloads. A person's write (a
+           * stop among them) moves the state to a value this process did not
+           * produce, so it is listed.
+           */
+          const selfState = this.passState.get(accountId);
+          if (selfState && records) this.runReadings.set(accountId, { state: selfState, records });
         } catch (err) {
           summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
         }
@@ -1076,11 +1091,15 @@ export class AgentLoop {
        * the run rather than letting a wave run past the ceiling.
        */
       const room = RUN_STEPS_MAX - current.spent.steps;
-      if (choice.calls.length > room) {
+      const asked = choice.calls.reduce((sum, call) => {
+        const tool = this.catalogue.find((one) => one.name === call.name);
+        return sum + (tool?.spend.steps ?? 0);
+      }, 0);
+      if (asked > room) {
         current = this.withStep(
           current,
           "the model's answer",
-          `refused: it asked for ${choice.calls.length} steps with ${room} left in the run's budget`,
+          `refused: it asked for ${asked} steps with ${room} left in the run's budget`,
           false,
         );
         refused += 1;

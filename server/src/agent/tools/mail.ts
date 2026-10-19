@@ -527,6 +527,20 @@ function messageTextOf(message: Record<string, unknown>): string {
 }
 
 /** Whether an address is one this group itself sends as. */
+/** The sender of one message, without reading its body. */
+export async function senderOf(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<string | null> {
+  const answer = await clientOf(ctx).call<{
+    list?: Array<Record<string, unknown>>;
+  }>("Email/get", { accountId, ids: [id], properties: ["from"] }, [
+    CAPABILITIES.mail,
+  ]);
+  return addressesIn(answer.list?.[0]?.from)[0]?.email ?? null;
+}
+
 export async function isGroupAddress(
   ctx: Ctx,
   accountId: string,

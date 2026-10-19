@@ -256,7 +256,7 @@ export async function readAccountEvents(
    * a pass bounds it so a backlog is worked over several passes instead of
    * paying a model call per change in one.
    */
-  opts: { maxPages?: number } = {},
+  opts: { maxPages?: number; maxChanges?: number } = {},
 ): Promise<AccountEvents> {
   let mail = cursor.mail;
   let files = cursor.files;
@@ -266,7 +266,13 @@ export async function readAccountEvents(
   for (;;) {
     let page: { mail: ChangeSet; files: ChangeSet };
     try {
-      page = await readChanges(ctx, accountId, mail, files);
+      page = await readChanges(
+        ctx,
+        accountId,
+        mail,
+        files,
+        opts.maxChanges ?? MAX_CHANGES_PER_READ,
+      );
     } catch (err) {
       if (err instanceof JmapError && err.type === "cannotCalculateChanges")
         return {
@@ -369,17 +375,18 @@ async function readChanges(
   accountId: string,
   mail: string,
   files: string,
+  maxChanges: number,
 ): Promise<{ mail: ChangeSet; files: ChangeSet }> {
   const answered: JmapResult = await clientOf(ctx).chain(
     [
       [
         "Email/changes",
-        { accountId, sinceState: mail, maxChanges: MAX_CHANGES_PER_READ },
+        { accountId, sinceState: mail, maxChanges },
         "mail",
       ],
       [
         FILENODE_CHANGES,
-        { accountId, sinceState: files, maxChanges: MAX_CHANGES_PER_READ },
+        { accountId, sinceState: files, maxChanges },
         "files",
       ],
     ],
