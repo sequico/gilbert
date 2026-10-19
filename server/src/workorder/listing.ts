@@ -480,6 +480,25 @@ export async function listWorkorders(
   const reach = await workorderReach(session);
   const roots = await rootDocs(reach.ctx, reach.accountId);
   /*
+   * One listing of each registry folder the page will read, before the page is
+   * composed: the level memory holds an answer rather than a promise, so
+   * parallel readers would otherwise ask the same folder while the first
+   * answer is still in flight.
+   */
+  if (roots.length > 1) {
+    const accounts = reach.admin
+      ? [...reach.masterGroups.values()]
+      : [...reach.own].flatMap((name) => {
+          const accountId = reach.masterGroups.get(name);
+          return accountId ? [accountId] : [];
+        });
+    const props = [...FILE_PROPS, ...STAMP_PROPS];
+    await mapLimit(accounts, READ_CONCURRENCY, async (accountId) => {
+      const folderId = await findFolderPath(reach.ctx, accountId, WORKORDER_FOLDER);
+      if (folderId) await fileChildren(reach.ctx, accountId, folderId, props);
+    });
+  }
+  /*
    * The roots are independent, so they are composed together, a bounded few at
    * a time: in series the list cost one round trip per workorder, and it is
    * re-read on every change the rail carries.
