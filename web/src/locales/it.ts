@@ -1001,8 +1001,6 @@ export const catalog: Catalog = {
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizzato da {by}: {authority} per {target} — «{what}»",
     "The installation's line": "La riga dell'installazione",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
-      "La prosa più esterna che l'agente riceve, sopra l'istruzione di ogni gruppo: come questa installazione vuole che lavori, in un paragrafo. La pubblicazione vale dalla passata successiva.",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Qualcun altro ha modificato la prosa di questo gruppo. L'elenco è stato ricaricato e la tua modifica non è stata salvata.",
     "Waiting: {what} — asked in {channel} {id}":

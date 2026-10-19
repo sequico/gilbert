@@ -460,6 +460,6 @@ describe("the installation document surface", () => {
     await render();
 
     expect(input("model-provider").value).toBe("");
-    expect(host.textContent ?? "").toContain("has no agent");
+    expect(host.textContent ?? "").toContain("the agent stays idle");
   });
 });

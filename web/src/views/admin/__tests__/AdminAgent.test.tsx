@@ -206,7 +206,7 @@ describe("the agent's administration surface", () => {
     await render();
 
     expect(text()).toContain("host-a#41");
-    expect(text()).toContain("every 10 seconds");
+    expect(text()).toContain("every 10 s");
     // The model is the installation section's, so it is named and linked, never
     // edited here — and the key is nowhere on this screen.
     expect(text()).toContain("openai");

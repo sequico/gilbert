@@ -39,18 +39,10 @@ export function ModelFields({
        */}
       <h2 style={{ marginTop: 24 }}>{t("The installation's model")}</h2>
       <p className="hint">
-        {t(
-          "One model serves the whole installation — every call the agent makes runs on it — and the document below is where it is named. Publishing applies at the next boot.",
-        )}
+        {t("Every agent call runs on this model. Applies at the next boot.")}
       </p>
       {documentProblem && <p className="hint">{documentProblem}</p>}
-      {!model.provider && (
-        <p className="hint">
-          {t(
-            "No model is named, so this installation has no agent: it stays idle and says so in the server's log.",
-          )}
-        </p>
-      )}
+      {!model.provider && <p className="hint">{t("No model: the agent stays idle.")}</p>}
       <div className="field-row">
         <div className="field">
           <label htmlFor="model-provider">{t("Provider")}</label>
@@ -104,9 +96,7 @@ export function ModelFields({
           }
         />
         <span className="hint">
-          {t(
-            "The key is write-only: no read hands it back, so this field is empty and every answer carries none of it. An untouched or emptied field keeps the stored key, a value replaces it, and the switch below — for a provider that needs no key, a model on this deployment's own network, say — clears it. A document that names no model carries no key.",
-          )}
+          {t("Write-only: empty keeps the stored key; the switch clears it.")}
         </span>
       </div>
       <Switch

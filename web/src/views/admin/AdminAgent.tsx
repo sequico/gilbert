@@ -155,7 +155,7 @@ export function AdminAgent() {
       <h1>{t("Agent")}</h1>
       <p className="lead">
         {t(
-          "The agent is part of the server: its own boot starts it and it asks for a pass every {n} seconds, working what the installation's groups have changed. Nothing on this page starts or stops it.",
+          "Part of the server: a pass every {n} s over the groups' changes. This page only reports.",
           { n: passSeconds },
         )}
       </p>
@@ -171,17 +171,12 @@ export function AdminAgent() {
             })}
           </p>
         ) : (
-          <p className="hint">
-            {t(
-              "No model is named, so this installation has no agent: it stays idle and says so in the server's log.",
-            )}
-          </p>
+          <p className="hint">{t("No model: the agent stays idle.")}</p>
         )}
         <p className="hint">
-          {tNode(
-            "The model is chosen in {section}, and a publish there applies at the next boot.",
-            { section: <Link to="/admin/installation">{t("Installation")}</Link> },
-          )}
+          {tNode("Chosen in {section}; applies at the next boot.", {
+            section: <Link to="/admin/installation">{t("Installation")}</Link>,
+          })}
         </p>
       </section>
 
@@ -196,20 +191,14 @@ export function AdminAgent() {
             })}
           </p>
         ) : (
-          <p className="hint">
-            {t(
-              "Nobody holds it. A claim is free until a process takes it, and a claim nobody renews is free again when its instant passes.",
-            )}
-          </p>
+          <p className="hint">{t("Nobody holds it.")}</p>
         )}
       </section>
 
       <section style={{ marginTop: 24 }}>
         <h2>{t("Runs")}</h2>
         <p className="hint">
-          {t(
-            "Each run is one document in the group's own account: the change that woke it, the plan with what each step waited on, every step's outcome, what it spent, and where it parked.",
-          )}
+          {t("One document per run: the change, the plan, the outcomes, the cost.")}
         </p>
         {directory.loadError && (
           <DirectoryLoadError loadError={directory.loadError} reload={directory.reload} />
@@ -263,7 +252,7 @@ export function AdminAgent() {
         <h2>{t("Facts")}</h2>
         <p className="hint">
           {t(
-            "The installation's memory, in the Master's own account: one small fact per sheet, with the run or the person it came from and the person who corrected it, if anyone did. What a person writes or corrects here is in force — the agent reasons from it and proposes against it rather than overwriting it, and the next pass reads it with no restart.",
+            "One fact per sheet. A person's correction is in force; the agent proposes against it.",
           )}
         </p>
         {factsError && (

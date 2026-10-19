@@ -3,6 +3,7 @@ import {
   Code,
   Info,
   KeyRound,
+  ScrollText,
   ServerCog,
   ShieldCheck,
   Tag,
@@ -17,6 +18,7 @@ import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
 import { GroupLabels } from "@/views/admin/GroupLabels";
 import { Identities } from "@/views/admin/Identities";
+import { RulesPanel } from "@/views/admin/RulesPanel";
 import { SystemSieve } from "@/views/admin/SystemSieve";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
@@ -59,6 +61,13 @@ function sections(): AdminSection[] {
       label: t("Agent"),
       icon: <Bot size={18} />,
       el: <AdminAgent />,
+      owner: "mailer",
+    },
+    {
+      id: "rules",
+      label: t("Rules"),
+      icon: <ScrollText size={18} />,
+      el: <RulesPanel />,
       owner: "mailer",
     },
     {

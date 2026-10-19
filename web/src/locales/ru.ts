@@ -634,8 +634,6 @@ export const catalog: Catalog = {
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Разрешил {by}: {authority} для {target} — «{what}»",
     "The installation's line": "Строка установки",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
-      "Самый внешний текст, который получает агент, выше собственной инструкции каждой группы: как эта установка хочет, чтобы он работал, одним абзацем. Публикация действует со следующего прохода.",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Кто-то другой изменил текст этой группы. Список перезагружен, ваша правка не сохранена.",
     "Waiting: {what} — asked in {channel} {id}":

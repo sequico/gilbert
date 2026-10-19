@@ -1288,8 +1288,6 @@ export const catalog: Catalog = {
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} tarafından yetkilendirildi: {target} için {authority} — “{what}”",
     "The installation's line": "Kurulumun satırı",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
-      "Ajana söylenen en dış metin, her grubun kendi talimatının üstünde: bu kurulumun nasıl çalışmasını istediği, tek paragrafta. Yayınlama bir sonraki geçişte geçerli olur.",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Bu grubun metnini başka biri değiştirdi. Liste yeniden yüklendi ve düzenlemeniz kaydedilmedi.",
     "Waiting: {what} — asked in {channel} {id}":

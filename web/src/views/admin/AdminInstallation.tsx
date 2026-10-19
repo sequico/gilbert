@@ -183,7 +183,7 @@ export function AdminInstallation() {
       <h2 style={{ marginTop: 24 }}>{t("The installation's line")}</h2>
       <p className="hint">
         {t(
-          "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.",
+          "How this installation wants the agent to work, above every group's instruction. Applies at the next pass.",
         )}
       </p>
       <div className="field">

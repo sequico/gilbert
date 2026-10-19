@@ -1,13 +1,12 @@
 /**
- * A group's prose, edited (ADR 0035): the standing instruction and the rules.
+ * A group's prose, edited from Administration (ADR 0035): the standing
+ * instruction and the rules.
  *
- * A member writes both with the group's session, so the panel asks the mail
- * server directly (`@/lib/agentProse`) — there is no route, because there is no
- * Master privilege in play: the group's account is one the member already holds.
- * The standing instruction is one field; a rule is its name, the surfaces it
- * watches, and what should happen, which is also one field. A rule that is
- * already filed keeps its name: renaming is a new rule and a deleted one, not a
- * document moved under a name the agent may already be carrying.
+ * The editor is the administration's section now, not a dialog in the top bar:
+ * a group's prose is decided by an installation administrator, and that is the
+ * one place the rest of those decisions live. A rule that is already filed keeps
+ * its name: renaming is a new rule and a deleted one, not a document moved under
+ * a name the agent may already be carrying.
  */
 import { RULE_SURFACES, RULE_VERSION, type RuleDoc } from "@gilbert/agent/rule";
 import { errorMessage } from "@gilbert/shared/errors";
@@ -23,7 +22,7 @@ import {
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
-import { confirmDialog, Dialog } from "@/ui/dialog";
+import { confirmDialog } from "@/ui/dialog";
 
 /** The name each surface goes by, in the order a rule's list keeps. */
 const SURFACE_LABEL: Record<(typeof RULE_SURFACES)[number], string> = {
@@ -34,7 +33,7 @@ const SURFACE_LABEL: Record<(typeof RULE_SURFACES)[number], string> = {
   files: "Files",
 };
 
-export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function RulesPanel() {
   const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
   // The route is keyed by the group's name — the address the session calls it.
   const [group, setGroup] = useState(groups[0]?.name ?? "");
@@ -64,8 +63,8 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
   }, []);
 
   useEffect(() => {
-    if (open && group) void load(group);
-  }, [open, group, load]);
+    if (group) void load(group);
+  }, [group, load]);
 
   const saveStanding = async () => {
     setBusy(true);
@@ -121,22 +120,31 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={t("Rules")} size="lg">
-      <div className="field" style={{ maxWidth: "28rem" }}>
-        <label htmlFor="rules-group">{t("Group")}</label>
-        <select
-          id="rules-group"
-          className="select"
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-        >
-          {groups.map((g) => (
-            <option key={g.accountId} value={g.name}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-      </div>
+    <div>
+      <h1>{t("Rules")}</h1>
+      <p className="hint">
+        {t("Each group's standing instruction and rules, as its agent reads them.")}
+      </p>
+      {groups.length === 0 && (
+        <p className="hint">{t("No group mailbox in this session.")}</p>
+      )}
+      {groups.length > 0 && (
+        <div className="field" style={{ maxWidth: "28rem" }}>
+          <label htmlFor="rules-group">{t("Group")}</label>
+          <select
+            id="rules-group"
+            className="select"
+            value={group}
+            onChange={(e) => setGroup(e.target.value)}
+          >
+            {groups.map((g) => (
+              <option key={g.accountId} value={g.name}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {error && (
         <div className="error-box" style={{ marginTop: 12 }}>
           {error}
@@ -215,7 +223,7 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
           </section>
         </>
       )}
-    </Dialog>
+    </div>
   );
 }
 
