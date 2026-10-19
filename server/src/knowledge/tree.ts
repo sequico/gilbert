@@ -22,6 +22,7 @@ import {
   REVISIONS_FOLDER,
   STATE_FILE,
 } from "../shared/knowledge.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { asState } from "./documents.js";
 import { KnowledgeAdminError } from "./errors.js";
 import { tierAccount } from "./scope.js";
@@ -178,19 +179,29 @@ export async function findArticle(
     parentId: string | null,
   ): Promise<ArticleFolder | null> => {
     const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
-    for (const child of children) {
-      if (child.nodeType !== "directory") continue;
+    const candidates = children.flatMap((child) => {
+      if (child.nodeType !== "directory") return [];
       const name = typeof child.name === "string" ? child.name : "";
       const childId = typeof child.id === "string" ? child.id : "";
-      if (!name || !childId || name === REVISIONS_FOLDER) continue;
-      const folder = prefix ? `${prefix}/${name}` : name;
-      const state = asState(
+      if (!name || !childId || name === REVISIONS_FOLDER) return [];
+      return [{ childId, folder: prefix ? `${prefix}/${name}` : name }];
+    });
+    /*
+     * One level's `state.json` files are read together, a bounded few at a
+     * time: the subtree walk is still depth-first, so it stops at the first
+     * match, and it does not pay a round trip per sibling to find it.
+     */
+    const level = await mapLimit(candidates, READ_CONCURRENCY, async (entry) => ({
+      ...entry,
+      state: asState(
         await readAppSheetJsonAt(
           ctx,
           accountId,
-          `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`,
+          `${KNOWLEDGE_FOLDER}/${entry.folder}/${STATE_FILE}`,
         ),
-      );
+      ),
+    }));
+    for (const { childId, folder, state } of level) {
       if (match({ nodeId: childId, folder, state }))
         return { nodeId: childId, parentId, folder };
       const nested = await walk(childId, folder, childId);

@@ -19,6 +19,7 @@ import {
   REVISIONS_FOLDER,
   STATE_FILE,
 } from "../shared/knowledge.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { asState } from "./documents.js";
 import { folderOrder } from "./editors.js";
 import { readArticle } from "./reads.js";
@@ -50,14 +51,18 @@ export async function listArticlesUnder(
   includeRetired: boolean,
 ): Promise<KnowledgeSummary[]> {
   const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
-  const direct: KnowledgeSummary[] = [];
-  const nested: KnowledgeSummary[] = [];
-  for (const child of children) {
-    if (child.nodeType !== "directory") continue;
+  /*
+   * Siblings are independent — each is one `state.json` or one `folder.json`,
+   * and a topic folder's own subtree — so they are read together, a bounded
+   * few at a time. In series a tree cost one round trip per article, which is
+   * what made a big knowledge base slow to open.
+   */
+  const found = await mapLimit(children, READ_CONCURRENCY, async (child) => {
+    if (child.nodeType !== "directory") return null;
     const name = typeof child.name === "string" ? child.name : "";
     const childId = typeof child.id === "string" ? child.id : "";
-    if (!name || !childId) continue;
-    if (name === REVISIONS_FOLDER) continue;
+    if (!name || !childId) return null;
+    if (name === REVISIONS_FOLDER) return null;
     const folder = prefix ? `${prefix}/${name}` : name;
     const state = asState(
       await readAppSheetJsonAt(
@@ -71,9 +76,9 @@ export async function listArticlesUnder(
     // is withdrawn from the tree but kept for traceability, so it is listed
     // only where a caller asks for it.
     if (state) {
-      if (isRetired(state) && !includeRetired) continue;
-      direct.push(
-        knowledgeSummary({
+      if (isRetired(state) && !includeRetired) return null;
+      return {
+        summary: knowledgeSummary({
           state,
           draft: null,
           folder,
@@ -81,31 +86,34 @@ export async function listArticlesUnder(
           parentId,
           saved: true,
         }),
-      );
-      continue;
+        nested: null,
+      };
     }
-    // No state: a topic folder, pure grouping with a place of its own.
-    direct.push(
-      knowledgeSummary({
+    // No state: a topic folder, pure grouping with a place of its own. Its own
+    // place and its subtree are independent reads.
+    const [order, descendants] = await Promise.all([
+      folderOrder(ctx, accountId, folder),
+      listArticlesUnder(ctx, accountId, childId, folder, childId, includeRetired),
+    ]);
+    return {
+      summary: knowledgeSummary({
         state: null,
         draft: null,
         folder,
         nodeId: childId,
         parentId,
         saved: false,
-        folderOrder: await folderOrder(ctx, accountId, folder),
+        folderOrder: order,
       }),
-    );
-    nested.push(
-      ...(await listArticlesUnder(
-        ctx,
-        accountId,
-        childId,
-        folder,
-        childId,
-        includeRetired,
-      )),
-    );
+      nested: descendants,
+    };
+  });
+  const direct: KnowledgeSummary[] = [];
+  const nested: KnowledgeSummary[] = [];
+  for (const item of found) {
+    if (!item) continue;
+    direct.push(item.summary);
+    if (item.nested) nested.push(...item.nested);
   }
   // The one sibling order both tiers read: by the free `order` number, then by
   // title, so a drag lands between two neighbours without renumbering the rest.

@@ -53,9 +53,10 @@ import {
   STATE_FILE,
   stateAfterApproval,
 } from "../shared/knowledge.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { asDraft, asState, titleFor } from "./documents.js";
 import { KnowledgeAdminError, requireState } from "./errors.js";
-import { readRevisions } from "./reads.js";
+import { highestRevisionNumber, revisionsExist } from "./reads.js";
 import { knowledgeFolder, tierAccount } from "./scope.js";
 import {
   type ArticleFolder,
@@ -505,16 +506,16 @@ export async function approveArticle(
   const revision = knowledgeId();
   // The article's own revision number, minted here: the highest number any
   // issued revision carried, plus one, so a pending approval that overtakes an
-  // in-force one still numbers forward rather than reusing it. The issued
-  // revisions are read as well as the state, so a `state.json` that is missing
-  // or corrupt while the store still holds revisions resumes after them rather
-  // than restarting at one.
-  const priorRevisions = await readRevisions(ctx, accountId, articlePath);
+  // in-force one still numbers forward rather than reusing it. The store's
+  // newest revision is read as well as the state, so a `state.json` that is
+  // missing or corrupt — or a revision whose own state write never landed —
+  // resumes after the store rather than restarting at one.
+  const storedRev = await highestRevisionNumber(ctx, accountId, articlePath);
   const revNumber =
     Math.max(
       existingState?.inForce?.rev ?? 0,
       existingState?.pending?.rev ?? 0,
-      ...priorRevisions.map((r) => r.rev),
+      storedRev,
     ) + 1;
   const issued: KnowledgeIssued = {
     revision,
@@ -877,6 +878,52 @@ export async function reorderArticle(
   if (!Number.isFinite(order))
     throw new KnowledgeAdminError("bad_request", "An order must be a number.");
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
+  return await writePlace({ ctx, accountId, article, order, by: admin.username });
+}
+
+/**
+ * The same write under a tier the request already resolved.
+ *
+ * A family renumber is one request carrying every sibling's new place, and
+ * resolving the tier per item would pay a live membership probe and a Master
+ * session for each one. The caller resolves it once; each item still gets its
+ * own compare-and-set, which is what keeps the numbers independent.
+ */
+export async function reorderArticleInTier(
+  tier: { ctx: Ctx; accountId: string; folderId: string },
+  folder: string,
+  order: number,
+  by: string,
+): Promise<KnowledgeSummary> {
+  if (!Number.isFinite(order))
+    throw new KnowledgeAdminError("bad_request", "An order must be a number.");
+  const clean = (folder ?? "").trim();
+  if (!clean)
+    throw new KnowledgeAdminError("bad_request", "An article folder is required.");
+  const article = await resolveArticleFolder(
+    tier.ctx,
+    tier.accountId,
+    tier.folderId,
+    clean,
+  );
+  return await writePlace({
+    ctx: tier.ctx,
+    accountId: tier.accountId,
+    article,
+    order,
+    by,
+  });
+}
+
+/** The one place write of an article's place, under the account's compare-and-set. */
+async function writePlace(spec: {
+  ctx: Ctx;
+  accountId: string;
+  article: ArticleFolder;
+  order: number;
+  by: string;
+}): Promise<KnowledgeSummary> {
+  const { ctx, accountId, article, order, by } = spec;
   const articlePath = articlePathOf(article);
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the documents, as `saveDraft` reads it: a token
@@ -891,7 +938,7 @@ export async function reorderArticle(
         const next: KnowledgeState = {
           ...state,
           order,
-          updated: { by: admin.username, at: new Date().toISOString() },
+          updated: { by, at: new Date().toISOString() },
         };
         await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, next, {
           ifInState: token,
@@ -1046,19 +1093,30 @@ export async function subtreeHasApproval(
   const folderId = await findFolderPath(ctx, accountId, articlePath);
   if (!folderId) return false;
   const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
-  for (const child of children) {
-    if (child.nodeType !== "directory") continue;
+  const found = await mapLimit(children, READ_CONCURRENCY, async (child) => {
+    if (child.nodeType !== "directory") return false;
     const name = typeof child.name === "string" ? child.name : "";
-    if (!name || name === REVISIONS_FOLDER) continue;
+    if (!name || name === REVISIONS_FOLDER) return false;
     const childPath = `${articlePath}/${name}`;
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${childPath}/${STATE_FILE}`),
     );
-    const revisions = await readRevisions(ctx, accountId, childPath);
-    if (state?.inForce || state?.pending || revisions.length > 0) return true;
-    if (await subtreeHasApproval(ctx, accountId, childPath)) return true;
-  }
-  return false;
+    /*
+     * An article is a leaf: its own pointer, or its revision store, is the
+     * whole answer and there is nothing under it to descend into. A topic
+     * folder holds no documents of its own, so only that recurses — which the
+     * old walk did for every child, paying a listing per article to learn
+     * nothing.
+     */
+    if (state)
+      return (
+        Boolean(state.inForce) ||
+        Boolean(state.pending) ||
+        (await revisionsExist(ctx, accountId, childPath))
+      );
+    return await subtreeHasApproval(ctx, accountId, childPath);
+  });
+  return found.some(Boolean);
 }
 
 /** Retire an approved article, or destroy one that was never approved. */
@@ -1072,12 +1130,14 @@ export async function deleteArticle(
   const state = asState(
     await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
   );
-  const revisions = await readRevisions(ctx, accountId, articlePath);
   // Traceability: an article something was issued from is never destroyed. One
   // no approval ever touched is a draft nobody depended on, and it goes — but
-  // only if nothing under it was issued either.
+  // only if nothing under it was issued either. Whether a revision store holds
+  // anything is a listing's answer, not a download per revision.
   const everApproved =
-    Boolean(state?.inForce) || Boolean(state?.pending) || revisions.length > 0;
+    Boolean(state?.inForce) ||
+    Boolean(state?.pending) ||
+    (await revisionsExist(ctx, accountId, articlePath));
   if (everApproved) {
     await retireArticle(ctx, accountId, article, admin.username);
     return { retired: true };

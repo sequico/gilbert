@@ -16,7 +16,7 @@ import {
   nodeStamp,
   readAppJsonAt,
 } from "../appFolder.js";
-import { FILE_PROPS } from "../shared/appFolder.js";
+import { FILE_PROPS, STAMP_PROPS } from "../shared/appFolder.js";
 import {
   compareRevisionsNewestFirst,
   DRAFT_FILE,
@@ -25,6 +25,7 @@ import {
   type KnowledgeRevision,
   knowledgeSummary,
   REVISIONS_FOLDER,
+  REVISION_HISTORY_MAX,
   revisionFileName,
   revisionInForceAt,
   revisionSummary,
@@ -33,16 +34,7 @@ import {
 import { asDraft, asState } from "./documents.js";
 import { scopeOfAccount } from "./scope.js";
 import { articlePathOf, findArticleFolder } from "./tree.js";
-
-/**
- * How many revisions of an article one history read takes.
- *
- * A revision is a document of its own and the folder keeps them for ever, so the
- * history is chosen from the listing newest-first and only this many documents
- * are downloaded: the surface shows a history, not an archive, and an article
- * past this many revisions still answers its newest ones.
- */
-export const REVISION_HISTORY_MAX = 50;
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 
 /** Read the newest revisions of an article, newest first by approval. */
 export async function readRevisions(
@@ -58,15 +50,18 @@ export async function readRevisions(
   if (!revisionsFolder) return [];
   const files = await fileChildren(ctx, accountId, revisionsFolder, [
     ...FILE_PROPS,
-    "created",
-    "modified",
+    ...STAMP_PROPS,
   ]);
   const newest = files
     .filter((file) => file.nodeType === "file" && typeof file.blobId === "string")
     .sort((a, b) => nodeStamp(b).localeCompare(nodeStamp(a)))
     .slice(0, REVISION_HISTORY_MAX);
-  const out: KnowledgeRevision[] = [];
-  for (const file of newest) {
+  /*
+   * One download per revision and each independent: the history is read in
+   * bounded parallel rather than one round trip after another, so opening an
+   * article does not cost as long as its own history.
+   */
+  const read = await mapLimit(newest, READ_CONCURRENCY, async (file) => {
     const name = typeof file.name === "string" ? file.name : "revision.json";
     const type = documentType(file);
     try {
@@ -78,14 +73,81 @@ export async function readRevisions(
         name,
       );
       const parsed = JSON.parse(text) as unknown;
-      if (isKnowledgeRevision(parsed)) out.push(parsed);
+      return isKnowledgeRevision(parsed) ? parsed : null;
     } catch {
       // A revision that cannot be read is skipped: the history shows what it
       // can rather than a surface taken down by one unreadable document.
+      return null;
     }
-  }
+  });
+  const out = read.filter((revision): revision is KnowledgeRevision => revision !== null);
   out.sort(compareRevisionsNewestFirst);
   return out;
+}
+
+/**
+ * The highest revision number the article's store holds, or 0 when it holds
+ * none.
+ *
+ * Revisions are immutable and numbered forward at approval, so the newest file
+ * carries the highest number — including one whose state write never landed.
+ * Reading that one document answers the question the whole history was read
+ * for.
+ */
+export async function highestRevisionNumber(
+  ctx: Ctx,
+  accountId: string,
+  articlePath: string,
+): Promise<number> {
+  const revisionsFolder = await findFolderPath(
+    ctx,
+    accountId,
+    `${articlePath}/${REVISIONS_FOLDER}`,
+  );
+  if (!revisionsFolder) return 0;
+  const files = await fileChildren(ctx, accountId, revisionsFolder, [
+    ...FILE_PROPS,
+    ...STAMP_PROPS,
+  ]);
+  const newest = files
+    .filter((file) => file.nodeType === "file" && typeof file.blobId === "string")
+    .sort((a, b) => nodeStamp(b).localeCompare(nodeStamp(a)))[0];
+  if (!newest) return 0;
+  try {
+    const text = await downloadBlobText(
+      ctx,
+      accountId,
+      String(newest.blobId),
+      documentType(newest),
+      typeof newest.name === "string" ? newest.name : "revision.json",
+    );
+    const parsed = JSON.parse(text) as unknown;
+    return isKnowledgeRevision(parsed) ? parsed.rev : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Whether an article's revision store holds any document.
+ *
+ * The question a delete asks — was anything ever issued from this page? — is
+ * answered by the listing alone: downloading the revisions to count them costs
+ * as much as reading the whole history.
+ */
+export async function revisionsExist(
+  ctx: Ctx,
+  accountId: string,
+  articlePath: string,
+): Promise<boolean> {
+  const revisionsFolder = await findFolderPath(
+    ctx,
+    accountId,
+    `${articlePath}/${REVISIONS_FOLDER}`,
+  );
+  if (!revisionsFolder) return false;
+  const files = await fileChildren(ctx, accountId, revisionsFolder);
+  return files.some((file) => file.nodeType === "file" && typeof file.name === "string");
 }
 
 /** The document of one revision, by id, wherever the article's history is short. */
@@ -122,13 +184,15 @@ export async function readArticle(
   const article = await findArticleFolder(ctx, accountId, folderId, folder);
   if (!article) return null;
   const articlePath = articlePathOf(article);
-  const draft = asDraft(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
-  );
-  const state = asState(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
-  );
-  const revisions = await readRevisions(ctx, accountId, articlePath);
+  // Three independent reads, so they travel together: the draft, the lifecycle
+  // pointer and the history do not depend on one another.
+  const [draftRaw, stateRaw, revisions] = await Promise.all([
+    readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+    readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    readRevisions(ctx, accountId, articlePath),
+  ]);
+  const draft = asDraft(draftRaw);
+  const state = asState(stateRaw);
   const issued = state ? revisionInForceAt(state) : null;
   const effective = issued
     ? await readRevision(ctx, accountId, articlePath, issued.revision)
@@ -148,4 +212,46 @@ export async function readArticle(
     effective,
     revisions: revisions.map(revisionSummary),
   };
+}
+
+/**
+ * One revision of one article by its id, without the history around it.
+ *
+ * A workorder is bound to a revision, and the builder asks for that revision's
+ * rules alone: reading the whole article to find the document already named
+ * would cost a history per pick.
+ */
+export async function readArticleRevision(
+  ctx: Ctx,
+  accountId: string,
+  folderId: string,
+  folder: string,
+  revisionId: string,
+): Promise<KnowledgeRevision | null> {
+  const clean = (revisionId ?? "").trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(clean)) return null;
+  const article = await findArticleFolder(ctx, accountId, folderId, folder);
+  if (!article) return null;
+  return await readRevision(ctx, accountId, articlePathOf(article), clean);
+}
+
+/**
+ * One article's draft text, and nothing else.
+ *
+ * Search reads the body of every page, and the whole article view would make
+ * that cost a revision history per page: what a search indexes is the draft's
+ * own text, so that is the only document read here.
+ */
+export async function readDraftText(
+  ctx: Ctx,
+  accountId: string,
+  folderId: string,
+  folder: string,
+): Promise<string | null> {
+  const article = await findArticleFolder(ctx, accountId, folderId, folder);
+  if (!article) return null;
+  const draft = asDraft(
+    await readAppJsonAt(ctx, accountId, `${articlePathOf(article)}/${DRAFT_FILE}`),
+  );
+  return draft?.text ?? "";
 }
