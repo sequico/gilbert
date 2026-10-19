@@ -83,32 +83,36 @@ export function AgentOverview({
           <p className="hint">{t("No group mailbox in this session.")}</p>
         )}
         {perGroup.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t("Group")}</th>
-                <th>{t("Runs")}</th>
-                <th>{t("Model calls")}</th>
-                <th>{t("Refused steps")}</th>
-                <th>{t("Work time")}</th>
-                <th>{t("Tokens")}</th>
-                <th>{t("Running")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {perGroup.map((row) => (
-                <tr key={row.name}>
-                  <td>{row.name}</td>
-                  <td>{row.metrics.runs}</td>
-                  <td>{row.metrics.calls}</td>
-                  <td>{row.metrics.refused}</td>
-                  <td>{formatMs(row.metrics.ms)}</td>
-                  <td>{row.metrics.promptTokens + row.metrics.completionTokens}</td>
-                  <td>{row.metrics.running}</td>
+          <div style={{ overflowX: "auto" }}>
+            <table className="sessions-table">
+              <thead>
+                <tr>
+                  <th>{t("Group")}</th>
+                  <th className="num">{t("Runs")}</th>
+                  <th className="num">{t("Model calls")}</th>
+                  <th className="num">{t("Refused steps")}</th>
+                  <th className="num">{t("Work time")}</th>
+                  <th className="num">{t("Tokens")}</th>
+                  <th className="num">{t("Running")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {perGroup.map((row) => (
+                  <tr key={row.name}>
+                    <td>{row.name}</td>
+                    <td className="num">{row.metrics.runs}</td>
+                    <td className="num">{row.metrics.calls}</td>
+                    <td className="num">{row.metrics.refused}</td>
+                    <td className="num">{formatMs(row.metrics.ms)}</td>
+                    <td className="num">
+                      {row.metrics.promptTokens + row.metrics.completionTokens}
+                    </td>
+                    <td className="num">{row.metrics.running}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

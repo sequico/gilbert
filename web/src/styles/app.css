@@ -1780,6 +1780,15 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .sessions-table th, .sessions-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .sessions-table th { color: var(--fg-muted); font-weight: 600; font-size: .85em; }
 
+/* Numbers align on their digits, which is the whole of what a table of
+   metrics is read for. */
+.sessions-table th.num, .sessions-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* The agent's headline numbers: a row of tiles, wrapping on a narrow page. */
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 10px; margin-top: 12px; }
+.metric { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); }
+.metric strong { font-size: 1.15em; font-variant-numeric: tabular-nums; }
+
 /* ==========================================================================
    Contacts
    ========================================================================== */
