@@ -375,6 +375,12 @@ export async function workChanges(
       continue;
     }
     if (decision.kind !== "decision") continue;
+    /*
+     * The runs by (rule, change) for this event, grown once and rebuilt only
+     * after a named rule changes a run's state: a decision naming three rules
+     * used to rebuild the whole map three times.
+     */
+    let byStart: Map<string, RunDoc> | null = null;
     for (const named of decision.rules) {
       const rule = rules.find((candidate) => candidate.id === named);
       if (!rule) continue;
@@ -383,7 +389,8 @@ export async function workChanges(
       // that change being worked, or the answer it already has: never a second
       // run over it.
       held ??= await listRuns(deps.ctx, accountId);
-      const open = runsByStart(held).get(key);
+      byStart ??= runsByStart(held);
+      const open = byStart.get(key);
       if (open) {
         if (open.state === "running") {
           const worked = await deps.workRun(
@@ -392,7 +399,10 @@ export async function workChanges(
             now,
             decision.facts,
           );
-          if (worked) remember(held, worked);
+          if (worked) {
+            remember(held, worked);
+            byStart = null;
+          }
         }
         continue;
       }
@@ -405,6 +415,7 @@ export async function workChanges(
         decision.facts,
       );
       remember(held, worked ?? run);
+      byStart = null;
     }
   }
   // The cursor moves only once the batch is answered: a read that failed
