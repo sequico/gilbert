@@ -891,6 +891,13 @@ export const sendOutward = defineTool({
   spend: { steps: 1 },
   act: (raw: unknown) => {
     const one = isRecord(raw) ? raw : {};
+    /*
+     * The licence is the recipient and the body: the words the person approved.
+     * The subject is the agent's own line, like the envelope — a licence is not
+     * for a sentence the person never wrote. If a subject is ever to be part of
+     * what a person authorises, it moves here with the reading that produces
+     * their licence.
+     */
     return {
       target: typeof one.to === "string" ? one.to.trim().toLowerCase() : "",
       // Trimmed like the licence it is compared with: the person's words and the

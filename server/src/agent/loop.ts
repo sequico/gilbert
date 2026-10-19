@@ -83,6 +83,7 @@ import {
   finishRun,
   isRunDue,
   isRunWait,
+  RUN_STEPS_MAX,
   type RunDoc,
   type RunMessageRef,
   type RunStep,
@@ -96,6 +97,9 @@ import {
   takeAuthorisation,
   waitUntil,
 } from "../shared/run.js";
+
+export { RUN_STEPS_MAX } from "../shared/run.js";
+
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
@@ -139,16 +143,15 @@ import {
 } from "./tools.js";
 
 /**
- * The ceilings a run's budget is measured against (ADR 0031).
+ * The other ceilings a run's budget is measured against (ADR 0031).
  *
  * Steps, time and model calls: the run stops when any of the three is spent, so
- * a loop that cannot finish stops and says so (ADR 0034). The ceilings are the
- * loop's own and not the run's, because a run measured against a ceiling it
- * carried itself is a run that could raise it; they are not configuration
- * either, because an installation has one model and one agent, and the number a
- * run may spend is not a question the administration is asked.
+ * a loop that cannot finish stops and says so (ADR 0034). The step ceiling is
+ * `@gilbert/shared`'s (one answer may not carry more), and the two here are the
+ * loop's own; neither is configuration, because an installation has one model
+ * and one agent, and the number a run may spend is not a question the
+ * administration is asked.
  */
-export const RUN_STEPS_MAX = 20;
 const RUN_CALLS_MAX = 40;
 const RUN_MS_MAX = 5 * 60_000;
 
@@ -310,6 +313,13 @@ export class AgentLoop {
   >();
   /** Runs a pass tried while nothing waits on them: a failure is not retried at once. */
   private readonly stuckUntil = new Map<string, number>();
+  /**
+   * The state each account's last write in **this pass** produced. A due run's
+   * record carries the token of the pass's listing, which the first write of
+   * another run moves; using this newer token saves the conflict that would
+   * otherwise be paid once per run.
+   */
+  private readonly passState = new Map<string, string>();
 
   constructor(
     private readonly ctx: Ctx,
@@ -382,6 +392,7 @@ export class AgentLoop {
      * effect of a pass that works nothing.
      */
     forgetRemembered(this.ctx);
+    this.passState.clear();
     /*
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the
@@ -407,8 +418,17 @@ export class AgentLoop {
        * fixed sentence and no model call -- and the owner chose that directly
        * rather than through a rule's class-3 licence.
        */
+      /*
+       * A mail addressed to the agent **alone** lands in the Master's own
+       * mailbox, not in a group's: the groups are what the agent works, and the
+       * Master is the installation's own account. The off notice is the one
+       * thing that has to read it.
+       */
+      const offAccounts = [...accounts];
+      const master = filesAccountId(this.ctx);
+      if (master && !offAccounts.includes(master)) offAccounts.push(master);
       await Promise.all(
-        accounts.map(async (accountId) => {
+        offAccounts.map(async (accountId) => {
           /*
            * A notice is for what has just arrived. The switch may have been on
            * for months since the off path last read, and an old cursor would
@@ -1048,6 +1068,34 @@ export class AgentLoop {
         });
         return (await this.store(accountId, ended, token)) ? ended : null;
       }
+      /*
+       * The plan has to fit the steps the run has left. The parser refuses an
+       * answer larger than the whole ceiling, but a run already part-way
+       * through its budget can still be asked for more than remains; it is
+       * refused as an answer that made no progress, and a second refusal ends
+       * the run rather than letting a wave run past the ceiling.
+       */
+      const room = RUN_STEPS_MAX - current.spent.steps;
+      if (choice.calls.length > room) {
+        current = this.withStep(
+          current,
+          "the model's answer",
+          `refused: it asked for ${choice.calls.length} steps with ${room} left in the run's budget`,
+          false,
+        );
+        refused += 1;
+        if (refused >= 2) {
+          const ended = finishRun(current, "out-of-budget", {
+            at: now.toISOString(),
+            why: "the model asked for more steps than the run had left, twice, so the work did not finish.",
+          });
+          return (await this.store(accountId, ended, token)) ? ended : null;
+        }
+        const kept = await this.store(accountId, current, token);
+        if (!kept) return null;
+        token = kept;
+        continue;
+      }
 
       const batch = choice.calls.map((call) => `${call.name} ${boundedText(call.args)}`);
       // What the model asked for, dependencies and all: the same answer twice is
@@ -1429,7 +1477,10 @@ export class AgentLoop {
     state?: string,
   ): Promise<string | null> {
     await this.keepClaim();
-    let token = state;
+    // A token from this pass's own writes is newer than the record's; a run
+    // this pass did not read has none and must be read (the missing document is
+    // not this process's to create).
+    let token = state ? (this.passState.get(accountId) ?? state) : undefined;
     if (!token) {
       const before = await readRun(this.ctx, accountId, run.id);
       // A document that is not there is not this process's to create: it was
@@ -1441,6 +1492,7 @@ export class AgentLoop {
       // is the document's, not this process's.
       if (before.run.state !== "running" && before.run.state !== "blocked") return null;
       token = before.state;
+      this.passState.set(accountId, token);
     }
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
       let produced: string | undefined;
@@ -1454,7 +1506,9 @@ export class AgentLoop {
         // A write that found the document already holding these bytes makes no
         // set, so it produces no state: the token in hand is still the current
         // one, because nothing moved.
-        return produced ?? token;
+        const next = produced ?? token;
+        this.passState.set(accountId, next);
+        return next;
       } catch (err) {
         if (retryStateMismatch(err, attempt)) break;
         /*
@@ -1467,6 +1521,7 @@ export class AgentLoop {
         if (!held) return null;
         if (held.run.state !== "running" && held.run.state !== "blocked") return null;
         token = held.state;
+        this.passState.set(accountId, token);
       }
     }
     throw new Error(

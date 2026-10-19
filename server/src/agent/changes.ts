@@ -125,7 +125,7 @@ export async function offPath(
     cursor = await anchorEvents(deps.ctx, accountId);
     deps.cursors.set(accountId, cursor);
   }
-  const read = await readAccountEvents(deps.ctx, accountId, cursor);
+  const read = await readAccountEvents(deps.ctx, accountId, cursor, { maxPages: 1 });
   // A gap in the log is mentions this pass did not see: said, not assumed empty.
   if (read.gap) problems.push(read.gap);
   for (const event of read.events) {
@@ -179,6 +179,12 @@ export async function offPath(
           ...(one.cc ?? []),
         ]);
         if (addressees.length !== 1 || !isMine(addressees[0] ?? {})) continue;
+        /*
+         * shortcut: the notice answers any sender who writes to the agent
+         * alone, known or not — one message per mail, never a thread. A roster
+         * check waits until the owner decides whether the agent's own mailbox
+         * is a public front or a members' one.
+         */
         await sendMail(deps.ctx, accountId, {
           to: message.from,
           subject: OFF_NOTICE,
@@ -229,7 +235,7 @@ export async function workChanges(
     cursor = await anchorEvents(deps.ctx, accountId);
     deps.cursors.set(accountId, cursor);
   }
-  const read = await readAccountEvents(deps.ctx, accountId, cursor);
+  const read = await readAccountEvents(deps.ctx, accountId, cursor, { maxPages: 1 });
   if (read.gap) summary.gaps.push(read.gap);
   const rules = (await listRules(deps.ctx, accountId)).map((record) => record.rule);
   /**

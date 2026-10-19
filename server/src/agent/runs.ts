@@ -110,19 +110,25 @@ export async function readRun(
   accountId: string,
   id: string,
 ): Promise<RunRecord | null> {
-  return await readRunAt(ctx, accountId, RUNS_DIR, id);
+  const state = await appFolderState(ctx, accountId);
+  const run = await readRunDoc(ctx, accountId, id);
+  return run ? { run, state } : null;
 }
 
-/** One run in a folder other than the working set — the archive's own reader. */
+/**
+ * One run document in a named folder, without the token a write needs.
+ *
+ * The detail surface reads a document it will never write, so it does not pay
+ * for the account's state; the working path and the archive differ only by the
+ * folder.
+ */
 export async function readRunAt(
   ctx: Ctx,
   accountId: string,
   dir: string,
   id: string,
-): Promise<RunRecord | null> {
-  const state = await appFolderState(ctx, accountId);
-  const run = await readRunDoc(ctx, accountId, id, dir);
-  return run ? { run, state } : null;
+): Promise<RunDoc | null> {
+  return await readRunDoc(ctx, accountId, id, dir);
 }
 
 /**

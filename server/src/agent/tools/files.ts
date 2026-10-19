@@ -94,6 +94,14 @@ export const readNode = defineTool({
       );
     const found = await readVisibleFileBytes(ctx, accountId, path);
     if (!found) throw notFound(`file "${path}" in this account's Files`);
+    // A node that declares no size (or lies about it) is caught after the
+    // bytes are here, before a parser or the model is handed them.
+    if (found.bytes.byteLength > READ_BYTES_MAX)
+      throw new ToolError(
+        "too_large",
+        `"${path}" is ${found.bytes.byteLength} bytes; a read stops at ${READ_BYTES_MAX}.`,
+        413,
+      );
     const type = documentType(found.file);
     /*
      * A picture is read by the installation's model and a document by the

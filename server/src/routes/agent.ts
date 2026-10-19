@@ -44,7 +44,13 @@ import {
 import { probeModel, runningModelAccess } from "../agent/model.js";
 import { parseRuleDocumentDetailed } from "../agent/rule.js";
 import { deleteRule, listRules, replaceRule } from "../agent/rules.js";
-import { listRunsForReading, readRun, readRunAt, replaceRun } from "../agent/runs.js";
+import {
+  listRunsForReading,
+  RUNS_DIR,
+  readRun,
+  readRunAt,
+  replaceRun,
+} from "../agent/runs.js";
 import { AGENT_PASS_INTERVAL_MS } from "../agent/supervisor.js";
 import { readAgentSwitch, writeAgentSwitch } from "../agent/switch.js";
 import {
@@ -367,13 +373,11 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const dir = month ? `${RUNS_ARCHIVE_DIR}/${month}` : undefined;
+      const dir = month ? `${RUNS_ARCHIVE_DIR}/${month}` : RUNS_DIR;
       const id = c.req.param("id") ?? "";
-      const held = dir
-        ? await readRunAt(access.ctx, access.accountId, dir, id)
-        : await readRun(access.ctx, access.accountId, id);
-      if (!held) return c.json({ error: "not_found" }, 404);
-      return c.json({ group: name, run: held.run });
+      const run = await readRunAt(access.ctx, access.accountId, dir, id);
+      if (!run) return c.json({ error: "not_found" }, 404);
+      return c.json({ group: name, run });
     } catch (err) {
       return doorFailure(c, err);
     }

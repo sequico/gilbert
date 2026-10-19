@@ -68,7 +68,7 @@ const { filesAccountId, destroyAppNode, readAppFileAt, removeAppFile, writeAppFi
   await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
-const { finishRun, startRun, waitUntil } = await import("../shared/run.js");
+const { finishRun, startRun, spendRun, waitUntil } = await import("../shared/run.js");
 const { parseInstallationDocumentDetailed } = await import("../shared/installation.js");
 
 import type { InstallationModel } from "../shared/installation.js";
@@ -1863,6 +1863,59 @@ test("a run left running without a wait is tried again on a minute, not every pa
   assert.equal((await readRun(ctx, accountId, id))?.run.state, "done");
 });
 
+test("an answer cannot run past the steps a run has left", async () => {
+  /*
+   * A plan is refused before any of it runs when it asks for more steps than
+   * the run's remaining budget: the ceiling is not something a wave may exceed
+   * and then be noticed on the next turn.
+   */
+  const id = "over-room";
+  let ran = 0;
+  const marker = defineTool({
+    name: "probe.marker",
+    description: "Take one step.",
+    authority: "reversible",
+    writes: false,
+    spend: { steps: 1 },
+    keys: [],
+    parse: (raw: unknown) => raw as Record<string, never>,
+    run: async () => {
+      ran += 1;
+      return { ok: true };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, marker] });
+  await agent.start();
+  await createRun(
+    ctx,
+    accountId,
+    spendRun(
+      startRun({
+        id,
+        startedBy: { rule: "room", instruction: null, woke: "a test change" },
+      }),
+      { steps: 19 },
+    ),
+  );
+  answerWith({
+    calls: [
+      { name: "probe.marker", arguments: {} },
+      { name: "probe.marker", arguments: {} },
+    ],
+  });
+  answerWith({ done: "stopped with the step it had" });
+  await agent.pass();
+
+  assert.equal(ran, 0, "no step ran beyond the ceiling");
+  const held = (await readRun(ctx, accountId, id))?.run;
+  assert.ok(held, "the run is still readable");
+  assert.match(
+    held.plan.map((step) => step.outcome).join(" "),
+    /more steps than the run had left|left in the run's budget/,
+    "and the refused answer is on the record",
+  );
+});
+
 test("the groups are worked together, not one after another", async () => {
   /*
    * The pass hands each account its own work and lets them run at once. The
@@ -1989,6 +2042,25 @@ test("the switch off answers a mention and a mail that names the agent alone, wi
     );
   await deliverTo("is the agent on?", false);
   await deliverTo("and the colleague?", true);
+  /*
+   * A person writing only to the agent's address delivers into the Master's
+   * own mailbox, not into a group's. The off notice has to read it there.
+   */
+  await clientOf(ctx).call(
+    "Email/set",
+    {
+      accountId: master,
+      create: {
+        m: {
+          subject: "is the agent on, at its own address?",
+          from: [{ email: "ops@shipper.example" }],
+          to: [{ email: ctx.username }],
+          mailboxIds: { inbox: true },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
   await agent.pass();
 
   assert.equal(seen.length, 0, "the notice is written without a model call");
@@ -2006,6 +2078,18 @@ test("the switch off answers a mention and a mail that names the agent alone, wi
     sent.ids?.length,
     1,
     "the mail naming the agent alone is answered, and the one that also reached a colleague is not",
+  );
+  const atMaster = await clientOf(ctx).call<{ ids?: string[] }>(
+    "Email/query",
+    {
+      accountId: master,
+      filter: { subject: "AI agents are turned off" },
+    },
+    [CAPABILITIES.mail],
+  );
+  assert.ok(
+    (atMaster.ids?.length ?? 0) >= 1,
+    "and the same notice reaches a mail sent to the agent's own address",
   );
   await writeAgentSwitch(ctx, master, true);
 });

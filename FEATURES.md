@@ -343,7 +343,8 @@ A run still running, one waiting on a person, or one that ended inside the year
 is not moved; a pass
 moves a bounded batch, and the archive runs even while the agent is switched
 off, because it is housekeeping rather than a decision. The runs panel reads a
-month of it back (`runs/archive/<year-month>/`), and every run carries the
+month of it back (`runs/archive/<year-month>/`, the drawer following the server's
+clock), and every run carries the
 instant it opened and the instant it ended; the list is most recent first.
 
 **Where the agent is, and what it did, is in Administration → AI Agents**

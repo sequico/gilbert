@@ -38,6 +38,16 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 export const RUN_VERSION = 5;
 
 /**
+ * The most steps one run may take (ADR 0031).
+ *
+ * A ceiling of the loop's own, not a field of the run: a run measured against a
+ * ceiling it carried itself is a run that could raise it. It is also the most
+ * steps one answer may carry — a plan larger than the whole budget is refused
+ * rather than run past it.
+ */
+export const RUN_STEPS_MAX = 20;
+
+/**
  * The version before this one, which this build reads as well.
  *
  * `recalled` is the field this version added (ADR 0037), and a **known** older

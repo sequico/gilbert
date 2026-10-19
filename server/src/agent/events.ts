@@ -251,11 +251,18 @@ export async function readAccountEvents(
   ctx: Ctx,
   accountId: string,
   cursor: EventCursor,
+  /**
+   * How many pages of the log this read may take. The default reads to the end;
+   * a pass bounds it so a backlog is worked over several passes instead of
+   * paying a model call per change in one.
+   */
+  opts: { maxPages?: number } = {},
 ): Promise<AccountEvents> {
   let mail = cursor.mail;
   let files = cursor.files;
   let seen = cursor.seen;
   const events: AccountEvent[] = [];
+  let pages = 0;
   for (;;) {
     let page: { mail: ChangeSet; files: ChangeSet };
     try {
@@ -312,6 +319,8 @@ export async function readAccountEvents(
 
     mail = page.mail.newState;
     files = page.files.newState;
+    pages += 1;
+    if (pages >= (opts.maxPages ?? Number.POSITIVE_INFINITY)) break;
     if (!page.mail.hasMoreChanges && !page.files.hasMoreChanges) break;
   }
   return { events: fuseEvents(events), cursor: { mail, files, seen }, gap: null };

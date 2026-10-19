@@ -71,6 +71,7 @@ import type {
   RunStep,
   RunStepNeeds,
 } from "../shared/run.js";
+import { RUN_STEPS_MAX } from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { clipped, dataBlock, stepData, textOf, turnData } from "./prompt.js";
 import { type ProseLevel, proseForModel } from "./prose.js";
@@ -1272,6 +1273,13 @@ export async function chooseStep(
   const parsed = parseStepAnswerDetailed(answer);
   if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
   if (parsed.choice.kind === "plan") {
+    // A plan larger than the whole budget could never be finished; it is
+    // refused here, before any of it is appended to the run.
+    if (parsed.choice.calls.length > RUN_STEPS_MAX)
+      throw new ModelError(
+        "model_answer_malformed",
+        `An answer may take at most ${RUN_STEPS_MAX} steps, and this one asks for ${parsed.choice.calls.length}.`,
+      );
     /*
      * Every call is put to the catalogue's own door before any of them runs: a
      * name the catalogue does not hold, or arguments its tool cannot use, is the
