@@ -377,7 +377,26 @@ export async function callModel(
       );
     throw err;
   }
-  const raw = await readAnswer(res, provider);
+  /*
+   * The body stream is the same call's time: a provider that sends headers and
+   * then stalls aborts `reader.read()`, outside the fetch's own try. That is the
+   * call failing as every other call failure does, not a raw platform error
+   * surfacing to a pass that expects `model_call_failed`.
+   */
+  let raw: string;
+  try {
+    raw = await readAnswer(res, provider);
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      (err.name === "TimeoutError" || err.name === "AbortError")
+    )
+      throw new ModelError(
+        "model_call_failed",
+        `${provider} stopped answering after its body began, so the call's time ran out.`,
+      );
+    throw err;
+  }
   if (!res.ok)
     throw new ModelError(
       "model_call_failed",

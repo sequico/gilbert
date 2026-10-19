@@ -479,7 +479,11 @@ export class AgentLoop {
           /*
            * The archive is housekeeping, not a decision: a switched-off agent
            * still keeps the group's runs folder to the year the owner chose.
+           * Its hourly guard is tested **before** the listing, or every
+           * switched-off pass would walk the folder to decide nothing.
            */
+          if (now.getTime() - (this.archivedAt.get(accountId) ?? 0) < ARCHIVE_EVERY_MS)
+            return;
           try {
             const read = await listRunsForWorking(this.ctx, accountId);
             for (const problem of read.problems)
@@ -1231,14 +1235,23 @@ export class AgentLoop {
 
       const batch = choice.calls.map((call) => `${call.name} ${boundedText(call.args)}`);
       // What the model asked for, dependencies and all: the same answer twice is
-      // the stall below, whether or not its steps are ordered.
+      // the stall below, whether or not its steps are ordered. The comparison
+      // reads the **whole** arguments, not the clip the record keeps: two long
+      // calls that differ only after four kilobytes are two different calls, and
+      // ending the run as a stall would refuse the second one unseen.
       const chosen = choice.calls
         .map(
           (call, at) =>
             `${batch[at]}${call.needs ? ` after ${call.needs.step} when ${call.needs.when}` : ""}`,
         )
         .join(" | ");
-      if (chosen === previous) {
+      const chosenWhole = choice.calls
+        .map(
+          (call) =>
+            `${call.name} ${JSON.stringify(call.args)}${call.needs ? ` after ${call.needs.step} when ${call.needs.when}` : ""}`,
+        )
+        .join(" | ");
+      if (chosenWhole === previous) {
         // The same answer twice cannot make progress, and running it again is the
         // endless turn this stops: the record says the model chose it twice.
         current = this.withStep(
@@ -1253,7 +1266,7 @@ export class AgentLoop {
         });
         return (await this.store(accountId, ended, token)) ? ended : null;
       }
-      previous = chosen;
+      previous = chosenWhole;
 
       /*
        * The answer becomes the plan's newest steps, each with what it waits on —

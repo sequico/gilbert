@@ -231,11 +231,18 @@ export function readChangeSet(args: Record<string, unknown>, type: string): Chan
  * server says it holds more, cannot be paged past: asking again would ask the
  * same window for ever and grow the answer without end. That is refused.
  */
-/** Whether a path is one of the agent's own documents in the group's app folder. */
+/**
+ * Whether a path is one of the agent's own documents in the group's app folder.
+ *
+ * Only a path **inside** `gilbert/` can be: the names below are app-folder
+ * relative, and a visible folder a member happens to call `rules`, `runs`,
+ * `agent` or `chat-state` is the group's own activity, not the agent's
+ * bookkeeping. Reading those as the agent's would hide a person's whole folder
+ * from every rule that watches Files.
+ */
 function isAgentPath(path: string): boolean {
-  const rel = path.startsWith(`${APP_FOLDER_NAME}/`)
-    ? path.slice(APP_FOLDER_NAME.length + 1)
-    : path;
+  if (!path.startsWith(`${APP_FOLDER_NAME}/`)) return false;
+  const rel = path.slice(APP_FOLDER_NAME.length + 1);
   return (
     rel === INSTRUCTION_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
