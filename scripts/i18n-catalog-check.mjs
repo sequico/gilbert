@@ -59,10 +59,10 @@ import {
  * refused, the address not found, unreachable, and the rest of what a probe can
  * come back with (`views/admin/agents/AgentGeneral.tsx`).
  *
- * 208 -> 209: the rule-name sentence beside the field that now refuses a space
- * (`views/admin/agents/GroupRules.tsx`).
+ * 208 -> 210: the rule form's name — the example placeholder and the line that
+ * says what the typed name is filed as (`views/admin/agents/GroupRules.tsx`).
  */
-const MISSING_MAX = 209;
+const MISSING_MAX = 210;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

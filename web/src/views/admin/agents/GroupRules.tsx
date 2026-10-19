@@ -198,6 +198,17 @@ export function GroupRules({ group }: { group: string }) {
   );
 }
 
+/** The document's name for a rule, from the name a person typed. */
+function ruleIdFrom(name: string): string {
+  return name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+
 /**
  * One rule's editor: the name (only while it is new), the surfaces it watches,
  * what should happen, and whether it declares that it sends.
@@ -219,11 +230,12 @@ function RuleEditor({
   const [instruction, setInstruction] = useState(initial.instruction);
   const [sends, setSends] = useState(initial.sends);
   /*
-   * A rule is named by a file name: the id is the document's name under
-   * `rules/`, and the agent refers to it in every run. A space is not a name,
-   * so the form says so and does not send it.
+   * The name is a person's; the id is the document's file name, derived from it
+   * so a space or an accent is never something the reader has to work around.
    */
-  const validId = existing || /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id);
+  const ruleId = existing ? id : ruleIdFrom(id);
+  /** A name with a letter or a digit in it can become a rule. */
+  const validId = ruleId.length > 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -251,11 +263,14 @@ function RuleEditor({
       ) : (
         <div className="field">
           <label htmlFor="new-rule-id">{t("Rule name")}</label>
-          <input id="new-rule-id" value={id} onChange={(e) => setId(e.target.value)} />
-          {!validId && (
-            <span className="hint">
-              {t("Letters, digits, dots, dashes and underscores only, with no spaces.")}
-            </span>
+          <input
+            id="new-rule-id"
+            value={id}
+            placeholder={t("All freight")}
+            onChange={(e) => setId(e.target.value)}
+          />
+          {validId && ruleId !== id && (
+            <span className="hint">{t("Saved as {id}", { id: ruleId })}</span>
           )}
         </div>
       )}
@@ -308,7 +323,7 @@ function RuleEditor({
             act(async () => {
               await onSave({
                 v: RULE_VERSION,
-                id,
+                id: ruleId,
                 watches: RULE_SURFACES.filter((s) => watches.includes(s)),
                 instruction,
                 sends,
