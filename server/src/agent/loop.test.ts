@@ -984,7 +984,11 @@ test("an account whose rules cannot be read is a gap, and the others are still w
   try {
     await putRule(id);
     const agent = loop(HOLDER, { accounts: async () => [mailAccount, accountId] });
-    await agent.start();
+    /*
+     * The first pass meets the broken rule and reports it; the second is paced
+     * by the account's retry pause (`loop.ts`), so the gap is read there.
+     */
+    const started = await agent.start();
 
     answerWith({ rules: [id], facts: {} });
     answerWith({ done: "filed despite the other group's bad rule" });
@@ -993,7 +997,7 @@ test("an account whose rules cannot be read is a gap, and the others are still w
 
     assert.equal(summary.claimed, true, "the pass holds the installation's claim");
     assert.ok(
-      summary.gaps.some(
+      started.gaps.some(
         (gap) => gap.startsWith(`${mailAccount}:`) && gap.includes("not readable"),
       ),
       "the unreadable rule is the pass's gap, named by its account",

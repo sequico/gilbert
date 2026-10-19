@@ -776,11 +776,20 @@ export async function decideEvent(
         "model_answer_malformed",
         `The model asked to look something up with all ${maxReads} lookups spent.`,
       );
+    /*
+     * The read is the turn's own to make, and `runTool` is the only door to it:
+     * a name that is not in the reading catalogue (a tool that writes, or no
+     * tool at all) is refused, and so is an act the run carries no authority
+     * for. A read the account itself refuses -- a folder that is the app's own,
+     * a message that is not there -- is `failSoft`: the next turn is told what
+     * happened, instead of the pass dying before a run could be opened.
+     */
     const result = await runTool(
       READING_TOOLS,
       call,
       parsed.answer.name,
       parsed.answer.args,
+      { failSoft: true },
     );
     reads.push({ name: parsed.answer.name, result });
   }

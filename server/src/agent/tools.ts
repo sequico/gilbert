@@ -41,6 +41,7 @@
  * already import rather than a second spelling of any of them.
  */
 
+import { errorMessage } from "../shared/errors.js";
 import { askInChat, findChat, readChat, sayInChat } from "./tools/chat.js";
 import {
   type AnyTool,
@@ -171,6 +172,7 @@ export async function runTool(
   call: ToolCall,
   name: string,
   raw: unknown,
+  opts: { failSoft?: boolean } = {},
 ): Promise<unknown> {
   const { tool, args } = validatedTool(catalogue, name, raw);
   if (!mayRun(tool, call.run, args))
@@ -179,5 +181,15 @@ export async function runTool(
       `"${tool.name}" is not the agent's to decide, and this run carries no authority for it.`,
       403,
     );
-  return await tool.run(call, args);
+  try {
+    return await tool.run(call, args);
+  } catch (err) {
+    /*
+     * A read that fails is the reader's to hear: the decision turn asks for a
+     * `failSoft` read so a reserved folder or a missing message becomes the
+     * next turn's problem instead of ending the whole decision.
+     */
+    if (opts.failSoft) return { problem: errorMessage(err) };
+    throw err;
+  }
 }

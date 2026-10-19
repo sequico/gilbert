@@ -20,7 +20,7 @@ import {
   updateAppNode,
 } from "../../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../../jmap.js";
-import { FILE_PROPS } from "../../shared/appFolder.js";
+import { APP_FOLDER_NAME, FILE_PROPS } from "../../shared/appFolder.js";
 import { refusalOf } from "../../shared/jmap.js";
 import { argsRecord, notFound, optionalTextArg, textArg } from "./args.js";
 import { readFileText } from "./content.js";
@@ -48,6 +48,13 @@ export const listFiles = defineTool({
     return {
       nodes: children.flatMap((node: FileNodeLike) => {
         if (typeof node.name !== "string" || !node.name) return [];
+        /*
+         * The app folder is Gilbert's own: chat, the knowledge base, workorders
+         * and the agent's documents have their own tools, and a browse of the
+         * Files root must not show it -- naming it was a read the account
+         * refused, and the whole decision died on it.
+         */
+        if (!folder && node.name === APP_FOLDER_NAME) return [];
         return [
           {
             path: folder ? `${folder}/${node.name}` : node.name,
