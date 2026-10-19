@@ -1785,6 +1785,10 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .sessions-table th.num, .sessions-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* The agent's headline numbers: a row of tiles, wrapping on a narrow page. */
+.status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+.status-dot.ok { background: var(--success); }
+.status-dot.bad { background: var(--danger); }
+
 .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 10px; margin-top: 12px; }
 .metric { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); }
 .metric strong { font-size: 1.15em; font-variant-numeric: tabular-nums; }

@@ -75,7 +75,7 @@ import { errorMessage } from "../shared/errors.js";
 import { groupCandidates } from "../shared/sessionAccount.js";
 import { fetchUpstreamSession, upstreamFor } from "../upstream.js";
 import { AgentLoop, type PassSummary } from "./loop.js";
-import { modelAccess } from "./model.js";
+import { modelAccess, setRunningModelAccess } from "./model.js";
 
 /**
  * How often the supervisor puts its one question to the loop.
@@ -283,6 +283,7 @@ export async function startAgent(
       boot.installation,
       boot.configuration.agent.allowPrivateProvider,
     );
+    setRunningModelAccess(access);
     if (!access) {
       log(
         "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",

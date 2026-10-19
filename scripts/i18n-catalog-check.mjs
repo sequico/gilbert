@@ -54,8 +54,12 @@ import {
  * 196 -> 198: the metrics period — "Period" and "All time"; the day, week and
  * month labels the calendars already translated are reused (`views/admin/
  * agents/AgentOverview.tsx`).
+ *
+ * 198 -> 208: the model connection check's own sentences — connected, the key
+ * refused, the address not found, unreachable, and the rest of what a probe can
+ * come back with (`views/admin/agents/AgentGeneral.tsx`).
  */
-const MISSING_MAX = 198;
+const MISSING_MAX = 208;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

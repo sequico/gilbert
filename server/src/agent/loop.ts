@@ -65,12 +65,16 @@ import { randomUUID } from "node:crypto";
 import { appFolderState, type Ctx, filesAccountId, readAppFileAt } from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
+import { appFolderInstallationStore, readInstallation } from "../installation.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { impersonationAuthorization } from "../sessions.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
-import { parseInstallationDocumentDetailed } from "../shared/installation.js";
+import {
+  INSTALLATION_FILE,
+  parseInstallationDocumentDetailed,
+} from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
 import { recallFacts } from "../shared/memory.js";
 import {
@@ -103,9 +107,11 @@ import {
   chooseStep,
   type ModelAccess,
   ModelError,
+  modelAccess,
   readAnswerAuthority,
   readImage,
   type StepCall,
+  setRunningModelAccess,
   usageMeter,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
@@ -255,10 +261,14 @@ export class AgentLoop {
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
+  /** The model the current pass runs on, re-read from the document each pass. */
+  private access: ModelAccess;
+
   constructor(
     private readonly ctx: Ctx,
     private readonly opts: AgentLoopOptions,
   ) {
+    this.access = opts.access;
     this.catalogue = opts.catalogue ?? TOOLS;
     this.timers = new WaitTimers((due) => {
       this.pending.push(due);
@@ -307,6 +317,20 @@ export class AgentLoop {
       this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     }
     summary.claimed = true;
+    /*
+     * The model is re-read every pass, so a publish applies to the run after
+     * this one (ten seconds), not to the next boot: the key is kept in the
+     * document and read here as the Master. A document that cannot be read
+     * leaves the model this process already runs on.
+     */
+    const model = await this.readModel();
+    if (!model) {
+      setRunningModelAccess(null);
+      summary.gaps.push("the installation names no model, so this pass worked nothing");
+      return summary;
+    }
+    this.access = model;
+    setRunningModelAccess(model);
     this.installation = await this.readInstallationLine();
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
@@ -414,7 +438,7 @@ export class AgentLoop {
       {
         ctx: this.ctx,
         cursors: this.cursors,
-        access: this.opts.access,
+        access: this.access,
         proseAbove: (a) => this.proseAbove(a),
         memory: () => this.memory(),
         readingCall: (a, e, c) => this.readingCall(a, e, c),
@@ -662,7 +686,7 @@ export class AgentLoop {
       const meter = usageMeter();
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
-        choice = await chooseStep(this.catalogue, this.opts.access, question, { meter });
+        choice = await chooseStep(this.catalogue, this.access, question, { meter });
       } catch (err) {
         /*
          * An answer this build refused is a step the record shows, not a silence:
@@ -888,7 +912,7 @@ export class AgentLoop {
        * answer is a no, and the answer still continues the run.
        */
       const granted = await readAnswerAuthority(
-        this.opts.access,
+        this.access,
         { asked: answer.asked, said: answer.said, from: answer.from },
         { admin: await this.isAdministrator(answer.from), meter },
       );
@@ -941,7 +965,7 @@ export class AgentLoop {
    * as a document the tool could not read rather than as a failed pass.
    */
   private readonly eyes: ImageReader = async (image) =>
-    await readImage(this.opts.access, image);
+    await readImage(this.access, image);
 
   /**
    * When this process last held the claim until, as the document states it.
@@ -963,11 +987,28 @@ export class AgentLoop {
    */
   private installation: string | undefined;
 
+  /** The provider this pass runs on, or null when the document names none. */
+  private async readModel(): Promise<ModelAccess | null> {
+    try {
+      const accountId = filesAccountId(this.ctx);
+      const found = accountId
+        ? await readAppFileAt(this.ctx, accountId, INSTALLATION_FILE)
+        : null;
+      // No document: a pass does not create one, and this deployment runs on
+      // the model its boot read.
+      if (!found) return this.access;
+      const loaded = await readInstallation(appFolderInstallationStore(this.ctx));
+      return modelAccess(loaded.document, this.opts.access.allowPrivateProvider);
+    } catch {
+      return this.access;
+    }
+  }
+
   private async readInstallationLine(): Promise<string | undefined> {
     const accountId = filesAccountId(this.ctx);
     if (!accountId) return this.opts.installation;
     try {
-      const found = await readAppFileAt(this.ctx, accountId, "installation.json");
+      const found = await readAppFileAt(this.ctx, accountId, INSTALLATION_FILE);
       if (!found?.text) return this.opts.installation;
       const parsed = parseInstallationDocumentDetailed(found.text);
       if ("problem" in parsed) return this.opts.installation;

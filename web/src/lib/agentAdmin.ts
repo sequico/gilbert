@@ -85,3 +85,24 @@ export async function dismissProposal(id: string): Promise<FactDoc> {
 export async function forgetFact(id: string): Promise<void> {
   await apiFetch(`/api/admin/memory/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+/** What the model connection check found: connected, or the first fault. */
+export interface ModelCheck {
+  ok: boolean;
+  /** Who answered, when connected: the provider and the model it named. */
+  identity?: string;
+  reason?:
+    | "no_model"
+    | "bad_url"
+    | "forbidden_target"
+    | "unauthorized"
+    | "not_found"
+    | "rate_limited"
+    | "provider_error"
+    | "unreachable";
+}
+
+/** Ask the provider, with the credential the agent itself uses. */
+export async function fetchModelCheck(): Promise<ModelCheck> {
+  return await apiFetch<ModelCheck>("/api/admin/agent/model");
+}

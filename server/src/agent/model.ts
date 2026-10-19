@@ -287,6 +287,17 @@ interface ModelImage {
  * the private-address switch and an OpenAI-compatible reply are all modelled.
  * `scripts/probe-*.mjs` is how a live provider is asked, by hand.
  */
+/** The model this process's agent runs on, as the last pass read it. */
+let running: ModelAccess | null = null;
+
+export function setRunningModelAccess(access: ModelAccess | null): void {
+  running = access;
+}
+
+export function runningModelAccess(): ModelAccess | null {
+  return running;
+}
+
 /** The provider's token counts for the calls made through one meter. */
 export interface UsageMeter {
   promptTokens: number;
@@ -402,6 +413,85 @@ export async function callModel(
       "model_answer_malformed",
       `${provider} answered with content that is not JSON: ${firstLine(content)}`,
     );
+  }
+}
+
+/** What a model probe found: connected, or the first thing that was wrong. */
+export type ModelProbe =
+  | { ok: true; identity: string }
+  | {
+      ok: false;
+      reason:
+        | "no_model"
+        | "bad_url"
+        | "forbidden_target"
+        | "unauthorized"
+        | "not_found"
+        | "rate_limited"
+        | "provider_error"
+        | "unreachable";
+    };
+
+/**
+ * Ask the provider whether this installation can reach it, and with that key.
+ *
+ * The cheapest call a chat-completions endpoint takes (`max_tokens: 1`) so the
+ * answer is the truth about the credential and the address rather than a
+ * guess: 401 is the key, 404 the URL, a refused connection the address.
+ */
+export async function probeModel(access: ModelAccess): Promise<ModelProbe> {
+  try {
+    await assertUsableProvider(access);
+  } catch (err) {
+    return {
+      ok: false,
+      reason:
+        err instanceof ModelError && err.code === "forbidden_target"
+          ? "forbidden_target"
+          : "bad_url",
+    };
+  }
+  const { provider, model, baseUrl, apiKey } = access.model;
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        ...(apiKey.trim() ? { authorization: `Bearer ${apiKey}` } : {}),
+        ...NO_TRAINING_HEADERS,
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1,
+        messages: [{ role: "user", content: "ping" }],
+      }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (res.ok) {
+      /*
+       * Who answered, as the provider names itself: the model id in its own
+       * answer, which is the one fact that says the key reached the model asked
+       * for and not something else.
+       */
+      let identity = `${provider}/${model}`;
+      try {
+        const body = (await res.json()) as { model?: unknown };
+        if (typeof body.model === "string" && body.model.trim())
+          identity = `${provider}/${body.model.trim()}`;
+      } catch {
+        /* a provider that answers without JSON is still reachable */
+      }
+      return { ok: true, identity };
+    }
+    await res.body?.cancel();
+    if (res.status === 401 || res.status === 403)
+      return { ok: false, reason: "unauthorized" };
+    if (res.status === 404) return { ok: false, reason: "not_found" };
+    if (res.status === 429) return { ok: false, reason: "rate_limited" };
+    return { ok: false, reason: "provider_error" };
+  } catch {
+    return { ok: false, reason: "unreachable" };
   }
 }
 

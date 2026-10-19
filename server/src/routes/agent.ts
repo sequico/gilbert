@@ -40,6 +40,7 @@ import {
   listFacts,
   MemoryError,
 } from "../agent/memory.js";
+import { probeModel, runningModelAccess } from "../agent/model.js";
 import { parseRuleDocumentDetailed } from "../agent/rule.js";
 import { deleteRule, listRules, replaceRule } from "../agent/rules.js";
 import { listRunsForReading } from "../agent/runs.js";
@@ -184,6 +185,16 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * another build must not take the rest off the screen, and must never be drawn
    * as an empty run.
    */
+  /**
+   * Whether the model this process runs on can be reached, and with this key.
+   * A probe, not a stored state: the answer is what the provider says now.
+   */
+  api.get("/admin/agent/model", requireSession, requireAdmin, async (c) => {
+    const access = runningModelAccess();
+    if (!access) return c.json({ ok: false, reason: "no_model" });
+    return c.json(await probeModel(access));
+  });
+
   api.get("/admin/groups/:name/runs", requireSession, requireAdmin, async (c) => {
     const name = c.req.param("name") ?? "";
     try {

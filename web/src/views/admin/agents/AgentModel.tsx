@@ -96,7 +96,7 @@ export function AgentModel({ onSaved }: { onSaved: () => void }) {
         >
           {t("Save")}
         </button>
-        {saved && <span className="hint">{t("Saved; applies at the next boot.")}</span>}
+        {saved && <span className="hint">{t("Saved; applies at the next pass.")}</span>}
       </div>
       {error && <div className="error-box">{error}</div>}
     </section>

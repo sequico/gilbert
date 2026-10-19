@@ -39,7 +39,7 @@ export function ModelFields({
        */}
       <h2 style={{ marginTop: 24 }}>{t("The installation's model")}</h2>
       <p className="hint">
-        {t("Every agent call runs on this model. Applies at the next boot.")}
+        {t("Every agent call runs on this model. Applies at the next pass.")}
       </p>
       {documentProblem && <p className="hint">{documentProblem}</p>}
       {!model.provider && <p className="hint">{t("No model: the agent stays idle.")}</p>}
