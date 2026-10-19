@@ -689,6 +689,13 @@ export interface DecisionQuestion {
    * authority whatever it says.
    */
   memory?: readonly FactDoc[];
+  /**
+   * What the change itself says, when the reading already has it: a chat
+   * message's sender, text and the message it answers. Carried here so the turn
+   * answers without a lookup -- one model call and one round trip less for the
+   * commonest wake.
+   */
+  detail?: { from: string; text: string; replyTo?: string };
 }
 
 /** One lookup a turn made, and what came back, as the next call is told it. */

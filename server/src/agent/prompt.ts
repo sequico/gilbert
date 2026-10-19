@@ -32,6 +32,16 @@ export function turnData(
       `change: ${event.change}`,
       `address: ${event.where}`,
     ]),
+    ...(question.detail
+      ? [
+          "The message itself, so it need not be looked up again:",
+          dataBlock(token, [
+            `from: ${question.detail.from}`,
+            ...(question.detail.replyTo ? [`answers: ${question.detail.replyTo}`] : []),
+            `text: ${question.detail.text}`,
+          ]),
+        ]
+      : []),
     ...memoryBlock(token, question.memory),
     "The group's rules that watch it. Name every one of them that applies, and an empty list when none does:",
     ...candidates.map((rule) =>
