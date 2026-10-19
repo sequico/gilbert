@@ -118,6 +118,7 @@ import type { ProseLevel } from "./prose.js";
 import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
 import { createRun, dueRuns, type RunRecord, readRun, replaceRun } from "./runs.js";
+import { readAgentSwitch } from "./switch.js";
 import { type DueWait, WaitTimers } from "./timers.js";
 import {
   type AnyTool,
@@ -333,6 +334,16 @@ export class AgentLoop {
       this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     }
     summary.claimed = true;
+    /*
+     * The installation's switch, read before the model: off means no pass works
+     * anything and no call is made, so the feature costs nothing while it is
+     * off. Absent is on.
+     */
+    const agentSwitch = await readAgentSwitch(this.ctx, filesAccountId(this.ctx));
+    if (!agentSwitch.enabled) {
+      summary.gaps.push("the agent is turned off for this installation");
+      return summary;
+    }
     /*
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the

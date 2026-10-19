@@ -106,3 +106,19 @@ export interface ModelCheck {
 export async function fetchModelCheck(): Promise<ModelCheck> {
   return await apiFetch<ModelCheck>("/api/admin/agent/model");
 }
+
+/** Whether the installation's agent is on, as the switch says. */
+export interface AgentSwitch {
+  enabled: boolean;
+}
+
+export async function fetchAgentSwitch(): Promise<AgentSwitch> {
+  return await apiFetch<AgentSwitch>("/api/admin/agent/switch");
+}
+
+export async function setAgentSwitch(enabled: boolean): Promise<AgentSwitch> {
+  return await apiFetch<AgentSwitch>("/api/admin/agent/switch", {
+    method: "PUT",
+    body: JSON.stringify({ enabled }),
+  });
+}

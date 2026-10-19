@@ -61,8 +61,11 @@ import {
  *
  * 208 -> 210: the rule form's name — the example placeholder and the line that
  * says what the typed name is filed as (`views/admin/agents/GroupRules.tsx`).
+ *
+ * 210 -> 212: the agent switch — its label and the sentence it shows when off
+ * (`views/admin/agents/AgentOverview.tsx`).
  */
-const MISSING_MAX = 210;
+const MISSING_MAX = 212;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

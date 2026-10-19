@@ -45,6 +45,7 @@ import { parseRuleDocumentDetailed } from "../agent/rule.js";
 import { deleteRule, listRules, replaceRule } from "../agent/rules.js";
 import { listRunsForReading } from "../agent/runs.js";
 import { AGENT_PASS_INTERVAL_MS } from "../agent/supervisor.js";
+import { readAgentSwitch, writeAgentSwitch } from "../agent/switch.js";
 import {
   appFolderState,
   type Ctx,
@@ -193,6 +194,33 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * another build must not take the rest off the screen, and must never be drawn
    * as an empty run.
    */
+  /** Whether the installation's agent is on, as the switch document says. */
+  api.get("/admin/agent/switch", requireSession, requireAdmin, async (c) => {
+    try {
+      const ctx = await masterCtx(c.get("session"));
+      return c.json(await readAgentSwitch(ctx, filesAccountId(ctx)));
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
+  /** Turn the installation's agent on or off; the next pass obeys it. */
+  api.put("/admin/agent/switch", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ enabled?: unknown }>(c);
+    if (typeof body?.enabled !== "boolean")
+      return c.json(
+        { error: "bad_request", message: "the switch takes true or false" },
+        400,
+      );
+    try {
+      const ctx = await masterCtx(c.get("session"));
+      await writeAgentSwitch(ctx, filesAccountId(ctx), body.enabled);
+      return c.json({ enabled: body.enabled });
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
   /**
    * Whether the model this process runs on can be reached, and with this key.
    * A probe, not a stored state: the answer is what the provider says now.

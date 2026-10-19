@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import {
   type AgentStatus,
   fetchAgentStatus,
+  fetchAgentSwitch,
   fetchGroupRuns,
   type RunListing,
+  setAgentSwitch,
 } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
+import { Switch } from "@/ui/misc";
 import { type MetricsPeriod, metricsOf, periodSince, type RunMetrics } from "./metrics";
 
 /** Where the agent is, and what its runs have spent: the installation's numbers. */
@@ -24,7 +27,15 @@ export function AgentOverview({
     [],
   );
   const [period, setPeriod] = useState<MetricsPeriod>("week");
+  const [on, setOn] = useState<boolean | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAgentSwitch()
+      .then((found) => setOn(found.enabled))
+      .catch((err) => setSwitchError(errorMessage(err)));
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -58,7 +69,30 @@ export function AgentOverview({
   return (
     <div>
       {error && <div className="error-box">{error}</div>}
+      {switchError && <div className="error-box">{switchError}</div>}
       <section>
+        <Switch
+          checked={on !== false}
+          disabled={on === null}
+          onChange={(next) => {
+            setOn(next);
+            setAgentSwitch(next).catch((err) => {
+              setOn(!next);
+              setSwitchError(errorMessage(err));
+            });
+          }}
+          label={t("Agents on")}
+        />
+        {on === false && (
+          <p className="hint">
+            {t(
+              "AI agents are turned off. No pass works anything and no model call is made.",
+            )}
+          </p>
+        )}
+      </section>
+
+      <section style={{ marginTop: 24 }}>
         <h2>{t("Status")}</h2>
         <p className="hint">
           {status?.claim

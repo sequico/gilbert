@@ -141,7 +141,11 @@ export async function readChatMessageBy(
   const byId = await readChatMessage(ctx, accountId, ref);
   if (byId) return byId;
   const name = ref.endsWith(".json") ? ref : `${ref}.json`;
-  return await readChatMessageAt(ctx, accountId, `${APP_FOLDER_NAME}/${CHAT_FOLDER}/${name}`);
+  return await readChatMessageAt(
+    ctx,
+    accountId,
+    `${APP_FOLDER_NAME}/${CHAT_FOLDER}/${name}`,
+  );
 }
 
 /**
