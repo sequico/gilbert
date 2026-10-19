@@ -43,7 +43,7 @@ import {
 } from "../agent/memory.js";
 import { probeModel, runningModelAccess } from "../agent/model.js";
 import { parseRuleDocumentDetailed } from "../agent/rule.js";
-import { deleteRule, listRules, replaceRule } from "../agent/rules.js";
+import { createRule, deleteRule, listRules, replaceRule } from "../agent/rules.js";
 import {
   listRunsForReading,
   RUNS_DIR,
@@ -528,7 +528,11 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           need: "agent documents",
         });
         if (!access.ok) return groupDenial(c, access);
-        const body = await readJson<{ rule?: unknown; ifInState?: unknown }>(c);
+        const body = await readJson<{
+          rule?: unknown;
+          ifInState?: unknown;
+          create?: unknown;
+        }>(c);
         const parsed = parseRuleDocumentDetailed(JSON.stringify(body?.rule));
         if ("problem" in parsed) return c.json({ error: parsed.problem }, 400);
         if (parsed.rule.id !== id)
@@ -536,6 +540,16 @@ export function registerAgentRoutes(api: Hono<Env>): void {
             { error: `The rule says "${parsed.rule.id}" but the route files "${id}".` },
             400,
           );
+        /*
+         * A create is a create: the editor says so for a rule it is making, and
+         * a name that slugs to one already filed is refused rather than
+         * replacing that rule's prose in silence. An edit keeps the id it was
+         * opened with, so it is a replace.
+         */
+        if (body?.create === true) {
+          await createRule(access.ctx, access.accountId, parsed.rule);
+          return c.json({ ok: true, rule: parsed.rule });
+        }
         // The same rule as the instruction above: a folder this route creates is
         // its own change, so the token is read after it, not carried from before.
         const hadFolder = await findFolderPath(access.ctx, access.accountId, RULES_DIR);

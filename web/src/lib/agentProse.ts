@@ -46,17 +46,30 @@ export async function saveInstruction(
   });
 }
 
-/** File one rule, or replace the one filed there, and answer what was written. */
+/**
+ * File a new rule, or replace the one filed there, and answer what was written.
+ *
+ * `create` is the difference the product keeps: a rule's id is its file name,
+ * and a name a person typed that slugs to one already filed must not silently
+ * replace that rule's prose (renaming is a new rule and a deleted one). The
+ * route refuses a create over an existing id and a replace of a missing one is
+ * a create, which is what the editor's own mode says.
+ */
 export async function saveRule(
   group: string,
   rule: RuleDoc,
   state?: string,
+  opts: { create?: boolean } = {},
 ): Promise<RuleDoc> {
   const res = await apiFetch<{ rule: RuleDoc }>(
     prosePath(group, `/rules/${encodeURIComponent(rule.id)}`),
     {
       method: "PUT",
-      body: JSON.stringify({ rule, ...(state ? { ifInState: state } : {}) }),
+      body: JSON.stringify({
+        rule,
+        ...(state ? { ifInState: state } : {}),
+        ...(opts.create ? { create: true } : {}),
+      }),
     },
   );
   return res.rule;

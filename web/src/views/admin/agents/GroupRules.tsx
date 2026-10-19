@@ -87,9 +87,9 @@ export function GroupRules({ group }: { group: string }) {
   };
 
   /** Write one rule and reload, so the list is what the account now holds. */
-  const writeRule = async (rule: RuleDoc) => {
+  const writeRule = async (rule: RuleDoc, create: boolean) => {
     try {
-      await saveRule(group, rule, prose?.state);
+      await saveRule(group, rule, prose?.state, { create });
     } catch (err) {
       setError(await conflictOr(err, group));
       return;
@@ -106,7 +106,9 @@ export function GroupRules({ group }: { group: string }) {
     });
     if (!sure) return;
     try {
-      await deleteRule(group, id);
+      // The list's own state, so a rule somebody corrected in between is not
+      // removed by a decision taken against the old list.
+      await deleteRule(group, id, prose?.state);
     } catch (err) {
       setError(errorMessage(err));
       return;
@@ -220,7 +222,7 @@ function RuleEditor({
   onCancel,
 }: {
   initial: RuleDoc;
-  onSave(rule: RuleDoc): Promise<void>;
+  onSave(rule: RuleDoc, create: boolean): Promise<void>;
   onDelete?(): Promise<void>;
   onCancel?(): void;
 }) {
@@ -321,13 +323,16 @@ function RuleEditor({
           disabled={busy || !validId}
           onClick={() =>
             act(async () => {
-              await onSave({
-                v: RULE_VERSION,
-                id: ruleId,
-                watches: RULE_SURFACES.filter((s) => watches.includes(s)),
-                instruction,
-                sends,
-              });
+              await onSave(
+                {
+                  v: RULE_VERSION,
+                  id: ruleId,
+                  watches: RULE_SURFACES.filter((s) => watches.includes(s)),
+                  instruction,
+                  sends,
+                },
+                !existing,
+              );
             })
           }
         >
