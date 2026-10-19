@@ -98,3 +98,28 @@ test("a frame that never ends is dropped rather than buffered for ever", async (
   await until(() => connections >= 2);
   assert.equal(wakes, 0, "a frame that never ends is not a pass");
 });
+
+test("a connect that never answers gives up and tries again", async (t) => {
+  let connections = 0;
+  const server = createServer(() => {
+    connections += 1;
+    // Headers never arrive: the stream is not open.
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  t.after(() => server.close());
+
+  const stop = startAgentWake(
+    {
+      eventSourceUrl: `http://127.0.0.1:${port}/events`,
+      baseUrl: `http://127.0.0.1:${port}`,
+      authorization: "Basic test",
+    },
+    () => {},
+    { retryMs: 20, connectMs: 20 },
+  );
+  t.after(stop);
+
+  await until(() => connections >= 2);
+  assert.ok(connections >= 2, "the connect timed out and the stream was opened again");
+});

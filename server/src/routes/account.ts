@@ -21,6 +21,7 @@ import {
   revokeAppPassword,
 } from "../account.js";
 import { EMPTY_POLICY, readAccountPolicy } from "../adminPolicy.js";
+import { agentWakeStatus } from "../agent/wake.js";
 import { filesAccountId } from "../appFolder.js";
 import { rateLimitKey } from "../clientip.js";
 import { config } from "../config.js";
@@ -84,6 +85,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
       push: admin
         ? status
         : { mode: status.mode, accounts: status.accounts, tabs: status.tabs },
+      wake: agentWakeStatus(),
     });
   });
 

@@ -48,12 +48,18 @@ test("the public health answer carries push counts, not the accounts behind them
   const res = await app.request("/api/health");
   const body = (await res.json()) as {
     push: { mode?: unknown; accounts?: unknown; tabs?: unknown; failures?: unknown };
+    wake?: { state?: unknown };
   };
   assert.equal(res.status, 200);
   assert.equal(body.push.failures, undefined, "no account names on the public answer");
   assert.ok(body.push.mode, "but the mode and counts are still there");
   assert.ok(body.push.accounts);
   assert.ok(body.push.tabs);
+  assert.equal(
+    typeof body.wake?.state,
+    "string",
+    "and how the agent's wake stands is answerable from the outside",
+  );
 });
 
 test("a member's health answer carries no account names either", async () => {

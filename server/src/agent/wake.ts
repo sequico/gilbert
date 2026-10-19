@@ -19,6 +19,16 @@ import { errorMessage } from "../shared/errors.js";
 import { WAKE_STATE_TYPES } from "../shared/push.js";
 import { absoluteUpstream, expandTemplate } from "../upstream.js";
 
+/** What the stream is doing, as an operator reads it. */
+export type AgentWakeState = "off" | "connecting" | "connected" | "failed";
+
+let reported: AgentWakeState = "off";
+
+/** How the agent's wake stands now, for `/api/health`. */
+export function agentWakeStatus(): { state: AgentWakeState } {
+  return { state: reported };
+}
+
 /** What the stream needs: where Stalwart's events are, and who is asking. */
 export interface WakeSource {
   eventSourceUrl: string;
@@ -35,7 +45,7 @@ export interface WakeSource {
 export function startAgentWake(
   source: WakeSource,
   onWake: () => void,
-  opts: { retryMs?: number; pingSeconds?: number } = {},
+  opts: { retryMs?: number; pingSeconds?: number; connectMs?: number } = {},
 ): () => void {
   if (!source.eventSourceUrl) return () => {};
   const url = absoluteUpstream(
@@ -46,6 +56,7 @@ export function startAgentWake(
     }),
     source.baseUrl || config.stalwartUrl,
   );
+  reported = "connecting";
   const retryMs = opts.retryMs ?? 1_000;
   /**
    * A frame that never ends is not a frame: the buffer stops at a megabyte and
@@ -54,7 +65,7 @@ export function startAgentWake(
   const bufferMax = 1 << 20;
   const maxRetryMs = 30_000;
   /** A server that never answers is not a stream: the connect gives up. */
-  const connectMs = 30_000;
+  const connectMs = opts.connectMs ?? 30_000;
   let failing = false;
   let stopped = false;
   let controller: AbortController | null = null;
@@ -109,6 +120,7 @@ export function startAgentWake(
           const frame = buffer.slice(0, at);
           buffer = buffer.slice(at + 2);
           wait = retryMs;
+          reported = "connected";
           if (failing) {
             failing = false;
             console.info("[gilbert] agent: the wake stream is back");
@@ -145,6 +157,7 @@ export function startAgentWake(
       // silent and not noisy.
       if (!stopped && !failing) {
         failing = true;
+        reported = "failed";
         console.warn(
           `[gilbert] agent: the wake stream failed, so the ten-second pass is the clock: ${errorMessage(err)}`,
         );
@@ -159,6 +172,7 @@ export function startAgentWake(
   void run();
   return () => {
     stopped = true;
+    reported = "off";
     controller?.abort();
     if (timer) clearTimeout(timer);
   };
