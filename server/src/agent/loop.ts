@@ -777,7 +777,7 @@ export class AgentLoop {
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
           workRun: (a, r, n, f) => this.workRun(a, r, n, f),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
-          openRun: (a, e, r) => this.openRun(a, e, r),
+          openRun: (a, e, r, from) => this.openRun(a, e, r, from),
         },
         accountId,
         now,
@@ -825,6 +825,7 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     rule: RuleDoc,
+    wakeFrom: string | null,
   ): Promise<RunDoc> {
     const run = startRun({
       id: randomUUID(),
@@ -832,8 +833,10 @@ export class AgentLoop {
         rule: rule.id,
         instruction: null,
         woke: wokeOf(event),
-        // The rule's own declaration, carried by the run: the guard reads it.
+        // The rule's own declaration, carried by the run: the guard reads it,
+        // and so does the correspondent it answers.
         sends: rule.sends,
+        wakeFrom,
       },
     });
     await createRun(this.ctx, accountId, run);

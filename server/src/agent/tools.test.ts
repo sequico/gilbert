@@ -476,7 +476,8 @@ test("a rule that declares it sends is the authority an outward act asks for", (
   /*
    * ADR 0032's class 3, carried by a rule (ADR 0035): the group wrote the rule,
    * its instruction says what to send, and the declaration travels on the run
-   * that rule opened. It answers for outward acts and nothing else.
+   * that rule opened. It answers the correspondent whose change woke it and no
+   * other address, so the declaration is not a licence to compose a recipient.
    */
   const send = TOOLS.find((tool) => tool.name === "mail.send");
   assert.ok(send, "the catalogue sends mail");
@@ -489,9 +490,19 @@ test("a rule that declares it sends is the authority an outward act asks for", (
       instruction: null,
       woke: "mail created: m-1",
       sends: true,
+      wakeFrom: "shipper@example.org",
     },
   });
-  assert.equal(mayRun(send, sending, args), true, "the rule's declaration is enough");
+  assert.equal(
+    mayRun(send, sending, args),
+    true,
+    "the rule's declaration answers the sender that woke it",
+  );
+  assert.equal(
+    mayRun(send, sending, { ...args, to: "someone-else@example.org" }),
+    false,
+    "and reaches no other address the model names",
+  );
 
   const quiet = startRun({
     id: "quiet",

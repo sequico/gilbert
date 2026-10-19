@@ -58,7 +58,13 @@ export interface ChangesDeps {
     facts?: Record<string, string>,
   ): Promise<RunDoc | null>;
   authoriseAnswer(answer: AnsweredRun): Promise<RunDoc>;
-  openRun(accountId: string, event: AccountEvent, rule: RuleDoc): Promise<RunDoc>;
+  openRun(
+    accountId: string,
+    event: AccountEvent,
+    rule: RuleDoc,
+    /** The sender the waking message named, or null when the change names none. */
+    from: string | null,
+  ): Promise<RunDoc>;
 }
 
 /**
@@ -406,7 +412,7 @@ export async function workChanges(
         }
         continue;
       }
-      const run = await deps.openRun(accountId, event, rule);
+      const run = await deps.openRun(accountId, event, rule, message?.from ?? null);
       summary.runs += 1;
       const worked = await deps.workRun(
         accountId,

@@ -126,6 +126,16 @@ interface RunStart {
    * absent for a run an instruction started.
    */
   sends?: boolean;
+  /**
+   * The address whose message woke a rule that sends, as the change carried it.
+   *
+   * A declared send answers **that correspondent** and no other: the rule was
+   * woken by their words, and the licence the group wrote reaches the thread
+   * that caused it, not every address the model can compose. A run woken by an
+   * instruction, or one whose change names no sender, carries null and sends
+   * nothing outward without a person's own licence.
+   */
+  wakeFrom?: string | null;
 }
 
 /**
@@ -387,6 +397,9 @@ function isStart(x: unknown): x is RunStart {
   if (instruction !== null && !isMessageRef(instruction)) return false;
   if (woke !== null && (typeof woke !== "string" || !woke.trim())) return false;
   if ("sends" in x && typeof x.sends !== "boolean") return false;
+  const wakeFrom = (x as { wakeFrom?: unknown }).wakeFrom;
+  if (wakeFrom !== undefined && wakeFrom !== null && typeof wakeFrom !== "string")
+    return false;
   // One of the two, and never both: a run that was started twice is not a run.
   if ((rule === null) === (instruction === null)) return false;
   // A rule is woken by a change in the group's account; an instruction **is**
