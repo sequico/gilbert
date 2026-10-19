@@ -273,7 +273,10 @@ export class JmapClient {
      * stay unaware that a memory exists at all -- and it is forgotten for every
      * reader, not only this one, because a reader cannot see who else writes.
      */
-    if (methodCalls.some(([name]) => name === FILENODE_SET)) forgetRemembered();
+    // A folder a pass listed and a mailbox a pass created are the same kind of
+    // answer: both stop being true when the account's mailbox tree is written.
+    if (methodCalls.some(([name]) => name === FILENODE_SET || name === "Mailbox/set"))
+      forgetRemembered();
     const res = await fetch(absoluteUpstream(this.session.apiUrl, this.session.baseUrl), {
       method: "POST",
       headers: {

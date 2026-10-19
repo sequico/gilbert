@@ -12,6 +12,7 @@
 import { readGroupLabels, writeGroupLabels } from "../../account.js";
 import type { Ctx } from "../../appFolder.js";
 import { groupMembers } from "../../groupAccess.js";
+import { recalled } from "../../requestMemory.js";
 import { sameAddress } from "../../shared/address.js";
 import { CAPABILITIES } from "../../shared/capabilities.js";
 import { moveMailboxPatch, refusalOf, type SetResponse } from "../../shared/jmap.js";
@@ -72,17 +73,25 @@ async function mailboxesOf(
   ctx: Ctx,
   accountId: string,
 ): Promise<Record<string, SearchMailbox & { parentId: string | null }>> {
-  const boxes: Record<string, SearchMailbox & { parentId: string | null }> = {};
-  for (const box of await accountMailboxes(clientOf(ctx), accountId)) {
-    if (typeof box.id !== "string" || typeof box.name !== "string") continue;
-    boxes[box.id] = {
-      id: box.id,
-      name: box.name,
-      role: typeof box.role === "string" ? box.role : null,
-      parentId: typeof box.parentId === "string" ? box.parentId : null,
-    };
-  }
-  return boxes;
+  /*
+   * One mailbox tree per unit of work: a step that files, drafts and answers
+   * asked the same account for its folders three times. A mailbox write forgets
+   * it (`jmap.ts`), so a folder created in the same pass is seen by the next
+   * step rather than by the next pass.
+   */
+  return await recalled(ctx, `agent:mailboxes:${accountId}`, async () => {
+    const boxes: Record<string, SearchMailbox & { parentId: string | null }> = {};
+    for (const box of await accountMailboxes(clientOf(ctx), accountId)) {
+      if (typeof box.id !== "string" || typeof box.name !== "string") continue;
+      boxes[box.id] = {
+        id: box.id,
+        name: box.name,
+        role: typeof box.role === "string" ? box.role : null,
+        parentId: typeof box.parentId === "string" ? box.parentId : null,
+      };
+    }
+    return boxes;
+  });
 }
 
 export const findMessages = defineTool({
@@ -410,28 +419,33 @@ async function sendingIdentities(
   ctx: Ctx,
   accountId: string,
 ): Promise<SendingIdentity[]> {
-  const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
-    "Identity/get",
-    { accountId, ids: null },
-    [CAPABILITIES.mail, CAPABILITIES.submission],
-  );
-  const identities: SendingIdentity[] = [];
-  for (const one of answer.list ?? []) {
-    const [address] = addressesIn([one]);
-    if (!address) continue;
-    identities.push({
-      ...address,
-      id: typeof one.id === "string" ? one.id : "",
-      bcc: addressesIn(one.bcc),
-    });
-  }
-  if (!identities.length)
-    throw new ToolError(
-      "no_identity",
-      "This account has no sending identity, so a draft could not say who it is from.",
-      409,
-    );
-  return identities;
+  // As the mailboxes: one read per pass, and an identity write is rare enough
+  // that the next pass is soon enough to see it.
+  return await recalled(ctx, `agent:identities:${accountId}`, async () => {
+    const answer = await clientOf(ctx).call<{
+      list?: Array<Record<string, unknown>>;
+    }>("Identity/get", { accountId, ids: null }, [
+      CAPABILITIES.mail,
+      CAPABILITIES.submission,
+    ]);
+    const identities: SendingIdentity[] = [];
+    for (const one of answer.list ?? []) {
+      const [address] = addressesIn([one]);
+      if (!address) continue;
+      identities.push({
+        ...address,
+        id: typeof one.id === "string" ? one.id : "",
+        bcc: addressesIn(one.bcc),
+      });
+    }
+    if (!identities.length)
+      throw new ToolError(
+        "no_identity",
+        "This account has no sending identity, so a draft could not say who it is from.",
+        409,
+      );
+    return identities;
+  });
 }
 
 /** One message as a run's answer path reads it (ADR 0033). */
