@@ -10,6 +10,7 @@ import {
 } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
+import { push } from "@/jmap/push";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
 import { StopRun } from "./GroupRuns";
@@ -39,7 +40,9 @@ export function AgentOverview({
       .catch((err) => setSwitchError(errorMessage(err)));
   }, []);
 
-  const groupKey = groups.map((group) => group.name).join("\n");
+  const groupKey = groups
+    .map((group) => `${group.name}:${group.accountId}`)
+    .join("\n");
 
   /*
    * One reader for the page, two rhythms: the whole history every sixty
@@ -81,11 +84,31 @@ export function AgentOverview({
     void loadAll().catch(fail);
     void loadRunning().catch(fail);
     const full = window.setInterval(() => void loadAll().catch(fail), 60_000);
-    const running = window.setInterval(() => void loadRunning().catch(fail), 3_000);
+    /*
+     * The runs in flight follow the stream: a FileNode change in a group's
+     * account asks for them after a second of coalescing, and the ten-second
+     * poll is the safety net for a stream that is down.
+     */
+    let scheduled: number | null = null;
+    const scheduleRunning = () => {
+      if (scheduled !== null) return;
+      scheduled = window.setTimeout(() => {
+        scheduled = null;
+        void loadRunning().catch(fail);
+      }, 1_000);
+    };
+    const stopPush = push.subscribe((changed, type) => {
+      if (type !== "FileNode") return;
+      if (!groups.some((group) => group.accountId === changed)) return;
+      scheduleRunning();
+    });
+    const running = window.setInterval(() => void loadRunning().catch(fail), 10_000);
     return () => {
       live = false;
       window.clearInterval(full);
       window.clearInterval(running);
+      stopPush();
+      if (scheduled !== null) window.clearTimeout(scheduled);
     };
   }, [groupKey]);
 

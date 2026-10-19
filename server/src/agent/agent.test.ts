@@ -143,7 +143,7 @@ test("an installation that has chosen no model leaves the boot done and the agen
   await agent.stop();
   assert.deepEqual(lines, [
     "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
-    "[gilbert] agent: asking for a pass every 10 s",
+    "[gilbert] agent: asking for a pass every 10 s, or 30 s while the wake stream is connected",
     "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
     "[gilbert] agent: the installation names no model, so this pass worked nothing",
     "[gilbert] agent: stopping, and the claim is released",

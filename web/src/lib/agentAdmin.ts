@@ -48,11 +48,12 @@ export async function fetchGroupRuns(
 export async function fetchGroupArchive(
   group: string,
   month: string,
-): Promise<RunSummary[]> {
-  const res = await apiFetch<{ runs: RunSummary[] }>(
-    `/api/groups/${encodeURIComponent(group)}/runs/archive?month=${encodeURIComponent(month)}`,
+  offset = 0,
+): Promise<{ runs: RunSummary[]; more: boolean }> {
+  const res = await apiFetch<{ runs: RunSummary[]; more: boolean }>(
+    `/api/groups/${encodeURIComponent(group)}/runs/archive?month=${encodeURIComponent(month)}&offset=${offset}`,
   );
-  return res.runs;
+  return { runs: res.runs, more: res.more };
 }
 
 /** One run whole, read when its row opens; `month` names an archived drawer. */

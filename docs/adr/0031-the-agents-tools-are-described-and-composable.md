@@ -26,9 +26,10 @@ asked for **when Stalwart pushes a change**: the server holds its own event
 stream to Stalwart with the Master's credential (`server/src/agent/wake.ts`),
 open and independent of any browser, and a `StateChange` on it is the reason
 for a pass. The interval is the floor,
-not the clock: a deployment whose mail server offers no stream keeps it alone,
-and a stream that drops is reopened with a growing pause while the interval
-covers the gap. The groups are **resolved from the mail server on every pass**,
+not the clock: **ten seconds** without a working stream, **thirty** while one is
+connected — a pushed change is immediate and a dated wait kicks a pass as it
+comes due — and a stream that drops is reopened with a growing pause while the
+interval covers the gap. The groups are **resolved from the mail server on every pass**,
 so a group the Master is added
 to is worked by the next one with no restart, and a Master who works no group at
 this moment is an idle agent, said once (`supervisor.ts`), rather than one that
@@ -125,9 +126,11 @@ typed arguments, each acting on one of those objects.
 - Every tool is exercisable against the mock, and the mock is what must agree
   with a real Stalwart.
 - The wake is the server's own event stream: a StateChange asks for a pass, and
-  the ten-second interval is the floor for a mail server that offers none and
-  for the pause while a dropped stream is reopened. A burst of changes is one
-  pass, and a change that arrives while a pass runs asks for one more.
+  the interval is the floor for a mail server that offers none and for the
+  pause while a dropped stream is reopened — ten seconds without a working
+  stream, thirty with one, because a dated wait kicks a pass directly. A burst
+  of changes is one pass, and a change that arrives while a pass runs asks for
+  one more.
 - The provider's contract is pinned against a stub, and **no real provider has
   answered it**: the first live call is owed before the model path is trusted.
 <!-- owed: model-provider-live -->

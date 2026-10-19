@@ -425,7 +425,7 @@ test("the interval is ten seconds, and the start says so", async (t) => {
   assert.equal(AGENT_PASS_INTERVAL_MS, 10_000, "a pass is asked every ten seconds");
   assert.equal(
     lines[0],
-    "[gilbert] agent: asking for a pass every 10 s",
+    "[gilbert] agent: asking for a pass every 10 s, or 30 s while the wake stream is connected",
     "and the start says which interval it is on",
   );
 });

@@ -75,6 +75,7 @@ import { errorMessage } from "../shared/errors.js";
 import { groupCandidates } from "../shared/sessionAccount.js";
 import { fetchUpstreamSession, upstreamFor } from "../upstream.js";
 import { AgentLoop, type PassSummary } from "./loop.js";
+import { agentWakeStatus } from "./wake.js";
 import { modelAccess, setRunningModelAccess } from "./model.js";
 
 /**
@@ -91,6 +92,15 @@ import { modelAccess, setRunningModelAccess } from "./model.js";
  * process's renewals are ordinary and not a race with its own expiry.
  */
 export const AGENT_PASS_INTERVAL_MS = 10_000;
+
+/**
+ * The interval while the wake stream is connected.
+ *
+ * A pushed change is immediate, and a dated wait kicks a pass as it comes due,
+ * so the beat is a safety net until the stream drops; without it the pass is
+ * asked every ten seconds as before.
+ */
+export const AGENT_PASS_INTERVAL_WITH_WAKE_MS = 30_000;
 
 /** How long pushes are gathered before one pass is asked for. */
 const KICK_COALESCE_MS = 500;
@@ -245,16 +255,31 @@ export function supervise(options: SupervisorOptions): AgentProcess {
   // A dated wait that comes due is a reason to work now; the interval is the
   // floor for the rest, not the only clock a wait can keep.
   options.loop.onDue = kick;
+  let intervalTimer: NodeJS.Timeout | null = null;
+  function scheduleInterval(): void {
+    if (stopped) return;
+    const delay =
+      agentWakeStatus().state === "connected"
+        ? AGENT_PASS_INTERVAL_WITH_WAKE_MS
+        : intervalMs;
+    intervalTimer = setTimeout(() => {
+      if (stopped) return;
+      void pass();
+      scheduleInterval();
+    }, delay);
+  }
   void pass();
-  const timer = setInterval(() => void pass(), intervalMs);
-  log(`[gilbert] agent: asking for a pass every ${Math.round(intervalMs / 1000)} s`);
+  scheduleInterval();
+  log(
+    `[gilbert] agent: asking for a pass every ${Math.round(intervalMs / 1000)} s, or ${Math.round(AGENT_PASS_INTERVAL_WITH_WAKE_MS / 1000)} s while the wake stream is connected`,
+  );
 
   return {
     kick,
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;
-      clearInterval(timer);
+      if (intervalTimer) clearTimeout(intervalTimer);
       if (kickTimer) clearTimeout(kickTimer);
       // The claim is released only after the pass in flight has finished: a
       // release beside a working pass hands the installation to a peer while

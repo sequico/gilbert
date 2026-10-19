@@ -10,6 +10,7 @@ import {
   stopRun,
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
+import { push } from "@/jmap/push";
 import { RUN_STATE_LABELS, RunCard } from "@/views/admin/agent/RunCard";
 import { metricsOf, sameRunHeader } from "./metrics";
 
@@ -157,10 +158,13 @@ function RunRow({
 /** The runs one group has worked, as its own account carries them. */
 export function GroupRuns({
   group,
+  accountId,
   facts,
   live = false,
 }: {
   group: string;
+  /** The group's own account, for the push stream that wakes the live list. */
+  accountId?: string;
   facts: readonly FactDoc[];
   /** Keep the list current while it is on screen, for a run still in flight. */
   live?: boolean;
@@ -172,23 +176,51 @@ export function GroupRuns({
   const [month, setMonth] = useState("");
   /** The runs in flight at the last poll: a different set means the list moved. */
   const runningIds = useRef("");
+  /** Whether the server's month has more runs after the page in hand. */
+  const [archiveMore, setArchiveMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setRuns(
-        month ? await fetchGroupArchive(group, month) : await fetchGroupRuns(group),
-      );
+      if (month) {
+        const page = await fetchGroupArchive(group, month);
+        setRuns(page.runs);
+        setArchiveMore(page.more);
+      } else {
+        setRuns(await fetchGroupRuns(group));
+        setArchiveMore(false);
+      }
       setError(null);
     } catch (err) {
       setError(errorMessage(err));
     }
   }, [group, month]);
 
+  /** The next server page of the month, appended to the list in hand. */
+  const loadMore = useCallback(async (): Promise<boolean> => {
+    if (!month || loadingMore) return false;
+    setLoadingMore(true);
+    try {
+      const page = await fetchGroupArchive(group, month, runs?.length ?? 0);
+      setRuns((held) => [...(held ?? []), ...page.runs]);
+      setArchiveMore(page.more);
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(errorMessage(err));
+      return false;
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [group, loadingMore, month, runs?.length]);
+
   useEffect(() => {
     let alive = true;
     setRuns(null);
     setError(null);
     setPage(0);
+    setArchiveMore(false);
+    setLoadingMore(false);
     runningIds.current = "";
     void load();
     if (!live || month)
@@ -200,7 +232,7 @@ export function GroupRuns({
      * their fresh headers are merged into the list; when a run starts or ends
      * the set moved, and the one full read keeps the page and the numbers true.
      */
-    const timer = window.setInterval(() => {
+    const poll = () => {
       void (async () => {
         try {
           const running = await fetchGroupRuns(group, "running");
@@ -233,12 +265,32 @@ export function GroupRuns({
           if (alive) setError(errorMessage(err));
         }
       })();
-    }, 3_000);
+    };
+    /*
+     * The stream is the clock and the interval is the safety net: a FileNode
+     * change in the group's account asks for the runs in flight, with a second
+     * of coalescing for the agent's own writes, and the ten-second poll keeps
+     * the panel honest if the stream is down.
+     */
+    const fallback = window.setInterval(poll, 10_000);
+    let scheduled: number | null = null;
+    const stopPush = accountId
+      ? push.subscribe((changed, type) => {
+          if (!alive || type !== "FileNode" || changed !== accountId) return;
+          if (scheduled !== null) return;
+          scheduled = window.setTimeout(() => {
+            scheduled = null;
+            poll();
+          }, 1_000);
+        })
+      : () => {};
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      window.clearInterval(fallback);
+      stopPush();
+      if (scheduled !== null) window.clearTimeout(scheduled);
     };
-  }, [load, live, month]);
+  }, [accountId, load, live, month]);
 
   const metrics = useMemo(() => (runs ? metricsOf(runs) : null), [runs]);
   /*
@@ -328,8 +380,16 @@ export function GroupRuns({
           <button
             type="button"
             className="btn btn-ghost"
-            disabled={page >= pages - 1}
-            onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
+            disabled={(page >= pages - 1 && !archiveMore) || loadingMore}
+            onClick={() => {
+              if (month && page >= pages - 1 && archiveMore) {
+                void loadMore().then((loaded) => {
+                  if (loaded) setPage((p) => p + 1);
+                });
+                return;
+              }
+              setPage((p) => Math.min(pages - 1, p + 1));
+            }}
           >
             {t("Next")}
           </button>

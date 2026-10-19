@@ -508,7 +508,12 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       <div className="chat-thread" ref={threadRef} onScroll={onScroll}>
         {runsOpen && open ? (
           <div style={{ padding: 12 }}>
-            <GroupRuns group={open.name} facts={NO_FACTS} live />
+            <GroupRuns
+              group={open.name}
+              accountId={openAccountId ?? undefined}
+              facts={NO_FACTS}
+              live
+            />
           </div>
         ) : searchOpen ? (
           query.trim().length >= 2 ? (

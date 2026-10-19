@@ -27,11 +27,15 @@ const MEMORY = "memory";
 
 export function AgentsView() {
   const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
-  const entries = [
+  const entries: Array<{ id: string; label: string; accountId?: string }> = [
     { id: OVERVIEW, label: t("Overview") },
     { id: GENERAL, label: t("General") },
     { id: MEMORY, label: t("Memory") },
-    ...groups.map((g) => ({ id: `group:${g.name}`, label: g.name })),
+    ...groups.map((g) => ({
+      id: `group:${g.name}`,
+      label: g.name,
+      accountId: g.accountId,
+    })),
   ];
   const [tab, setTab] = useState(OVERVIEW);
   const [visited, setVisited] = useState<ReadonlySet<string>>(new Set([OVERVIEW]));
@@ -137,7 +141,11 @@ export function AgentsView() {
               />
             )}
             {entry.id.startsWith("group:") && (
-              <AgentGroup group={entry.id.slice("group:".length)} facts={facts} />
+              <AgentGroup
+                group={entry.id.slice("group:".length)}
+                accountId={entry.accountId}
+                facts={facts}
+              />
             )}
           </div>
         ))}

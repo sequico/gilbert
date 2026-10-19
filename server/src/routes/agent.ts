@@ -106,6 +106,8 @@ const memoryFailure = failureFor(MemoryError);
  * token, which is what makes the next ask a fresh walk.
  */
 const RUNS_READING_TTL_MS = 10_000;
+/** How many archived runs one answer carries; the month can hold many. */
+const ARCHIVE_PAGE = 100;
 const runsReadings = new Map<string, { state: string; rows: RunSummary[]; at: number }>();
 
 export function registerAgentRoutes(api: Hono<Env>): void {
@@ -339,19 +341,33 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     const month = c.req.query("month") ?? "";
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
       return c.json({ error: "bad_request", message: "month is YYYY-MM" }, 400);
+    const offset = Number.parseInt(c.req.query("offset") ?? "0", 10);
+    if (!Number.isInteger(offset) || offset < 0 || offset > 10_000_000)
+      return c.json({ error: "bad_request", message: "offset is a whole number" }, 400);
     try {
       const access = await memberGroupAccess(c.get("session"), name, {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const runs = (
+      const all = (
         await listRunsForReading(
           access.ctx,
           access.accountId,
           `${RUNS_ARCHIVE_DIR}/${month}`,
         )
-      ).map(summarizeRun);
-      return c.json({ group: name, month, runs });
+      )
+        .map(summarizeRun)
+        .sort((a, b) => {
+          const when = (one: RunSummary) => one.startedAt ?? one.ended?.at ?? "";
+          return when(b).localeCompare(when(a)) || a.id.localeCompare(b.id);
+        });
+      const runs = all.slice(offset, offset + ARCHIVE_PAGE);
+      return c.json({
+        group: name,
+        month,
+        runs,
+        more: offset + runs.length < all.length,
+      });
     } catch (err) {
       return doorFailure(c, err);
     }
