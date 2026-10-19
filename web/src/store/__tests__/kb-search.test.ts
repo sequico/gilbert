@@ -38,13 +38,15 @@ function tier(title: string) {
   };
 }
 
+/* The search reads a page's text through the lightweight route, which answers
+   the draft's text alone — not the whole article with its history. */
 const ok = (text: string) =>
   vi.fn(
     async () =>
       ({
         ok: true,
         status: 200,
-        json: async () => ({ ok: true, article: { draft: { text } } }),
+        json: async () => ({ ok: true, text }),
       }) as unknown as Response,
   );
 
@@ -88,7 +90,7 @@ describe("the KB search", () => {
     const page = {
       ok: true,
       status: 200,
-      json: async () => ({ ok: true, article: { draft: { text: "magica" } } }),
+      json: async () => ({ ok: true, text: "magica" }),
     } as unknown as Response;
     vi.stubGlobal(
       "fetch",

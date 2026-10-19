@@ -416,9 +416,11 @@ function AuthedApp() {
       if (types.has("FileNode"))
         work.push(useChat.getState().applyChanges(accountId, signal));
       // The knowledge base of a group rides the same FileNode rail (ADR 0024);
-      // the company tier is read when opened, so it is not pushed here.
-      if (types.has("FileNode"))
-        work.push(useKnowledge.getState().applyChanges(accountId));
+      // the company tier is read when opened, so it is not pushed here. It arms
+      // a coalescing window rather than performing the read, so it is not
+      // awaited: like the workorder panel, it is deliberately not part of the
+      // barrier the pass calls "everything on screen is fresh".
+      if (types.has("FileNode")) void useKnowledge.getState().applyChanges(accountId);
       // A workorder's parts are app-folder documents in the reader's own groups
       // (ADR 0028), and a check somebody else made is a write there: the store
       // re-reads the list through the route, and answers only while its panel is

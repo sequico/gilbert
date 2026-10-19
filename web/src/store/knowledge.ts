@@ -17,6 +17,7 @@
  * service and without a cached index to go stale.
  */
 
+import { mapLimit, READ_CONCURRENCY } from "@gilbert/shared/concurrency";
 import { errorMessage } from "@gilbert/shared/errors";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
@@ -27,6 +28,7 @@ import {
   articleKey,
   checklistBlocks,
   companyArticle,
+  companyText,
   companyTree,
   createArticle,
   createKnowledgeFolder,
@@ -45,6 +47,7 @@ import {
   reorderKnowledgeArticle,
   reorderKnowledgeArticles,
   restoreArticle,
+  readArticleText,
   saveDraft,
 } from "@/lib/knowledge";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -218,6 +221,21 @@ const searchText = new Map<string, string>();
  */
 let searchToken = 0;
 
+/**
+ * How long a burst of FileNode changes is collapsed over before the one
+ * re-list it causes.
+ *
+ * The rail names an account and nothing else, and a group's chat, knowledge
+ * base and settings all ride it: answering every change with a full tree walk
+ * would re-read the KB once per message. The first change of a burst opens the
+ * window and later ones ride it, so the surface is at most one window behind
+ * the rail — the same arrangement the workorder store keeps.
+ */
+export const KNOWLEDGE_CHANGE_WINDOW_MS = 1500;
+
+/** The window each followed account has open, by account id. */
+const changeWindows = new Map<string, ReturnType<typeof setTimeout>>();
+
 export const useKnowledge = create<KnowledgeStore>((set, get) => {
   /**
    * A write, and the re-read that follows it — the two told apart.
@@ -296,18 +314,16 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       return edit?.text ?? article.draft?.text ?? "";
     }
     try {
-      const view =
+      /*
+       * Search indexes a page's text, not its history: the whole article view
+       * would make reading one page's body cost its revision history, and a
+       * cold search pays that once per page.
+       */
+      const text =
         tier.scope === "company"
-          ? await companyArticle(summary.folder)
-          : await readArticle(
-              tier.accountId,
-              summary.nodeId,
-              summary.nodeId,
-              summary.folder,
-              tier.scope,
-              summary.parentId,
-            );
-      return view?.draft?.text ?? "";
+          ? await companyText(summary.folder)
+          : await readArticleText(tier.accountId, summary.nodeId);
+      return text ?? "";
     } catch {
       return "";
     }
@@ -316,6 +332,35 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
   /** Re-open the article a write just changed, by the summary the route echoed. */
   async function reopen(accountId: Id, summary: KnowledgeSummary): Promise<void> {
     await get().open(accountId, summary.folder, summary.nodeId);
+  }
+
+  /**
+   * Re-list one group's tier after a burst of changes on its rail.
+   *
+   * The pages of that account drop their remembered text: a body that changed
+   * elsewhere must be searched at its new words, and the memory is keyed by
+   * the account, so its own entries are the whole of what is stale.
+   */
+  async function rereadTier(accountId: Id): Promise<void> {
+    try {
+      set({ error: null });
+      const folderId = await findKnowledgeFolder(accountId);
+      if (!folderId) return;
+      const articles = await listArticles(accountId, folderId, get().showRetired);
+      for (const key of searchText.keys())
+        if (key.startsWith(`${accountId}:`)) searchText.delete(key);
+      set((s) => ({
+        tiers: s.tiers.map((tier) =>
+          tier.accountId === accountId ? { ...tier, articles } : tier,
+        ),
+      }));
+      // The open page is reconciled too, unless it holds unsaved edits.
+      const open = get().article;
+      if (open && open.accountId === accountId && !get().edit?.dirty)
+        await get().open(open.accountId, open.summary.folder, open.summary.nodeId);
+    } catch {
+      /* a failed reconcile leaves the tree as it was; the next event retries */
+    }
   }
 
   return {
@@ -374,23 +419,28 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
        * list: creating the folder is the group's first article's job, not a
        * read's, and a surface that hid the tier would offer no way to start one.
        */
-      for (const group of groupMailboxAccounts(useMail.getState().mailAccounts)) {
-        let articles: KnowledgeSummary[] = [];
-        try {
-          const folderId = await findKnowledgeFolder(group.accountId);
-          if (folderId)
-            articles = await listArticles(group.accountId, folderId, get().showRetired);
-        } catch {
-          articles = [];
-        }
-        tiers.push({
-          scope: "group",
-          accountId: group.accountId,
-          group: group.name,
-          canApprove,
-          articles,
-        });
-      }
+      const groupTiers = await mapLimit(
+        groupMailboxAccounts(useMail.getState().mailAccounts),
+        READ_CONCURRENCY,
+        async (group) => {
+          let articles: KnowledgeSummary[] = [];
+          try {
+            const folderId = await findKnowledgeFolder(group.accountId);
+            if (folderId)
+              articles = await listArticles(group.accountId, folderId, get().showRetired);
+          } catch {
+            articles = [];
+          }
+          return {
+            scope: "group" as const,
+            accountId: group.accountId,
+            group: group.name,
+            canApprove,
+            articles,
+          };
+        },
+      );
+      tiers.push(...groupTiers);
 
       // The store was emptied while the tiers were being read -- a sign-out --
       // so this answer belongs to nobody and is dropped.
@@ -727,21 +777,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       // Only a group's KB rides the FileNode rail; the company tier is read when
       // opened, so it is not pushed (ADR 0024).
       if (tier?.scope !== "group") return;
-      try {
-        set({ error: null });
-        const folderId = await findKnowledgeFolder(accountId);
-        if (!folderId) return;
-        const articles = await listArticles(accountId, folderId, get().showRetired);
-        set((s) => ({
-          tiers: s.tiers.map((t) => (t.accountId === accountId ? { ...t, articles } : t)),
-        }));
-        // The open page is reconciled too, unless it holds unsaved edits.
-        const open = get().article;
-        if (open && open.accountId === accountId && !get().edit?.dirty)
-          await get().open(open.accountId, open.summary.folder, open.summary.nodeId);
-      } catch {
-        /* a failed reconcile leaves the tree as it was; the next event retries */
-      }
+      // The first change of a burst opens the window; the rest ride it.
+      if (changeWindows.has(accountId)) return;
+      changeWindows.set(
+        accountId,
+        setTimeout(() => {
+          changeWindows.delete(accountId);
+          void rereadTier(accountId);
+        }, KNOWLEDGE_CHANGE_WINDOW_MS),
+      );
     },
 
     async runSearch() {
@@ -766,30 +810,42 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
           engineError = err;
           return null;
         });
-        const docs: Array<{ id: string; title: string; text: string; tags: string }> = [];
         const index = new Map<
           string,
           { tier: KnowledgeTierState; summary: KnowledgeSummary }
         >();
+        const pages: Array<{ tier: KnowledgeTierState; summary: KnowledgeSummary }> = [];
         for (const tier of get().tiers) {
           for (const summary of tier.articles) {
             // A topic folder groups articles; it is not a page to find.
             if (summary.kind === "folder") continue;
-            const key = articleKey(tier.accountId, summary.nodeId);
-            let text = searchText.get(key);
+            pages.push({ tier, summary });
+            index.set(articleKey(tier.accountId, summary.nodeId), { tier, summary });
+          }
+        }
+        /*
+         * A page not read before is one listing and one download, and the pages
+         * are independent: they are read a bounded few at a time rather than one
+         * after another, so a first search does not pay per page in series.
+         */
+        const docs = await mapLimit(
+          pages,
+          READ_CONCURRENCY,
+          async ({ tier, summary }) => {
+            const id = articleKey(tier.accountId, summary.nodeId);
+            let text = searchText.get(id);
             if (text === undefined) {
               text = await textOf(tier, summary);
-              searchText.set(key, text);
+              searchText.set(id, text);
             }
-            docs.push({
-              id: key,
+            return {
+              id,
               title: summary.title,
               text,
               tags: summary.tags.join(" "),
-            });
-            index.set(key, { tier, summary });
-          }
-        }
+            };
+          },
+        );
         const orama = await engine;
         if (!orama) {
           // The engine is a chunk, and the one thing a search cannot run
@@ -839,6 +895,8 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       loadPending = false;
       openToken += 1;
       searchToken += 1;
+      for (const timer of changeWindows.values()) clearTimeout(timer);
+      changeWindows.clear();
       set({
         tiers: [],
         loaded: false,

@@ -19,7 +19,14 @@
  * still goes through the route, an administrator's alone.
  */
 
-import { APP_DOCUMENT_TYPE, FILENODE_GET, FOLDER_PROPS } from "@gilbert/shared/appFolder";
+import {
+  APP_DOCUMENT_TYPE,
+  FILENODE_GET,
+  FOLDER_PROPS,
+  nodeStamp,
+  STAMP_PROPS,
+} from "@gilbert/shared/appFolder";
+import { mapLimit, READ_CONCURRENCY } from "@gilbert/shared/concurrency";
 import {
   compareKnowledgeSiblings,
   compareRevisionsNewestFirst,
@@ -34,13 +41,17 @@ import {
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
   type KnowledgeChecklist,
+  type KnowledgeDraft,
   type KnowledgeRevision,
+  type KnowledgeState,
   type KnowledgeScope,
   type KnowledgeSummary,
   type KnowledgeTarget,
   knowledgeSummary,
   orderBetween,
   REVISIONS_FOLDER,
+  REVISION_HISTORY_MAX,
+  revisionFileName,
   revisionInForceAt,
   revisionSummary,
   STATE_FILE,
@@ -114,6 +125,46 @@ export async function companyArticle(
     article: KnowledgeArticleView | null;
   }>(`/api/knowledge/company/article?folder=${encodeURIComponent(folder)}`);
   return res.article;
+}
+
+/**
+ * One company article's draft text, without its history.
+ *
+ * Search reads every page's body; this is the one document a search reads,
+ * through the same door that serves the whole article.
+ */
+export async function companyText(folder: string): Promise<string | null> {
+  const res = await apiFetch<{ ok: true; text: string | null }>(
+    `/api/knowledge/company/text?folder=${encodeURIComponent(folder)}`,
+  );
+  return res.text ?? null;
+}
+
+/** A revision's rules as a template picker reads them. */
+export interface KnowledgeRevisionRules {
+  revision: string;
+  rev: number;
+  checklist: KnowledgeChecklist | null;
+}
+
+/**
+ * One revision of a company article, without the history around it.
+ *
+ * A workorder binds to a revision and its builder needs that revision's rules:
+ * reading the article whole to find a document already named would cost a
+ * history per pick.
+ */
+export async function companyRevision(
+  folder: string,
+  revision: string,
+): Promise<KnowledgeRevisionRules | null> {
+  const res = await apiFetch<{
+    ok: true;
+    revision: KnowledgeRevisionRules | null;
+  }>(
+    `/api/knowledge/company/revision?folder=${encodeURIComponent(folder)}&revision=${encodeURIComponent(revision)}`,
+  );
+  return res.revision ?? null;
 }
 
 /** Read and validate a named document node, or null when it is not one. */
@@ -317,32 +368,67 @@ export async function readArticle(
   // An article carries one of its two documents; a directory with neither is a
   // topic folder, so neither document is read and the title is the folder name.
   const isFolder = !draftNode && !stateNode;
-  const draft = isFolder
-    ? null
-    : await readDocument(accountId, draftNode, isKnowledgeDraft);
-  const state = isFolder
-    ? null
-    : await readDocument(accountId, stateNode, isKnowledgeState);
-
-  const revisions: KnowledgeRevision[] = [];
-  const revDir = revisionsNode(list);
-  if (revDir) {
-    const rev = await listChildrenWithState(accountId, revDir.id, ARTICLE_PROPS);
-    for (const node of rev.list) {
-      if (node.nodeType !== "file" || !node.name.endsWith(".json")) continue;
-      const revision = await readDocument(accountId, node, isKnowledgeRevision);
-      if (revision) revisions.push(revision);
-    }
+  let draft: KnowledgeDraft | null = null;
+  let state: KnowledgeState | null = null;
+  if (!isFolder) {
+    [draft, state] = await Promise.all([
+      readDocument(accountId, draftNode, isKnowledgeDraft),
+      readDocument(accountId, stateNode, isKnowledgeState),
+    ]);
   }
-  revisions.sort(compareRevisionsNewestFirst);
 
-  // The revision a reader sees now: the one the lifecycle names, matched to its
-  // full document in the history. A state naming a revision that is not there
-  // (it was pruned) leaves nothing rather than a half-view.
+  /*
+   * The history is a page, not an archive, exactly as the server reads it: the
+   * newest `REVISION_HISTORY_MAX` files are chosen from their stamps, and only
+   * those are downloaded — a bounded few at a time, because they are
+   * independent documents. Reading every revision of a page that has been
+   * approved for years is what made opening it slower as it aged.
+   */
+  const revDir = revisionsNode(list);
+  const revisionNodes = revDir
+    ? (
+        await listChildrenWithState(accountId, revDir.id, [
+          ...ARTICLE_PROPS,
+          ...STAMP_PROPS,
+        ])
+      ).list.filter(
+        (node) =>
+          node.nodeType === "file" &&
+          typeof node.name === "string" &&
+          node.name.endsWith(".json") &&
+          Boolean(node.blobId),
+      )
+    : [];
+  const newest = revisionNodes
+    .slice()
+    .sort((a, b) => nodeStamp(b).localeCompare(nodeStamp(a)))
+    .slice(0, REVISION_HISTORY_MAX);
+  const read = await mapLimit(newest, READ_CONCURRENCY, (node) =>
+    readDocument(accountId, node, isKnowledgeRevision),
+  );
+  const revisions = read
+    .filter((revision): revision is KnowledgeRevision => revision !== null)
+    .sort(compareRevisionsNewestFirst);
+
+  /*
+   * The revision a reader sees now: the one the lifecycle names, matched to its
+   * full document in the history. One older than the newest page is still the
+   * one in force, so it is read by name rather than reported absent; a state
+   * naming a revision that is not there (it was pruned) leaves nothing rather
+   * than a half-view.
+   */
   let effective: KnowledgeRevision | null = null;
   if (state) {
     const issued = revisionInForceAt(state);
-    if (issued) effective = revisions.find((r) => r.revision === issued.revision) ?? null;
+    if (issued) {
+      effective = revisions.find((r) => r.revision === issued.revision) ?? null;
+      if (!effective) {
+        const node = revisionNodes.find(
+          (one) => one.name === revisionFileName(issued.revision),
+        );
+        if (node) effective = await readDocument(accountId, node, isKnowledgeRevision);
+      }
+    }
   }
 
   const resolvedParent =
@@ -367,6 +453,55 @@ export async function readArticle(
     effective,
     revisions: revisions.map(revisionSummary),
   };
+}
+
+/**
+ * One article's draft text, and nothing else.
+ *
+ * Search reads the body of every page, and the whole article view would make
+ * that cost a revision history per page: what a search indexes is the draft's
+ * own text, so that is the only document read here.
+ */
+export async function readArticleText(
+  accountId: Id,
+  folderId: Id,
+): Promise<string | null> {
+  const { list } = await listChildrenWithState(accountId, folderId, ARTICLE_PROPS);
+  const draft = await readDocument(
+    accountId,
+    fileNode(list, DRAFT_FILE),
+    isKnowledgeDraft,
+  );
+  return draft?.text ?? null;
+}
+
+/**
+ * One revision of a group article by its id, without the history around it.
+ *
+ * The group's revision store is the member's own to read, so this is the same
+ * document the company route serves, read through the reader's session.
+ */
+export async function readArticleRevision(
+  accountId: Id,
+  folderId: Id,
+  revision: string,
+): Promise<KnowledgeRevisionRules | null> {
+  const { list } = await listChildrenWithState(accountId, folderId, ARTICLE_PROPS);
+  const revDir = revisionsNode(list);
+  if (!revDir) return null;
+  const { list: files } = await listChildrenWithState(
+    accountId,
+    revDir.id,
+    ARTICLE_PROPS,
+  );
+  const doc = await readDocument(
+    accountId,
+    fileNode(files, revisionFileName(revision)),
+    isKnowledgeRevision,
+  );
+  return doc
+    ? { revision: doc.revision, rev: doc.rev, checklist: doc.checklist ?? null }
+    : null;
 }
 
 /* ------------------------------------------------------------------ */
