@@ -93,14 +93,14 @@ import {
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
+import { wokeOf, workChanges } from "./changes.js";
 import { CLAIM_TTL_MS, renewClaim, takeClaim } from "./claim.js";
-import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
+import type { EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
 import { listFacts, type MemoryStore } from "./memory.js";
 import {
   boundedText,
   chooseStep,
-  decideEvent,
   type ModelAccess,
   ModelError,
   readAnswerAuthority,
@@ -108,16 +108,9 @@ import {
   type StepCall,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
-import { type RuleDoc, ruleApplies } from "./rule.js";
-import { listRules, readRule } from "./rules.js";
-import {
-  createRun,
-  dueRuns,
-  listRuns,
-  type RunRecord,
-  readRun,
-  replaceRun,
-} from "./runs.js";
+import type { RuleDoc } from "./rule.js";
+import { readRule } from "./rules.js";
+import { createRun, dueRuns, type RunRecord, readRun, replaceRun } from "./runs.js";
 import { type DueWait, WaitTimers } from "./timers.js";
 import {
   type AnyTool,
@@ -180,7 +173,7 @@ export interface PassSummary {
 }
 
 /** A run a person's answer continued, and what the reading of that answer needs. */
-interface AnsweredRun {
+export interface AnsweredRun {
   run: RunDoc;
   /** The sentence the run asked, which the answer is read against. */
   asked: string;
@@ -410,91 +403,29 @@ export class AgentLoop {
     now: Date,
     summary: PassSummary,
   ): Promise<void> {
-    let cursor = this.cursors.get(accountId);
-    if (!cursor) {
-      // A first read anchors at where the account stands now: a process that
-      // starts asks for the changes after it started, never for the whole
-      // history (`events.ts`).
-      cursor = await anchorEvents(this.ctx, accountId);
-      this.cursors.set(accountId, cursor);
-    }
-    const read = await readAccountEvents(this.ctx, accountId, cursor);
-    if (read.gap) summary.gaps.push(read.gap);
-    const rules = (await listRules(this.ctx, accountId)).map((record) => record.rule);
-    /** The runs the account already held, asked for once and only when needed. */
-    let held: RunRecord[] | null = null;
-    for (const event of read.events) {
-      summary.changes += 1;
-      const candidates = rules.filter((rule) => ruleApplies(rule, event));
-      // A change no rule watches costs no model call and no step (ADR 0035).
-      if (!candidates.length) continue;
-      const woke = wokeOf(event);
-      /*
-       * The installation's memory, read once for the whole pass (ADR 0037) and
-       * handed to the decision turn as the selection this change's own words
-       * name. Each run is handed the one its own words name, which is the same
-       * change beside the facts the decision found.
-       */
-      /*
-       * What the installation holds and the group wrote above the rule: the
-       * installation's own line and the group's standing instruction reach the
-       * decision turn too, because which rules apply is asked of the same agent
-       * (ADR 0035).
-       */
-      const decision = await decideEvent(
-        this.opts.access,
-        {
-          event,
-          rules,
-          prose: await this.proseAbove(accountId),
-          memory: recallFacts((await this.memory()).facts, woke, accountId),
-        },
-        this.readingCall(accountId, event, candidates),
-      );
-      if (decision.kind !== "decision") continue;
-      /*
-       * The run this change answers, when it answers one, is asked for **once**
-       * per event and before the rules: one person's reply continues the run that
-       * asked and opens no run of its own (ADR 0033). Asking inside the rules
-       * loop worked the same answer once per rule the decision named, the second
-       * time from the document as it stood before the first working — which
-       * wiped the steps the first had just recorded.
-       */
-      held ??= await listRuns(this.ctx, accountId);
-      const answer = await this.runAnsweredBy(accountId, event, held);
-      if (answer === "already") continue;
-      if (answer) {
-        summary.due += 1;
-        await this.workRun(
-          accountId,
-          await this.authoriseAnswer(answer),
-          now,
-          decision.facts,
-        );
-        continue;
-      }
-      for (const named of decision.rules) {
-        const rule = rules.find((candidate) => candidate.id === named);
-        if (!rule) continue;
-        const key = startKey(named, woke);
-        // A run of the account that already names this rule and this change is
-        // that change being worked, or the answer it already has: never a second
-        // run over it.
-        held ??= await listRuns(this.ctx, accountId);
-        const open = runsByStart(held).get(key);
-        if (open) {
-          if (open.state === "running")
-            await this.workRun(accountId, open, now, decision.facts);
-          continue;
-        }
-        const run = await this.openRun(accountId, event, rule);
-        summary.runs += 1;
-        await this.workRun(accountId, run, now, decision.facts);
-      }
-    }
-    // The cursor moves only once the batch is answered: a read that failed
-    // half-way is read again rather than lost as silence.
-    this.cursors.set(accountId, read.cursor);
+    /*
+     * The batched changes of one account. Kept as a function over what it needs
+     * rather than as a method over the whole class: the cursor, the prose and
+     * the run work are all it touches, and naming them is what lets a reader see
+     * that without reading the rest of the loop.
+     */
+    await workChanges(
+      {
+        ctx: this.ctx,
+        cursors: this.cursors,
+        access: this.opts.access,
+        proseAbove: (a) => this.proseAbove(a),
+        memory: () => this.memory(),
+        readingCall: (a, e, c) => this.readingCall(a, e, c),
+        runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
+        workRun: (a, r, n, f) => this.workRun(a, r, n, f),
+        authoriseAnswer: (x) => this.authoriseAnswer(x),
+        openRun: (a, e, r) => this.openRun(a, e, r),
+      },
+      accountId,
+      now,
+      summary,
+    );
   }
 
   /**
@@ -1123,11 +1054,6 @@ export class AgentLoop {
   }
 }
 
-/** What woke a run, in the group's own words, from the event's own parts. */
-function wokeOf(event: AccountEvent): string {
-  return `${event.source} ${event.change}: ${event.where}`;
-}
-
 /**
  * What a run's own change and facts name, as the one text the memory is read
  * against (ADR 0037): the change that woke it in the group's own words, and
@@ -1192,44 +1118,6 @@ function readiness(plan: readonly RunStep[], base: number): StepReadiness {
     });
   }
   return { ready, left };
-}
-
-/**
- * Which rule and which change a run is the answer to: its own `startedBy`.
- *
- * The change is named the way the run carries it (`wokeOf`), so the pair a run
- * is filed under and the pair a change is looked up by are one string and not
- * two spellings that could drift.
- */
-function startKey(rule: string, woke: string): string {
-  return `${rule}\n${woke}`;
-}
-
-/**
- * The account's runs by what started them: one entry per rule-and-change pair.
- *
- * A run an instruction started names no rule and no change, and is not an answer
- * to one — nothing here. Two runs of one pair cannot be written by this build,
- * and the one a pass can continue is the one still running, so that is the one
- * kept when a hand-written pair of documents says otherwise.
- *
- * shortcut: a change is named by its surface, its kind and its address, which is
- * all the change log hands over — so a document created again at a path a rule
- * already answered is read as the change that was answered, not as a new one.
- * Upgrade when an event can name the state it happened at, or the object's own
- * version, which is what tells a recurrence from a replay.
- */
-function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
-  const byStart = new Map<string, RunDoc>();
-  for (const { run } of records) {
-    const { rule, woke } = run.startedBy;
-    if (!rule || !woke) continue;
-    const key = startKey(rule, woke);
-    const held = byStart.get(key);
-    if (!held || (held.state !== "running" && run.state === "running"))
-      byStart.set(key, run);
-  }
-  return byStart;
 }
 
 /**
