@@ -15,11 +15,12 @@
  * refused against it — so nothing on this side has to decide it.
  */
 import type { AgentStatus } from "@gilbert/shared/agent";
+import type { RunMetrics } from "@gilbert/shared/agentMetrics";
 import type { FactDoc } from "@gilbert/shared/memory";
 import type { RunListing, RunSummary } from "@gilbert/shared/run";
 import { apiFetch } from "@/jmap/client";
 
-export type { AgentStatus, FactDoc, RunListing, RunSummary };
+export type { AgentStatus, FactDoc, RunListing, RunMetrics, RunSummary };
 
 /** Where the installation's agent is: the claim, and how often a pass is asked for. */
 export async function fetchAgentStatus(): Promise<AgentStatus> {
@@ -28,32 +29,79 @@ export async function fetchAgentStatus(): Promise<AgentStatus> {
 }
 
 /**
- * The runs a group has worked, each read or each said.
+ * What the groups' runs spent, over the reader's window.
+ *
+ * `since` is computed in the reader's own clock; the server tallies the runs it
+ * holds. The answer is a few numbers per group, not the runs themselves.
+ */
+export async function fetchAgentMetrics(
+  groups: readonly string[],
+  since?: string,
+): Promise<{ groups: Array<{ name: string; metrics: RunMetrics }>; total: RunMetrics }> {
+  const query = new URLSearchParams();
+  if (since) query.set("since", since);
+  if (groups.length) query.set("groups", groups.join(","));
+  const suffix = query.toString();
+  return await apiFetch<{
+    groups: Array<{ name: string; metrics: RunMetrics }>;
+    total: RunMetrics;
+  }>(`/api/admin/agent/metrics${suffix ? `?${suffix}` : ""}`);
+}
+
+/**
+ * One page of a group's runs, each read or each said.
  *
  * `state` narrows the answer on the server: `running` is what a live view polls,
- * so the history is fetched once rather than every few seconds.
+ * so the history is fetched once rather than every few seconds. `offset` and
+ * `limit` are the page the panel draws; `more` says another follows.
  */
+export async function fetchGroupRunsPage(
+  group: string,
+  opts: { state?: "running"; offset?: number; limit?: number } = {},
+): Promise<{ runs: RunSummary[]; more: boolean }> {
+  const query = new URLSearchParams();
+  if (opts.state) query.set("state", opts.state);
+  if (opts.offset) query.set("offset", String(opts.offset));
+  if (opts.limit !== undefined) query.set("limit", String(opts.limit));
+  const suffix = query.toString();
+  const res = await apiFetch<{ runs: RunSummary[]; more: boolean }>(
+    `/api/groups/${encodeURIComponent(group)}/runs${suffix ? `?${suffix}` : ""}`,
+  );
+  return { runs: res.runs, more: res.more };
+}
+
+/** Every run a group holds, for a reader that needs the whole set. */
 export async function fetchGroupRuns(
   group: string,
   state?: "running",
 ): Promise<RunSummary[]> {
-  const query = state ? `?state=${state}` : "";
-  const res = await apiFetch<{ runs: RunSummary[] }>(
-    `/api/groups/${encodeURIComponent(group)}/runs${query}`,
-  );
-  return res.runs;
+  const page = await fetchGroupRunsPage(group, {
+    ...(state ? { state } : {}),
+    limit: 1000,
+  });
+  return page.runs;
 }
 
-/** One month of a group's archived runs, read by the same record a run is. */
+/**
+ * One month of a group's archived runs, read by the same record a run is.
+ *
+ * `after` is the cursor the previous answer ended at (`when|id`), not an
+ * offset: the drawer is filled while a person reads it, and an offset over a
+ * mutating list repeats or skips a row at the boundary.
+ */
 export async function fetchGroupArchive(
   group: string,
   month: string,
-  offset = 0,
-): Promise<{ runs: RunSummary[]; more: boolean }> {
-  const res = await apiFetch<{ runs: RunSummary[]; more: boolean }>(
-    `/api/groups/${encodeURIComponent(group)}/runs/archive?month=${encodeURIComponent(month)}&offset=${offset}`,
-  );
-  return { runs: res.runs, more: res.more };
+  after?: string | null,
+): Promise<{ runs: RunSummary[]; more: boolean; after: string | null }> {
+  const query = new URLSearchParams({ month });
+  if (after) query.set("after", after);
+  const res = await apiFetch<{
+    runs: RunSummary[];
+    more: boolean;
+    after: string | null;
+  }>(`/api/groups/${encodeURIComponent(group)}/runs/archive?${query.toString()}`);
+  return { runs: res.runs, more: res.more, after: res.after };
 }
 
 /** One run whole, read when its row opens; `month` names an archived drawer. */
@@ -69,15 +117,24 @@ export async function fetchRun(
   return { id, run: res.run, problem: null };
 }
 
-/** The installation's memory: every fact the agent reasons from. */
-interface FactsReading {
+/** One page of the installation's memory, and how much the store holds. */
+export interface FactsReading {
   facts: FactDoc[];
   /** Sheets this build cannot read, each with its reason: said, never hidden. */
   problems: string[];
+  /** Every sheet the memory holds, not only this page. */
+  total: number;
+  /** Whether another page follows the last id of this one. */
+  more: boolean;
 }
 
-export async function fetchFacts(): Promise<FactsReading> {
-  return await apiFetch<FactsReading>("/api/admin/memory");
+/** The memory, a page at a time: `after` is the last id the reader has. */
+export async function fetchFacts(after?: string, limit?: number): Promise<FactsReading> {
+  const query = new URLSearchParams();
+  if (after) query.set("after", after);
+  if (limit !== undefined) query.set("limit", String(limit));
+  const suffix = query.toString();
+  return await apiFetch<FactsReading>(`/api/admin/memory${suffix ? `?${suffix}` : ""}`);
 }
 
 /**

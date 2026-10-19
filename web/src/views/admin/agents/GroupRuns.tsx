@@ -1,12 +1,15 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { push } from "@/jmap/push";
 import {
   type FactDoc,
+  fetchAgentMetrics,
   fetchGroupArchive,
   fetchGroupRuns,
+  fetchGroupRunsPage,
   fetchRun,
   type RunListing,
+  type RunMetrics,
   type RunSummary,
   stopRun,
 } from "@/lib/agentAdmin";
@@ -16,6 +19,8 @@ import { metricsOf, sameRunHeader } from "./metrics";
 
 /** How many runs one page of the listing shows, one row each. */
 const RUNS_PAGE = 10;
+/** How many runs one server page carries: five pages of the ten drawn. */
+const RUNS_PAGE_SERVER = RUNS_PAGE * 5;
 
 /**
  * Stop one run, and say where it is drawn whether the stop took.
@@ -176,34 +181,53 @@ export function GroupRuns({
   const [month, setMonth] = useState("");
   /** The runs in flight at the last poll: a different set means the list moved. */
   const runningIds = useRef("");
-  /** Whether the server's month has more runs after the page in hand. */
-  const [archiveMore, setArchiveMore] = useState(false);
+  /** Whether the server holds more runs after the list in hand. */
+  const [more, setMore] = useState(false);
+  /** The month's cursor: the last row drawn, as the server named it. */
+  const cursor = useRef<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  /** The group's whole tally, computed by the server over every run it holds. */
+  const [totals, setTotals] = useState<RunMetrics | null>(null);
 
   const load = useCallback(async () => {
     try {
-      if (month) {
-        const page = await fetchGroupArchive(group, month);
-        setRuns(page.runs);
-        setArchiveMore(page.more);
-      } else {
-        setRuns(await fetchGroupRuns(group));
-        setArchiveMore(false);
-      }
+      const page = month
+        ? await fetchGroupArchive(group, month)
+        : await fetchGroupRunsPage(group, { offset: 0, limit: RUNS_PAGE_SERVER });
+      setRuns(page.runs);
+      setMore(page.more);
+      cursor.current = month ? page.after : null;
       setError(null);
+      /*
+       * The tally is the server's whole one, and it is an administrator's read:
+       * this panel is drawn in a member's chat too, where the route refuses it.
+       * A member's list still loads, and the line falls back to what is drawn.
+       */
+      try {
+        const metrics = await fetchAgentMetrics([group]);
+        setTotals(metrics.groups[0]?.metrics ?? null);
+      } catch {
+        setTotals(null);
+      }
     } catch (err) {
       setError(errorMessage(err));
     }
   }, [group, month]);
 
-  /** The next server page of the month, appended to the list in hand. */
+  /** The next server page, appended to the list in hand. */
   const loadMore = useCallback(async (): Promise<boolean> => {
-    if (!month || loadingMore) return false;
+    if (loadingMore) return false;
     setLoadingMore(true);
     try {
-      const page = await fetchGroupArchive(group, month, runs?.length ?? 0);
+      const page = month
+        ? await fetchGroupArchive(group, month, cursor.current)
+        : await fetchGroupRunsPage(group, {
+            offset: runs?.length ?? 0,
+            limit: RUNS_PAGE_SERVER,
+          });
       setRuns((held) => [...(held ?? []), ...page.runs]);
-      setArchiveMore(page.more);
+      setMore(page.more);
+      if (month) cursor.current = page.after;
       setError(null);
       return true;
     } catch (err) {
@@ -219,8 +243,10 @@ export function GroupRuns({
     setRuns(null);
     setError(null);
     setPage(0);
-    setArchiveMore(false);
+    setMore(false);
     setLoadingMore(false);
+    cursor.current = null;
+    setTotals(null);
     runningIds.current = "";
     void load();
     if (!live || month)
@@ -292,7 +318,10 @@ export function GroupRuns({
     };
   }, [accountId, load, live, month]);
 
-  const metrics = useMemo(() => (runs ? metricsOf(runs) : null), [runs]);
+  // The numbers are the server's tally over every run the group holds, not the
+  // page drawn: a list of fifty is not the group's history. A member's chat
+  // cannot ask for that tally, so it falls back to the runs it was given.
+  const metrics = totals ?? (runs ? metricsOf(runs) : null);
   /*
    * Most recent first, by the instant the run was opened (or, for a document
    * written before that field existed, when it ended). A live list is about what
@@ -380,9 +409,9 @@ export function GroupRuns({
           <button
             type="button"
             className="btn btn-ghost"
-            disabled={(page >= pages - 1 && !archiveMore) || loadingMore}
+            disabled={(page >= pages - 1 && !more) || loadingMore}
             onClick={() => {
-              if (month && page >= pages - 1 && archiveMore) {
+              if (page >= pages - 1 && more) {
                 void loadMore().then((loaded) => {
                   if (loaded) setPage((p) => p + 1);
                 });

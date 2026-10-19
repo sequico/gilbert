@@ -15,13 +15,19 @@ export function AgentMemory({
   problems,
   error,
   onChanged,
+  more = false,
+  onMore,
 }: {
   facts: FactDoc[];
   problems: string[];
   error: string | null;
   onChanged: () => Promise<void>;
+  /** Whether the store holds more sheets than the page drawn. */
+  more?: boolean;
+  onMore?: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
   async function act(work: () => Promise<unknown>) {
@@ -67,6 +73,20 @@ export function AgentMemory({
           />
         ))}
       </div>
+      {more && onMore && (
+        <button
+          type="button"
+          className="btn"
+          style={{ marginTop: 12 }}
+          disabled={loadingMore || busy}
+          onClick={() => {
+            setLoadingMore(true);
+            void onMore().finally(() => setLoadingMore(false));
+          }}
+        >
+          {t("Load more")}
+        </button>
+      )}
     </section>
   );
 }

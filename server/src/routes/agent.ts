@@ -75,6 +75,12 @@ import {
 import { WRITE_ATTEMPTS } from "../jmap.js";
 import type { LiveSession } from "../sessions.js";
 import { type AgentStatus, isClaimDoc } from "../shared/agent.js";
+import {
+  addMetrics,
+  emptyMetrics,
+  metricsOf,
+  type RunMetrics,
+} from "../shared/agentMetrics.js";
 import { isStateMismatch } from "../shared/errors.js";
 import {
   INSTRUCTION_FILE,
@@ -207,6 +213,50 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         passSeconds: Math.round(AGENT_PASS_INTERVAL_MS / 1000),
       };
       return c.json({ agent });
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
+  /**
+   * What the groups' runs spent, over the window the reader chose.
+   *
+   * The Administration page drew these numbers from every run of every group,
+   * downloaded every sixty seconds. The tally is one definition both tiers read
+   * (`@gilbert/shared/agentMetrics`), and the server walks a group's runs here:
+   * the answer is a few numbers, not a year of documents. `since` is the
+   * reader's own first instant, computed in their clock (`periodSince`), so a
+   * day in the page's time zone is a day here.
+   */
+  api.get("/admin/agent/metrics", requireSession, requireAdmin, async (c) => {
+    try {
+      const raw = c.req.query("since") ?? "";
+      const since = raw ? new Date(raw) : undefined;
+      if (since && Number.isNaN(since.getTime()))
+        return c.json(
+          { error: "bad_request", message: "since is an ISO 8601 instant" },
+          400,
+        );
+      const names = (c.req.query("groups") ?? "")
+        .split(",")
+        .map((one) => one.trim())
+        .filter(Boolean);
+      const groups: Array<{ name: string; metrics: RunMetrics }> = [];
+      for (const name of names) {
+        const access = await resolveGroupAccess(c.get("session"), name, {
+          need: "agent documents",
+        });
+        if (!access.ok) continue;
+        const rows = (await listRunsForReading(access.ctx, access.accountId)).map(
+          summarizeRun,
+        );
+        groups.push({ name, metrics: metricsOf(rows, since) });
+      }
+      const total = groups.reduce(
+        (sum, one) => addMetrics(sum, one.metrics),
+        emptyMetrics(),
+      );
+      return c.json({ groups, total });
     } catch (err) {
       return doorFailure(c, err);
     }
@@ -346,11 +396,22 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       /*
        * A surface that watches a run needs the runs in flight, not the history:
        * `?state=running` answers those alone, so a poll every few seconds does
-       * not carry a year of documents with it.
+       * not carry a year of documents with it. The rest is a page: the panel
+       * draws ten rows and the history grows with the installation, so the
+       * server sends the rows asked for and says whether more follow.
        */
+      const offset = Number.parseInt(c.req.query("offset") ?? "0", 10);
+      if (!Number.isInteger(offset) || offset < 0 || offset > 10_000_000)
+        return c.json({ error: "bad_request", message: "offset is a whole number" }, 400);
+      const asked = Number.parseInt(c.req.query("limit") ?? "", 10);
+      const limit = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 1000) : 100;
+      const filtered =
+        state === "running" ? rows.filter((one) => one.state === "running") : rows;
+      const page = filtered.slice(offset, offset + limit);
       return c.json({
         group: name,
-        runs: state === "running" ? rows.filter((one) => one.state === "running") : rows,
+        runs: page,
+        more: offset + page.length < filtered.length,
       });
     } catch (err) {
       return doorFailure(c, err);
@@ -369,9 +430,14 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     const month = c.req.query("month") ?? "";
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
       return c.json({ error: "bad_request", message: "month is YYYY-MM" }, 400);
-    const offset = Number.parseInt(c.req.query("offset") ?? "0", 10);
-    if (!Number.isInteger(offset) || offset < 0 || offset > 10_000_000)
-      return c.json({ error: "bad_request", message: "offset is a whole number" }, 400);
+    /*
+     * A cursor, not an offset: the drawer is filled while a person reads it
+     * (the archiver moves one run a pass), and an offset over a list that
+     * mutates repeats or skips a row at a page boundary. `after` is the last
+     * row the reader was given, as `when|id` — the same total order the sort
+     * below uses.
+     */
+    const after = c.req.query("after") ?? "";
     try {
       const access = await memberGroupAccess(c.get("session"), name, {
         need: "agent documents",
@@ -389,12 +455,18 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           const when = (one: RunSummary) => one.startedAt ?? one.ended?.at ?? "";
           return when(b).localeCompare(when(a)) || a.id.localeCompare(b.id);
         });
-      const runs = all.slice(offset, offset + ARCHIVE_PAGE);
+      const cursor = (one: RunSummary): string =>
+        `${one.startedAt ?? one.ended?.at ?? ""}|${one.id}`;
+      const at = after ? all.findIndex((one) => cursor(one) === after) : -1;
+      const start = at >= 0 ? at + 1 : 0;
+      const runs = all.slice(start, start + ARCHIVE_PAGE);
       return c.json({
         group: name,
         month,
         runs,
-        more: offset + runs.length < all.length,
+        more: start + runs.length < all.length,
+        /** The last row drawn: the next page asks after it. */
+        after: runs.length ? cursor(runs[runs.length - 1] as RunSummary) : null,
       });
     } catch (err) {
       return doorFailure(c, err);
@@ -606,9 +678,31 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     try {
       const ctx = await masterCtx(c.get("session"));
       const { facts, problems } = await listFacts(ctx, memoryAccount(ctx));
+      /*
+       * A page, not the whole graph: a memory of thousands of sheets is
+       * megabytes, and the surface draws a list a person scrolls. The order is
+       * the reader's own (subject, then id), and `after` is the last id that
+       * page carried. A cursor naming a sheet that has gone starts from the top
+       * rather than silently skipping what now sorts after it.
+       */
+      const after = c.req.query("after") ?? "";
+      const asked = Number.parseInt(c.req.query("limit") ?? "", 10);
+      const limit = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 500) : 200;
+      const ordered = [...facts].sort(
+        (a, b) =>
+          a.subject.localeCompare(b.subject, "en") || a.id.localeCompare(b.id, "en"),
+      );
+      const at = after ? ordered.findIndex((fact) => fact.id === after) : -1;
+      const start = at >= 0 ? at + 1 : 0;
+      const page = ordered.slice(start, start + limit);
       // A sheet this build cannot read is said, not hidden: the surface shows it
       // beside the facts instead of empty space nobody can explain.
-      return c.json({ facts, problems });
+      return c.json({
+        facts: page,
+        problems,
+        total: ordered.length,
+        more: start + page.length < ordered.length,
+      });
     } catch (err) {
       return doorFailure(c, err);
     }

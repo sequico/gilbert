@@ -67,6 +67,12 @@ import {
  *
  * 212 -> 214: the cached and uncached token tiles (`AgentOverview.tsx`).
  *
+ * 223 -> 224: an answer the trust reading refused, on the run it would have
+ * continued (`views/admin/agent/RunCard.tsx`).
+ *
+ * 222 -> 223: the memory list's next page ("Load more",
+ * `views/admin/agents/AgentMemory.tsx`).
+ *
  * 221 -> 222: the archive month control in the runs panel ("Archived").
  *
  * 220 -> 221: a folded step outcome in the run log ("What it answered").
@@ -79,7 +85,7 @@ import {
  * 214 -> 216: a run row's unreadable label and its steps/calls summary
  * (`views/admin/agents/GroupRuns.tsx`).
  */
-const MISSING_MAX = 222;
+const MISSING_MAX = 224;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

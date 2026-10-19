@@ -61,6 +61,8 @@ export function AgentsView() {
 
   const [facts, setFacts] = useState<FactDoc[]>([]);
   const [factProblems, setFactProblems] = useState<string[]>([]);
+  const [factTotal, setFactTotal] = useState(0);
+  const [factsMore, setFactsMore] = useState(false);
   const [factsError, setFactsError] = useState<string | null>(null);
 
   const loadFacts = useCallback(async () => {
@@ -69,10 +71,27 @@ export function AgentsView() {
       const reading = await fetchFacts();
       setFacts(reading.facts);
       setFactProblems(reading.problems);
+      setFactTotal(reading.total);
+      setFactsMore(reading.more);
     } catch (err) {
       setFactsError(errorMessage(err));
     }
   }, []);
+
+  /** The next page, from the last id this reader holds. */
+  const loadMoreFacts = useCallback(async () => {
+    const last = facts[facts.length - 1]?.id;
+    if (!last) return;
+    try {
+      const reading = await fetchFacts(last);
+      setFacts((held) => [...held, ...reading.facts]);
+      setFactProblems(reading.problems);
+      setFactTotal(reading.total);
+      setFactsMore(reading.more);
+    } catch (err) {
+      setFactsError(errorMessage(err));
+    }
+  }, [facts]);
 
   useEffect(() => {
     void loadFacts();
@@ -128,9 +147,7 @@ export function AgentsView() {
             aria-labelledby={`agents-${entry.id}`}
             hidden={active !== entry.id}
           >
-            {entry.id === OVERVIEW && (
-              <AgentOverview groups={groups} facts={facts.length} />
-            )}
+            {entry.id === OVERVIEW && <AgentOverview groups={groups} facts={factTotal} />}
             {entry.id === GENERAL && <AgentGeneral onDocumentSaved={() => undefined} />}
             {entry.id === MEMORY && (
               <AgentMemory
@@ -138,6 +155,8 @@ export function AgentsView() {
                 problems={factProblems}
                 error={factsError}
                 onChanged={loadFacts}
+                more={factsMore}
+                onMore={loadMoreFacts}
               />
             )}
             {entry.id.startsWith("group:") && (

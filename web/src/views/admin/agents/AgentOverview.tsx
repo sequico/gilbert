@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { push } from "@/jmap/push";
 import {
   type AgentStatus,
+  fetchAgentMetrics,
   fetchAgentStatus,
   fetchAgentSwitch,
   fetchGroupRuns,
@@ -14,7 +15,13 @@ import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
 import { StopRun } from "./GroupRuns";
-import { type MetricsPeriod, metricsOf, periodSince, type RunMetrics } from "./metrics";
+import {
+  addMetrics,
+  emptyMetrics,
+  type MetricsPeriod,
+  periodSince,
+  type RunMetrics,
+} from "./metrics";
 
 /** Where the agent is, and what its runs have spent: the installation's numbers. */
 export function AgentOverview({
@@ -25,7 +32,7 @@ export function AgentOverview({
   facts: number;
 }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
-  const [perGroup, setPerGroup] = useState<Array<{ name: string; runs: RunSummary[] }>>(
+  const [perGroup, setPerGroup] = useState<Array<{ name: string; metrics: RunMetrics }>>(
     [],
   );
   const [period, setPeriod] = useState<MetricsPeriod>("week");
@@ -54,18 +61,21 @@ export function AgentOverview({
       if (live) setError(errorMessage(err));
     };
     const loadAll = async () => {
-      const [agent, rows] = await Promise.all([
+      /*
+       * The numbers are the server's tally, not every run downloaded and added
+       * here: a group's history grows with the installation, and sixty seconds
+       * was re-reading a year of documents for ten totals.
+       */
+      const [agent, metrics] = await Promise.all([
         fetchAgentStatus(),
-        Promise.all(
-          groups.map(async (group) => ({
-            name: group.name,
-            runs: await fetchGroupRuns(group.name),
-          })),
+        fetchAgentMetrics(
+          groups.map((group) => group.name),
+          periodSince(period)?.toISOString(),
         ),
       ]);
       if (!live) return;
       setStatus(agent);
-      setPerGroup(rows);
+      setPerGroup(metrics.groups);
       setError(null);
     };
     const loadRunning = async () => {
@@ -108,7 +118,7 @@ export function AgentOverview({
       stopPush();
       if (scheduled !== null) window.clearTimeout(scheduled);
     };
-  }, [groupKey]);
+  }, [groupKey, period]);
 
   const running = live
     .flatMap((entry) =>
@@ -120,16 +130,10 @@ export function AgentOverview({
 
   // The numbers are over the history, which only the sixty-second read moves:
   // a live-row update must not walk every run again.
-  const rows = useMemo(() => {
-    const since = periodSince(period);
-    return perGroup.map((row) => ({
-      name: row.name,
-      metrics: metricsOf(row.runs, since),
-    }));
-  }, [perGroup, period]);
+  const rows = perGroup;
   const total = useMemo(
-    () => rows.reduce((sum, row) => add(sum, row.metrics), empty()),
-    [rows],
+    () => perGroup.reduce((sum, row) => addMetrics(sum, row.metrics), emptyMetrics()),
+    [perGroup],
   );
 
   return (
@@ -306,22 +310,4 @@ function formatMs(ms: number): string {
   if (ms < 1000) return `${ms} ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
   return `${Math.round(ms / 60_000)} min`;
-}
-
-function empty(): RunMetrics {
-  return metricsOf([]);
-}
-
-function add(a: RunMetrics, b: RunMetrics): RunMetrics {
-  return {
-    runs: a.runs + b.runs,
-    steps: a.steps + b.steps,
-    calls: a.calls + b.calls,
-    ms: a.ms + b.ms,
-    promptTokens: a.promptTokens + b.promptTokens,
-    completionTokens: a.completionTokens + b.completionTokens,
-    cachedTokens: a.cachedTokens + b.cachedTokens,
-    refused: a.refused + b.refused,
-    running: a.running + b.running,
-  };
 }
