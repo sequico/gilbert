@@ -35,6 +35,7 @@ import {
   FILENODE_GET,
   FILENODE_QUERY,
   FILENODE_SET,
+  type FileNodeLike,
   FOLDER_PROPS,
   findAppFolderId,
   nodeStamp,
@@ -82,17 +83,9 @@ export class AppFolderError extends Error {
   }
 }
 
-export interface FileNodeLike {
-  id?: unknown;
-  name?: unknown;
-  parentId?: unknown;
-  blobId?: unknown;
-  nodeType?: unknown;
-  type?: unknown;
-  size?: unknown;
-  created?: unknown;
-  modified?: unknown;
-}
+/* The loose node shape is the shared one (`@gilbert/shared/appFolder`), re-exported
+ * here where the server's readers import it. */
+export type { FileNodeLike };
 
 /** What every caller of this module needs to talk to Stalwart. */
 export interface Ctx {

@@ -104,6 +104,26 @@ export const FILE_PROPS: string[] = [
 export const STAMP_PROPS: string[] = ["created", "modified"];
 
 /**
+ * A file node read loosely.
+ *
+ * Loose on purpose: the server reads its nodes off the wire (so every field is
+ * `unknown`) and the client has them typed (`FileNode`), and both sides reason
+ * about the same node — its name, its parent, its bytes and its stamps. The
+ * stamp rule below is the one both tiers read.
+ */
+export interface FileNodeLike {
+  id?: unknown;
+  name?: unknown;
+  parentId?: unknown;
+  blobId?: unknown;
+  nodeType?: unknown;
+  type?: unknown;
+  size?: unknown;
+  created?: unknown;
+  modified?: unknown;
+}
+
+/**
  * A node's own last-write stamp: `modified`, falling back to `created`.
  *
  * The pair the Files view sorts a node by, and the pair every registry cuts its
@@ -114,7 +134,7 @@ export const STAMP_PROPS: string[] = ["created", "modified"];
  * A node carrying neither stamp is a node the server has not stamped; it sorts
  * as the empty string, last, rather than throwing the page away.
  */
-export function nodeStamp(node: { created?: unknown; modified?: unknown }): string {
+export function nodeStamp(node: FileNodeLike): string {
   if (typeof node.modified === "string") return node.modified;
   if (typeof node.created === "string") return node.created;
   return "";
