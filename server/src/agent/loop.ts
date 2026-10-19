@@ -117,7 +117,14 @@ import {
 import type { ProseLevel } from "./prose.js";
 import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
-import { createRun, dueRuns, type RunRecord, readRun, replaceRun } from "./runs.js";
+import {
+  createRun,
+  dueRuns,
+  listRuns,
+  type RunRecord,
+  readRun,
+  replaceRun,
+} from "./runs.js";
 import { readAgentSwitch } from "./switch.js";
 import { type DueWait, WaitTimers } from "./timers.js";
 import {
@@ -431,6 +438,14 @@ export class AgentLoop {
      */
     const runs = new Set(handed.map((due) => due.runId));
     for (const { run } of await dueRuns(this.ctx, accountId, now)) runs.add(run.id);
+    /*
+     * A run left `running` with no wait is a run a process did not finish --
+     * a restart, a crash, a pass that failed after the run was opened. The run
+     * is the durable state and a pass is what finishes it: nothing else would
+     * ever look at it again, and it sat running for ever.
+     */
+    for (const { run } of await listRuns(this.ctx, accountId))
+      if (run.state === "running" && run.waiting === null) runs.add(run.id);
     for (const id of runs) {
       const record = await readRun(this.ctx, accountId, id);
       if (record?.run.state !== "running") continue;
