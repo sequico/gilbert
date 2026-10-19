@@ -131,9 +131,20 @@ test("an installation that has chosen no model leaves the boot done and the agen
   );
   const lines: string[] = [];
   const agent = await startAgent(boot, { log: (line: string) => lines.push(line) });
-  assert.equal(agent, null, "and the agent is idle");
+  assert.ok(
+    agent,
+    "the agent starts with no model: a model published later is picked up by the next pass (ADR 0031)",
+  );
+  /*
+   * The schedule holds the process open by design, so a test that starts it
+   * stops it: a supervisor left running keeps this test file alive until the
+   * runner is killed.
+   */
+  await agent.stop();
   assert.deepEqual(lines, [
     "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
+    "[gilbert] agent: asking for a pass every 10 s",
+    "[gilbert] agent: stopping, and the claim is released",
   ]);
 });
 
