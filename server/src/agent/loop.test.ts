@@ -1145,16 +1145,18 @@ test("an account whose rules cannot be read is a gap, and the others are still w
     }
   }
   assert.ok(mailAccount, "the mock has an account with mail");
-  await writeAppFileAt(ctx, mailAccount, rulePath("broken"), { v: RULE_VERSION - 1 });
   const id = "intake-after-a-broken-rule";
   try {
     await putRule(id);
     const agent = loop(HOLDER, { accounts: async () => [mailAccount, accountId] });
     /*
-     * The first pass meets the broken rule and reports it; the second is paced
-     * by the account's retry pause (`loop.ts`), so the gap is read there.
+     * The first pass anchors the accounts' cursors. The broken rule is written
+     * **after** that, so it is a change the next pass must answer — a quiet
+     * account pays no rule listing (changes.ts), and an account with nothing to
+     * apply rules to never reads them.
      */
-    const started = await agent.start();
+    await agent.start();
+    await writeAppFileAt(ctx, mailAccount, rulePath("broken"), { v: RULE_VERSION - 1 });
 
     answerWith({ rules: [id], facts: {} });
     answerWith({ done: "filed despite the other group's bad rule" });
@@ -1163,7 +1165,7 @@ test("an account whose rules cannot be read is a gap, and the others are still w
 
     assert.equal(summary.claimed, true, "the pass holds the installation's claim");
     assert.ok(
-      started.gaps.some(
+      summary.gaps.some(
         (gap) => gap.startsWith(`${mailAccount}:`) && gap.includes("not readable"),
       ),
       "the unreadable rule is the pass's gap, named by its account",
