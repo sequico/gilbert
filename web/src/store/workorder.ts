@@ -1,9 +1,9 @@
 /**
  * The workorder panel's store (ADR 0028).
  *
- * The surface is route-only: the store holds the summaries the route served
- * and every mutation asks the route and replaces the summary it answered with.
- * There is no direct FileNode read and no push **payload**: a change on the
+ * The surface is route-only: the store holds the list the route served and
+ * every mutation asks the route and writes its answer back. There is no direct
+ * FileNode read and no push **payload**: a change on the
  * FileNode rail says which account moved and nothing else, so the answer to one
  * is a read through the route — which is also what keeps visibility the route's
  * decision, since the store never composes a document itself. `load()` is that
@@ -16,9 +16,10 @@
  * in place — it degrades to read-only rather than writing locally, and the panel
  * shows the error until the next attempt.
  *
- * The open workorder is the uid the panel shows, and its summary is derived
- * from the list (`openWorkorder`), so a mutation that replaces a summary is
- * enough to refresh both the list and the open panel.
+ * The list holds a card per workorder — its name, its state and each part's
+ * progress (`WorkorderListEntry`) — and opening one reads it in full by uid
+ * (`show` → `loadDetail`). A mutation's answer therefore refreshes the card it
+ * replaces, and the open panel when it is the one on screen.
  */
 
 import { errorMessage } from "@gilbert/shared/errors";

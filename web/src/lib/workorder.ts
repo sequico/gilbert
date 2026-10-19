@@ -11,10 +11,10 @@
  * on — from the template's assignment of its sections against the caller's own
  * group membership, so a workorder carrying a global section is every signed-in
  * user's and one whose sections are all assigned is its groups' alone. So these
- * are `apiFetch` calls
- * rather than FileNode reads, and `listWorkorders` is the one read: a FileNode
- * change on the rail names an account and nothing else, and the store turns
- * that into this read.
+ * are `apiFetch` calls rather than FileNode reads: `listWorkorders` is the
+ * list's read, and `readWorkorder` the one an open performs. A FileNode change
+ * on the rail names an account and nothing else, and the store turns that into
+ * the list read.
  */
 
 import {
