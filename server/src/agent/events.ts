@@ -60,9 +60,17 @@ import {
   type FileNodeLike,
 } from "../appFolder.js";
 import { JmapError, type JmapResult } from "../jmap.js";
-import { FILENODE_CHANGES, FILENODE_GET, FOLDER_PROPS } from "../shared/appFolder.js";
+import {
+  APP_FOLDER_NAME,
+  FILENODE_CHANGES,
+  FILENODE_GET,
+  FOLDER_PROPS,
+} from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
+import { INSTRUCTION_FILE } from "../shared/instruction.js";
+import { RULES_DIR } from "../shared/rule.js";
 import { clientOf } from "../util.js";
+import { RUNS_DIR } from "./runs.js";
 import {
   type AccountEvent,
   type AccountEventChange,
@@ -222,6 +230,16 @@ export function readChangeSet(args: Record<string, unknown>, type: string): Chan
  * server says it holds more, cannot be paged past: asking again would ask the
  * same window for ever and grow the answer without end. That is refused.
  */
+/** Whether a path is one of the agent's own documents in the group's app folder. */
+function isAgentPath(path: string): boolean {
+  const rel = path.startsWith(`${APP_FOLDER_NAME}/`)
+    ? path.slice(APP_FOLDER_NAME.length + 1)
+    : path;
+  return (
+    rel === INSTRUCTION_FILE || rel.startsWith(`${RUNS_DIR}/`) || rel.startsWith(`${RULES_DIR}/`)
+  );
+}
+
 export async function readAccountEvents(
   ctx: Ctx,
   accountId: string,
@@ -269,6 +287,14 @@ export async function readAccountEvents(
         // process read while the node was there: a removal named by the surface
         // its former path belonged to, and by its id only when neither is known.
         const path = paths.get(id) ?? seen[id];
+        /*
+         * The agent's own documents are not activity: a run's write, a rule's
+         * edit and the standing instruction are what the agent itself just
+         * wrote. Reported as `files`, a rule watching that surface would wake
+         * on every run it opened -- a loop that pays for itself. Mail, chat,
+         * knowledge and workorders are the group's; these are the agent's.
+         */
+        if (path && isAgentPath(path)) continue;
         events.push(
           path
             ? { source: eventSourceOf(path), change, where: path }

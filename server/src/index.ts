@@ -5,7 +5,7 @@ import { bootInstallation } from "./bootstrap.js";
 import { assertServable, config, useConfiguration } from "./config.js";
 import { ensureGlobalContacts } from "./globalContactsAdmin.js";
 import { ensureKnowledge } from "./knowledgeAdmin.js";
-import { releaseOnShutdown } from "./push.js";
+import { onPush, releaseOnShutdown } from "./push.js";
 import { errorMessage } from "./shared/errors.js";
 import { ensureWorkorders } from "./workorderAdmin.js";
 
@@ -127,6 +127,12 @@ async function main() {
   const agent = await startAgent(boot, {
     log: (line: string) => console.log(line),
   });
+  /*
+   * A change Stalwart pushes wakes a pass now, whatever surface it names: the
+   * interval stays the floor, and the push is what makes mail, chat and a file
+   * land inside a second rather than inside ten.
+   */
+  const stopKicks = agent ? onPush(() => agent.kick()) : () => {};
   const app = createApp();
   const server = serve(
     {
@@ -157,6 +163,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, shutting down`);
     server.close();
+    stopKicks();
     agent?.stop();
     /* Before the sessions go: releasing a subscription needs a live credential,
        and what is left behind otherwise holds one of the account's fifteen

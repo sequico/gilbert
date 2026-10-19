@@ -92,6 +92,9 @@ import { modelAccess, setRunningModelAccess } from "./model.js";
  */
 export const AGENT_PASS_INTERVAL_MS = 10_000;
 
+/** How long pushes are gathered before one pass is asked for. */
+const KICK_COALESCE_MS = 500;
+
 /**
  * The half of the loop this module uses.
  *
@@ -123,6 +126,15 @@ interface SupervisorOptions {
 interface AgentProcess {
   /** Give up the schedule and the loop's alarms. The claim lapses on its own (ADR 0036). */
   stop(): void;
+  /**
+   * Ask for a pass now — the push receiver calls this when Stalwart says mail or
+   * the app folder changed (chat among them; see `push.ts` for the trial-phase
+   * limit — in this phase the wake is meant for chat and email, and whether it
+   * becomes every surface is still to be decided). Bursts coalesce into one
+   * pass, and a kick that lands while a pass is running asks for one more,
+   * never two at once.
+   */
+  kick(): void;
 }
 
 /**
@@ -138,6 +150,10 @@ export function supervise(options: SupervisorOptions): AgentProcess {
   const now = options.now ?? (() => new Date());
   let running = false;
   let stopped = false;
+  /** A push that arrived while a pass was running asks for one more. */
+  let queued = false;
+  /** Pushes within this window are one reason to work. */
+  let kickTimer: NodeJS.Timeout | null = null;
   /**
    * Whether the last pass found the claim held by a peer, so the line about it
    * is written once per change of state rather than once per pass: a held claim
@@ -160,7 +176,11 @@ export function supervise(options: SupervisorOptions): AgentProcess {
   let saidGaps = new Set<string>();
 
   async function pass(): Promise<void> {
-    if (running || stopped) return;
+    if (stopped) return;
+    if (running) {
+      queued = true;
+      return;
+    }
     running = true;
     try {
       const summary = await options.loop.pass(now());
@@ -197,7 +217,24 @@ export function supervise(options: SupervisorOptions): AgentProcess {
       );
     } finally {
       running = false;
+      if (queued && !stopped) {
+        queued = false;
+        kick();
+      }
     }
+  }
+
+  /**
+   * A push asks for a pass, debounced: a burst of `StateChange` frames -- one
+   * per write, and the agent's own writes are among them -- is one pass, not
+   * one per frame.
+   */
+  function kick(): void {
+    if (stopped || kickTimer) return;
+    kickTimer = setTimeout(() => {
+      kickTimer = null;
+      void pass();
+    }, KICK_COALESCE_MS);
   }
 
   void pass();
@@ -205,10 +242,12 @@ export function supervise(options: SupervisorOptions): AgentProcess {
   log(`[gilbert] agent: asking for a pass every ${Math.round(intervalMs / 1000)} s`);
 
   return {
+    kick,
     stop(): void {
       if (stopped) return;
       stopped = true;
       clearInterval(timer);
+      if (kickTimer) clearTimeout(kickTimer);
       options.loop.stop();
       log("[gilbert] agent: stopping, and the claim lapses on its own (ADR 0036)");
     },

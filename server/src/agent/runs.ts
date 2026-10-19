@@ -36,7 +36,7 @@ import {
 } from "../shared/run.js";
 
 /** Where a group's runs live under its app folder: the one path constant. */
-const RUNS_DIR = "runs";
+export const RUNS_DIR = "runs";
 
 /** A run's document path, app-folder-relative. */
 export function runPath(id: string): string {
