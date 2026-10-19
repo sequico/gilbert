@@ -257,8 +257,7 @@ export async function workChanges(
   records?: readonly RunRecord[],
   preRead?: AccountEvents,
 ): Promise<RunRecord[] | null> {
-  const read =
-    preRead ?? (await readChangesForPass(deps.ctx, deps.cursors, accountId));
+  const read = preRead ?? (await readChangesForPass(deps.ctx, deps.cursors, accountId));
   if (read.gap) summary.gaps.push(read.gap);
   /**
    * The runs the account already holds: the list the pass read, or asked for

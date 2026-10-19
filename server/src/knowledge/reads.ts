@@ -17,6 +17,7 @@ import {
   readAppJsonAt,
 } from "../appFolder.js";
 import { FILE_PROPS, STAMP_PROPS } from "../shared/appFolder.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
   compareRevisionsNewestFirst,
   DRAFT_FILE,
@@ -24,8 +25,8 @@ import {
   type KnowledgeArticleView,
   type KnowledgeRevision,
   knowledgeSummary,
-  REVISIONS_FOLDER,
   REVISION_HISTORY_MAX,
+  REVISIONS_FOLDER,
   revisionFileName,
   revisionInForceAt,
   revisionSummary,
@@ -34,7 +35,6 @@ import {
 import { asDraft, asState } from "./documents.js";
 import { scopeOfAccount } from "./scope.js";
 import { articlePathOf, findArticleFolder } from "./tree.js";
-import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 
 /** Read the newest revisions of an article, newest first by approval. */
 export async function readRevisions(

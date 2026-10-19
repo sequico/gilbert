@@ -17,12 +17,12 @@ import {
 } from "../appFolder.js";
 import type { LiveSession } from "../sessions.js";
 import { FILE_PROPS } from "../shared/appFolder.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
   type KnowledgeChecklist,
   type ResolvedSection,
   resolveChecklist,
 } from "../shared/knowledge.js";
-import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
   isStepComplete,
   isStepCompleteForGate,

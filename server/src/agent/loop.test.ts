@@ -2047,11 +2047,7 @@ test("the agent's own send is not a change a rule watching mail wakes on", async
   const afterFirst = seen.length;
 
   await agent.pass();
-  assert.equal(
-    seen.length,
-    afterFirst,
-    "the Sent message does not buy a decision call",
-  );
+  assert.equal(seen.length, afterFirst, "the Sent message does not buy a decision call");
   await deleteRule(ctx, group, id);
 });
 

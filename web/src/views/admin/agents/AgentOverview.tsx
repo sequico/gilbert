@@ -1,5 +1,6 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useMemo, useState } from "react";
+import { push } from "@/jmap/push";
 import {
   type AgentStatus,
   fetchAgentStatus,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { push } from "@/jmap/push";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
 import { StopRun } from "./GroupRuns";
@@ -40,9 +40,7 @@ export function AgentOverview({
       .catch((err) => setSwitchError(errorMessage(err)));
   }, []);
 
-  const groupKey = groups
-    .map((group) => `${group.name}:${group.accountId}`)
-    .join("\n");
+  const groupKey = groups.map((group) => `${group.name}:${group.accountId}`).join("\n");
 
   /*
    * One reader for the page, two rhythms: the whole history every sixty

@@ -15,6 +15,7 @@ import {
 } from "../appFolder.js";
 import type { LiveSession } from "../sessions.js";
 import { FOLDER_PROPS } from "../shared/appFolder.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
   KNOWLEDGE_FOLDER,
   type KnowledgeState,
@@ -22,7 +23,6 @@ import {
   REVISIONS_FOLDER,
   STATE_FILE,
 } from "../shared/knowledge.js";
-import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { asState } from "./documents.js";
 import { KnowledgeAdminError } from "./errors.js";
 import { tierAccount } from "./scope.js";

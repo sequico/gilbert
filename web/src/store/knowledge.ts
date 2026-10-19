@@ -43,11 +43,11 @@ import {
   moveKnowledgeArticle,
   plainTextFromBlocks,
   readArticle,
+  readArticleText,
   renameArticle,
   reorderKnowledgeArticle,
   reorderKnowledgeArticles,
   restoreArticle,
-  readArticleText,
   saveDraft,
 } from "@/lib/knowledge";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";

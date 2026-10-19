@@ -430,8 +430,7 @@ export class AgentLoop {
       // The agent's own mailbox is the session's primary **mail** account, which
       // is not necessarily the account the installation keeps its documents in.
       const master =
-        this.ctx.session.primaryAccounts?.[CAPABILITIES.mail] ??
-        filesAccountId(this.ctx);
+        this.ctx.session.primaryAccounts?.[CAPABILITIES.mail] ?? filesAccountId(this.ctx);
       if (master && !offAccounts.includes(master)) offAccounts.push(master);
       await Promise.all(
         offAccounts.map(async (accountId) => {
@@ -554,7 +553,8 @@ export class AgentLoop {
            * produce, so it is listed.
            */
           const selfState = this.passState.get(accountId);
-          if (selfState && records) this.runReadings.set(accountId, { state: selfState, records });
+          if (selfState && records)
+            this.runReadings.set(accountId, { state: selfState, records });
         } catch (err) {
           summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
         }
@@ -1434,12 +1434,10 @@ export class AgentLoop {
     instruction: string | undefined;
   }> {
     const accountId = filesAccountId(this.ctx);
-    if (!accountId)
-      return { access: this.access, instruction: this.opts.installation };
+    if (!accountId) return { access: this.access, instruction: this.opts.installation };
     try {
       const found = await readAppFileAt(this.ctx, accountId, INSTALLATION_FILE);
-      if (!found)
-        return { access: this.access, instruction: this.opts.installation };
+      if (!found) return { access: this.access, instruction: this.opts.installation };
       const parsed = parseInstallationDocumentDetailed(found.text);
       if ("problem" in parsed)
         return { access: this.access, instruction: this.opts.installation };

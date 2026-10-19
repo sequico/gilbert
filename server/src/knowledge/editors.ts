@@ -22,6 +22,7 @@ import {
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import type { LiveSession } from "../sessions.js";
 import { FOLDER_PROPS } from "../shared/appFolder.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { refusalOf } from "../shared/jmap.js";
 import {
   buildDraft,
@@ -53,7 +54,6 @@ import {
   STATE_FILE,
   stateAfterApproval,
 } from "../shared/knowledge.js";
-import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { asDraft, asState, titleFor } from "./documents.js";
 import { KnowledgeAdminError, requireState } from "./errors.js";
 import { highestRevisionNumber, revisionsExist } from "./reads.js";

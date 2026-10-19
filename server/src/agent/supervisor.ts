@@ -75,8 +75,8 @@ import { errorMessage } from "../shared/errors.js";
 import { groupCandidates } from "../shared/sessionAccount.js";
 import { fetchUpstreamSession, upstreamFor } from "../upstream.js";
 import { AgentLoop, type PassSummary } from "./loop.js";
-import { agentWakeStatus } from "./wake.js";
 import { modelAccess, setRunningModelAccess } from "./model.js";
+import { agentWakeStatus } from "./wake.js";
 
 /**
  * How often the supervisor puts its one question to the loop.

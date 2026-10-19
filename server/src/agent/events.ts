@@ -379,16 +379,8 @@ async function readChanges(
 ): Promise<{ mail: ChangeSet; files: ChangeSet }> {
   const answered: JmapResult = await clientOf(ctx).chain(
     [
-      [
-        "Email/changes",
-        { accountId, sinceState: mail, maxChanges },
-        "mail",
-      ],
-      [
-        FILENODE_CHANGES,
-        { accountId, sinceState: files, maxChanges },
-        "files",
-      ],
+      ["Email/changes", { accountId, sinceState: mail, maxChanges }, "mail"],
+      [FILENODE_CHANGES, { accountId, sinceState: files, maxChanges }, "files"],
     ],
     [CAPABILITIES.mail, FILENODE_CAP],
   );

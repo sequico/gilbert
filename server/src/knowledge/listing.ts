@@ -9,6 +9,7 @@
 import { type Ctx, fileChildren, readAppSheetJsonAt } from "../appFolder.js";
 import type { LiveSession } from "../sessions.js";
 import { FOLDER_PROPS } from "../shared/appFolder.js";
+import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
   compareKnowledgeSiblings,
   isRetired,
@@ -19,7 +20,6 @@ import {
   REVISIONS_FOLDER,
   STATE_FILE,
 } from "../shared/knowledge.js";
-import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import { asState } from "./documents.js";
 import { folderOrder } from "./editors.js";
 import { readArticle } from "./reads.js";
