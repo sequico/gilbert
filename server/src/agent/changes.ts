@@ -12,6 +12,7 @@ import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { mentionsName } from "../shared/chat.js";
+import { errorMessage } from "../shared/errors.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
@@ -116,6 +117,8 @@ const OFF_NOTICE = "AI agents are turned off.";
 export async function offPath(
   deps: { ctx: Ctx; cursors: Map<string, EventCursor>; self: string },
   accountId: string,
+  /** What a notice could not be delivered for: said by the pass, not swallowed. */
+  problems: string[] = [],
 ): Promise<void> {
   let cursor = deps.cursors.get(accountId);
   if (!cursor) {
@@ -123,6 +126,8 @@ export async function offPath(
     deps.cursors.set(accountId, cursor);
   }
   const read = await readAccountEvents(deps.ctx, accountId, cursor);
+  // A gap in the log is mentions this pass did not see: said, not assumed empty.
+  if (read.gap) problems.push(read.gap);
   for (const event of read.events) {
     if (event.change !== "created") continue;
     try {
@@ -180,9 +185,10 @@ export async function offPath(
           text: OFF_NOTICE,
         });
       }
-    } catch {
-      /* the notice is best effort: a write that fails is retried by the next
-         change, and a pass with the agent off must not fail over it */
+    } catch (err) {
+      // The cursor moves past this change either way, so the notice is gone:
+      // the pass says so rather than letting a person believe they were told.
+      problems.push(`${event.source} ${event.where}: ${errorMessage(err)}`);
     }
   }
   deps.cursors.set(accountId, read.cursor);

@@ -170,6 +170,10 @@ const CLAIM_RENEW_WITHIN_MS = CLAIM_TTL_MS / 2;
  * rest follow on later passes; the drawer is the same either way.
  */
 const ARCHIVE_PER_PASS = 50;
+/** How often one account's archive is looked at: housekeeping, not a beat. */
+const ARCHIVE_EVERY_MS = 60 * 60_000;
+/** How stale the off path's reading may be before it starts from now instead. */
+const OFF_READING_FRESH_MS = 60 * 60_000;
 
 /** What one pass of the loop did. */
 export interface PassSummary {
@@ -288,6 +292,10 @@ export class AgentLoop {
   private readonly allowPrivate: boolean;
   /** When an account's change batch may be tried again after it failed. */
   private readonly retryAfter = new Map<string, number>();
+  /** When each account's archive last ran, so the scan is hourly, not per pass. */
+  private readonly archivedAt = new Map<string, number>();
+  /** When the off path last read each account, so an on period does not replay. */
+  private readonly offReadAt = new Map<string, number>();
 
   constructor(
     private readonly ctx: Ctx,
@@ -378,10 +386,21 @@ export class AgentLoop {
        * rather than through a rule's class-3 licence.
        */
       for (const accountId of accounts) {
+        /*
+         * A notice is for what has just arrived. The switch may have been on
+         * for months since the off path last read, and an old cursor would
+         * answer every mention of that time: past the hour, read from now.
+         */
+        if (now.getTime() - (this.offReadAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
+          this.cursors.delete(accountId);
+        const problems: string[] = [];
         await offPath(
           { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
           accountId,
-        ).catch(() => undefined);
+          problems,
+        ).catch((err) => problems.push(errorMessage(err)));
+        for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
+        this.offReadAt.set(accountId, now.getTime());
         /*
          * The archive is housekeeping, not a decision: a switched-off agent
          * still keeps the group's runs folder to the year the owner chose.
@@ -390,7 +409,8 @@ export class AgentLoop {
           const read = await listRunsForWorking(this.ctx, accountId);
           for (const problem of read.problems)
             summary.gaps.push(`${accountId}: ${problem}`);
-          for (const gap of await this.archive(accountId, read.records, now))
+          const moved = new Set<string>();
+          for (const gap of await this.archive(accountId, read.records, now, moved))
             summary.gaps.push(`${accountId}: ${gap}`);
         } catch (err) {
           summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
@@ -418,9 +438,20 @@ export class AgentLoop {
        */
       try {
         const records = await this.workDue(accountId, now, summary);
-        for (const gap of await this.archive(accountId, records, now))
+        const moved = new Set<string>();
+        for (const gap of await this.archive(accountId, records, now, moved))
           summary.gaps.push(`${accountId}: ${gap}`);
-        await this.workChanges(accountId, now, summary, records);
+        /*
+         * A run moved to its drawer is not in the working set any more: the
+         * change batch is not handed it, so an old question cannot be answered
+         * against a document that is no longer there.
+         */
+        await this.workChanges(
+          accountId,
+          now,
+          summary,
+          moved.size ? records.filter((record) => !moved.has(record.run.id)) : records,
+        );
       } catch (err) {
         summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
       }
@@ -472,11 +503,22 @@ export class AgentLoop {
     accountId: string,
     records: readonly RunRecord[],
     now: Date,
+    moved: Set<string>,
   ): Promise<string[]> {
-    return await archiveOldRuns(this.ctx, accountId, records, now, {
+    /*
+     * Housekeeping, once an hour: a pass every ten seconds has no business
+     * walking the working set for old runs, and a switched-off agent even less.
+     * The first pass after a boot does it; the rest say nothing.
+     */
+    if (now.getTime() - (this.archivedAt.get(accountId) ?? 0) < ARCHIVE_EVERY_MS)
+      return [];
+    const gaps = await archiveOldRuns(this.ctx, accountId, records, now, {
       max: ARCHIVE_PER_PASS,
       beforeMove: () => this.keepClaim(),
+      moved,
     });
+    this.archivedAt.set(accountId, now.getTime());
+    return gaps;
   }
 
   /** Every run of one account whose wait has come due, worked again. */
@@ -1274,11 +1316,14 @@ export class AgentLoop {
      * and the write would succeed over the ending.
      */
     const before = await readRun(this.ctx, accountId, run.id);
+    // A document that is not there is not this process's to create: it was
+    // archived or removed, and a write here would put a second copy of the
+    // record back at the working path.
+    if (!before) return false;
     // `blocked` is the one state the loop may write over: it is what an answer
     // takes the run out of (ADR 0033). Every ending — `cancelled` among them —
     // is the document's, not this process's.
-    if (before && before.run.state !== "running" && before.run.state !== "blocked")
-      return false;
+    if (before.run.state !== "running" && before.run.state !== "blocked") return false;
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
       const token = await appFolderState(this.ctx, accountId);
       try {

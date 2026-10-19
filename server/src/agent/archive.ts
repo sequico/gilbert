@@ -96,7 +96,12 @@ export async function archiveOldRuns(
   accountId: string,
   records: readonly RunRecord[],
   now: Date,
-  opts: { max?: number; beforeMove?: () => Promise<void> } = {},
+  opts: {
+    max?: number;
+    beforeMove?: () => Promise<void>;
+    /** The run ids this batch moved, so the caller can drop them from its list. */
+    moved?: Set<string>;
+  } = {},
 ): Promise<string[]> {
   const cutoff = now.getTime() - RUN_RETENTION_DAYS * 86_400_000;
   const max = opts.max ?? Number.POSITIVE_INFINITY;
@@ -123,6 +128,7 @@ export async function archiveOldRuns(
       }
       await move(ctx, accountId, String(found.file.id), folder);
       retryAt.delete(key);
+      opts.moved?.add(run.id);
       moved += 1;
     } catch (err) {
       retryAt.set(key, now.getTime() + RETRY_AFTER_MS);

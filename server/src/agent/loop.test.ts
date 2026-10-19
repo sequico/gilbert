@@ -64,9 +64,8 @@ process.env.APP_SECRET = "test-secret-for-loop";
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { groupMembers } = await import("../groupAccess.js");
-const { filesAccountId, destroyAppNode, readAppFileAt, writeAppFileAt } = await import(
-  "../appFolder.js"
-);
+const { filesAccountId, destroyAppNode, readAppFileAt, removeAppFile, writeAppFileAt } =
+  await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { finishRun, startRun, waitUntil } = await import("../shared/run.js");
@@ -80,7 +79,7 @@ const { createRule, rulePath } = await import("./rules.js");
 const { factPath, listFacts } = await import("./memory.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { sameSubject } = await import("../shared/memory.js");
-const { createRun, listRuns, readRun, replaceRun } = await import("./runs.js");
+const { createRun, listRuns, readRun, replaceRun, runPath } = await import("./runs.js");
 const { INSTRUCTION_FILE, INSTRUCTION_VERSION, readInstruction } = await import(
   "./instruction.js"
 );
@@ -1452,6 +1451,42 @@ test("the steps of one answer that are ready run together, not one after another
     inFlight.most,
     2,
     "both calls of one answer were in flight at once; a loop that ran them one after another would reach 1",
+  );
+});
+
+test("a run whose document disappears is not written back by the closing step", async () => {
+  /*
+   * The store no longer recreates a document it cannot read: a run archived or
+   * removed under a working pass stays gone, rather than coming back as a
+   * second copy at the working path with the rest of its plan behind it.
+   */
+  const id = "vanishing-run";
+  await putRule(id);
+  const vanish = defineTool({
+    name: "probe.vanish",
+    description: "Remove this run's own document.",
+    authority: "reversible",
+    writes: true,
+    spend: { steps: 1 },
+    keys: [],
+    parse: (raw: unknown) => raw as Record<string, never>,
+    run: async (call) => {
+      await removeAppFile(ctx, accountId, runPath(call.run.id));
+      return { removed: true };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, vanish] });
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ calls: [{ name: "probe.vanish", arguments: {} }] });
+  await deliver("a run that loses its own document");
+  await agent.pass();
+
+  assert.equal(
+    await readRun(ctx, accountId, id),
+    null,
+    "the removed document is not put back by the step that closes the plan",
   );
 });
 

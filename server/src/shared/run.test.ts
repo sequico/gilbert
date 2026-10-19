@@ -87,6 +87,22 @@ test("a run starts running, its plan open, having touched and spent nothing", ()
   );
 });
 
+test("a document written before the start instant is read, without inventing one", () => {
+  const started = startRun({ id: "r1", startedBy: START });
+  assert.match(started.startedAt ?? "", /^\d{4}-\d{2}-\d{2}T/);
+
+  const older: Record<string, unknown> = { ...started };
+  delete older.startedAt;
+  const stored = parseRunDocumentDetailed(JSON.stringify(older));
+  assert.ok("run" in stored, "an older document stays readable");
+  assert.equal(stored.run.startedAt, undefined, "and keeps no instant it never had");
+
+  const bad = parseRunDocumentDetailed(
+    JSON.stringify({ ...started, startedAt: "yesterday" }),
+  );
+  assert.ok("problem" in bad, "a start instant that is not one is refused");
+});
+
 test("a step records how it ended, and a run that ended does not act again", () => {
   const run = startRun({ id: "r2", startedBy: START, plan: ["one", "two"] });
 
