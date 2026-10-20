@@ -848,11 +848,12 @@ export interface DecisionQuestion {
    */
   memory?: readonly FactDoc[];
   /**
-   * What the change itself says, when the reading already has it: a chat
-   * message's sender, text and the message it answers. Carried here so the turn
+   * What the change itself says, when the reading already has it: the sender,
+   * the words, and the message a chat one answers. Carried here so the turn
    * answers without a lookup -- one model call and one round trip less for the
-   * commonest wake. The text is bounded where the prompt carries it
-   * (`prompt.ts`, `READ_IN_PROMPT_MAX`): one long paste is not the change.
+   * commonest wakes, a chat message and a mail. The text is bounded where the
+   * prompt carries it (`prompt.ts`, `READ_IN_PROMPT_MAX`): one long paste is
+   * not the change.
    */
   detail?: { from: string; text: string; replyTo?: string };
   /**

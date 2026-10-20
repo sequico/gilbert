@@ -381,6 +381,20 @@ export async function workChanges(
         ? await readChatMessageAt(deps.ctx, accountId, event.where)
         : null;
     /*
+     * A mail the change names is read here for the same reason: the turn that
+     * decides it is then told the sender's words instead of spending a lookup —
+     * a whole model call — on a read this process makes in one request. A
+     * message that cannot be read answers null and the turn looks it up as
+     * before.
+     */
+    const mail =
+      event.source === "mail" && event.change !== "destroyed"
+        ? await readMessageForAnswer(deps.ctx, accountId, event.where, {
+            own: deps.ctx.username,
+            known: [],
+          }).catch(() => null)
+        : null;
+    /*
      * The agent's own words are not activity to answer: its own status message
      * would otherwise wake every rule that watches chat and pay a model call to
      * read itself, each reply opening the next round.
@@ -449,7 +463,9 @@ export async function workChanges(
           text: message.text,
           ...(message.replyTo ? { replyTo: message.replyTo } : {}),
         }
-      : null;
+      : mail?.text
+        ? { from: mail.from ?? "", text: mail.text }
+        : null;
     const meter = usageMeter();
     /*
      * A drop of one file can be read once here: the decision turn then answers

@@ -311,10 +311,25 @@ function rule(id: string, watches: WatchList = ["mail"]): RuleDoc {
 
 /** One message delivered into the account: a create in its own Email log. */
 /** One message delivered into an account: a create in its own Email log. */
-async function deliver(subject: string, into = accountId): Promise<string> {
+async function deliver(subject: string, into = accountId, body = ""): Promise<string> {
   const answer = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
     "Email/set",
-    { accountId: into, create: { c: { subject, mailboxIds: { inbox: true } } } },
+    {
+      accountId: into,
+      create: {
+        c: {
+          subject,
+          mailboxIds: { inbox: true },
+          // A message with words of its own, for the turns that are told them.
+          ...(body
+            ? {
+                bodyValues: { "1": { value: body } },
+                bodyStructure: { partId: "1", type: "text/plain" },
+              }
+            : {}),
+        },
+      },
+    },
     [CAPABILITIES.mail],
   );
   const id = answer.created?.c?.id;
@@ -397,6 +412,32 @@ test("a change a rule watches opens a run, and the record shows every step of it
     new RegExp(`mail created: ${message}`),
     "and the choosing turn is told the run's own change",
   );
+});
+
+/**
+ * The words of a mail are what the decision is made from, and the process holds
+ * them after one read: the turn that decides it is told them instead of spending
+ * a lookup — a whole model call — on the same message.
+ */
+test("a mail change is read before the decision turn, so the turn spends no lookup on it", async () => {
+  const id = "intake-mail-words";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ done: "the words are known" });
+  await deliver("a booking confirmation", accountId, "the booking reference is BK-42");
+  await agent.pass();
+
+  const decisions = seen.filter((one) => isDecision(one.system));
+  assert.equal(decisions.length, 1, "one decision turn, and no lookup round before it");
+  assert.match(
+    decisions[0]?.user ?? "",
+    /The message itself, so it need not be looked up again:/,
+    "the turn is told the message it decides",
+  );
+  assert.match(decisions[0]?.user ?? "", /BK-42/, "with the sender's own words");
 });
 
 test("a drop of files is one run and one report, after the folder is quiet", async () => {
