@@ -239,9 +239,9 @@ export function AgentOverview({
         </div>
         <div className="metrics-grid">
           <Metric label={t("Runs")} value={total.runs} />
-          <Metric label={t("Steps")} value={total.steps} />
+          <Metric label={t("Steps taken")} value={total.steps} />
           <Metric label={t("Model calls")} value={total.calls} />
-          <Metric label={t("Refused steps")} value={total.refused} />
+          <Metric label={t("Failed steps")} value={total.failed} />
           <Metric label={t("Work time")} value={formatMs(total.ms)} />
           <Metric label={t("Prompt tokens")} value={total.promptTokens} />
           <Metric label={t("Cached tokens")} value={total.cachedTokens} />
@@ -267,7 +267,7 @@ export function AgentOverview({
                   <th>{t("Group")}</th>
                   <th className="num">{t("Runs")}</th>
                   <th className="num">{t("Model calls")}</th>
-                  <th className="num">{t("Refused steps")}</th>
+                  <th className="num">{t("Failed steps")}</th>
                   <th className="num">{t("Work time")}</th>
                   <th className="num">{t("Tokens")}</th>
                   <th className="num">{t("Running")}</th>
@@ -279,7 +279,7 @@ export function AgentOverview({
                     <td>{row.name}</td>
                     <td className="num">{row.metrics.runs}</td>
                     <td className="num">{row.metrics.calls}</td>
-                    <td className="num">{row.metrics.refused}</td>
+                    <td className="num">{row.metrics.failed}</td>
                     <td className="num">{formatMs(row.metrics.ms)}</td>
                     <td className="num">
                       {row.metrics.promptTokens + row.metrics.completionTokens}

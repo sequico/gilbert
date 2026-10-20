@@ -19,8 +19,8 @@ export interface RunMetrics {
   completionTokens: number;
   /** The prompt tokens the provider served from its cache. */
   cachedTokens: number;
-  /** Steps the agent refused, across the runs. */
-  refused: number;
+  /** Plan entries that ended failed, across the runs. */
+  failed: number;
   /** Runs in flight: the one ending a table draws. */
   running: number;
 }
@@ -35,7 +35,7 @@ export function emptyMetrics(): RunMetrics {
     promptTokens: 0,
     completionTokens: 0,
     cachedTokens: 0,
-    refused: 0,
+    failed: 0,
     running: 0,
   };
 }
@@ -56,7 +56,7 @@ export function metricsOf(list: readonly RunSummary[], since?: Date): RunMetrics
     total.promptTokens += run.spent.promptTokens ?? 0;
     total.completionTokens += run.spent.completionTokens ?? 0;
     total.cachedTokens += run.spent.cachedPromptTokens ?? 0;
-    total.refused += run.refused;
+    total.failed += run.failed;
     if (run.state === "running") total.running += 1;
   }
   return total;
@@ -72,7 +72,7 @@ export function addMetrics(a: RunMetrics, b: RunMetrics): RunMetrics {
     promptTokens: a.promptTokens + b.promptTokens,
     completionTokens: a.completionTokens + b.completionTokens,
     cachedTokens: a.cachedTokens + b.cachedTokens,
-    refused: a.refused + b.refused,
+    failed: a.failed + b.failed,
     running: a.running + b.running,
   };
 }

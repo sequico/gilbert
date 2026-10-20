@@ -158,7 +158,7 @@ function RunRow({
               id={row.id}
               month={month}
               facts={facts}
-              version={`${row.state}:${row.steps}:${row.spent.calls}:${row.spent.ms}:${row.refused}:${row.ended?.at ?? ""}`}
+              version={`${row.state}:${row.steps}:${row.spent.calls}:${row.spent.ms}:${row.failed}:${row.ended?.at ?? ""}`}
             />
           ))}
       </div>
@@ -360,11 +360,11 @@ export function GroupRuns({
       {metrics && (
         <p className="hint">
           {t(
-            "{runs} runs · {calls} model calls · {refused} refused steps · {tokens} tokens",
+            "{runs} runs · {calls} model calls · {failed} failed steps · {tokens} tokens",
             {
               runs: metrics.runs,
               calls: metrics.calls,
-              refused: metrics.refused,
+              failed: metrics.failed,
               tokens: metrics.promptTokens + metrics.completionTokens,
             },
           )}

@@ -13,7 +13,7 @@ function listed(id: string, run: Record<string, unknown> | null): RunSummary {
       rule: null,
       woke: null,
       steps: 0,
-      refused: 0,
+      failed: 0,
       spent: { steps: 0, calls: 0, ms: 0 },
     };
   }
@@ -26,7 +26,7 @@ function listed(id: string, run: Record<string, unknown> | null): RunSummary {
     rule: null,
     woke: null,
     steps: plan.length,
-    refused: plan.filter((step) => step.state === "failed").length,
+    failed: plan.filter((step) => step.state === "failed").length,
     spent: run.spent as RunSummary["spent"],
   };
 }
@@ -59,7 +59,7 @@ describe("the runs' tally", () => {
     expect(total.ms).toBe(1500);
     expect(total.promptTokens).toBe(100);
     expect(total.completionTokens).toBe(40);
-    expect(total.refused).toBe(1);
+    expect(total.failed).toBe(1);
     expect(total.running).toBe(1);
   });
 

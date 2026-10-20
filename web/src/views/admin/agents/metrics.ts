@@ -42,7 +42,7 @@ export function sameRunHeader(a: RunSummary, b: RunSummary): boolean {
     a.spent.calls === b.spent.calls &&
     a.spent.steps === b.spent.steps &&
     a.spent.ms === b.spent.ms &&
-    a.refused === b.refused &&
+    a.failed === b.failed &&
     a.steps === b.steps
   );
 }

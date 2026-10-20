@@ -370,7 +370,8 @@ export interface RunSummary {
   woke: string | null;
   /** Steps the run has, and the failed ones among them. */
   steps: number;
-  refused: number;
+  /** Plan entries that ended failed — not the steps the run spent. */
+  failed: number;
   spent: RunSpent;
 }
 
@@ -386,7 +387,7 @@ export function summarizeRun(listed: RunListing): RunSummary {
     rule: run?.startedBy.rule ?? null,
     woke: run?.startedBy.woke ?? null,
     steps: run?.plan.length ?? 0,
-    refused: run?.plan.filter((step) => step.state === "failed").length ?? 0,
+    failed: run?.plan.filter((step) => step.state === "failed").length ?? 0,
     spent: run?.spent ?? { steps: 0, calls: 0, ms: 0 },
   };
 }
