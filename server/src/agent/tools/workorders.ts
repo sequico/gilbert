@@ -27,7 +27,7 @@ import {
   workorderClosedPath,
   workorderFileName,
 } from "../../shared/workorder.js";
-import { templateDef } from "../../workorder/templates.js";
+import { templateDef, type TemplateReader } from "../../workorder/templates.js";
 import { settleStepAsAgent, WorkorderAdminError } from "../../workorderAdmin.js";
 import { argsRecord, countArg, notFound, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
@@ -98,14 +98,15 @@ export const listWorkorders = defineTool({
       );
       if (!isWorkorderDoc(part)) return null;
       const root = await masterRootOf(ctx, master, uid);
+      const whole = isWorkorderDoc(root) ? root : null;
       const steps = part.checklist.steps;
       return {
         uid,
-        name: isWorkorderDoc(root) ? (root.name ?? null) : (part.name ?? null),
-        state: isWorkorderDoc(root) ? (root.state ?? null) : (part.state ?? null),
+        name: whole?.name ?? part.name ?? null,
+        state: whole?.state ?? part.state ?? null,
         open: steps.filter((step) => step.state === "open").length,
         steps: steps.length,
-        updated: (isWorkorderDoc(root) ? root.updated : part.updated) ?? null,
+        updated: whole?.updated ?? part.updated ?? null,
       };
     });
     return {
@@ -136,7 +137,7 @@ async function stepLabels(
   const labels = new Map<string, string>();
   // A reader of its own: this read is one workorder, and the caches live as long
   // as the answer it composes.
-  const reader = { ctx, defs: new Map(), articleFolders: new Map() };
+  const reader: TemplateReader = { ctx, defs: new Map(), articleFolders: new Map() };
   const def = (await templateDef(reader, checklist.template)).checklist;
   if (!def) return labels;
   for (const section of resolveChecklist(
