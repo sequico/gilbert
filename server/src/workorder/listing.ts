@@ -24,6 +24,7 @@ import {
   resolveChecklist,
 } from "../shared/knowledge.js";
 import {
+  checklistGroups,
   isStepComplete,
   isStepCompleteForGate,
   isWorkorderDoc,
@@ -89,8 +90,20 @@ const ROOT_NODE_PROPS = [...FILE_PROPS, ...STAMP_PROPS];
  * from it and the documents behind the nodes the page does not need are never
  * read: the registry grows with the installation, and a read that paid a
  * download per root would grow with it too.
+ *
+ * The page answers with what it left out as well: `total` is how many roots the
+ * registry holds, and `unreadable` names the documents that did not read as this
+ * build's — a workorder that cannot be read is said rather than made to
+ * disappear, or a broken document reads as one that was never opened.
  */
-async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
+interface RootPage {
+  docs: WorkorderDoc[];
+  total: number;
+  truncated: boolean;
+  unreadable: string[];
+}
+
+async function rootDocs(ctx: Ctx, accountId: string): Promise<RootPage> {
   const candidates: { path: string; node: FileNodeLike }[] = [];
   for (const path of [WORKORDER_FOLDER, workorderClosedPath()]) {
     const folderId = await findFolderPath(ctx, accountId, path);
@@ -113,10 +126,18 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
     .slice(0, WORKORDER_LIST_MAX);
   // The page's documents are independent, so they are fetched together: in
   // series the registry costs one round trip per workorder on a cold read.
-  const docs = await mapLimit(newest, READ_CONCURRENCY, ({ path }) =>
-    readAppJsonAt(ctx, accountId, path),
-  );
-  return docs.filter((doc): doc is WorkorderDoc => isWorkorderDoc(doc));
+  const read = await mapLimit(newest, READ_CONCURRENCY, async ({ path }) => ({
+    path,
+    doc: await readAppJsonAt(ctx, accountId, path),
+  }));
+  return {
+    docs: read
+      .map((one) => one.doc)
+      .filter((doc): doc is WorkorderDoc => isWorkorderDoc(doc)),
+    total: candidates.length,
+    truncated: candidates.length > newest.length,
+    unreadable: read.filter((one) => !isWorkorderDoc(one.doc)).map((one) => one.path),
+  };
 }
 
 /** The gate state over one whole workorder (ADR 0026). */
@@ -296,12 +317,24 @@ async function partEntries(
   root: WorkorderDoc,
   readParts?: Map<string, WorkorderFound | null>,
 ): Promise<PartEntry[]> {
+  /*
+   * A part exists for exactly the groups the template's sections are assigned to
+   * (`maySee` rests on the same fact), so the groups worth reading are those:
+   * reading every group the Master holds paid a lookup per group for parts that
+   * cannot exist, on every workorder and every row of the list. A template whose
+   * rules cannot be read falls back to what the caller reaches, as before.
+   */
+  const global = await templateDef(reach, root.checklist.template);
+  const assigned = global.checklist ? new Set(checklistGroups(global.checklist)) : null;
   // An administrator sees every part the Master holds; a member sees only the
   // parts of their own groups. Either way the account is the Master's to read.
-  const visible = (reach.admin ? [...reach.masterGroups.keys()] : [...reach.own]).sort(
-    (a, b) => a.localeCompare(b),
-  );
-  const global = await templateDef(reach, root.checklist.template);
+  const visible = (reach.admin ? [...reach.masterGroups.keys()] : [...reach.own])
+    .filter((name) => {
+      if (!assigned) return true;
+      const groupAccount = reach.masterGroups.get(name);
+      return groupAccount !== undefined && assigned.has(groupAccount);
+    })
+    .sort((a, b) => a.localeCompare(b));
 
   const entries: PartEntry[] = [
     {
@@ -473,10 +506,17 @@ async function listEntryOf(
   };
 }
 
-/** The newest page of what the caller may see, newest write first. */
-export async function listWorkorders(
-  session: LiveSession,
-): Promise<WorkorderListEntry[]> {
+/** One page of what the caller may see, newest write first, and what it left out. */
+export interface WorkorderListPage {
+  workorders: WorkorderListEntry[];
+  /** How many roots the registry holds, before the page was cut. */
+  total: number;
+  truncated: boolean;
+  /** Registry documents that did not read as this build's, by path. */
+  problems: string[];
+}
+
+export async function listWorkorders(session: LiveSession): Promise<WorkorderListPage> {
   const reach = await workorderReach(session);
   const roots = await rootDocs(reach.ctx, reach.accountId);
   /*
@@ -485,7 +525,7 @@ export async function listWorkorders(
    * parallel readers would otherwise ask the same folder while the first
    * answer is still in flight.
    */
-  if (roots.length > 1) {
+  if (roots.docs.length > 1) {
     const accounts = reach.admin
       ? [...reach.masterGroups.values()]
       : [...reach.own].flatMap((name) => {
@@ -503,12 +543,17 @@ export async function listWorkorders(
    * a time: in series the list cost one round trip per workorder, and it is
    * re-read on every change the rail carries.
    */
-  const entries = await mapLimit(roots, READ_CONCURRENCY, async (root) =>
+  const entries = await mapLimit(roots.docs, READ_CONCURRENCY, async (root) =>
     (await maySee(reach, root)) ? await listEntryOf(reach, root) : null,
   );
   const out = entries.filter((entry): entry is WorkorderListEntry => entry !== null);
   out.sort((a, b) => b.updated.at.localeCompare(a.updated.at));
-  return out;
+  return {
+    workorders: out,
+    total: roots.total,
+    truncated: roots.truncated,
+    problems: roots.unreadable,
+  };
 }
 
 /** One workorder by uid, or null when the caller may not see it. */

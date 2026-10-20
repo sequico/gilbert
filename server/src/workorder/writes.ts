@@ -160,8 +160,9 @@ export async function createWorkorder(
       "bad_request",
       "A workorder needs the template it instantiates.",
     );
-  const { ctx, accountId } = await masterAccount(session);
-  const masterGroups = (await groupAccountsDetailed(ctx)).groups;
+  const reach = await workorderReach(session);
+  const { ctx, accountId } = reach;
+  const masterGroups = reach.masterGroups;
 
   // The revision in force, which is the one a checklist may be bound to.
   const tierFolder = await findFolderPath(ctx, template.accountId, KNOWLEDGE_FOLDER);
@@ -279,7 +280,7 @@ export async function createWorkorder(
       part,
     );
   });
-  const summary = await readWorkorder(session, uid);
+  const summary = await readWorkorderWithReach(reach, uid);
   if (!summary)
     throw new WorkorderAdminError(
       "workorder_not_written",
@@ -672,6 +673,13 @@ export async function settleStepAsAgent(input: {
       `No workorder "${input.uid}" is there to check.`,
       404,
     );
+  /*
+   * A closed workorder is the record of the work, not a document that keeps
+   * moving — and a part carries no state, so the rule is read from the root
+   * here, before the write, and again inside its compare-and-set (the `guard`
+   * below) in case a close lands between the two.
+   */
+  refuseIfTerminal(root.doc);
   const written = await applyStep({
     ctx: input.ctx,
     accountId: input.accountId,
@@ -680,6 +688,10 @@ export async function settleStepAsAgent(input: {
     state: input.state,
     note: input.note,
     by: input.by,
+    guard: async () => {
+      const fresh = await findRoot(input.ctx, master, input.uid);
+      if (fresh) refuseIfTerminal(fresh.doc);
+    },
   });
   /*
    * The latch lives on the Master's root, which this write does not move: a

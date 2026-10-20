@@ -95,7 +95,8 @@ export function registerWorkorderRoutes(api: Hono<Env>): void {
 
   api.get("/workorders", requireSession, async (c) => {
     try {
-      return c.json({ ok: true, workorders: await listWorkorders(c.get("session")) });
+      const page = await listWorkorders(c.get("session"));
+      return c.json({ ok: true, ...page });
     } catch (err) {
       return workorderFailure(c, err);
     }
