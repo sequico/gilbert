@@ -35,7 +35,7 @@ function ended(at: number, state: RunStep["state"] = "done"): RunStep {
   return {
     what: `step-${at} action`,
     state,
-    outcome: `${at}:` + "x".repeat(STEP_OUTCOME_OLD_MAX * 4),
+    outcome: `${at}:${"x".repeat(STEP_OUTCOME_OLD_MAX * 4)}`,
     needs: null,
   };
 }

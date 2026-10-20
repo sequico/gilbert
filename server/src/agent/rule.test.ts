@@ -16,8 +16,8 @@ import {
   RULE_SURFACES,
   RULE_VERSION,
   type RuleDoc,
-  ruleApplies,
   type RuleSurfaces,
+  ruleApplies,
 } from "./rule.js";
 
 /** A v2 rule this build writes, as JSON. */

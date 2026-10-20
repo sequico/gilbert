@@ -6,13 +6,13 @@
  */
 
 import { findFolderPath, readAppJsonAt } from "../../appFolder.js";
+import { asDraft } from "../../knowledge/documents.js";
 import {
   KnowledgeAdminError,
   listArticles,
   proposeArticle,
   readArticle,
 } from "../../knowledgeAdmin.js";
-import { asDraft } from "../../knowledge/documents.js";
 import { AGENT_SIGNATURE } from "../../shared/agent.js";
 import { mapLimit, READ_CONCURRENCY } from "../../shared/concurrency.js";
 import {
@@ -21,6 +21,7 @@ import {
   KNOWLEDGE_FOLDER,
   knowledgeFolderName,
 } from "../../shared/knowledge.js";
+import { READ_IN_PROMPT_MAX } from "../prompt.js";
 import {
   argsRecord,
   countArg,
@@ -31,7 +32,6 @@ import {
   textArg,
 } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
-import { READ_IN_PROMPT_MAX } from "../prompt.js";
 
 /**
  * The most of a page one read answers with.

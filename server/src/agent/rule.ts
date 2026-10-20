@@ -31,9 +31,9 @@ import {
 } from "../shared/surfaces.js";
 import type { AccountEvent, AccountEventSource } from "./accountEvent.js";
 
+export type { SurfaceMode } from "../shared/surfaces.js";
 /** The surfaces a rule's matrix names, in the editor's order. */
 export { SURFACES as RULE_SURFACES } from "../shared/surfaces.js";
-export type { SurfaceMode } from "../shared/surfaces.js";
 
 /** One surface a rule's matrix names (`calendar` has no event source yet). */
 export type RuleSurface = SurfaceName;

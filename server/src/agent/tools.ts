@@ -99,7 +99,7 @@ import {
 } from "./tools/mail.js";
 import { rememberFactTool } from "./tools/memory.js";
 import { readRunTool } from "./tools/runs.js";
-import { readWorkorder, listWorkorders, settleStep } from "./tools/workorders.js";
+import { listWorkorders, readWorkorder, settleStep } from "./tools/workorders.js";
 
 export type { AnyTool, ImageReader, ToolCall };
 export { defineTool, isGroupAddress, mayRun, readMessageForAnswer };

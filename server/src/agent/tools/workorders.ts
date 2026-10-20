@@ -22,12 +22,12 @@ import {
   isWorkorderStepState,
   itemKeysOf,
   stepOf,
-  type WorkorderChecklist,
   WORKORDER_FOLDER,
+  type WorkorderChecklist,
   workorderClosedPath,
   workorderFileName,
 } from "../../shared/workorder.js";
-import { templateDef, type TemplateReader } from "../../workorder/templates.js";
+import { type TemplateReader, templateDef } from "../../workorder/templates.js";
 import { settleStepAsAgent, WorkorderAdminError } from "../../workorderAdmin.js";
 import { argsRecord, countArg, notFound, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";

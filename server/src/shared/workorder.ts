@@ -100,7 +100,7 @@ export function isStepCompleteForGate(state: WorkorderStepState): boolean {
 }
 
 /** One step's operational state — never the controlled text, which the KB holds. */
-interface WorkorderStep {
+export interface WorkorderStep {
   /** The step's path in the template, repeats expanded: `section[item].step`. */
   path: string;
   state: WorkorderStepState;

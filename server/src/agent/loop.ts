@@ -131,8 +131,8 @@ import {
 import type { ProseLevel } from "./prose.js";
 import {
   forgetDrop as dropForgotten,
-  dueDrops as dropsDue,
   forgetPath as dropPathForgotten,
+  dueDrops as dropsDue,
   noteFile,
 } from "./queue.js";
 import type { RuleDoc } from "./rule.js";
