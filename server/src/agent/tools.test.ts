@@ -1520,6 +1520,39 @@ test("the memory tool records a fact where the installation keeps them", async (
       }),
     /"fact" must be at most/,
   );
+  /*
+   * The memory is standing knowledge, not a log (ADR 0033). What happened in
+   * one change is the run's record's business: a dated sentence and a sentence
+   * naming a record are refused at the door, and so is a subject that is one
+   * record rather than a thing a later change names again.
+   */
+  await assert.rejects(
+    () =>
+      writeTool("memory.remember", {
+        subject: "Maersk",
+        fact: "the booking arrived on 2026-10-21 at 09:00",
+      }),
+    /carries a date or a time/,
+    "a dated sentence is an event, and the run's record holds it",
+  );
+  await assert.rejects(
+    () =>
+      writeTool("memory.remember", {
+        subject: "Maersk",
+        fact: "message e907000 asked for the papers",
+      }),
+    /carries a record's id/,
+    "a sentence about one message is not a fact",
+  );
+  await assert.rejects(
+    () =>
+      writeTool("memory.remember", {
+        subject: "e907000",
+        fact: "the shipper asked for the papers",
+      }),
+    /names one record or one date/,
+    "a subject that is one record is recalled by nothing later",
+  );
 
   for (const id of [recorded.id, "person-2"]) {
     const found = await readAppFileAt(ctx, accountId, factPath(id));
