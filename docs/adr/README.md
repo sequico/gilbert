@@ -384,21 +384,17 @@ is, not what a user sees.
   where the agent serves the group, answered by a member route with the matrix;
   at most ten items, because a bulk write is one step each in a twenty-step
   plan. **Not built.**
-- **0036 — A workorder anchors the mail and the files that belong to it.** A
-  workorder declares the keys the world uses for it (`tags`), and mail and files
-  point at it with refs rather than at a folder name. A deterministic binder in
-  the pass the supervisor already makes files a matched message's attachments
-  into the workorder's folder and writes the refs, idempotently, and a key that
-  resolves to nothing is recorded and left to the group's rule in prose. The
-  folder is a container, not an identity: a facet layout may nest it, and a
-  replaced workorder carries its tags to its successor. **Workorders is a
-  section** of its own, between Contacts and Files, whose tree is composed from
-  the refs — the files are the same nodes Files shows, the workorder's own
-  documents live under `workorders/` in the app folder, and the checklist
-  launcher stays in the top bar. **A thread is bound, and no mailbox is.** The
-  product takes no position on how a group's mail is organised and never creates
-  a mailbox for a workorder: the association is one ref on the thread, inherited
-  by every reply, written when the message is composed inside the section, and
-  resolved by the tag for a message composed anywhere else — with no question
-  asked at send. **Not built.**
+- **0036 — A workorder anchors the mail and the files that belong to it.** Open:
+  does a workorder take its mail, and what binds a conversation to it? The
+  copying act is in the tree (`files.save` takes an attachment or a Files
+  document into a visible folder) and so is the ref vocabulary with its member
+  route, which no surface writes yet. The decisions left are whether a
+  conversation is bound at all rather than found in the mailbox; whether a
+  declared key matched deterministically, the agent's judgement or a person does
+  the binding; what a key is (a normalized list, one non-terminal holder per
+  account, matched as a token, carried to a replacement); whether the relation is
+  one ref on the thread; whether the workorder becomes a section with its files
+  and its mail beside its checklist or stays the panel it is; and whether a
+  binder-written name on a collision is numbered or refused. Flat, with no facet
+  layout. **Partly built, Proposed.**
 
