@@ -103,6 +103,16 @@ test("a key this build does not know is ignored, not refused", () => {
     false,
     "and it is dropped on the next write: a rule carries no list of permitted actions (ADR 0035)",
   );
+
+  const extraSurface = parseRuleDocumentDetailed(
+    rulesJson({ surfaces: { ...matrix(), labels: "watch" } }),
+  );
+  assert.ok("rule" in extraSurface, "a surface a later build added does not refuse it");
+  assert.equal(
+    "labels" in extraSurface.rule.surfaces,
+    false,
+    "and the matrix written back names only the six surfaces this build knows",
+  );
 });
 
 test("a rule's matrix names six surfaces, chat always watched", () => {

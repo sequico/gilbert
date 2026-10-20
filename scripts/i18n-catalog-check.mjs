@@ -67,6 +67,9 @@ import {
  *
  * 212 -> 214: the cached and uncached token tiles (`AgentOverview.tsx`).
  *
+ * 231 -> 232: the calendar row's limit in the rules matrix: its changes do not
+ * wake a rule yet (`views/admin/agents/GroupRules.tsx`).
+ *
  * 225 -> 231: the rules matrix (ADR 0035): "Surfaces", the three modes
  * ("Off", "Watch", "On demand"), "Chat is always watched", and the sentence
  * that explains the three (`views/admin/agents/GroupRules.tsx`).
@@ -93,7 +96,7 @@ import {
  * 214 -> 216: a run row's unreadable label and its steps/calls summary
  * (`views/admin/agents/GroupRuns.tsx`).
  */
-const MISSING_MAX = 231;
+const MISSING_MAX = 232;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

@@ -158,11 +158,21 @@ export function parseRuleDocumentDetailed(
       };
     surfaces = migratedSurfaces(whole.watches);
   } else {
-    if (!isRecord(whole.surfaces) || !isRuleSurfaces(whole.surfaces))
+    const given = whole.surfaces;
+    if (!isRecord(given) || !isRuleSurfaces(given))
       return {
         problem: `"surfaces" must give every surface a mode (${SURFACES.join(", ")}) and keep chat at "watch".`,
       };
-    surfaces = whole.surfaces;
+    // A fresh matrix of the six: a surface a later build added is not written
+    // back, which is what "unknown keys are dropped on the next write" means.
+    surfaces = {
+      chat: "watch",
+      mail: given.mail,
+      files: given.files,
+      knowledge: given.knowledge,
+      workorder: given.workorder,
+      calendar: given.calendar,
+    };
   }
   if (typeof whole.instruction !== "string" || !whole.instruction.trim())
     return { problem: '"instruction" must say what should happen.' };
