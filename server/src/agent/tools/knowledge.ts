@@ -20,7 +20,17 @@ import {
 } from "../../shared/knowledge.js";
 import { argsRecord, countArg, notFound, TOOL_LIST_MAX, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
+import { READ_IN_PROMPT_MAX } from "../prompt.js";
 
+/**
+ * The most of a page one read answers with.
+ *
+ * A page is a controlled document and can be long; the answer is carried into a
+ * prompt that is paid for by the token, and a JSON answer cut by the prompt is a
+ * cut the model cannot read. The tool bounds its own text and says so, and
+ * `offset` asks for the rest — one page in as many reads as it takes.
+ */
+export const KNOWLEDGE_TEXT_MAX = READ_IN_PROMPT_MAX;
 export const listKnowledge = defineTool({
   name: "knowledge.list",
   description:
@@ -51,12 +61,24 @@ export const readKnowledgePage = defineTool({
   name: "knowledge.read",
   description:
     "Read one page of this account's knowledge base by its title, as a reader " +
-    "sees it now: the title, the tags, the text, and which revision is in force.",
+    "sees it now: the title, the tags, the text, and which revision is in force. " +
+    `The text is at most ${KNOWLEDGE_TEXT_MAX} characters; \`textLength\` and ` +
+    "`truncated` say whether the page holds more, and `offset` reads on from where " +
+    "the last answer ended.",
   authority: "reversible",
   writes: false,
-  keys: ["title"],
-  parse: (raw: unknown) => ({ title: textArg(argsRecord(raw), "title") }),
-  run: async ({ ctx, accountId }, { title }) => {
+  keys: ["offset", "title"],
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    const offset = args.offset ?? 0;
+    if (typeof offset !== "number" || !Number.isInteger(offset) || offset < 0)
+      throw new ToolError(
+        "bad_arguments",
+        '"offset" must be a whole number of at least 0.',
+      );
+    return { title: textArg(args, "title"), offset };
+  },
+  run: async ({ ctx, accountId }, { title, offset }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
     if (tier === null) throw notFound("knowledge base in this account");
     const view = await readArticle(ctx, accountId, tier, knowledgeFolderName(title));
@@ -64,10 +86,15 @@ export const readKnowledgePage = defineTool({
     // What a reader sees now, and only it: the draft is behind the revision in
     // force once one is, and the history is not what the page says.
     const page = view.effective ?? view.draft;
+    const full = page?.text ?? "";
+    const text = full.slice(offset, offset + KNOWLEDGE_TEXT_MAX);
     return {
       title: page?.title ?? view.summary.title,
       tags: page?.tags ?? view.summary.tags,
-      text: page?.text ?? "",
+      text,
+      textLength: full.length,
+      offset,
+      truncated: offset + text.length < full.length,
       revision: view.effective?.rev ?? null,
       folder: view.summary.folder,
       updatedAt: page?.updated.at ?? null,

@@ -2027,3 +2027,46 @@ test("the agent proposes a page's change into its draft, and nothing is in force
     "a page that is not there is not proposed to",
   );
 });
+
+/**
+ * A page is a controlled document and can be long, and the answer travels into
+ * a prompt paid for by the token: the read bounds its own text and says how
+ * much there is, so `offset` reaches the rest — rather than the prompt cutting
+ * the JSON a model then cannot read.
+ */
+test("a page longer than one read carries is answered in bounded parts", async () => {
+  const { KNOWLEDGE_TEXT_MAX } = await import("./tools/knowledge.js");
+  const title = "A long procedure";
+  const body = "s".repeat(KNOWLEDGE_TEXT_MAX + 100);
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `knowledge/${knowledgeFolderName(title)}/draft.json`,
+    buildDraft({
+      id: "k-long",
+      title,
+      tags: [],
+      blocks: blocksFromText(body),
+      text: body,
+      by: "a@example.com",
+      at: new Date().toISOString(),
+    }),
+  );
+
+  const first = await callTool<{
+    text: string;
+    textLength: number;
+    offset: number;
+    truncated: boolean;
+  }>("knowledge.read", { title });
+  assert.equal(first.text.length, KNOWLEDGE_TEXT_MAX, "one read carries its bound");
+  assert.equal(first.textLength, body.length, "and says how long the page is");
+  assert.equal(first.truncated, true, "and that it is not the whole page");
+
+  const rest = await callTool<{ text: string; truncated: boolean }>("knowledge.read", {
+    title,
+    offset: KNOWLEDGE_TEXT_MAX,
+  });
+  assert.equal(rest.text, body.slice(KNOWLEDGE_TEXT_MAX), "offset reads on");
+  assert.equal(rest.truncated, false, "and the last part says it is the last");
+});
