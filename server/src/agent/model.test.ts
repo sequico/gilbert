@@ -1358,7 +1358,11 @@ test("the choosing turn lists each tool's own argument names", async () => {
     /- mail\.read\(id\)/,
     "the arguments are the tool's own, so a name is not guessed",
   );
-  assert.match(SYSTEM(0), /- memory\.remember\(fact, links, standing, subject\)/);
+  assert.match(
+    SYSTEM(0),
+    /- memory\.remember\(fact: text ≤400, links: list, standing: boolean, subject: text ≤200\)/,
+    "and each one carries the kind and the bound the parser checks",
+  );
 });
 
 test("a provider's leaked tool markup is not prose the agent says", async () => {

@@ -53,13 +53,13 @@ jobs:
     if: needs.check.outputs.should_release == 'true'
     permissions:
       contents: read
-      # The analysis reads its own workflow run for status and telemetry and
-      # publishes nothing, so no write permission is granted. A called workflow
-      # can only lose permissions, never gain them, so both reads the analysis
-      # asks for are granted here: `actions` for the run, and
-      # `security-events` for the CodeQL Action's own API.
       actions: read
-      security-events: read
+      # The analysis writes its result where the repository's code scanning
+      # reads it: a `read` here left the CodeQL Action retrying an upload it was
+      # not allowed to make -- the run still said success while no result was
+      # stored, which is the gap this grant closes. A called workflow can only
+      # lose permissions, never gain them, so the write is granted here.
+      security-events: write
     uses: ./.github/workflows/codeql.yml
 
   check:
