@@ -348,8 +348,8 @@ export async function workChanges(
     /*
      * A document landing in a folder is one file of a drop, not a change to
      * answer on its own: it is queued against its folder and reported once the
-     * burst is over. A folder that appears is not a document at all, and a
-     * removal is never queued — there is nothing to report at the end of it.
+     * burst is over (ADR 0038). A folder that appears is not a document at all,
+     * and a removal is never queued — there is nothing to report at the end.
      */
     if (event.source === "files" && event.change !== "destroyed" && !event.also) {
       if (looksLikeFile(event.where)) await deps.noteDrop(accountId, event.where, now);

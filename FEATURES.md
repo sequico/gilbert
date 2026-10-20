@@ -336,6 +336,24 @@ groups — are read from the mail server by that pass rather than decided at the
 boot, so a group added or
 withdrawn in Stalwart needs no restart.
 
+## A drop is one change
+
+**A burst of files is one drop** (ADR 0038): a file landing in a folder is noted
+against that folder in `gilbert/pending.json` and answered once the folder has
+been quiet for five minutes, or once the drop is twenty minutes old — one
+decision, one run, one report, with every file the drop brought in the decision
+prompt. The queue is a document in the group's own app folder, so a restart
+resumes the same drop, and the instant the drop opened is part of the run's key,
+so a later drop in the same folder is a run of its own. A folder that appears is
+not a document and a removal whose path is unknown wakes no rule. A question is
+asked once: the plan turn is shown the questions the group already has open, and
+`chat.ask` answers with the open question's message instead of posting a second
+copy. A page's transcription is remembered by the content of its bytes, so the
+same scan answers the same words to every run, and an identifier the model cannot
+read is transcribed as `(unclear)` rather than guessed. The Work panel counts the
+decision turn's calls on the run it opens, and labels the steps a run spent and
+the plan entries that failed as the two tallies they are.
+
 ## Where to watch it, and stop it
 
 **A run that ended more than a year ago leaves the working set**: the agent moves

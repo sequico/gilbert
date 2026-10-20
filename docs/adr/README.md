@@ -351,3 +351,18 @@ is, not what a user sees.
   against a person's fact is kept as a **proposal** (`FactProposal`) beside the
   person's sentence, and Administration accepts it — the correction path, whose
   write carries no proposal — or dismisses it.
+- **0038 — A burst of files is one drop, and a question is asked once.** A
+  `FileNode` change is one file of a drop, not a change of its own: a file
+  landing in a folder is queued against that folder in the group's own app
+  folder and answered once — one decision, one run, one report — when the folder
+  has been quiet for five minutes or the drop is twenty minutes old, with the
+  whole pack in the prompt. A folder that appears is not a document and a
+  removal with no known path wakes nothing. The plan turn is shown the questions
+  the group already has open, and `chat.ask` does not post a duplicate: a
+  question is asked once. A page's transcription is remembered by the content
+  of its bytes, and an identifier the model cannot read is transcribed as
+  `(unclear)`. The decision turn's calls are counted on the run it opens, a
+  run's end is stamped when it ends, and the Work panel labels the steps a run
+  spent and the plan entries that failed as the two tallies they are.
+  **Built** (`server/src/agent/queue.ts`, `changes.ts`, `events.ts`, `model.ts`,
+  `tools/chat.ts`, `web/src/views/admin/agents/AgentOverview.tsx`).

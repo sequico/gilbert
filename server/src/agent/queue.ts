@@ -1,5 +1,5 @@
 /**
- * The file drops a burst leaves, held until the burst is over (ADR 0035).
+ * The file drops a burst leaves, held until the burst is over (ADR 0038).
  *
  * A person saving a mail's attachments to Files writes one node per file, and a
  * loading-doc pack is seven of them over half an hour. Read one event at a time
