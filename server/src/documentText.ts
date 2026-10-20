@@ -400,6 +400,56 @@ export function documentKind(type: string, name: string): DocumentKind | null {
   return kindOfType(type.toLowerCase().trim()) ?? kindOfName(name);
 }
 
+/** The image formats the installation's model reads, as the provider names them. */
+const IMAGE_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+/**
+ * What an image's bytes are, as a MIME type the model's own door accepts.
+ *
+ * A picture's type is the bytes', not the sender's: a WhatsApp pack arrives with
+ * every `.jpeg` labelled `application/octet-stream`, and a provider handed a
+ * `data:application/octet-stream` part refuses the image outright while the bytes
+ * are a valid JPEG (live: Deepseek answered "unsupported image ... webp, png,
+ * jpeg, and gif"). The declared type answers when it is one the model reads; the
+ * name is the next witness; the magic bytes are the last and strongest one.
+ *
+ * Null is a picture this installation cannot show the model — a BMP or a TIFF,
+ * which the provider would refuse — and the caller says so without spending a
+ * call to learn it.
+ */
+export function imageMediaType(
+  type: string,
+  name: string,
+  bytes: Uint8Array,
+): string | null {
+  const declared = type.toLowerCase().trim();
+  if (IMAGE_MEDIA_TYPES.has(declared)) return declared;
+  const named = namedImageType(name);
+  if (named) return named;
+  return sniffedImageType(bytes);
+}
+
+/** The image type a file's extension names, or null. */
+function namedImageType(name: string): string | null {
+  const file = name.toLowerCase();
+  if (/\.jpe?g$/.test(file)) return "image/jpeg";
+  if (file.endsWith(".png")) return "image/png";
+  if (file.endsWith(".webp")) return "image/webp";
+  if (file.endsWith(".gif")) return "image/gif";
+  return null;
+}
+
+/** The image type the first bytes carry, or null. */
+function sniffedImageType(bytes: Uint8Array): string | null {
+  const ascii = (from: number, text: string): boolean =>
+    [...text].every((ch, i) => (bytes[from + i] ?? -1) === ch.charCodeAt(0));
+  if (ascii(0, "\xff\xd8\xff")) return "image/jpeg";
+  if (ascii(0, "\x89PNG")) return "image/png";
+  if (ascii(0, "GIF8")) return "image/gif";
+  if (ascii(0, "RIFF") && ascii(8, "WEBP")) return "image/webp";
+  return null;
+}
+
 /**
  * What the document says, or null when this build does not read its format.
  *

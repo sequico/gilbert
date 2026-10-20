@@ -240,10 +240,16 @@ export async function offPath(
 /** The decision turn's tokens, on the run it opened or continued. */
 function withUsage(
   run: RunDoc,
-  meter: { promptTokens: number; completionTokens: number; cachedTokens: number },
+  meter: {
+    calls: number;
+    promptTokens: number;
+    completionTokens: number;
+    cachedTokens: number;
+  },
 ): RunDoc {
-  if (!meter.promptTokens && !meter.completionTokens) return run;
+  if (!meter.calls && !meter.promptTokens && !meter.completionTokens) return run;
   return spendRun(run, {
+    calls: meter.calls,
     promptTokens: meter.promptTokens,
     completionTokens: meter.completionTokens,
     cachedPromptTokens: meter.cachedTokens,

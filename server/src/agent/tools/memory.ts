@@ -7,7 +7,7 @@
  */
 
 import { filesAccountId } from "../../appFolder.js";
-import { MEMORY_FACT_MAX, subjectProblem } from "../../shared/memory.js";
+import { MEMORY_FACT_MAX, sameSubject, subjectProblem } from "../../shared/memory.js";
 import { rememberFact } from "../memory.js";
 import { argsRecord, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
@@ -83,6 +83,17 @@ export const rememberFactTool = defineTool({
         "The installation's memory has not been read for this call, and a fact is never written against a reading that is not there.",
         409,
       );
+    /*
+     * A link names a fact the memory holds, and the model names the subjects it
+     * knows. A subject the memory holds nothing about is dropped from the link
+     * list and reported, never refused: the fact is the payload, and a booking
+     * named before anyone wrote a fact about it is the ordinary case — the live
+     * run refused fourteen facts for exactly that and re-asked without the link.
+     */
+    const held = links.filter((one) =>
+      memory.facts.some((fact) => sameSubject(fact.subject, one)),
+    );
+    const notHeld = links.filter((one) => !held.includes(one));
     const written = await rememberFact(
       ctx,
       filesAccountId(ctx),
@@ -92,7 +103,7 @@ export const rememberFactTool = defineTool({
         run: run.id,
         at: new Date().toISOString(),
         group: accountId,
-        links,
+        links: held,
         standing,
       },
       memory,
@@ -104,9 +115,14 @@ export const rememberFactTool = defineTool({
       ? {
           id: written.id,
           subject: written.subject,
+          ...(notHeld.length ? { notHeld } : {}),
           proposed: proposal.fact,
           inForce: written.fact,
         }
-      : { id: written.id, subject: written.subject };
+      : {
+          id: written.id,
+          subject: written.subject,
+          ...(notHeld.length ? { notHeld } : {}),
+        };
   },
 });

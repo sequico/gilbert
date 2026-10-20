@@ -6,7 +6,7 @@
  * format nothing reads and a document that would not open are told apart once.
  */
 
-import { documentKind, readDocument } from "../../documentText.js";
+import { documentKind, imageMediaType, readDocument } from "../../documentText.js";
 
 /** What the installation's model answers when a tool asks it to read an image. */
 export type ImageReader = (image: {
@@ -47,7 +47,19 @@ export async function readFileText(
         readable: false,
         problem: "This installation's agent cannot look at an image.",
       };
-    const read = await readImage({ type: file.type, data: file.bytes });
+    /*
+     * The provider is handed the bytes' own type: a WhatsApp pack labels every
+     * JPEG `application/octet-stream`, and a `data:application/octet-stream`
+     * part is refused as an unsupported image while the bytes are a valid JPEG.
+     */
+    const type = imageMediaType(file.type, file.name, file.bytes);
+    if (!type)
+      return {
+        text: null,
+        readable: false,
+        problem: `The image "${file.name}" is not a format the installation's model reads (JPEG, PNG, WebP or GIF).`,
+      };
+    const read = await readImage({ type, data: file.bytes });
     return "problem" in read
       ? { text: null, readable: false, problem: read.problem }
       : { text: read.text, readable: true, kind: "image" };

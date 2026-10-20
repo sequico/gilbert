@@ -1157,3 +1157,66 @@ test("an image goes to the model as an image part, and what it says comes back a
   assert.ok("problem" in refused, "an answer that is not a transcription is a problem");
   assert.match(refused.problem, /could not be read by the installation's model/);
 });
+
+test("an answer fenced as JSON is still the answer", async () => {
+  // A model that wraps its object in a fence decided; refusing that costs a call
+  // and teaches the next turn nothing.
+  answers.push('```json\n{"rules":["shipper-answer"],"facts":{}}\n```');
+  const decision = await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, rules: [shipperRule], prose },
+    toolCall(),
+  );
+  assert.deepEqual(decision, { kind: "decision", rules: ["shipper-answer"], facts: {} });
+});
+
+test("a chat decision written in prose is the reply it is", async () => {
+  const chatRule: RuleDoc = {
+    v: RULE_VERSION,
+    id: "chat-answer",
+    watches: ["chat"],
+    instruction: "Answer the group in its own conversation.",
+    sends: false,
+  };
+  answers.push("Filed in TEMU5974430; seal reads 005073.");
+  const decision = await decideEvent(
+    { model, allowPrivateProvider: true },
+    {
+      event: { source: "chat", change: "created", where: "c-1" },
+      rules: [chatRule],
+      prose,
+    },
+    toolCall(),
+  );
+  assert.deepEqual(decision, {
+    kind: "reply",
+    text: "Filed in TEMU5974430; seal reads 005073.",
+  });
+});
+
+test("prose is not a decision on any other surface", async () => {
+  // On mail or files, words saying what happened are not an answer: the run
+  // would continue on a decision that was never made.
+  answers.push("I have filed the documents.");
+  await assert.rejects(
+    () =>
+      decideEvent(
+        { model, allowPrivateProvider: true },
+        { event: mailEvent, rules: [shipperRule], prose },
+        toolCall(),
+      ),
+    (err: unknown) =>
+      err instanceof ModelError && err.code === "model_answer_malformed",
+  );
+});
+
+test("the choosing turn lists each tool's own argument names", async () => {
+  answerWith({ done: "nothing" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
+  assert.match(
+    SYSTEM(0),
+    /- mail\.read\(id, name\)/,
+    "the arguments are the tool's own, so a name is not guessed",
+  );
+  assert.match(SYSTEM(0), /- memory\.remember\(fact, links, standing, subject\)/);
+});

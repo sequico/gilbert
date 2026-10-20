@@ -1320,6 +1320,28 @@ test("the writing tools change the group's own account", async () => {
   );
 });
 
+test("a link to a subject the memory has no fact about does not lose the fact", async () => {
+  /*
+   * The live failure this pins: the agent named the booking and the container it
+   * was working, the memory held no fact about them yet, and the write was
+   * refused fourteen times in one morning — each a model call, and the next
+   * attempt dropped the link by hand.
+   */
+  const recorded = await writeTool<{ id: string; notHeld?: string[] }>(
+    "memory.remember",
+    {
+      subject: "container TEMU5974430",
+      fact: "29 blocks of zinc dross, seal 005073",
+      links: ["279726936 5X20 Ennore"],
+    },
+  );
+  assert.deepEqual(recorded.notHeld, ["279726936 5X20 Ennore"]);
+  const sheet = await readAppFileAt(ctx, accountId, factPath(recorded.id));
+  const parsed = parseFactDocumentDetailed(sheet?.text ?? "");
+  assert.ok("fact" in parsed, "the fact is written anyway");
+  assert.deepEqual(parsed.fact.links, [], "only the unknown link is dropped");
+});
+
 test("the memory tool records a fact where the installation keeps them", async () => {
   // The one tool that writes outside the group's account (ADR 0037): the fact
   // lands in the Master's own memory, and the whole store reads it back.
@@ -1605,6 +1627,71 @@ test("a picture is read by the model's eyes when the caller has them, and says s
   assert.equal(read.text, "Booking 4417 confirmed");
   assert.equal(seenImage[0]?.type, "image/png", "the file's own type travels with it");
   assert.equal(seenImage[0]?.data.length, png.length, "and its bytes");
+});
+
+test("a picture the sender labelled octet-stream is read as the JPEG it is", async () => {
+  /*
+   * The live failure this pins: a WhatsApp pack labelled every `.jpeg`
+   * `application/octet-stream`, the provider refused each one as an unsupported
+   * image, and the agent reported ten times that it could not see them.
+   */
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    "Documents",
+    "WhatsApp Image 09.31.57.jpeg",
+    jpeg,
+    "application/octet-stream",
+  );
+  const seen: Array<{ type: string; data: Uint8Array }> = [];
+  const read = (await runTool(
+    READING_TOOLS,
+    {
+      ctx,
+      accountId,
+      run: plainRun(),
+      readImage: async (image) => {
+        seen.push(image);
+        return { text: "seal 005073" };
+      },
+    },
+    "files.read",
+    { path: "Documents/WhatsApp Image 09.31.57.jpeg" },
+  )) as { readable: boolean; text?: string };
+  assert.equal(read.readable, true);
+  assert.equal(read.text, "seal 005073");
+  assert.equal(seen[0]?.type, "image/jpeg", "the bytes' own type reaches the model");
+});
+
+test("a picture in a format the model does not take is refused without a call", async () => {
+  const bmp = new Uint8Array([0x42, 0x4d, 0x00, 0x00]);
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    "Documents",
+    "photo.bmp",
+    bmp,
+    "application/octet-stream",
+  );
+  let asked = 0;
+  const read = (await runTool(
+    READING_TOOLS,
+    {
+      ctx,
+      accountId,
+      run: plainRun(),
+      readImage: async () => {
+        asked += 1;
+        return { text: "" };
+      },
+    },
+    "files.read",
+    { path: "Documents/photo.bmp" },
+  )) as { readable: boolean; problem?: string };
+  assert.equal(read.readable, false);
+  assert.match(read.problem ?? "", /not a format/);
+  assert.equal(asked, 0, "the provider is not asked to refuse it");
 });
 
 test("a reply is drafted into the group's Drafts, addressed and threaded, and nothing is sent", async () => {

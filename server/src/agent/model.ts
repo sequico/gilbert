@@ -300,6 +300,8 @@ export function runningModelAccess(): ModelAccess | null {
 
 /** The provider's token counts for the calls made through one meter. */
 export interface UsageMeter {
+  /** Model calls made, including the ones a provider timed out on. */
+  calls: number;
   promptTokens: number;
   completionTokens: number;
   /** Prompt tokens the provider served from its own cache, when it says. */
@@ -308,15 +310,72 @@ export interface UsageMeter {
 
 /** A fresh meter for one turn, or for the several calls a turn makes. */
 export function usageMeter(): UsageMeter {
-  return { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
+  return { calls: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
+}
+
+/**
+ * The JSON object in a provider's answer.
+ *
+ * A model told to answer one JSON object sometimes fences it, or prefixes a
+ * sentence, and refusing that answer costs a call and teaches the next turn
+ * nothing. The first balanced object is taken instead; text with no object in it
+ * is still the malformed answer it was.
+ */
+export function jsonObjectIn(text: string): unknown | null {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const body = fenced ? (fenced[1] ?? "").trim() : trimmed;
+  try {
+    return JSON.parse(body);
+  } catch {
+    // Not a bare object: look for the first one inside the prose.
+  }
+  const start = body.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let at = start; at < body.length; at++) {
+    const ch = body[at];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(body.slice(start, at + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 export async function callModel(
   access: ModelAccess,
   req: ModelRequest,
   meter?: UsageMeter,
+  opts: {
+    /**
+     * Whether prose with no JSON object in it is an answer. Only the decision
+     * turn takes it, and only for a chat change: a person wrote in the
+     * conversation, and the model's words are the reply.
+     */
+    allowText?: boolean;
+  } = {},
 ): Promise<unknown> {
   await assertUsableProvider(access);
+  // Counted before the request leaves: a provider that times out was paid for,
+  // and a tally that skips it is optimistic exactly where it matters most.
+  if (meter) meter.calls += 1;
   const { provider, model, baseUrl, apiKey } = access.model;
   const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const timeoutMs = req.timeoutMs ?? MODEL_TIMEOUT_MS;
@@ -449,14 +508,13 @@ export async function callModel(
       "model_call_failed",
       `${provider} answered without a message: ${firstLine(raw)}`,
     );
-  try {
-    return JSON.parse(content) as unknown;
-  } catch {
-    throw new ModelError(
-      "model_answer_malformed",
-      `${provider} answered with content that is not JSON: ${firstLine(content)}`,
-    );
-  }
+  const parsed = jsonObjectIn(content);
+  if (parsed !== null) return parsed;
+  if (opts.allowText && content.trim()) return { text: content.trim() };
+  throw new ModelError(
+    "model_answer_malformed",
+    `${provider} answered with content that is not JSON: ${firstLine(content)}`,
+  );
 }
 
 /** What a model probe found: connected, or the first thing that was wrong. */
@@ -781,7 +839,11 @@ export async function decideEvent(
     'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
     "The tools you may read with:",
-    ...READING_TOOLS.map((tool) => `- ${tool.name}: ${tool.description}`),
+    ...READING_TOOLS.map(
+      (tool) =>
+        `- ${tool.name}(${tool.keys.join(", ") || "no arguments"}): ${tool.description}`,
+    ),
+    "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
     ...heads,
   ]
     .filter(Boolean)
@@ -797,7 +859,21 @@ export async function decideEvent(
         ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
       },
       opts.meter,
+      { allowText: true },
     );
+    /*
+     * A person wrote in the conversation and the model answered in prose: those
+     * words are the reply, not a malformed answer. Every other surface keeps the
+     * JSON contract, where a narration is a decision that was never made.
+     */
+    if (
+      isRecord(answer) &&
+      Object.keys(answer).length === 1 &&
+      typeof answer.text === "string" &&
+      answer.text.trim() &&
+      question.event.source === "chat"
+    )
+      return { kind: "reply", text: answer.text.trim() };
     const parsed = parseAnswerDetailed(answer);
     if ("problem" in parsed)
       throw new ModelError("model_answer_malformed", parsed.problem);
@@ -1284,7 +1360,11 @@ export async function chooseStep(
     "The tools below say what each one is for and what arguments it takes.",
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
     "The tools you may take a step with:",
-    ...catalogue.map((tool) => `- ${tool.name}: ${tool.description}`),
+    ...catalogue.map(
+      (tool) =>
+        `- ${tool.name}(${tool.keys.join(", ") || "no arguments"}): ${tool.description}`,
+    ),
+    "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
     ...heads,
   ]
     .filter(Boolean)

@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import {
   DOCUMENT_TEXT_MAX,
   documentKind,
+  imageMediaType,
   readDocument,
   SCANNED_PAGES_MAX,
 } from "./documentText.js";
@@ -296,4 +297,41 @@ test("a PDF with no text layer is a scan: its pages go to the model, and nowhere
     "with the format's own signature",
   );
   assert.ok(SCANNED_PAGES_MAX > 0);
+});
+
+test("a picture's type is its bytes', not the sender's label", () => {
+  /*
+   * The live failure this pins: a WhatsApp pack labels every `.jpeg`
+   * `application/octet-stream`, and the provider refused each one — "unsupported
+   * image ... webp, png, jpeg, and gif" — while the bytes were a valid JPEG.
+   */
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
+  assert.equal(
+    imageMediaType("application/octet-stream", "WhatsApp Image 09.31.57.jpeg", jpeg),
+    "image/jpeg",
+    "the name answers when the type says nothing",
+  );
+  assert.equal(
+    imageMediaType("application/octet-stream", "no extension", jpeg),
+    "image/jpeg",
+    "and the bytes answer when the name says nothing",
+  );
+  assert.equal(
+    imageMediaType("image/png", "x.jpeg", jpeg),
+    "image/png",
+    "a type the model reads is not second-guessed",
+  );
+  const webp = new Uint8Array([
+    0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+  ]);
+  assert.equal(
+    imageMediaType("application/octet-stream", "x.bin", webp),
+    "image/webp",
+    "a container format is read from its own marker",
+  );
+  assert.equal(
+    imageMediaType("application/octet-stream", "x.bmp", new Uint8Array([0x42, 0x4d])),
+    null,
+    "a format the model does not take is named as one, not sent to be refused",
+  );
 });
