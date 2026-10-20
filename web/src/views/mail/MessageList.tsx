@@ -1234,11 +1234,15 @@ export const Row = memo(function Row({
     (l) => !isAgentLabel(l.keyword) && scope.some((x) => x.keywords[l.keyword]),
   );
   /*
-   * Where each message of this row is stored. Shown in every list that is not
-   * a folder: a label, a starred view and a search all answer a question
+   * Where the messages this row stands for are stored. Shown in every list that
+   * is not a folder: a label, a starred view and a search all answer a question
    * *about* messages without saying where they live. In a folder the row is
    * already in the answer, so only the other folders are named — and a message
    * that sits in that folder alone says nothing.
+   *
+   * The row's messages are `scope`, not the whole thread: a conversation
+   * reaches into folders this list is not about, and naming a reply's Sent for
+   * every conversation in the Inbox would turn the tag into noise.
    *
    * `mailboxes` is the active account's tree, which is the account these rows
    * came from, and the same source the folder pickers read.
@@ -1428,9 +1432,9 @@ export const Row = memo(function Row({
                     {l.name}
                   </span>
                 ))}
-                {locations.length > 0 && <FolderTags folders={locations} />}
               </div>
             )}
+            {locations.length > 0 && <FolderTags folders={locations} />}
             <span className="msg-meta">
               {hasAtt && <Paperclip size={14} className="msg-attach" />}
               <span className="msg-date">{formatListDate(latest.receivedAt)}</span>
