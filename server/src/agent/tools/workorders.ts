@@ -1,12 +1,21 @@
 /**
  * The tools over the account's workorders.
  *
- * Reading one with its steps, and settling a step as the agent — signed so a
- * reader sees that the agent settled it and not a person.
+ * Discovering the work this account holds a part of, reading one with its steps,
+ * and settling a step as the agent — signed so a reader sees that the agent
+ * settled it and not a person.
  */
 
-import { readAppJsonAt } from "../../appFolder.js";
+import {
+  type Ctx,
+  fileChildren,
+  filesAccountId,
+  findFolderPath,
+  readAppJsonAt,
+} from "../../appFolder.js";
 import { AGENT_SIGNATURE } from "../../shared/agent.js";
+import { FOLDER_PROPS } from "../../shared/appFolder.js";
+import { mapLimit, READ_CONCURRENCY } from "../../shared/concurrency.js";
 import {
   isWorkorderDoc,
   isWorkorderStepState,
@@ -16,32 +25,125 @@ import {
   workorderFileName,
 } from "../../shared/workorder.js";
 import { settleStepAsAgent, WorkorderAdminError } from "../../workorderAdmin.js";
-import { argsRecord, notFound, textArg } from "./args.js";
+import { argsRecord, countArg, notFound, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
+
+/**
+ * The most workorders one listing answers with.
+ *
+ * Each row costs a read of the Master's root beside the part — the name and the
+ * state live there and nowhere else — so the page is smaller than a files
+ * listing's, and `total`/`truncated` say what it left out.
+ */
+export const WORKORDER_LIST_MAX = 50;
+
+/** What one listing page answers with unless the model asks for less. */
+const WORKORDER_LIST_DEFAULT = 20;
+
+/**
+ * The Master's own copy of one workorder: the root, which carries the name and
+ * the state, in the active folder or in `closed/`.
+ *
+ * A group holds a **part** — its own steps — and the part carries neither, so a
+ * workorder's name and whether it is closed are read from here. A root that is
+ * not there answers null, which the callers treat as a document this account
+ * cannot name.
+ */
+async function masterRootOf(ctx: Ctx, master: string, uid: string): Promise<unknown> {
+  const name = workorderFileName(uid);
+  return (
+    (await readAppJsonAt(ctx, master, `${WORKORDER_FOLDER}/${name}`)) ??
+    (await readAppJsonAt(ctx, master, `${workorderClosedPath()}/${name}`))
+  );
+}
+
+export const listWorkorders = defineTool({
+  name: "workorder.list",
+  description:
+    "List the workorders this account holds a part of, newest first: the uid, " +
+    "the name, the state, and how many of this account's steps are still open. " +
+    `\`limit\` is how many to answer with (at most ${WORKORDER_LIST_MAX}); ` +
+    "`total` and `truncated` say whether there are more. Read one with " +
+    "workorder.read, by the uid this answers.",
+  authority: "reversible",
+  writes: false,
+  keys: ["limit"],
+  parse: (raw: unknown) => ({
+    limit:
+      countArg(argsRecord(raw), "limit", WORKORDER_LIST_MAX) ?? WORKORDER_LIST_DEFAULT,
+  }),
+  run: async ({ ctx, accountId }, { limit }) => {
+    const folder = await findFolderPath(ctx, accountId, WORKORDER_FOLDER);
+    if (folder === null) return { workorders: [], total: 0, truncated: false };
+    const master = filesAccountId(ctx);
+    const children = await fileChildren(ctx, accountId, folder, FOLDER_PROPS);
+    // A part is one document per workorder, named by its uid.
+    const held = children
+      .filter(
+        (child) =>
+          child.nodeType === "file" &&
+          typeof child.name === "string" &&
+          child.name.endsWith(".json"),
+      )
+      .map((child) => String(child.name).slice(0, -".json".length));
+    const rows = await mapLimit(held.slice(0, limit), READ_CONCURRENCY, async (uid) => {
+      const part = await readAppJsonAt(
+        ctx,
+        accountId,
+        `${WORKORDER_FOLDER}/${workorderFileName(uid)}`,
+      );
+      if (!isWorkorderDoc(part)) return null;
+      const root = await masterRootOf(ctx, master, uid);
+      const steps = part.checklist.steps;
+      return {
+        uid,
+        name: isWorkorderDoc(root) ? (root.name ?? null) : (part.name ?? null),
+        state: isWorkorderDoc(root) ? (root.state ?? null) : (part.state ?? null),
+        open: steps.filter((step) => step.state === "open").length,
+        steps: steps.length,
+        updated: (isWorkorderDoc(root) ? root.updated : part.updated) ?? null,
+      };
+    });
+    return {
+      workorders: rows
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+        .sort((a, b) => (b.updated?.at ?? "").localeCompare(a.updated?.at ?? "")),
+      total: held.length,
+      truncated: held.length > limit,
+    };
+  },
+});
 
 export const readWorkorder = defineTool({
   name: "workorder.read",
   description:
-    "Read one workorder this account holds, by its uid: its name, its state, " +
-    "the checklist steps with who signed each of them, and the objects it " +
-    "references.",
+    "Read one workorder this account holds a part of, by its uid: its name, its " +
+    "state, the checklist steps with who signed each of them, and the objects it " +
+    "references. The name, the state and the closed record are the " +
+    "installation's, read beside the part this account holds.",
   authority: "reversible",
   writes: false,
   keys: ["uid"],
   parse: (raw: unknown) => ({ uid: textArg(argsRecord(raw), "uid") }),
   run: async ({ ctx, accountId }, { uid }) => {
     const name = workorderFileName(uid);
-    const raw =
-      (await readAppJsonAt(ctx, accountId, `${WORKORDER_FOLDER}/${name}`)) ??
-      (await readAppJsonAt(ctx, accountId, `${workorderClosedPath()}/${name}`));
+    const raw = await readAppJsonAt(ctx, accountId, `${WORKORDER_FOLDER}/${name}`);
     if (!isWorkorderDoc(raw)) throw notFound(`workorder "${uid}" in this account`);
+    /*
+     * A part carries the steps and nothing about the workorder as a whole: the
+     * name, the state and the successor are the Master's root, which is the one
+     * document that knows whether this work still changes. Read here, so a
+     * closed workorder does not read as a runnable one.
+     */
+    const root = await masterRootOf(ctx, filesAccountId(ctx), uid);
+    const whole = isWorkorderDoc(root) ? root : null;
     return {
       uid: raw.uid,
-      name: raw.name ?? null,
-      state: raw.state ?? null,
+      name: whole?.name ?? raw.name ?? null,
+      state: whole?.state ?? raw.state ?? null,
       steps: raw.checklist.steps,
-      refs: raw.refs,
-      updated: raw.updated,
+      refs: whole?.refs ?? raw.refs,
+      updated: whole?.updated ?? raw.updated,
     };
   },
 });
@@ -85,7 +187,15 @@ export const settleStep = defineTool({
         by: AGENT_SIGNATURE,
       });
       const step = stepOf(doc.checklist, path);
-      return { uid, path, state: step?.state ?? state, by: step?.by ?? AGENT_SIGNATURE };
+      const steps = doc.checklist.steps;
+      return {
+        uid,
+        path,
+        state: step?.state ?? state,
+        by: step?.by ?? AGENT_SIGNATURE,
+        open: steps.filter((one) => one.state === "open").length,
+        steps: steps.length,
+      };
     } catch (err) {
       // The workorder door's refusals are the surface's own codes and sentences;
       // what the model reads is the same code and the same words.

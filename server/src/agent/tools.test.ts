@@ -2028,6 +2028,76 @@ test("the agent proposes a page's change into its draft, and nothing is in force
   );
 });
 
+test("the agent finds the workorders its account holds a part of, and reads one by uid", async () => {
+  /*
+   * What a group holds is a **part** — its own steps — and the name and the
+   * state live on the Master's root. The listing is what tells an agent woken by
+   * anything else that there is work at all, and the uid is what the read and the
+   * settle take; the open count is what says whether the work is done.
+   */
+  const at = new Date().toISOString();
+  const uid = "wo-list";
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `workorders/${uid}.json`,
+    buildWorkorderDoc({
+      uid,
+      name: "Booking 3",
+      state: "running",
+      by: "a@example.com",
+      at,
+      checklist: buildChecklist({
+        template: { accountId, id: "template-1", revision: "rev-1" },
+        variants: {},
+        items: {},
+        stepPaths: ["intake.confirm", "intake.file"],
+      }),
+    }),
+  );
+
+  const listed = await callTool<{
+    workorders: Array<{
+      uid: string;
+      name: string | null;
+      state: string | null;
+      open: number;
+      steps: number;
+    }>;
+    truncated: boolean;
+  }>("workorder.list", {});
+  const row = listed.workorders.find((one) => one.uid === uid);
+  assert.equal(row?.name, "Booking 3", "the listing names the workorder");
+  assert.equal(row?.state, "running", "and says whether it is still worked");
+  assert.equal(row?.open, 2, "and how much of this account's part is open");
+  assert.equal(row?.steps, 2);
+  assert.equal(listed.truncated, false, "a listing that fits says so");
+
+  const read = await callTool<{
+    name: string | null;
+    state: string | null;
+    steps: Array<{ path: string }>;
+  }>("workorder.read", { uid });
+  assert.equal(read.name, "Booking 3", "a read answers the workorder's own name");
+  assert.equal(read.state, "running", "and its state");
+  assert.equal(read.steps.length, 2, "with the steps this account holds");
+
+  const limited = await callTool<{
+    workorders: unknown[];
+    total: number;
+    truncated: boolean;
+  }>("workorder.list", { limit: 1 });
+  assert.equal(limited.workorders.length, 1, "the page is the limit it was asked for");
+  assert.ok(limited.total >= 2, "and the answer says how much there is");
+  assert.equal(limited.truncated, true, "and that the page is not the whole");
+
+  await assert.rejects(
+    () => callTool("workorder.read", { uid: "no-such-workorder" }),
+    /no workorder "no-such-workorder"/,
+    "an uid the account does not hold is a refusal, not an empty read",
+  );
+});
+
 /**
  * A page inside a topic folder is named by its folder, not by its title: the
  * listing answers the path, and the tree walks it segment by segment. Read by
