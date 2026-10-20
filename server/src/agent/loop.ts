@@ -129,9 +129,9 @@ import {
   usageMeter,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
+import { forgetDrop as dropForgotten, dueDrops as dropsDue, noteFile } from "./queue.js";
 import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
-import { dueDrops as dropsDue, forgetDrop as dropForgotten, noteFile } from "./queue.js";
 import {
   createRun,
   listRunsForWorking,
@@ -141,6 +141,7 @@ import {
 } from "./runs.js";
 import { readAgentSwitch } from "./switch.js";
 import { type DueWait, WaitTimers } from "./timers.js";
+import { READ_BYTES_MAX, readFileText } from "./tools/content.js";
 import {
   type AnyTool,
   type ImageReader,
@@ -149,7 +150,6 @@ import {
   runTool,
   TOOLS,
 } from "./tools.js";
-import { READ_BYTES_MAX, readFileText } from "./tools/content.js";
 
 /**
  * The other ceilings a run's budget is measured against (ADR 0031).
@@ -746,13 +746,7 @@ export class AgentLoop {
       const key = `${accountId}\u0000${record.run.id}`;
       const stuck = record.run.waiting === null;
       if (stuck) this.stuckUntil.set(key, now.getTime() + STUCK_RETRY_MS);
-      const worked = await this.workRun(
-        accountId,
-        record.run,
-        now,
-        undefined,
-        record.state,
-      );
+      const worked = await this.workRun(accountId, record.run, undefined, record.state);
       const stillStuck = worked?.state === "running" && worked.waiting === null;
       if (!stillStuck) this.stuckUntil.delete(key);
       // The archive and the change batch see the document as this pass left it.
@@ -814,7 +808,7 @@ export class AgentLoop {
           memory: () => this.memory(),
           readingCall: (a, e, c) => this.readingCall(a, e, c),
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
-          workRun: (a, r, n, f, oq) => this.workRun(a, r, n, f, undefined, oq),
+          workRun: (a, r, f, oq) => this.workRun(a, r, f, undefined, oq),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
           openRun: (a, e, r, from) => this.openRun(a, e, r, from),
           recordRefusal: (a, refused) => this.recordRefusal(a, refused),
@@ -1092,7 +1086,6 @@ export class AgentLoop {
   private async workRun(
     accountId: string,
     run: RunDoc,
-    now: Date,
     facts?: Record<string, string>,
     state?: string,
     /** The questions the group already has open, so this run does not re-ask. */

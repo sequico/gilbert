@@ -29,10 +29,10 @@ import type { MemoryStore } from "./memory.js";
 import type { ModelAccess } from "./model.js";
 import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
+import { type Drop, dropEvent } from "./queue.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules } from "./rules.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
-import { type Drop, dropEvent } from "./queue.js";
 import type { ImageReader } from "./tools/content.js";
 import { isOwnMail, readMessageForAnswer, sendMail } from "./tools/mail.js";
 
@@ -58,7 +58,6 @@ export interface ChangesDeps {
   workRun(
     accountId: string,
     run: RunDoc,
-    now: Date,
     facts?: Record<string, string>,
     /** The questions the group already has open, so this run does not re-ask. */
     openQuestions?: readonly string[],
@@ -284,10 +283,15 @@ function withUsage(
 }
 
 /** The questions a group already has open, as the parked runs that wait on them. */
-function openQuestionsOf(records: readonly RunRecord[]): string[] {
+function openQuestionsOf(
+  records: readonly RunRecord[],
+  /** The run being worked: its own question is not an "already open" one. */
+  except?: string,
+): string[] {
   return records
     .filter(
       ({ run }) =>
+        run.id !== except &&
         run.state === "blocked" &&
         typeof run.waiting?.what === "string" &&
         Boolean(run.waiting.what.trim()),
@@ -406,11 +410,10 @@ export async function workChanges(
         const worked = await deps.workRun(
           accountId,
           await deps.authoriseAnswer(answer),
-          now,
           // The answer's own words are what the next call recalls facts by,
           // as the decision turn's facts were for a change it opened.
           { answer: answer.said },
-          openQuestionsOf(held ?? []),
+          openQuestionsOf(held ?? [], answer.run.id),
         );
         held ??= [];
         if (worked) remember(held, worked);
@@ -511,8 +514,8 @@ export async function workChanges(
           const worked = await deps.workRun(
             accountId,
             withUsage(open, meter),
-            now,
             decision.facts,
+            openQuestionsOf(held ?? [], open.id),
           );
           if (worked) {
             remember(held, worked);
@@ -526,9 +529,8 @@ export async function workChanges(
       const worked = await deps.workRun(
         accountId,
         withUsage(run, meter),
-        now,
         decision.facts,
-        openQuestionsOf(held ?? []),
+        openQuestionsOf(held ?? [], run.id),
       );
       remember(held, worked ?? run);
       byStart = null;
