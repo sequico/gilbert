@@ -119,14 +119,22 @@ residue is left over.
 - **Composed inside the workorder.** The Workorders section opens its composer
   with the workorder known; the ref is written on the thread of the message the
   server reports having created. One write, no dialog, and the message is bound
-  whether it is still in Outbox, in Sent, or filed by a rule a second later.
+  from the moment it exists, wherever the reader's mailboxes put it.
 - **Composed from scratch anywhere else.** The same resolver that works received
   mail works a sent message, on the tag its subject and participants carry. A
   message a person sends about the job is bound for the same reason an incoming
   one is: the key is in it.
-- **What is left over stays unbound, and that is not a workload.** There is no
-  prompt at send, no "associate with workorder?" dialog and no queue to clear; a
-  reader who wants a message bound says so once, through the same writer.
+- **What is left over stays unbound, and that is not a workload.** A reference
+  in words — "the booking from yesterday" — is not a key, and no comparison of
+  text answers it; neither is a message whose key is written only inside an
+  attachment. Such a thread is not bound, and there is no prompt at send, no
+  "associate with workorder?" dialog and no queue to clear: a reader who wants it
+  bound says so once, through the same writer, and because the ref is on the
+  thread the whole conversation is covered — the message sent before anybody knew
+  included.
+- **A proposal is not a binding.** An agent may propose one where the group's own
+  rule asks it to (ADR 0031), and a person confirms it (ADR 0028); the agent does
+  not bind on its own.
 
 ### The binder is deterministic, and it lives in the pass that already exists
 
@@ -135,6 +143,18 @@ residue is left over.
   the message carries one of its tags, its attachments are written into the
   workorder's folder and the refs are written. No model turn is spent on a
   relation the declaration already answers.
+- **Carrying a tag is a token, not a substring.** A tag matches when it appears
+  whole in the message's **subject**, its **participants** or its **text body**,
+  quoted text included: the characters on either side of it are not
+  alphanumeric, and the comparison is case folded with the ends trimmed. So
+  `279726936` matches `MS2 279726936 5X20 Ennore SD` and not `2797269361`; a key
+  the team writes in two spellings is declared twice; a tag too short to be a
+  token is refused when the workorder is written, because it would match the
+  world. Nothing is looked for inside an attachment.
+- **The message is read, the account is not searched.** The change names the
+  message, so the binder reads that one message and compares its text with the
+  tags of the account's non-terminal workorders: one read, one pure comparison,
+  no query, no index and no model.
 - **It is idempotent by the ref**: a thread the workorder already refs is not
   worked again, so a pass that re-reads a change it did not finish writes nothing
   twice. The same function is the reconciliation — a pass is the retry, and no
@@ -239,9 +259,15 @@ residue is left over.
   a workorder's whole mail, and that list is one ref per conversation: a few
   hundred stay a read of tens of kilobytes. At thousands the shape is revisited
   with an index, never with a mark scattered over the mail.
-- **The cost of a tag the resolver cannot see**: a key written only inside a
-  document that arrives as a PDF attachment is not matched by any filter, and
-  that message reaches the prose rule and a model turn.
+- **The errors are asymmetric, and the binder is built for it.** A thread left
+  unbound costs nothing: its mail is mail, and it becomes a workorder's the moment
+  a person binds it or a later message of the conversation carries the key. A
+  thread bound wrongly writes into another job's folder and shows another job's
+  conversation; it is removable, but it is the one mistake that costs trust. So
+  the resolver matches liberally on what is **declared**, binds at the thread,
+  keeps the link undoable, and never reasons past the tags: a key that exists only
+  in words, or only inside an attachment, reaches the prose rule and a model turn
+  rather than a guess.
 - Not built, and deliberately so: a mail folder as a filestore; a mailbox created
   per workorder; a Sieve rule as the binder; materialising a workorder at close;
   a keyword written by the binder on the message; a policy field for a key that
