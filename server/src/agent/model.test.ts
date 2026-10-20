@@ -556,6 +556,36 @@ test("the standing prose reaches the system turn unfenced, and a rule's own inst
 });
 
 /**
+ * The catalogue carries each tool's arguments **with their shape**, so the turn
+ * that fills them in reads the bound the parser checks instead of learning it
+ * from a refusal: the reported failures were a value one character too long and
+ * a field named `text` where the tool takes `fact`.
+ */
+test("the catalogue tells the turn what each argument is and how large", async () => {
+  seen = [];
+  answers = [];
+  answerWith({ done: "nothing to do" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
+  const system = SYSTEM(0);
+
+  assert.match(
+    system,
+    /- memory\.remember\(fact: text ≤400, links: list, standing: boolean, subject: text ≤200\)/,
+    "a tool's arguments are named with their type and their bound",
+  );
+  assert.match(
+    system,
+    /- workorder\.settle\(note: text, path: text, state: one of open\|done\|skipped\|not-applicable, uid: text\)/,
+    "an enumerated argument names the values it takes",
+  );
+  assert.match(
+    system,
+    /`text ≤n` is at most n characters/,
+    "and the notation itself is explained once, where the catalogue is",
+  );
+});
+
+/**
  * The rule's surface matrix is what refuses a write at the door (ADR 0031), so
  * the turn is told it in advance: a model that has to learn it from a refused
  * step has spent a step and a call on a lesson one line teaches.

@@ -76,7 +76,7 @@ export interface WorkorderTemplateRef {
  */
 export type WorkorderStepState = "open" | "done" | "skipped" | "not-applicable";
 
-const WORKORDER_STEP_STATES: readonly WorkorderStepState[] = [
+export const WORKORDER_STEP_STATES: readonly WorkorderStepState[] = [
   "open",
   "done",
   "skipped",

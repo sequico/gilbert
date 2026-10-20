@@ -100,10 +100,31 @@ export interface AnyTool {
    * worse than a refusal.
    */
   readonly keys: readonly string[];
+  /** What each argument is, for the turn that has to fill it in. */
+  readonly args: Readonly<Record<string, ArgSpec>>;
   /** Validate the arguments; throw `ToolError` on anything the tool cannot use. */
   readonly parse: (raw: unknown) => unknown;
   /** The task itself, with arguments already validated. */
   readonly run: (call: ToolCall, args: unknown) => Promise<unknown>;
+}
+
+/**
+ * One argument as the model is handed it: the kind of value, and the bound it
+ * is held to.
+ *
+ * The parser is what refuses a bad value; this is what the turn is told before
+ * it answers, because an error named after the fact ("`fact` must be at most
+ * 400 characters") costs a whole step and a call. One definition, two readers,
+ * exactly as a tool's name and description are: a bound taken from the same
+ * constant the parser checks is a bound that cannot drift.
+ */
+export interface ArgSpec {
+  /** The kind of value: text, a whole number, a boolean, a list, or one of a set. */
+  type?: "text" | "number" | "boolean" | "list" | "one of";
+  /** The most characters a `text` may be (and each entry of a `list`). */
+  max?: number;
+  /** The values a `one of` accepts. */
+  values?: readonly string[];
 }
 
 /** One tool's own shape, typed by the arguments it takes. */
@@ -123,6 +144,12 @@ interface ToolSpec<Args> {
   act?: (args: Args) => RunAuthorityAct | null;
   /** The argument names this tool takes; anything else is refused. */
   keys: readonly string[];
+  /**
+   * What each argument is, for the turn that has to fill it in. A key left out
+   * is listed by its name alone, which is what every tool said before this
+   * existed — a tool adopts a spec one argument at a time.
+   */
+  args?: Readonly<Record<string, ArgSpec>>;
   parse: (raw: unknown) => Args;
   run: (call: ToolCall, args: Args) => Promise<unknown>;
 }
@@ -140,6 +167,7 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     spend: spec.spend ?? {},
     act: spec.act ? (args) => spec.act!(args as Args) : () => null,
     keys: spec.keys,
+    args: spec.args ?? {},
     parse: (raw) => {
       /*
        * A key this tool does not take is refused whole, before the run: the

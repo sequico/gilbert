@@ -71,6 +71,7 @@ export const listKnowledge = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["limit", "offset"],
+  args: { limit: { type: "number" }, offset: { type: "number" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -114,6 +115,7 @@ export const searchKnowledge = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["limit", "query"],
+  args: { query: { type: "text" }, limit: { type: "number" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -184,6 +186,11 @@ export const readKnowledgePage = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["folder", "offset", "title"],
+  args: {
+    folder: { type: "text" },
+    title: { type: "text" },
+    offset: { type: "number" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { ...pageTarget(args), offset: offsetArg(args, "offset") };

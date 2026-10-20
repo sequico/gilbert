@@ -24,6 +24,7 @@ import {
   stepOf,
   WORKORDER_FOLDER,
   type WorkorderChecklist,
+  WORKORDER_STEP_STATES,
   workorderClosedPath,
   workorderFileName,
 } from "../../shared/workorder.js";
@@ -72,6 +73,7 @@ export const listWorkorders = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["limit"],
+  args: { limit: { type: "number" } },
   parse: (raw: unknown) => ({
     limit:
       countArg(argsRecord(raw), "limit", WORKORDER_LIST_MAX) ?? WORKORDER_LIST_DEFAULT,
@@ -209,6 +211,12 @@ export const settleStep = defineTool({
   surface: "workorder",
   spend: { steps: 1 },
   keys: ["note", "path", "state", "uid"],
+  args: {
+    uid: { type: "text" },
+    path: { type: "text" },
+    state: { type: "one of", values: WORKORDER_STEP_STATES },
+    note: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const state = args.state ?? "done";

@@ -53,6 +53,7 @@ export const listFiles = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["limit", "path"],
+  args: { path: { type: "text" }, limit: { type: "number" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -258,6 +259,12 @@ export const saveFile = defineTool({
   surface: "files",
   spend: { steps: 1 },
   keys: ["attachment", "from", "message", "path"],
+  args: {
+    path: { type: "text" },
+    from: { type: "text" },
+    message: { type: "text" },
+    attachment: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const from = optionalTextArg(args, "from");

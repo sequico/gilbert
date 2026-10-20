@@ -54,6 +54,7 @@ import { askInChat, findChat, readChat, sayInChat } from "./tools/chat.js";
 import { findContacts } from "./tools/contacts.js";
 import {
   type AnyTool,
+  type ArgSpec,
   defineTool,
   type ImageReader,
   mayRun,
@@ -102,7 +103,7 @@ import { rememberFactTool } from "./tools/memory.js";
 import { readRunTool } from "./tools/runs.js";
 import { listWorkorders, readWorkorder, settleStep } from "./tools/workorders.js";
 
-export type { AnyTool, ImageReader, ToolCall };
+export type { AnyTool, ArgSpec, ImageReader, ToolCall };
 export { defineTool, isGroupAddress, mayRun, readMessageForAnswer };
 
 /**

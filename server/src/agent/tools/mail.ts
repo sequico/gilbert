@@ -108,6 +108,7 @@ export const findMessages = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["limit", "query"],
+  args: { query: { type: "text" }, limit: { type: "number" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {

@@ -80,6 +80,7 @@ import { type ProseLevel, proseForModel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import {
   type AnyTool,
+  type ArgSpec,
   READING_TOOLS,
   runTool,
   type ToolCall,
@@ -1475,6 +1476,33 @@ export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
 }
 
 /**
+ * One line of the catalogue: the tool, its arguments as the model fills them,
+ * and what the tool is for.
+ *
+ * An argument is rendered from the tool's own `args` spec, so the bound the
+ * turn reads is the bound the parser checks (`text ≤400` is `MEMORY_FACT_MAX`
+ * at the door, not a second copy in prose). A key with no spec is its name
+ * alone, which is what the catalogue said before specs existed.
+ */
+export function catalogueLine(tool: {
+  name: string;
+  description: string;
+  keys: readonly string[];
+  args: Readonly<Record<string, ArgSpec>>;
+}): string {
+  if (!tool.keys.length) return `- ${tool.name}(): ${tool.description}`;
+  const shaped = tool.keys.map((key) => {
+    const spec = tool.args[key];
+    if (!spec) return key;
+    const type = spec.type ?? "text";
+    if (type === "one of" && spec.values?.length)
+      return `${key}: one of ${spec.values.join("|")}`;
+    return spec.max === undefined ? `${key}: ${type}` : `${key}: ${type} ≤${spec.max}`;
+  });
+  return `- ${tool.name}(${shaped.join(", ")}): ${tool.description}`;
+}
+
+/**
  * One choosing turn: given the run so far, the plan of steps to make or the
  * end of the work.
  *
@@ -1510,11 +1538,8 @@ export async function chooseStep(
     "The tools below say what each one is for and what arguments it takes.",
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
     "The tools you may take a step with:",
-    ...catalogue.map(
-      (tool) =>
-        `- ${tool.name}(${tool.keys.join(", ") || "no arguments"}): ${tool.description}`,
-    ),
-    "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
+    ...catalogue.map((tool) => catalogueLine(tool)),
+    "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling. `text ≤n` is at most n characters, `one of a|b` is exactly one of them, `list` is more than one value, and `number` is a whole number.",
     ...surfaceLines(question.surfaces),
     ...heads,
   ]
