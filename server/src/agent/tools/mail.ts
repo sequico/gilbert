@@ -568,7 +568,6 @@ function messageTextOf(message: Record<string, unknown>): string {
   return typeof message.preview === "string" ? message.preview : "";
 }
 
-/** Whether an address is one this group itself sends as. */
 /**
  * The messages this process wrote or changed — a send, a draft, a filing, a
  * mark — so a change reading can tell the agent's own mail from activity a rule
@@ -599,6 +598,7 @@ export function takeOwnMailChange(id: string): boolean {
   return ownMails.delete(id);
 }
 
+/** Whether an address is one this group itself sends as. */
 export async function isGroupAddress(
   ctx: Ctx,
   accountId: string,
