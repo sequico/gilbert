@@ -586,21 +586,31 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     >
       <div className="files-toolbar">
         <div className="breadcrumb">
-          <button
-            className={path.length ? "" : "current"}
-            onClick={() => navigate("/files")}
-          >
-            <Home size={16} />
-          </button>
+          {path.length ? (
+            <button onClick={() => navigate("/files")}>
+              <Home size={16} />
+            </button>
+          ) : (
+            <span className="current" aria-current="page">
+              <Home size={16} />
+            </span>
+          )}
           {path.map((n, i) => (
             <span key={n.id} className="row gap-4">
               <ChevronRight size={14} className="faint" />
-              <button
-                className={i === path.length - 1 ? "current" : ""}
-                onClick={() => navigate(`/files/${n.id}`)}
-              >
-                {n.name}
-              </button>
+              {/*
+               * Every folder above the current one is a way back; the current one
+               * is the words the reader is in, and a control there would swallow
+               * the drag a selection needs — half a folder name copied into a
+               * search is a thing people do with a breadcrumb.
+               */}
+              {i === path.length - 1 ? (
+                <span className="current" aria-current="page">
+                  {n.name}
+                </span>
+              ) : (
+                <button onClick={() => navigate(`/files/${n.id}`)}>{n.name}</button>
+              )}
             </span>
           ))}
         </div>
@@ -1112,13 +1122,26 @@ export function MoveDialog({
       }
     >
       <div className="breadcrumb mb-8">
-        <button onClick={() => setCur(null)}>
-          <Home size={14} />
-        </button>
-        {path.map((n) => (
+        {path.length ? (
+          <button onClick={() => setCur(null)}>
+            <Home size={14} />
+          </button>
+        ) : (
+          <span className="current" aria-current="page">
+            <Home size={14} />
+          </span>
+        )}
+        {path.map((n, i) => (
           <span key={n.id} className="row gap-4">
             <ChevronRight size={12} />
-            <button onClick={() => setCur(n.id)}>{n.name}</button>
+            {/* The folder the reader is in is words; the ones above it are ways back. */}
+            {i === path.length - 1 ? (
+              <span className="current" aria-current="page">
+                {n.name}
+              </span>
+            ) : (
+              <button onClick={() => setCur(n.id)}>{n.name}</button>
+            )}
           </span>
         ))}
       </div>

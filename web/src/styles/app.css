@@ -1973,7 +1973,9 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .breadcrumb { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; overflow: hidden; }
 .breadcrumb button { padding: 4px 8px; border-radius: 6px; color: var(--fg-muted); font-weight: 500; white-space: nowrap; }
 .breadcrumb button:hover { background: var(--bg-hover); color: var(--fg); }
-.breadcrumb button.current { color: var(--fg); font-weight: 650; }
+/* The folder the reader is in: the same look, and not a control -- so part of its
+   name can be selected and copied. */
+.breadcrumb .current { padding: 4px 8px; color: var(--fg); font-weight: 650; white-space: nowrap; }
 .files-table { width: 100%; border-collapse: collapse; }
 .files-table th { text-align: left; padding: 8px 12px; font-size: .8em; color: var(--fg-muted); font-weight: 600; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-elev); z-index: 1; }
 /* The header is a control: the column the listing is in is bold and carries the

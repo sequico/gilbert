@@ -120,13 +120,26 @@ export function FilePicker({
       )}
 
       <div className="breadcrumb mb-8">
-        <button onClick={() => setCur(null)}>
-          <HardDrive size={14} />
-        </button>
-        {path.map((n) => (
+        {path.length ? (
+          <button onClick={() => setCur(null)}>
+            <HardDrive size={14} />
+          </button>
+        ) : (
+          <span className="current" aria-current="page">
+            <HardDrive size={14} />
+          </span>
+        )}
+        {path.map((n, i) => (
           <span key={n.id} className="row gap-4">
             <ChevronRight size={12} />
-            <button onClick={() => setCur(n.id)}>{n.name}</button>
+            {/* The folder the reader is in is words; the ones above it are ways back. */}
+            {i === path.length - 1 ? (
+              <span className="current" aria-current="page">
+                {n.name}
+              </span>
+            ) : (
+              <button onClick={() => setCur(n.id)}>{n.name}</button>
+            )}
           </span>
         ))}
       </div>
