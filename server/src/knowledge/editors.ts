@@ -428,12 +428,17 @@ export async function writeDraft(spec: {
       }),
     };
     try {
+      // The write reports the state it produced (`onState`), so the second
+      // document is conditioned on that rather than on a read of the account —
+      // one round trip less for every save. A write that changed nothing leaves
+      // the token this attempt read, which is still the account's.
+      let after = state;
       await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, draft, {
         ifInState: state,
+        onState: (next) => {
+          after = next;
+        },
       });
-      // The draft write advanced the account's state, so the second write is
-      // conditioned on a fresh token rather than the one the read used.
-      const after = requireState(await appFolderState(ctx, accountId));
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: after,
       });
@@ -571,12 +576,14 @@ export async function approveArticle(
         created: draft.created,
       });
     const after = stateAfterApproval(base, issued, new Date(now));
-    // The listing follows the revision now in force: a future-dated approval
-    // waits, and the title readers see stays the current one until then.
+    // The listing follows the revision now in force for its **tags**, and never
+    // for the title: the title is the folder's, and a page named one thing and
+    // filed under another is a page no read by title can find. Renaming is its
+    // own act (`renameArticle`), which moves the folder with the words.
     const inForceNow = after.inForce?.revision === revision;
     const nextState = {
       ...after,
-      title: inForceNow ? draft.title : base.title,
+      title: base.title,
       tags: inForceNow ? draft.tags : base.tags,
       updated: { by: admin.username, at: now },
     };
@@ -696,10 +703,13 @@ export async function restoreArticle(
       updated: { by, at: now },
     };
     try {
+      let after = token;
       await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, draft, {
         ifInState: token,
+        onState: (next) => {
+          after = next;
+        },
       });
-      const after = requireState(await appFolderState(ctx, accountId));
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: after,
       });
@@ -826,15 +836,20 @@ export async function renameArticle(
       const nextState = state
         ? { ...state, title: docTitle, updated: { by, at: now } }
         : null;
-      const after = requireState(await appFolderState(ctx, accountId));
+      // One token for both documents: the write reports the state it produced,
+      // so the second write is conditioned on that rather than on a second read
+      // of the account.
+      let after = requireState(await appFolderState(ctx, accountId));
       if (nextDraft)
         await writeAppFileIn(ctx, accountId, current.nodeId, DRAFT_FILE, nextDraft, {
           ifInState: after,
+          onState: (next) => {
+            after = next;
+          },
         });
-      const after2 = requireState(await appFolderState(ctx, accountId));
       if (nextState)
         await writeAppFileIn(ctx, accountId, current.nodeId, STATE_FILE, nextState, {
-          ifInState: after2,
+          ifInState: after,
         });
       return knowledgeSummary({
         state: nextState,

@@ -178,6 +178,66 @@ test("approval records the administrator who approved, never the agent", async (
   );
 });
 
+/**
+ * The title is the folder's: a page named one thing and filed under another is a
+ * page no read by title can find. A draft's words are the draft's, and approving
+ * them is not a rename — `renameArticle` is, and it moves the folder with them.
+ */
+test("neither a draft's title nor its approval moves the page's name", async () => {
+  const article = await create("Filed name");
+  await save(article.folder, "first body");
+  const issued = await approve(article.folder, new Date().toISOString());
+  assert.equal(issued.title, "Filed name");
+
+  const retitled = await post("/api/knowledge/save", {
+    scope: "company",
+    folder: article.folder,
+    input: { title: "Another name", tags: ["iso"], blocks: [], text: "second body" },
+  });
+  assert.equal(retitled.status, 200, JSON.stringify(retitled.body));
+  assert.equal(
+    summaryOf(retitled.body).title,
+    "Filed name",
+    "a draft does not rename the page while a revision is in force",
+  );
+
+  const again = await approve(article.folder, new Date().toISOString());
+  assert.equal(again.title, "Filed name", "and approving it does not either");
+  assert.equal(
+    (await readBack(article.folder))?.summary.title,
+    "Filed name",
+    "so the listing and the folder still name one page",
+  );
+});
+
+/**
+ * What a turn that reads a page to answer a question needs is the page and the
+ * revision in force, not the record of every approval: the history is up to
+ * fifty documents, and a reader that does not show it pays for none of them.
+ */
+test("a read without history answers the page and the revision in force alone", async () => {
+  const article = await create("No history");
+  await save(article.folder, "the body");
+  const issued = await approve(article.folder, new Date().toISOString());
+  const where = await company();
+
+  const view = await readArticleDoor(
+    ctx,
+    where.accountId,
+    where.folderId,
+    article.folder,
+    { history: false },
+  );
+  assert.ok(view, "the page is read");
+  assert.equal(view.revisions.length, 0, "and its history is not");
+  assert.equal(
+    view.effective?.revision,
+    issued.inForce?.revision,
+    "while the revision in force is still read, by its id",
+  );
+  assert.equal(view.draft?.text, "the body", "beside the draft");
+});
+
 test("a future effective instant leaves the revision pending beside the one in force", async () => {
   const article = await create("Pending demo");
   const now = await approve(article.folder, new Date().toISOString());

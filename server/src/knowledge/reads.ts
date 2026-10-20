@@ -174,12 +174,18 @@ export async function readRevision(
  * lifecycle names at now, **read by id**: the history beside it is a page, and
  * the revision in force is not something a page may decide (an article past
  * `REVISION_HISTORY_MAX` revisions would otherwise read as having none).
+ *
+ * `history: false` is the reader that needs the page and not its past — the
+ * agent's, above all: the history is up to `REVISION_HISTORY_MAX` documents, and
+ * a turn that reads a page to answer a question pays for none of them. The
+ * revision in force is then the one read, and it is the only one.
  */
 export async function readArticle(
   ctx: Ctx,
   accountId: string,
   folderId: string,
   folder: string,
+  opts: { history?: boolean } = {},
 ): Promise<KnowledgeArticleView | null> {
   const article = await findArticleFolder(ctx, accountId, folderId, folder);
   if (!article) return null;
@@ -189,13 +195,20 @@ export async function readArticle(
   const [draftRaw, stateRaw, revisions] = await Promise.all([
     readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
     readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
-    readRevisions(ctx, accountId, articlePath),
+    opts.history === false ? [] : readRevisions(ctx, accountId, articlePath),
   ]);
   const draft = asDraft(draftRaw);
   const state = asState(stateRaw);
   const issued = state ? revisionInForceAt(state) : null;
+  /*
+   * The revision the lifecycle names is usually the newest one the history has
+   * just read, and reading it again by id would download the same document
+   * twice. What is in the history is used; a revision older than the page (a
+   * restored one) is read by id, exactly as before.
+   */
   const effective = issued
-    ? await readRevision(ctx, accountId, articlePath, issued.revision)
+    ? (revisions.find((one) => one.revision === issued.revision) ??
+      (await readRevision(ctx, accountId, articlePath, issued.revision)))
     : null;
   return {
     scope: scopeOfAccount(ctx, accountId),
