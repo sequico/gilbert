@@ -870,7 +870,7 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
   const chatSay = TOOLS.find((tool) => tool.name === "chat.say");
   assert.ok(chatSay, "the catalogue holds the tool");
   assert.ok(
-    system.includes(`- chat.say: ${chatSay.description}`),
+    system.includes(`- chat.say(${chatSay.keys.join(", ")}): ${chatSay.description}`),
     "the description reaches the model as the catalogue states it, not as a copy",
   );
   assert.ok(
@@ -1153,9 +1153,27 @@ test("an image goes to the model as an image part, and what it says comes back a
   );
 
   answerWith({ text: 7 });
-  const refused = await readImage(access, { type: "image/png", data: png });
+  const refused = await readImage(access, {
+    type: "image/png",
+    data: new Uint8Array([...png, 0x01]),
+  });
   assert.ok("problem" in refused, "an answer that is not a transcription is a problem");
   assert.match(refused.problem, /could not be read by the installation's model/);
+});
+
+test("a page read once is not asked again, and is not read differently", async () => {
+  // The live failure this pins: one weighbridge ticket, seven runs, five
+  // different booking numbers, because every run transcribed the same scan
+  // again. The bytes are the identity of the page.
+  const access = { model, allowPrivateProvider: true };
+  const page = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x02]);
+  answerWith({ text: "BOOKING 275720536" });
+  const first = await readImage(access, { type: "image/png", data: page });
+  assert.deepEqual(first, { text: "BOOKING 275720536" });
+  const callsAfterFirst = seen.length;
+  const second = await readImage(access, { type: "image/png", data: page });
+  assert.deepEqual(second, { text: "BOOKING 275720536" }, "the same words again");
+  assert.equal(seen.length, callsAfterFirst, "and no second call to the provider");
 });
 
 test("an answer fenced as JSON is still the answer", async () => {
@@ -1205,8 +1223,7 @@ test("prose is not a decision on any other surface", async () => {
         { event: mailEvent, rules: [shipperRule], prose },
         toolCall(),
       ),
-    (err: unknown) =>
-      err instanceof ModelError && err.code === "model_answer_malformed",
+    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
   );
 });
 
@@ -1215,7 +1232,7 @@ test("the choosing turn lists each tool's own argument names", async () => {
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
   assert.match(
     SYSTEM(0),
-    /- mail\.read\(id, name\)/,
+    /- mail\.read\(id\)/,
     "the arguments are the tool's own, so a name is not guessed",
   );
   assert.match(SYSTEM(0), /- memory\.remember\(fact, links, standing, subject\)/);

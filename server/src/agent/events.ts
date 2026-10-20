@@ -76,6 +76,7 @@ import {
   type AccountEventChange,
   eventSourceOf,
 } from "./accountEvent.js";
+import { PENDING_FILE } from "./queue.js";
 import { RUNS_DIR } from "./runs.js";
 
 /**
@@ -245,6 +246,7 @@ function isAgentPath(path: string): boolean {
   const rel = path.slice(APP_FOLDER_NAME.length + 1);
   return (
     rel === INSTRUCTION_FILE ||
+    rel === PENDING_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
     rel.startsWith(`${RULES_DIR}/`) ||
     // Read markers sit beside the messages and are the agent's bookkeeping.
@@ -322,6 +324,17 @@ export async function readAccountEvents(
          * knowledge and workorders are the group's; these are the agent's.
          */
         if (path && isAgentPath(path)) continue;
+        if (!path && change === "destroyed") {
+          /*
+           * A removal nobody can name is not actionable: the node is gone, its
+           * path is unknown (it fell out of `seen`, or the process restarted
+           * after the file was written), and the event would wake a run whose
+           * only fact is an id the server no longer answers — the live run of
+           * 2026-10-20 opened two such runs and told the group it could not tie
+           * "e9w" or "e99" to anything.
+           */
+          continue;
+        }
         events.push(
           path
             ? { source: eventSourceOf(path), change, where: path }

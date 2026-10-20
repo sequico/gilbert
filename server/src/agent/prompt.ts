@@ -42,6 +42,18 @@ export function turnData(
       `change: ${event.change}`,
       `address: ${event.where}`,
     ]),
+    ...(event.also?.length
+      ? [
+          `The files this change brought, all ${event.also.length} of them:`,
+          dataBlock(token, [...event.also]),
+        ]
+      : []),
+    ...(question.document
+      ? [
+          `The document the change names, already read (${question.document.path}):`,
+          dataBlock(token, [clipped(question.document.text, READ_IN_PROMPT_MAX)]),
+        ]
+      : []),
     ...(question.detail
       ? [
           "The message itself, so it need not be looked up again:",
@@ -157,6 +169,12 @@ export function stepData(question: StepQuestion): string {
         ]
       : []),
     ...memoryBlock(token, question.memory),
+    ...(question.openQuestions?.length
+      ? [
+          "Questions this group already has open on a person. Do not ask one of these again:",
+          dataBlock(token, [...question.openQuestions]),
+        ]
+      : []),
     ...(question.authorisations?.length
       ? [
           "What a person has authorised for this run:",

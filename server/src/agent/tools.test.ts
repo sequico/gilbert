@@ -53,7 +53,9 @@ const { AGENT_LABEL } = await import("../shared/labels.js");
 const { MEMORY_FACT_MAX, MEMORY_VERSION, parseFactDocumentDetailed } = await import(
   "../shared/memory.js"
 );
-const { spendRun, startRun, takeAuthorisation } = await import("../shared/run.js");
+const { finishRun, spendRun, startRun, takeAuthorisation, waitUntil } = await import(
+  "../shared/run.js"
+);
 const { buildChecklist, buildWorkorderDoc } = await import("../shared/workorder.js");
 const { createRun } = await import("./runs.js");
 const { groupMembers } = await import("../groupAccess.js");
@@ -1317,6 +1319,43 @@ test("the writing tools change the group's own account", async () => {
     askedBack.message.text,
     "@sam is the delivery confirmed?",
     "and the question is in the conversation, the mention by its local part",
+  );
+});
+
+test("a question already open on a person is not asked a second time", async () => {
+  /*
+   * The live failure this pins: one booking question went to the group five
+   * times in a morning, each from a new run that had no way to know the first
+   * was still waiting — and only one of the runs could be moved by the answer.
+   */
+  const parked = finishRun(
+    waitUntil(
+      startRun({
+        id: "r-parked",
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-0" },
+      }),
+      {
+        what: "@sam is the seal confirmed?",
+        asked: { channel: "chat", id: "c-old" },
+        until: null,
+      },
+    ),
+    "blocked",
+    { at: "2026-10-20T09:00:00.000Z", why: "waiting on a person" },
+  );
+  await createRun(ctx, accountId, parked);
+
+  const asked = await writeTool<{
+    id: string;
+    alreadyAsked?: boolean;
+    wait?: unknown;
+  }>("chat.ask", { text: "@sam@example.com is the seal confirmed?" });
+  assert.equal(asked.alreadyAsked, true, "the same question is not posted again");
+  assert.equal(asked.id, "c-old", "the open question's own message is the answer");
+  assert.equal(
+    asked.wait,
+    undefined,
+    "and this run does not park on a second copy of the question",
   );
 });
 

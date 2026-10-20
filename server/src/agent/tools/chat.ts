@@ -11,8 +11,20 @@ import { groupMembers } from "../../groupAccess.js";
 import { findChatMessages, postChatMessage, readChatMessageBy } from "../../groupChat.js";
 import { CHAT_MAX_TEXT, type ChatMention, mentionsByName } from "../../shared/chat.js";
 import type { RunWait } from "../../shared/run.js";
+import { listRunsForWorking } from "../runs.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
+
+/** A question's words, with the noise a retry changes taken out. */
+function sameQuestion(a: string, b: string): boolean {
+  const normal = (text: string): string =>
+    text
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[^\p{L}\p{N} ]/gu, "")
+      .trim();
+  return normal(a) === normal(b);
+}
 
 /**
  * How many chat messages one search answers with, whatever the model asks for.
@@ -201,7 +213,24 @@ export const askInChat = defineTool({
   spend: { steps: 1 },
   keys: ["text"],
   parse: (raw: unknown) => ({ text: chatText(argsRecord(raw)) }),
-  run: async ({ ctx, accountId }, { text }) => {
+  run: async ({ ctx, accountId, run }, { text }) => {
+    /*
+     * A question already open on a person is not asked twice: a second run that
+     * asks the same thing parks beside the first, the group reads two copies of
+     * one question, and the first answer moves only one run. The earlier run's
+     * message is the answer, and this run continues instead of waiting.
+     */
+    const open = await listRunsForWorking(ctx, accountId);
+    const held = open.records.find(
+      ({ run: other }) =>
+        other.id !== run.id &&
+        other.state === "blocked" &&
+        other.waiting?.asked?.channel === "chat" &&
+        typeof other.waiting.what === "string" &&
+        sameQuestion(other.waiting.what, text),
+    );
+    if (held?.run.waiting?.asked)
+      return { id: held.run.waiting.asked.id, alreadyAsked: true };
     const id = await postChatMessage(ctx, accountId, ctx.username, text, {
       ...(await mentionsOf(ctx, accountId, text)),
     });

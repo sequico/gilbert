@@ -64,8 +64,14 @@ process.env.APP_SECRET = "test-secret-for-loop";
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { groupMembers } = await import("../groupAccess.js");
-const { filesAccountId, destroyAppNode, readAppFileAt, removeAppFile, writeAppFileAt } =
-  await import("../appFolder.js");
+const {
+  filesAccountId,
+  destroyAppNode,
+  readAppFileAt,
+  removeAppFile,
+  writeAppFileAt,
+  writeBytesIntoVisibleFolder,
+} = await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { finishRun, startRun, spendRun, waitUntil } = await import("../shared/run.js");
@@ -374,6 +380,57 @@ test("a change a rule watches opens a run, and the record shows every step of it
     new RegExp(`mail created: ${message}`),
     "and the choosing turn is told the run's own change",
   );
+});
+
+test("a drop of files is one run and one report, after the folder is quiet", async () => {
+  /*
+   * The live failure this pins: a mail's attachments saved into one folder
+   * became seven file events, seven runs and thirteen chat messages in a
+   * morning, one per file. A file landing is one file of a drop, and the drop
+   * is answered once, when the folder has stopped receiving.
+   */
+  const id = "intake-files";
+  await putRule(id, ["files"]);
+  const agent = loop();
+  await agent.start();
+  const at = (minutes: number): Date => new Date(Date.UTC(2026, 9, 20, 8, minutes, 0));
+  const folder = "MS2/279726936";
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    folder,
+    "DOC201026.pdf",
+    new TextEncoder().encode("weighbridge"),
+    "application/pdf",
+  );
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    folder,
+    "WhatsApp 09.31.57.jpeg",
+    new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+    "application/octet-stream",
+  );
+
+  const quiet = await agent.pass(at(0));
+  assert.equal(quiet.runs, 0, "a file landing is a drop still being written");
+  assert.equal(seen.length, 0, "and it costs no model call at all");
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: [{ name: "chat.say", arguments: { text: "one drop, two files" } }],
+  });
+  answerWith({ done: "reported" });
+  const reported = await agent.pass(at(6));
+  assert.equal(reported.runs, 1, "the drop is one run, not one per file");
+  const run = await runOf(id);
+  assert.match(
+    run.startedBy.woke ?? "",
+    /\(2 files, /,
+    "and the run says the drop it answers and how big it was",
+  );
+  const said = await findChatMessages(ctx, accountId, "one drop", 10);
+  assert.equal(said.length, 1, "one report for the drop");
 });
 
 test("two changes of one address open one run, not two", async () => {

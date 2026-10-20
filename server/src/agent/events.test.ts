@@ -419,7 +419,7 @@ test("a removal is reported on the surface its former path was read at", async (
   );
 });
 
-test("a removal whose path this process never read is named by its id", async () => {
+test("a removal whose path this process never read never wakes a rule", async () => {
   const anchor = await anchorEvents(ctx, accountId);
   await writeAppFileAt(ctx, accountId, "workorders/wo-3.json", { v: 1, uid: "wo-3" });
   const written = await readAppFileAt(ctx, accountId, "workorders/wo-3.json");
@@ -428,9 +428,9 @@ test("a removal whose path this process never read is named by its id", async ()
   await destroyAppNode(ctx, accountId, id);
 
   const { events } = await readAccountEvents(ctx, accountId, anchor);
-  assert.deepEqual(
+  assert.equal(
     events.find((event) => event.change === "destroyed" && event.where === id),
-    { source: "files", change: "destroyed", where: id },
-    "with no former path to report, the id is the whole of what it can be named by",
+    undefined,
+    "a removal nobody can name is not actionable, and the id is no address to report",
   );
 });

@@ -62,7 +62,14 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { appFolderState, type Ctx, filesAccountId, readAppFileAt } from "../appFolder.js";
+import {
+  appFolderState,
+  type Ctx,
+  documentType,
+  filesAccountId,
+  readAppFileAt,
+  readVisibleFileBytes,
+} from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
@@ -124,6 +131,7 @@ import {
 import type { ProseLevel } from "./prose.js";
 import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
+import { dueDrops as dropsDue, forgetDrop as dropForgotten, noteFile } from "./queue.js";
 import {
   createRun,
   listRunsForWorking,
@@ -141,6 +149,7 @@ import {
   runTool,
   TOOLS,
 } from "./tools.js";
+import { READ_BYTES_MAX, readFileText } from "./tools/content.js";
 
 /**
  * The other ceilings a run's budget is measured against (ADR 0031).
@@ -805,10 +814,14 @@ export class AgentLoop {
           memory: () => this.memory(),
           readingCall: (a, e, c) => this.readingCall(a, e, c),
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
-          workRun: (a, r, n, f) => this.workRun(a, r, n, f),
+          workRun: (a, r, n, f, oq) => this.workRun(a, r, n, f, undefined, oq),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
           openRun: (a, e, r, from) => this.openRun(a, e, r, from),
           recordRefusal: (a, refused) => this.recordRefusal(a, refused),
+          noteDrop: (a, path, at) => noteFile(this.ctx, a, path, at),
+          dueDrops: (a, at) => dropsDue(this.ctx, a, at),
+          forgetDrop: (a, folder) => dropForgotten(this.ctx, a, folder),
+          readEventFile: (a, path) => this.readEventFile(a, path),
         },
         accountId,
         now,
@@ -836,10 +849,11 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     candidates: readonly RuleDoc[],
-  ): { ctx: Ctx; accountId: string; run: RunDoc } {
+  ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader } {
     return {
       ctx: this.ctx,
       accountId,
+      readImage: this.eyes,
       run: startRun({
         id: randomUUID(),
         startedBy: {
@@ -1081,6 +1095,8 @@ export class AgentLoop {
     now: Date,
     facts?: Record<string, string>,
     state?: string,
+    /** The questions the group already has open, so this run does not re-ask. */
+    openQuestions?: readonly string[],
   ): Promise<RunDoc | null> {
     const access = this.access;
     if (!access) return null;
@@ -1138,7 +1154,7 @@ export class AgentLoop {
       const over = overBudget(current);
       if (over) {
         const ended = finishRun(current, "out-of-budget", {
-          at: now.toISOString(),
+          at: new Date().toISOString(),
           why: `the budget ended the run: ${over}, so the work did not finish.`,
         });
         return (await this.store(accountId, ended, token)) ? ended : null;
@@ -1151,6 +1167,7 @@ export class AgentLoop {
         prose,
         ...(facts ? { facts } : {}),
         memory: selection,
+        ...(openQuestions?.length ? { openQuestions } : {}),
         authorisations: current.authorisations,
       };
       // Counted before the call: a provider that times out was paid for, and a
@@ -1204,7 +1221,7 @@ export class AgentLoop {
         refused += 1;
         if (refused >= 2) {
           const ended = finishRun(current, "out-of-budget", {
-            at: now.toISOString(),
+            at: new Date().toISOString(),
             why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
           });
           return (await this.store(accountId, ended, token)) ? ended : null;
@@ -1222,7 +1239,7 @@ export class AgentLoop {
       });
       if (choice.kind === "done") {
         const ended = finishRun(current, "done", {
-          at: now.toISOString(),
+          at: new Date().toISOString(),
           why: choice.why,
         });
         return (await this.store(accountId, ended, token)) ? ended : null;
@@ -1249,7 +1266,7 @@ export class AgentLoop {
         refused += 1;
         if (refused >= 2) {
           const ended = finishRun(current, "out-of-budget", {
-            at: now.toISOString(),
+            at: new Date().toISOString(),
             why: "the model asked for more steps than the run had left, twice, so the work did not finish.",
           });
           return (await this.store(accountId, ended, token)) ? ended : null;
@@ -1288,7 +1305,7 @@ export class AgentLoop {
           false,
         );
         const ended = finishRun(current, "out-of-budget", {
-          at: now.toISOString(),
+          at: new Date().toISOString(),
           why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
         });
         return (await this.store(accountId, ended, token)) ? ended : null;
@@ -1420,7 +1437,7 @@ export class AgentLoop {
         refused = worked ? 0 : refused + 1;
         if (refused >= 3) {
           const ended = finishRun(current, "out-of-budget", {
-            at: now.toISOString(),
+            at: new Date().toISOString(),
             why: "the last rounds were refused in full, so the work did not finish.",
           });
           return (await this.store(accountId, ended, token)) ? ended : null;
@@ -1438,7 +1455,7 @@ export class AgentLoop {
         current = waitUntil(current, wait);
         if (wait.until === null)
           current = finishRun(current, "blocked", {
-            at: now.toISOString(),
+            at: new Date().toISOString(),
             why: `waiting on a person: ${wait.what}`,
           });
       }
@@ -1556,6 +1573,35 @@ export class AgentLoop {
     if (!access) return { problem: "this installation has no model to read with." };
     return await readImage(access, image);
   };
+
+  /**
+   * The one document a file change names, read before the decision turn.
+   *
+   * The change says where it is, so the process can hand the turn the document
+   * instead of paying a lookup call per wake to ask for what it already has.
+   * A document that cannot be read is the turn's to find out the ordinary way:
+   * this is a shortcut, never a reason to stop the pass.
+   */
+  private async readEventFile(
+    accountId: string,
+    path: string,
+  ): Promise<{ path: string; text: string } | null> {
+    try {
+      const found = await readVisibleFileBytes(this.ctx, accountId, path, READ_BYTES_MAX);
+      if (!found) return null;
+      const read = await readFileText(
+        {
+          type: documentType(found.file),
+          name: found.name,
+          bytes: found.bytes,
+        },
+        this.eyes,
+      );
+      return read.text ? { path, text: read.text } : null;
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * When this process last held the claim until, as the document states it.

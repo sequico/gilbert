@@ -32,6 +32,8 @@ import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules } from "./rules.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
+import { type Drop, dropEvent } from "./queue.js";
+import type { ImageReader } from "./tools/content.js";
 import { isOwnMail, readMessageForAnswer, sendMail } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
@@ -45,7 +47,7 @@ export interface ChangesDeps {
     accountId: string,
     event: AccountEvent,
     candidates: readonly RuleDoc[],
-  ): { ctx: Ctx; accountId: string; run: RunDoc };
+  ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader };
   runAnsweredBy(
     accountId: string,
     event: AccountEvent,
@@ -58,8 +60,21 @@ export interface ChangesDeps {
     run: RunDoc,
     now: Date,
     facts?: Record<string, string>,
+    /** The questions the group already has open, so this run does not re-ask. */
+    openQuestions?: readonly string[],
   ): Promise<RunDoc | null>;
   authoriseAnswer(answer: AnsweredRun): Promise<RunDoc>;
+  /** Hold a file event until its folder's burst is over (`queue.ts`). */
+  noteDrop(accountId: string, path: string, now: Date): Promise<void>;
+  /** The drops whose burst is over, one event each. */
+  dueDrops(accountId: string, now: Date): Promise<Drop[]>;
+  /** Drop a folder from the queue, once its batch was worked. */
+  forgetDrop(accountId: string, folder: string): Promise<void>;
+  /** Read the one document a file change names, for the decision turn. */
+  readEventFile(
+    accountId: string,
+    path: string,
+  ): Promise<{ path: string; text: string } | null>;
   openRun(
     accountId: string,
     event: AccountEvent,
@@ -100,7 +115,19 @@ export async function readChangesForPass(
 
 /** What woke a run, in the group's own words, from the event's own parts. */
 export function wokeOf(event: AccountEvent): string {
-  return `${event.source} ${event.change}: ${event.where}`;
+  const base = `${event.source} ${event.change}: ${event.where}`;
+  // A batched drop is one change: the folder, how many files it brought, and the
+  // instant it opened — which is what keeps a second drop in the same folder a
+  // second run rather than "the change that was answered".
+  return event.also?.length
+    ? `${base} (${event.also.length} files, ${event.at ?? ""})`
+    : base;
+}
+
+/** Whether a path names a document rather than a folder. */
+function looksLikeFile(path: string): boolean {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  return name.includes(".");
 }
 /**
  * Which rule and which change a run is the answer to: its own `startedBy`.
@@ -256,6 +283,21 @@ function withUsage(
   });
 }
 
+/** The questions a group already has open, as the parked runs that wait on them. */
+function openQuestionsOf(records: readonly RunRecord[]): string[] {
+  return records
+    .filter(
+      ({ run }) =>
+        run.state === "blocked" &&
+        typeof run.waiting?.what === "string" &&
+        Boolean(run.waiting.what.trim()),
+    )
+    .map(
+      ({ run }) => `${run.waiting?.asked?.channel ?? "chat"}: ${run.waiting?.what ?? ""}`,
+    )
+    .slice(0, 8);
+}
+
 /** One run, put where the batch's list holds it: replaced, or added at the end. */
 function remember(records: RunRecord[], run: RunDoc): void {
   const at = records.findIndex((record) => record.run.id === run.id);
@@ -284,10 +326,17 @@ export async function workChanges(
    * a rule should answer, and it is known without reading the message. Removing
    * it here is also what lets a pass whose only new mail is its own pay no rule
    * listing at all.
+   *
+   * The drops whose burst is over are changes of this pass too: one event per
+   * folder, carrying the files that landed there while it was open (`queue.ts`).
    */
-  const events = read.events.filter(
-    (event) => !(event.source === "mail" && isOwnMail(event.where)),
-  );
+  const due = await deps.dueDrops(accountId, now);
+  const events = [
+    ...due.map(dropEvent),
+    ...read.events.filter(
+      (event) => !(event.source === "mail" && isOwnMail(event.where)),
+    ),
+  ];
   if (!events.length) {
     // A quiet account pays no rule listing: there is nothing to apply them to.
     deps.cursors.set(accountId, read.cursor);
@@ -296,6 +345,16 @@ export async function workChanges(
   const rules = (await listRules(deps.ctx, accountId)).map((record) => record.rule);
   for (const event of events) {
     summary.changes += 1;
+    /*
+     * A document landing in a folder is one file of a drop, not a change to
+     * answer on its own: it is queued against its folder and reported once the
+     * burst is over. A folder that appears is not a document at all, and a
+     * removal is never queued — there is nothing to report at the end of it.
+     */
+    if (event.source === "files" && event.change !== "destroyed" && !event.also) {
+      if (looksLikeFile(event.where)) await deps.noteDrop(accountId, event.where, now);
+      continue;
+    }
     /*
      * A chat message is read once here, so the decision turn has its words
      * without spending a model call and a round trip on `chat.read`.
@@ -351,6 +410,7 @@ export async function workChanges(
           // The answer's own words are what the next call recalls facts by,
           // as the decision turn's facts were for a change it opened.
           { answer: answer.said },
+          openQuestionsOf(held ?? []),
         );
         held ??= [];
         if (worked) remember(held, worked);
@@ -375,6 +435,18 @@ export async function workChanges(
         }
       : null;
     const meter = usageMeter();
+    /*
+     * A file event names one document, and the process can read it once here:
+     * the decision turn then answers about the document it was woken by instead
+     * of spending a lookup call asking for what the process already has.
+     */
+    const document =
+      event.source === "files" &&
+      event.change !== "destroyed" &&
+      !event.also &&
+      looksLikeFile(event.where)
+        ? await deps.readEventFile(accountId, event.where)
+        : null;
     const decision = await decideEvent(
       deps.access,
       {
@@ -383,9 +455,12 @@ export async function workChanges(
         prose: await deps.proseAbove(accountId),
         memory: recallFacts((await deps.memory()).facts, woke, accountId),
         ...(detail ? { detail } : {}),
+        ...(document ? { document } : {}),
       },
       deps.readingCall(accountId, event, candidates),
-      { meter },
+      // A file event carries its document above, so the turn needs few lookups
+      // at most; the other surfaces keep the full allowance.
+      { meter, ...(event.source === "files" ? { maxReads: 2 } : {}) },
     );
     if (decision.kind === "reply") {
       /*
@@ -453,11 +528,19 @@ export async function workChanges(
         withUsage(run, meter),
         now,
         decision.facts,
+        openQuestionsOf(held ?? []),
       );
       remember(held, worked ?? run);
       byStart = null;
     }
   }
+  /*
+   * The drops answered here leave the queue once the batch is worked. A crash
+   * before this line leaves them, and the run's own key — the folder and the
+   * instant the drop opened — makes the next attempt the same run, not a second
+   * one.
+   */
+  for (const drop of due) await deps.forgetDrop(accountId, drop.folder);
   // The cursor moves only once the batch is answered: a read that failed
   // half-way is read again rather than lost as silence.
   deps.cursors.set(accountId, read.cursor);

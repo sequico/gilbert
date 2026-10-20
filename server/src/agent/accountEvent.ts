@@ -62,6 +62,13 @@ export interface AccountEvent {
   source: AccountEventSource;
   change: AccountEventChange;
   where: string;
+  /**
+   * The files a batched drop brought, when one event stands for a burst
+   * (`queue.ts`): the folder is `where`, and these are its contents.
+   */
+  also?: readonly string[];
+  /** When a batched drop opened; part of what makes it a run of its own. */
+  at?: string;
 }
 
 /**
