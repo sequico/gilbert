@@ -81,6 +81,7 @@ import type { InstallationModel } from "../shared/installation.js";
 
 const { modelAccess } = await import("./model.js");
 const { findChatMessages, postChatMessage } = await import("../groupChat.js");
+const { AGENT_LABEL } = await import("../shared/labels.js");
 const { createRule, deleteRule, rulePath } = await import("./rules.js");
 const { factPath, listFacts } = await import("./memory.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
@@ -485,6 +486,74 @@ test("two changes of one address open one run, not two", async () => {
     (record) => record.run.startedBy.rule === id,
   );
   assert.equal(runs.length, 1, "and only one run for it is in the account");
+});
+
+test("the agent's own mark on a message is not activity a rule answers", async (t) => {
+  /*
+   * The live failure this pins (20 Oct 2026): a run filed a message and marked
+   * it G-processed, the server reported those writes as changes of that same
+   * message, and the next pass opened a second run over the mail it had just
+   * handled and reported it again in the group's chat — one message, two
+   * answers.
+   *
+   * The account this file's other tests work is the shared mailbox the mock
+   * keeps empty of mail, so this one works the demo's group (`a3`): a message
+   * there can be marked for real, and the mark is what the server reports.
+   */
+  const group = "a3";
+  const id = "intake-own-write";
+  await createRule(ctx, group, rule(id));
+  t.after(async () => {
+    const found = await readAppFileAt(ctx, group, rulePath(id));
+    if (typeof found?.file.id === "string")
+      await destroyAppNode(ctx, group, found.file.id, {});
+  });
+  const agent = new AgentLoop(ctx, {
+    holder: HOLDER,
+    accounts: async () => [group],
+    access: { model, allowPrivateProvider: true },
+  });
+  await agent.start();
+
+  const message = await deliver("a booking confirmation", group);
+  let turn = 0;
+  onCall = (system) => {
+    if (isDecision(system)) return { rules: [id], facts: {} };
+    turn += 1;
+    return turn === 1
+      ? {
+          calls: [
+            {
+              name: "mail.keyword",
+              arguments: { id: message, keyword: AGENT_LABEL.processed, on: true },
+            },
+          ],
+        }
+      : { done: "filed and marked" };
+  };
+  const first = await agent.pass();
+  assert.equal(first.runs, 1, "the arrival opens one run");
+  const run = (await listRuns(ctx, group)).find(
+    (record) => record.run.startedBy.rule === id,
+  );
+  assert.equal(run?.run.plan[0]?.state, "done", "the agent marked the message");
+
+  const second = await agent.pass();
+  assert.equal(second.runs, 0, "the agent's own mark wakes no rule");
+  const runs = (await listRuns(ctx, group)).filter(
+    (record) => record.run.startedBy.rule === id,
+  );
+  assert.equal(runs.length, 1, "one message, one run");
+
+  // The mark the reading took is spent on the agent's own write, not on the
+  // message: a person's later change to it is activity again.
+  await clientOf(ctx).call(
+    "Email/set",
+    { accountId: group, update: { [message]: { "keywords/$flagged": true } } },
+    [CAPABILITIES.mail],
+  );
+  const third = await agent.pass();
+  assert.equal(third.runs, 1, "a person's change to it still wakes the rule");
 });
 
 test("every rule that fits one change opens its own run", async () => {

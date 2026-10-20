@@ -87,6 +87,13 @@ prose, what should happen** when the rule is woken.
 - **A mode is a scope, not an authority class.** The classes (ADR 0028) still
   decide whether an act needs a person's word, and `sends` is still the outward
   power. The matrix says *where* a run may act, never *what* it may do there.
+- **The agent's own acts wake nothing.** A message it sent, filed or marked, a
+  message it posted in the chat, and a document it wrote in its own app folder
+  are the agent acting, not the group's activity: the server reports every write
+  to a message as a change of that message, so a rule woken by the filing its own
+  run just made would answer the same mail a second time. The reading sets those
+  changes aside, once — a person's later change to the same message is activity
+  again.
 - The prose is the instruction. Nothing about a rule is compiled, and the matrix
   is not a list of actions: what bounds an act is the authority classes (ADR
   0028), not the rule.

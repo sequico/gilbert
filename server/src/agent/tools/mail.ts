@@ -288,6 +288,7 @@ async function moveMessage(
     );
     const refused = res.notUpdated?.[id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    rememberOwnMail(id);
     return { id, folder: target.name };
   }
 }
@@ -402,6 +403,7 @@ export const setKeyword = defineTool({
     );
     const refused = res.notUpdated?.[id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    rememberOwnMail(id);
     return { id, keyword, on };
   },
 });
@@ -568,10 +570,12 @@ function messageTextOf(message: Record<string, unknown>): string {
 
 /** Whether an address is one this group itself sends as. */
 /**
- * The messages this process wrote — a send, a draft — so a change reading can
- * tell the agent's own mail from activity a rule should answer. The ids are the
- * ones the server minted; the set is bounded because it is a speed-up, never a
- * store.
+ * The messages this process wrote or changed — a send, a draft, a filing, a
+ * mark — so a change reading can tell the agent's own mail from activity a rule
+ * should answer. Every write to a message comes back from the server as a change
+ * of that message, and a rule woken by it would answer the same mail twice. The
+ * ids are the ones the server minted; the set is bounded because it is a
+ * speed-up, never a store.
  */
 const OWN_MAILS_KEPT = 500;
 const ownMails = new Set<string>();
@@ -585,9 +589,14 @@ function rememberOwnMail(id: string): void {
   }
 }
 
-/** Whether this is a message this process wrote (the agent's own words). */
-export function isOwnMail(id: string): boolean {
-  return ownMails.has(id);
+/**
+ * Whether the next change of this message is the agent's own write, taking the
+ * mark with it: one write is one change, so the reading that follows it is the
+ * only one it explains — a person's later change to the same message (moving it
+ * back into the inbox, say) is activity again.
+ */
+export function takeOwnMailChange(id: string): boolean {
+  return ownMails.delete(id);
 }
 
 export async function isGroupAddress(
