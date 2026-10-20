@@ -14,7 +14,7 @@ import type { Id } from "@/jmap/types";
 import type { FactDoc } from "@/lib/agentAdmin";
 import {
   CHAT_MAX_TEXT,
-  CHAT_PAGE,
+  CHAT_TAIL,
   type ChatMention,
   type ChatMessage,
   localPart,
@@ -231,6 +231,29 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
 
   // ----- transcript paging on scroll-up -----
   const nodeCount = open?.nodes.length ?? 0;
+
+  /**
+   * Pin the viewport to the newest message, across the panel's first layout.
+   *
+   * The panel is `visibility: hidden` until the popover has been placed, and a
+   * hidden thread reports a zero height — the first scroll lands nowhere. Pin
+   * the bottom again on the next frames until the panel is laid out, and stop
+   * the moment the reader scrolls away by hand.
+   */
+  const settleBottom = useCallback(() => {
+    const el = threadRef.current;
+    if (!el) return undefined;
+    let raf = 0;
+    let tries = 0;
+    const settle = () => {
+      if (!atBottom.current) return;
+      el.scrollTop = el.scrollHeight;
+      if (++tries < 20) raf = requestAnimationFrame(settle);
+    };
+    raf = requestAnimationFrame(settle);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   useEffect(() => {
     const el = threadRef.current;
     if (!el) return;
@@ -245,23 +268,19 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     // mid-page. `open?.replyTo` (a reply was just composed) pins to bottom.
     if (!atBottom.current && !open?.replyTo) return;
     atBottom.current = true;
-    /*
-     * The panel is `visibility: hidden` until the popover has been placed, and
-     * a hidden thread reports a zero height — the first scroll lands nowhere.
-     * Pin the bottom again on the next frames until the panel is laid out, and
-     * stop the moment the reader scrolls away by hand.
-     */
-    let raf = 0;
-    let tries = 0;
-    const settle = () => {
-      if (!atBottom.current) return;
-      el.scrollTop = el.scrollHeight;
-      atBottom.current = true;
-      if (++tries < 20) raf = requestAnimationFrame(settle);
-    };
-    raf = requestAnimationFrame(settle);
-    return () => cancelAnimationFrame(raf);
-  }, [nodeCount, openAccountId, open?.replyTo]);
+    return settleBottom();
+  }, [nodeCount, openAccountId, open?.replyTo, settleBottom]);
+
+  /*
+   * A conversation opens on its newest message, always. The scroll listener runs
+   * while the tail is still arriving — an empty thread reports a position at the
+   * top, and the previous window's height leaves the viewport at 0 — so the open,
+   * and every reload, pins the bottom rather than trusting `atBottom`.
+   */
+  useEffect(() => {
+    atBottom.current = true;
+    return settleBottom();
+  }, [openAccountId, open?.loaded, settleBottom]);
 
   const older = async () => {
     if (!openAccountId || searchingRef.current) return;
@@ -276,9 +295,19 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     const el = threadRef.current;
     if (!el) return;
     atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    // Reaching the top of the loaded window asks for the older page.
-    if (el.scrollTop < 24) void older();
   };
+
+  /*
+   * A conversation opens on its newest message. The scroll listener runs while
+   * the tail is still arriving — an empty thread reports a position at the top,
+   * and the previous window's height leaves the viewport at 0 — so the open (and
+   * every reload) pins the bottom explicitly rather than trusting `atBottom`.
+   */
+  useEffect(() => {
+    atBottom.current = true;
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [openAccountId, open?.loaded]);
 
   // ----- what the group's agent is doing, live (ADR 0030) -----
   const [runsOpen, setRunsOpen] = useState(false);
@@ -408,7 +437,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     open.loaded &&
     open.reachedStart &&
     !open.pagingMore &&
-    open.nodes.length >= CHAT_PAGE;
+    open.nodes.length >= CHAT_TAIL;
 
   return (
     <div className="chat-panel">
@@ -574,6 +603,23 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
             <div className="chat-empty">{t("No messages yet")}</div>
           ) : (
             <>
+              {/*
+               * Reading back is a click, not a scroll: a thread that fetched a
+               * page every time the top came into view spent a reader's data on
+               * messages they only scrolled past, and a hidden panel could load
+               * the whole history without anyone asking.
+               */}
+              {!open.reachedStart && !open.pagingMore && (
+                <div className="chat-older">
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => void older()}
+                  >
+                    {t("Load earlier messages")}
+                  </button>
+                </div>
+              )}
               {open.pagingMore && (
                 <div className="chat-empty chat-older">
                   {t("Loading earlier messages…")}

@@ -25,6 +25,17 @@ export const CHAT_MAX_TEXT = 4000;
 export const CHAT_PAGE = 200;
 
 /**
+ * How many messages a conversation opens with, and how many each "earlier"
+ * page adds.
+ *
+ * Thirty is what a reader catches up on when the panel opens: a page of a
+ * conversation, not its history. Each message is one document, so the window is
+ * also the number of documents opening the chat pays for -- the whole transcript
+ * used to be read at once, which is what made a long chat slow to open.
+ */
+export const CHAT_TAIL = 30;
+
+/**
  * The local part of an address — the chat's short display name.
  *
  * Not `web/src/lib/address.ts`'s `shortName`: that one shortens a *display

@@ -2764,6 +2764,8 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   overflow: hidden; text-overflow: ellipsis;
 }
 .chat-older { padding: 6px; font-size: .74em; }
+/* "Load earlier messages": the one way back through the transcript. */
+.chat-older .btn { display: block; margin: 4px auto; }
 
 /* Chat: emoji picker (fixed common grid; emoticons are text, ADR 0004). */
 .chat-emoji-grid {

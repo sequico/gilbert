@@ -636,8 +636,12 @@ the session holds group mailboxes.
 - **Live**: FileNode state changes ride the same push rail as mail; a StateChange
   for a group account runs `FileNode/changes` and fetches the new documents; when
   push is down it falls back to the poll.
-- **The whole history is reachable**: the thread opens at the newest messages and
-  pages older ones in as you scroll up; nothing is silently trimmed.
+- **The whole history is reachable, one page at a time**: the thread opens on the
+  last **30** messages — a page of the conversation, not its history — and
+  **Load earlier messages** adds another 30; the oldest page says the
+  conversation starts there. Opening a long chat costs thirty documents instead of
+  the whole transcript, scrolling asks for nothing, and reopening starts on the
+  newest message again. Nothing is silently trimmed.
 - **Search the selected group's messages** in the panel header, scanning the whole
   history and listing matches newest-window first; a result jumps to the message.
 - **The panel** is a popover under the launcher on desktop (360–400 px; mine right,

@@ -103,4 +103,42 @@ describe("the chat transcript's rows", () => {
 
     expect(renders.rows).toBe(mounted);
   });
+
+  it("reads back when the reader asks, not when the top comes into view", async () => {
+    const loadOlder = vi.fn(async () => undefined);
+    await act(async () => {
+      useChat.setState({ loadOlder });
+    });
+
+    const button = (): HTMLButtonElement | undefined =>
+      [...host.querySelectorAll("button")].find(
+        (one) => one.textContent === "Load earlier messages",
+      ) as HTMLButtonElement | undefined;
+    expect(button(), "the window is not the whole conversation").toBeTruthy();
+
+    // Scrolling to the top asks for nothing: the transcript is read back a page
+    // at a time, and only when a person says so.
+    const thread = host.querySelector(".chat-thread") as HTMLDivElement;
+    await act(async () => {
+      thread.scrollTop = 0;
+      thread.dispatchEvent(new Event("scroll"));
+    });
+    expect(loadOlder).not.toHaveBeenCalled();
+
+    await act(async () => {
+      button()?.click();
+    });
+    expect(loadOlder).toHaveBeenCalledWith("g1");
+
+    // At the start of the conversation there is nothing earlier to offer.
+    await act(async () => {
+      useChat.setState((s) => ({
+        conversations: {
+          ...s.conversations,
+          g1: { ...s.conversations.g1!, reachedStart: true },
+        },
+      }));
+    });
+    expect(button()).toBeUndefined();
+  });
 });

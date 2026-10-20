@@ -22,7 +22,7 @@ import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
 import { findInFolder, listChildrenWithState } from "@/lib/appFolder";
 import {
   CHAT_MAX_TEXT,
-  CHAT_PAGE,
+  CHAT_TAIL,
   type ChatFolders,
   type ChatMessage,
   compareMessages,
@@ -180,12 +180,12 @@ export const useChat = create<ChatState>((set, get) => {
     try {
       const folders = conv.folders ?? (await ensureChatFolders(accountId));
       // Page the transcript from the tail: the newest messages first, older
-      // ones fetched on scroll-up (loadOlder). The chat opens at the bottom;
-      // a member added later scrolls back through the whole conversation.
+      // ones fetched on demand by the reader (`loadOlder`). The chat opens at
+      // the bottom, on the page of a conversation rather than on its history.
       const first = await fetchPage(accountId, folders, 0, 0);
       const total = first.total;
-      const from = Math.max(0, total - CHAT_PAGE);
-      const page = await fetchPage(accountId, folders, from, total - from || CHAT_PAGE);
+      const from = Math.max(0, total - CHAT_TAIL);
+      const page = await fetchPage(accountId, folders, from, total - from || CHAT_TAIL);
       const nodes = page.nodes.sort(compareMessages);
       set((s) => ({
         conversations: {
@@ -273,7 +273,7 @@ export const useChat = create<ChatState>((set, get) => {
     }));
     try {
       const folders = conv.folders!;
-      const from = Math.max(0, conv.earliestPos - CHAT_PAGE);
+      const from = Math.max(0, conv.earliestPos - CHAT_TAIL);
       const page = await fetchPage(accountId, folders, from, conv.earliestPos - from);
       const byId = new Set(conv.nodes.map((n) => n.id));
       const extra = page.nodes.filter((n) => !byId.has(n.id));
@@ -434,6 +434,24 @@ export const useChat = create<ChatState>((set, get) => {
 
     open(accountId) {
       set({ openAccountId: accountId });
+      const conv = get().conversations[accountId];
+      /*
+       * Opening starts on the newest page again: a window the reader paged back
+       * through is a window, not where they live. The refresh is the read the
+       * conversation opens with, so closing and reopening shows the last
+       * `CHAT_TAIL` messages however far back the window was left.
+       */
+      if (conv?.loaded && conv.nodes.length > CHAT_TAIL)
+        set((s) => ({
+          conversations: {
+            ...s.conversations,
+            [accountId]: {
+              ...s.conversations[accountId]!,
+              loaded: false,
+              loading: false,
+            },
+          },
+        }));
       void get()
         .ensureAccount(accountId)
         .then(() => {
@@ -749,10 +767,10 @@ useMail.subscribe((s, prev) => {
 
 /** Unread for a conversation, by the ADR kind rule (exported for selectors). */
 export function unreadOf(conv: ChatConversation): number {
-  // `conv.nodes` is a page, not always the whole transcript (`CHAT_PAGE`
+  // `conv.nodes` is a window, not always the whole transcript (`CHAT_TAIL`
   // below) — `fromStart` must say so, or a marker sitting outside the loaded
-  // page reads as "everything held is read" instead of "everything held is
-  // unread", and a member away longer than one page is told there is nothing
+  // window reads as "everything held is read" instead of "everything held is
+  // unread", and a member away longer than one window is told there is nothing
   // to catch up on.
   return unreadCount(conv.nodes, conv.marker, conv.reachedStart);
 }
