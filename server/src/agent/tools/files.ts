@@ -26,10 +26,10 @@ import {
   writeBytesIntoVisibleFolder,
 } from "../../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../../jmap.js";
-import { CAPABILITIES } from "../../shared/capabilities.js";
 import { APP_FOLDER_NAME, FILE_PROPS } from "../../shared/appFolder.js";
-import { isRecord } from "../../shared/json.js";
+import { CAPABILITIES } from "../../shared/capabilities.js";
 import { refusalOf } from "../../shared/jmap.js";
+import { isRecord } from "../../shared/json.js";
 import { clientOf } from "../../util.js";
 import {
   argsRecord,

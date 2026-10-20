@@ -3047,7 +3047,13 @@ function calendarEventSet(a: Obj) {
     calendarChanges.record(
       String(a.accountId ?? ACCOUNT),
       {
-        created: Object.values(created).map((x) => x.id),
+        created: Object.values(created)
+          .map((one) =>
+            typeof one === "object" && one !== null
+              ? (one as { id?: unknown }).id
+              : undefined,
+          )
+          .filter((id): id is string => typeof id === "string"),
         updated: Object.keys(updated),
         destroyed,
       },
