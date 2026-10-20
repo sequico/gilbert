@@ -524,6 +524,7 @@ export const catalog: Catalog = {
     "Automatic ({example})": "Автоматично ({example})",
     "Automatic ({locale})": "Автоматично ({locale})",
     Automatic: "Автоматично",
+    "Preview {name}": "Перегляд {name}",
     "Preview: {example}": "Приклад: {example}",
     "Dates, times and month names follow this choice.":
       "Дати, час і назви місяців залежать від цього вибору.",

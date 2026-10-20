@@ -22,7 +22,13 @@ export const useCompose = create<ComposeState>((set, get) => ({
 export { BODY_PROPS, FULL_PROPS } from "../mail";
 export { draftFromMailto } from "./draft";
 export { buildEmailObject, buildSubmission, sendOutcomeUnknown } from "./outgoing";
-export type { AttachableFile, Draft, Priority, ReplyMode } from "./types";
+export type {
+  AttachableFile,
+  ComposeAttachment,
+  Draft,
+  Priority,
+  ReplyMode,
+} from "./types";
 export {
   DEFAULT_REPLY_MODE,
   REPLY,

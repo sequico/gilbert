@@ -537,6 +537,7 @@ export const catalog: Catalog = {
     "Automatic ({example})": "Automatique ({example})",
     "Automatic ({locale})": "Automatique ({locale})",
     Automatic: "Automatique",
+    "Preview {name}": "Aperçu de {name}",
     "Preview: {example}": "Aperçu : {example}",
     "Dates, times and month names follow this choice.":
       "Les dates, heures et noms de mois suivent ce choix.",

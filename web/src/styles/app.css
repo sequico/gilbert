@@ -1594,6 +1594,12 @@ a.menu-item:hover { color: var(--fg); }
 .attachment .att-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent-soft-fg); flex: 0 0 auto; overflow: hidden; }
 .attachment .att-icon img { width: 100%; height: 100%; object-fit: cover; }
 .attachment .att-text { flex: 1; min-width: 0; }
+/* Everything in the chip but the remove button is one control: clicking it
+   looks at the file that is about to go out. A button, laid out like the chip
+   it sits in, so a keyboard reaches it too. */
+.attachment .att-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: zoom-in; }
+.attachment .att-open:disabled { cursor: default; }
+.attachment .att-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 /* Both are spans, and `overflow`/`text-overflow` do nothing on an inline
    element -- so the name never truncated and the size ran on after it on the
    same line. Only long names showed it, which is every .eml named from a

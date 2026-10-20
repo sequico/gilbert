@@ -1229,7 +1229,11 @@ minimisable and maximisable; full-screen on mobile.
   body exactly as written**; a name that is not a placeholder is left alone.
 - **Attachments** by picking or dragging onto the composer, with progress per file
   and the size limit the server states (`MAX_UPLOAD_BYTES`, 50 MB by default). A
-  pasted image is inserted inline; pasted HTML is sanitised.
+  pasted image is inserted inline; pasted HTML is sanitised. Clicking an attachment
+  waiting in the composer **opens it in the same preview dialog a message's
+  attachment uses**, so the sender checks the file rather than its name; the tooltip
+  stays the filename and the **x** still removes it. A file the app cannot render, or
+  one still uploading, simply does not open.
 - **Attach from Files** — anything the server already holds attaches with **no
   upload at all**. A file from someone else's shared folder is copied to your
   account first (the picker says so), because a message can only carry blobs from

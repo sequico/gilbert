@@ -531,6 +531,7 @@ export const catalog: Catalog = {
     "Default ({zone})": "Standard ({zone})",
     "Automatic ({example})": "Automatisch ({example})",
     "Automatic ({locale})": "Automatisch ({locale})",
+    "Preview {name}": "Vorschau von {name}",
     "Preview: {example}": "Vorschau: {example}",
     "Dates, times and month names follow this choice.":
       "Datum, Uhrzeit und Monatsnamen richten sich nach dieser Auswahl.",

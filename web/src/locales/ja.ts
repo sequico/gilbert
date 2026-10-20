@@ -526,6 +526,7 @@ export const catalog: Catalog = {
     "Automatic ({example})": "自動（{example}）",
     "Automatic ({locale})": "自動（{locale}）",
     Automatic: "自動",
+    "Preview {name}": "{name} をプレビュー",
     "Preview: {example}": "プレビュー: {example}",
     "Dates, times and month names follow this choice.":
       "日付・時刻・月名はこの設定に従います。",

@@ -17,13 +17,15 @@ import {
   Type,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { client } from "@/jmap/client";
 import { isValidEmail, uniqueAddresses } from "@/lib/address";
 import { formatRelative, formatSize } from "@/lib/format";
 import { t as translate } from "@/lib/i18n";
 import { visibleIdentities } from "@/lib/identityVisibility";
 import { keyboard } from "@/lib/keyboard";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
+import { previewableAttachment } from "@/lib/preview";
 import { formatScheduleTime } from "@/lib/schedule";
 import { htmlToText, textToHtml } from "@/lib/text";
 import {
@@ -31,7 +33,7 @@ import {
   externalRecipients,
   internalDomains,
 } from "@/lib/warnings";
-import { type Draft, useCompose } from "@/store/compose";
+import { type ComposeAttachment, type Draft, useCompose } from "@/store/compose";
 import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
 import { scheduleSupported, scheduleWindowMs } from "@/store/scheduled";
@@ -41,6 +43,7 @@ import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
+import { LazyFilePreviewDialog } from "../lazyPieces";
 import { FilePicker } from "./FilePicker";
 import { RecipientInput } from "./RecipientInput";
 import { type Field, RecipientPicker } from "./RecipientPicker";
@@ -57,12 +60,24 @@ export function Composer({ draft }: { draft: Draft }) {
   const filesAvailable = useFiles((s) => s.available);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addressBookOpen, setAddressBookOpen] = useState(false);
+  /*
+   * The attachment being looked at, so the sender checks the file rather than
+   * its name. Only an uploaded one: a file still on its way has no blob the
+   * preview can fetch.
+   */
+  const [preview, setPreview] = useState<ComposeAttachment | null>(null);
   const removeAttachment = useCompose((s) => s.removeAttachment);
   const setIdentity = useCompose((s) => s.setIdentity);
   const insertTemplate = useCompose((s) => s.insertTemplate);
   const focus = useCompose((s) => s.focus);
   const allIdentities = useMail((s) => s.identities);
   const mailAccountId = useMail((s) => s.accountId);
+  /*
+   * The account the draft is written in owns its attachments: that is where an
+   * upload landed, whatever mailbox is on screen. A draft with no account of
+   * its own falls back the way the upload did, to the one on screen.
+   */
+  const previewAccountId = draft.accountId || mailAccountId;
   const mailAccounts = useMail((s) => s.mailAccounts);
   const groupMailbox = isGroupMailboxAccount(mailAccountId, mailAccounts);
   const hiddenIdentities = useSettings((s) => s.settings.hiddenIdentities);
@@ -599,20 +614,33 @@ export function Composer({ draft }: { draft: Draft }) {
                   className={`attachment ${a.error ? "error" : ""}`}
                   title={a.error ?? a.name}
                 >
-                  <span className="att-icon">{attachmentIcon(a.type, a.name)}</span>
-                  <span className="att-text">
-                    <span className="att-name">{a.name}</span>
-                    <span className="att-size">
-                      {a.error ? (
-                        <span style={{ color: "var(--danger)" }}>{a.error}</span>
-                      ) : a.blobId ? (
-                        formatSize(a.size)
-                      ) : (
-                        `${a.progress}%`
-                      )}
-                      {a.inline ? " · inline" : ""}
+                  {/*
+                   * Everything but the remove button opens the file: a sender
+                   * checks what is going out, not its name. The tooltip stays
+                   * the name, and the X still takes the attachment away.
+                   */}
+                  <button
+                    type="button"
+                    className="att-open"
+                    disabled={!previewableAttachment(a)}
+                    onClick={() => setPreview(a)}
+                    aria-label={translate("Preview {name}", { name: a.name })}
+                  >
+                    <span className="att-icon">{attachmentIcon(a.type, a.name)}</span>
+                    <span className="att-text">
+                      <span className="att-name">{a.name}</span>
+                      <span className="att-size">
+                        {a.error ? (
+                          <span style={{ color: "var(--danger)" }}>{a.error}</span>
+                        ) : a.blobId ? (
+                          formatSize(a.size)
+                        ) : (
+                          `${a.progress}%`
+                        )}
+                        {a.inline ? " · inline" : ""}
+                      </span>
                     </span>
-                  </span>
+                  </button>
                   <button
                     className="icon-btn xs"
                     aria-label={translate("Remove attachment")}
@@ -718,6 +746,31 @@ export function Composer({ draft }: { draft: Draft }) {
               onPick={(picked) => void addFromFiles(key, picked)}
               onClose={() => setPickerOpen(false)}
             />
+          )}
+          {preview?.blobId && previewAccountId && (
+            <Suspense fallback={null}>
+              <LazyFilePreviewDialog
+                file={{
+                  name: preview.name,
+                  type: preview.type,
+                  size: preview.size,
+                  url: client.downloadUrl(
+                    previewAccountId,
+                    preview.blobId,
+                    preview.name,
+                    preview.type,
+                  ),
+                  inlineUrl: client.downloadUrl(
+                    previewAccountId,
+                    preview.blobId,
+                    preview.name,
+                    preview.type,
+                    true,
+                  ),
+                }}
+                onClose={() => setPreview(null)}
+              />
+            </Suspense>
           )}
           {canSchedule && scheduleOpen && (
             <ScheduleDialog

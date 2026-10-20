@@ -517,6 +517,7 @@ export const catalog: Catalog = {
     "Automatic ({example})": "自动（{example}）",
     "Automatic ({locale})": "自动（{locale}）",
     Automatic: "自动",
+    "Preview {name}": "预览 {name}",
     "Preview: {example}": "预览：{example}",
     "Dates, times and month names follow this choice.":
       "日期、时间和月份名称将采用此设置。",

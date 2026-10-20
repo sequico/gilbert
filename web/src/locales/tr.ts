@@ -1155,6 +1155,7 @@ export const catalog: Catalog = {
     "Preview generated Sieve script": "Oluşturulan Sieve betiğini önizle",
     "Preview the first line of each message in the list.":
       "Listedeki her iletinin ilk satırını önizleyin.",
+    "Preview {name}": "{name} önizlemesi",
     "Preview: {example}": "Önizleme: {example}",
     Previous: "Önceki",
     "Previous conversation": "Önceki yazışma",

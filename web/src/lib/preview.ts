@@ -89,6 +89,20 @@ export function previewKind(
 export { isInlineImage, isInlineSafe as openableInTab } from "@gilbert/shared/media";
 
 /**
+ * Whether an attachment waiting in the composer can be looked at before it is
+ * sent: the app can render it (`previewKind`), and it has reached the server —
+ * a file still uploading has no blob for a dialog to fetch.
+ */
+export function previewableAttachment(a: {
+  blobId?: string | null;
+  error?: string | null;
+  type?: string | null;
+  name?: string | null;
+}): boolean {
+  return Boolean(a.blobId) && !a.error && previewKind(a.type, a.name) !== null;
+}
+
+/**
  * Past this, a text file is not read in a dialog -- it is downloaded and opened
  * in something built for it. The number is about the browser, not the network:
  * laying out a few million characters in one `<pre>` locks the tab up.

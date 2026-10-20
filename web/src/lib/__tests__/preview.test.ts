@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { openableInTab, previewKind } from "@/lib/preview";
+import { openableInTab, previewableAttachment, previewKind } from "@/lib/preview";
 
 describe("previewKind", () => {
   it("goes by the declared type when there is one", () => {
@@ -89,5 +89,30 @@ describe("openableInTab", () => {
     // dialog reads it with fetch, which ignores Content-Disposition.
     expect(previewKind("text/markdown", "README.md")).toBe("text");
     expect(openableInTab("text/markdown")).toBe(false);
+  });
+});
+
+describe("previewableAttachment", () => {
+  const file = {
+    name: "invoice.pdf",
+    type: "application/pdf",
+    blobId: "b1",
+    error: null,
+  };
+
+  it("asks for an uploaded file the app can render", () => {
+    expect(previewableAttachment(file)).toBe(true);
+  });
+
+  it("refuses one still on its way to the server", () => {
+    // No blob means there is nothing for the dialog to fetch.
+    expect(previewableAttachment({ ...file, blobId: null })).toBe(false);
+  });
+
+  it("refuses a failed upload and a type it cannot show", () => {
+    expect(previewableAttachment({ ...file, error: "Upload failed" })).toBe(false);
+    expect(
+      previewableAttachment({ ...file, name: "logo.svg", type: "image/svg+xml" }),
+    ).toBe(false);
   });
 });
