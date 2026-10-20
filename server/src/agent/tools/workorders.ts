@@ -23,8 +23,8 @@ import {
   itemKeysOf,
   stepOf,
   WORKORDER_FOLDER,
-  type WorkorderChecklist,
   WORKORDER_STEP_STATES,
+  type WorkorderChecklist,
   workorderClosedPath,
   workorderFileName,
 } from "../../shared/workorder.js";
