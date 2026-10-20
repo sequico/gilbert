@@ -274,7 +274,10 @@ installed, and a model that cannot see says so instead of guessing. The half tha
 group's account files a message, puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
 folder in the mailbox or in Files, renames a mailbox folder in place and
-removes one that is empty, writes a text document in Files, moves or renames a
+removes one that is empty, writes a text document in Files, **saves a file into
+Files** — an attachment of a message, or a copy of a document already there, the
+bytes copied as they are rather than transcribed, and a name already taken given
+a numbered one beside it — moves or renames a
 document or a folder, replaces a document's text, removes a document or an
 empty folder — the last three, like the
 removal of an empty folder, under a person's word for that document — replaces

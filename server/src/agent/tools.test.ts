@@ -1657,6 +1657,106 @@ test("an attachment of a message is read inside, by the same reader as a documen
   );
 });
 
+test("the agent saves a file into Files, from an attachment or from a document", async () => {
+  /*
+   * The bytes, not a transcription: a document the agent was only able to read
+   * used to be a document it could not keep — a PDF's text is not the PDF. The
+   * save names the source's blob, so the file lands as it arrived, and a name
+   * already taken gets a numbered one beside it rather than replacing what a
+   * person filed.
+   */
+  const text = "The booking is BK-42, sealed on the second door.";
+  const type = "text/plain";
+  const blobId = await uploadBlobBytes(
+    ctx,
+    accountId,
+    new TextEncoder().encode(text),
+    type,
+  );
+  const created = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
+    "Email/set",
+    {
+      accountId,
+      create: {
+        c: {
+          subject: "the booking papers",
+          from: [{ email: "ops@shipper.example" }],
+          mailboxIds: { inbox: true },
+          bodyStructure: {
+            type: "multipart/mixed",
+            subParts: [
+              { partId: "body", type: "text/plain" },
+              { blobId, type, name: "booking.txt", disposition: "attachment" },
+            ],
+          },
+          bodyValues: { body: { value: "the papers are attached" } },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const message = created.created?.c?.id;
+  assert.ok(message, "the message with its attachment is in the account");
+
+  const saved = await writeTool<{ path: string; from: string; type: string }>(
+    "files.save",
+    { message, attachment: "booking.txt", path: "Bookings/BK-42.txt" },
+  );
+  assert.equal(saved.path, "Bookings/BK-42.txt", "the file lands where it was asked");
+  assert.equal(saved.from, `${message}/booking.txt`, "and the record names its source");
+  const held = await readVisibleFileAt(ctx, accountId, "Bookings/BK-42.txt");
+  assert.equal(held?.text, text, "the bytes are the attachment's, never a transcription");
+  assert.equal(held?.file.type, type, "with the type it arrived with");
+
+  const again = await writeTool<{ path: string }>("files.save", {
+    message,
+    attachment: "booking.txt",
+    path: "Bookings/BK-42.txt",
+  });
+  assert.equal(
+    again.path,
+    "Bookings/2-BK-42.txt",
+    "a name already taken gets a numbered one beside it, never a replaced file",
+  );
+
+  const copied = await writeTool<{ path: string }>("files.save", {
+    from: "Bookings/BK-42.txt",
+    path: "Archive/booking.txt",
+  });
+  assert.equal(
+    copied.path,
+    "Archive/booking.txt",
+    "a document already in Files is copied",
+  );
+  assert.equal(
+    (await readVisibleFileAt(ctx, accountId, "Archive/booking.txt"))?.text,
+    text,
+    "with its bytes",
+  );
+
+  await assert.rejects(
+    () => writeTool("files.save", { message, attachment: "nobody.txt", path: "x.txt" }),
+    /no attachment "nobody.txt"/,
+    "an attachment the message does not carry is a refusal",
+  );
+  await assert.rejects(
+    () => writeTool("files.save", { path: "x.txt" }),
+    /A source is needed/,
+    "a save with no source is refused rather than made empty",
+  );
+  await assert.rejects(
+    () =>
+      writeTool("files.save", {
+        from: "Bookings/BK-42.txt",
+        message,
+        attachment: "booking.txt",
+        path: "x.txt",
+      }),
+    /One source/,
+    "and one save names one source",
+  );
+});
+
 test("a picture is read by the model's eyes when the caller has them, and says so when it has not", async () => {
   /*
    * A scan or a photograph has no text a reader can take (ADR 0027): the model

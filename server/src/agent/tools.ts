@@ -69,6 +69,7 @@ import {
   overwriteDocument,
   readNode,
   renameFile,
+  saveFile,
   writeDocument,
 } from "./tools/files.js";
 import {
@@ -151,6 +152,7 @@ export const TOOLS: readonly AnyTool[] = [
   updateEvent,
   deleteEvent,
   writeDocument,
+  saveFile,
   overwriteDocument,
   deleteDocument,
   editDraft,

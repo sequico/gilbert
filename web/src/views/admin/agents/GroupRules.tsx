@@ -334,9 +334,6 @@ function RuleEditor({
             </div>
           ))}
         </div>
-        <p className="hint">
-          {t("Calendar changes do not wake a rule yet; the row governs writes.")}
-        </p>
       </div>
       <div className="field" style={{ marginTop: 8 }}>
         <label htmlFor={`rule-instruction-${id}`}>{t("What should happen")}</label>

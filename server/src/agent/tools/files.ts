@@ -20,12 +20,17 @@ import {
   nodeStamp,
   pathSegments,
   readVisibleFileBytes,
+  unusedVisibleName,
   updateAppNode,
+  writeBlobIntoVisibleFolder,
   writeBytesIntoVisibleFolder,
 } from "../../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../../jmap.js";
+import { CAPABILITIES } from "../../shared/capabilities.js";
 import { APP_FOLDER_NAME, FILE_PROPS } from "../../shared/appFolder.js";
+import { isRecord } from "../../shared/json.js";
 import { refusalOf } from "../../shared/jmap.js";
+import { clientOf } from "../../util.js";
 import {
   argsRecord,
   countArg,
@@ -238,6 +243,121 @@ export const writeDocument = defineTool({
     return { path: folder ? `${folder}/${name}` : name, id, bytes: bytes.byteLength };
   },
 });
+
+export const saveFile = defineTool({
+  name: "files.save",
+  description:
+    "Save a file into this account's own Files, at the path it should land at — " +
+    "`Containers/2026/BK-42.pdf`. The source is an **attachment of a message** " +
+    "(`message` and `attachment`, exactly as mail.read answered them), or a " +
+    "**document already in Files** (`from`, its path). The bytes are copied as " +
+    "they are, so a PDF stays a PDF, and a name already taken in the folder gets " +
+    "a numbered one beside it: nothing a person filed is replaced.",
+  authority: "reversible",
+  writes: true,
+  surface: "files",
+  spend: { steps: 1 },
+  keys: ["attachment", "from", "message", "path"],
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    const from = optionalTextArg(args, "from");
+    const message = optionalTextArg(args, "message");
+    const attachment = optionalTextArg(args, "attachment");
+    if (from && (message || attachment))
+      throw new ToolError(
+        "bad_arguments",
+        'One source: either "from" names a document in Files, or "message" and "attachment" name one of a message.',
+      );
+    if (!from && !(message && attachment))
+      throw new ToolError(
+        "bad_arguments",
+        'A source is needed: "from" a document in Files, or "message" with the "attachment" mail.read answered.',
+      );
+    return { path: textArg(args, "path"), from, message, attachment };
+  },
+  run: async ({ ctx, accountId }, { path, from, message, attachment }) => {
+    const { folder, name } = splitDocumentPath(path);
+    const held = await unusedVisibleName(ctx, accountId, folder, name);
+    const source = from
+      ? await fileBlob(ctx, accountId, from)
+      : await attachmentBlob(ctx, accountId, message ?? "", attachment ?? "");
+    const id = await writeBlobIntoVisibleFolder(
+      ctx,
+      accountId,
+      folder,
+      held,
+      source.blobId,
+      source.type,
+    );
+    return {
+      path: folder ? `${folder}/${held}` : held,
+      from: source.from,
+      type: source.type,
+      bytes: source.bytes,
+      id,
+    };
+  },
+});
+
+/** The blob of a document already in Files, and what it is. */
+async function fileBlob(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<{ blobId: string; type: string; bytes: number | null; from: string }> {
+  const held = await findVisibleFile(ctx, accountId, path);
+  if (!held) throw notFound(`document "${path}" in this account's Files`);
+  const blobId = typeof held.file.blobId === "string" ? held.file.blobId : "";
+  if (!blobId) throw new ToolError("bad_arguments", `"${path}" holds no file.`, 422);
+  return {
+    blobId,
+    type: contentType(held.file),
+    bytes: typeof held.file.size === "number" ? held.file.size : null,
+    from: path,
+  };
+}
+
+/** The blob of one attachment of a message, found the way mail.readAttachment finds it. */
+async function attachmentBlob(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  name: string,
+): Promise<{ blobId: string; type: string; bytes: number | null; from: string }> {
+  const answer = await clientOf(ctx).call<{ list?: Array<{ attachments?: unknown }> }>(
+    "Email/get",
+    { accountId, ids: [id], properties: ["attachments"] },
+    [CAPABILITIES.mail],
+  );
+  const message = answer.list?.[0];
+  if (!message) throw notFound(`message "${id}" in this account`);
+  const held = (Array.isArray(message.attachments) ? message.attachments : []).filter(
+    isRecord,
+  );
+  const one = held.find(
+    (part) =>
+      typeof part.name === "string" &&
+      part.name.trim().toLowerCase() === name.trim().toLowerCase(),
+  );
+  if (!one) throw notFound(`attachment "${name}" on message "${id}"`);
+  const blobId = typeof one.blobId === "string" ? one.blobId : "";
+  if (!blobId)
+    throw new ToolError("bad_arguments", `The attachment "${name}" has no file.`, 422);
+  return {
+    blobId,
+    type:
+      typeof one.type === "string" && one.type ? one.type : "application/octet-stream",
+    bytes: typeof one.size === "number" ? one.size : null,
+    from: `${id}/${name}`,
+  };
+}
+
+/** The type a FileNode says it is, or what an untyped node is read as. */
+function contentType(file: FileNodeLike): string {
+  return typeof file.type === "string" && file.type
+    ? file.type
+    : "application/octet-stream";
+}
 
 export const overwriteDocument = defineTool({
   name: "files.overwrite",

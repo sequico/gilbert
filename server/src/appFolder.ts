@@ -1345,6 +1345,29 @@ export async function writeBytesIntoVisibleFolder(
 }
 
 /**
+ * Put a blob the account already holds into a folder of its **visible** Files.
+ *
+ * A copy, not a download and an upload: the bytes are already the account's —
+ * an attachment of a message, a document in Files — and a FileNode can name the
+ * blob it was given. One round trip and no size ceiling, which is what makes a
+ * large scan as cheap to save as a note. The caller picks a free name (see
+ * `unusedVisibleName`): this writer replaces what is at `name`, as every writer
+ * of a named node does.
+ */
+export async function writeBlobIntoVisibleFolder(
+  ctx: Ctx,
+  accountId: string,
+  folderPath: string,
+  name: string,
+  blobId: string,
+  type: string,
+): Promise<string> {
+  const folderId = await ensureRootFolderPath(ctx, accountId, folderPath);
+  const file = await findInFolder(ctx, accountId, folderId, name);
+  return setFileNode(ctx, accountId, folderId, name, blobId, type, file);
+}
+
+/**
  * A path in the visible tree, refusing the app folder's own names.
  *
  * The app folder sits at the top of the same tree — that is what makes its
