@@ -23,6 +23,7 @@
  * reads the very shape this file writes.
  */
 
+import { hostname } from "node:os";
 import {
   appFolderState,
   type Ctx,
@@ -93,13 +94,42 @@ function expiryOf(now: Date): string {
 }
 
 /**
+ * Whether the process a claim names may still be running.
+ *
+ * A holder is `hostname#pid` (`supervisor.ts`). A process this host can see is
+ * checked: one that was killed — an update restarts the service, and a claim
+ * left behind by a dead process is not going to be renewed — must not make the
+ * next start wait a whole TTL. The live run of 2026-10-20 lost a chat message
+ * in the four and a half minutes a restarted process waited for a dead claim's
+ * lease. A holder on another host cannot be checked from here and keeps the TTL.
+ *
+ * A PID the machine has reused by another process reads as alive; the TTL is
+ * the answer then, exactly as it was before.
+ */
+function holderMaybeAlive(holder: string): boolean {
+  const at = holder.lastIndexOf("#");
+  if (at <= 0) return true;
+  if (holder.slice(0, at) !== hostname()) return true;
+  const pid = Number.parseInt(holder.slice(at + 1), 10);
+  if (!Number.isInteger(pid) || pid <= 0) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // ESRCH is "no such process"; EPERM is a live process this user may not signal.
+    return (err as NodeJS.ErrnoException).code !== "ESRCH";
+  }
+}
+
+/**
  * Take the claim for `holder`, or answer null because a live peer holds it.
  *
  * A claim this `holder` already holds is answered as itself with no write:
  * holding it is not an event. One held by another process is left alone until
- * it lapses. The write is conditional on the state read before the claim was,
- * so two processes racing for a free claim cannot both believe they won — the
- * loser is refused and comes back to a claim that is now readable.
+ * it lapses — or, on this host, until the process it names is gone. The write
+ * is conditional on the state read before the claim was, so two processes
+ * racing for a free claim cannot both believe they won — the loser is refused
+ * and comes back to a claim that is now readable.
  */
 export async function takeClaim(
   ctx: Ctx,
@@ -111,7 +141,8 @@ export async function takeClaim(
     const token = await appFolderState(ctx, accountId);
     const held = (await readClaimAt(ctx, accountId))?.doc;
     if (held?.holder === holder) return held;
-    if (held && Date.parse(held.expires) > now.getTime()) return null;
+    if (held && Date.parse(held.expires) > now.getTime() && holderMaybeAlive(held.holder))
+      return null;
     const doc: ClaimDoc = {
       v: 1,
       holder,

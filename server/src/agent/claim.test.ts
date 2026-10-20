@@ -13,6 +13,9 @@
  */
 
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { hostname } from "node:os";
 import { after, before, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
 import { freePort, waitForPort } from "../testkit.js";
@@ -210,4 +213,43 @@ test("a claim whose dates are not instants is no claim", async () => {
   const taken = await takeClaim(ctx, "process-d", new Date());
   assert.equal(taken?.holder, "process-d", "either way the claim is free to be taken");
   await releaseClaim(ctx, "process-d");
+});
+
+test("a claim left by a dead process on this host is taken at once", async () => {
+  /*
+   * The live failure this pins: an update stops the service with SIGKILL, its
+   * claim stays valid for the TTL, and the restarted process waited four and a
+   * half minutes — long enough for a chat message to arrive and be anchored
+   * past, never read. A PID this host can see is dead is no holder.
+   */
+  const child = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+  await once(child, "exit");
+  assert.ok(child.pid, "the child has a pid");
+  const now = new Date();
+  await writeAppFile(ctx, accountId, CLAIM_FILE, {
+    v: 1,
+    holder: `${hostname()}#${child.pid}`,
+    takenAt: now.toISOString(),
+    expires: new Date(now.getTime() + CLAIM_TTL_MS).toISOString(),
+  });
+  const taken = await takeClaim(ctx, "process-after-restart", now);
+  assert.equal(taken?.holder, "process-after-restart", "the dead claim does not hold");
+  await releaseClaim(ctx, "process-after-restart");
+});
+
+test("a claim held by a live process on this host is still left alone", async () => {
+  const now = new Date();
+  const holder = `${hostname()}#${process.pid}`;
+  await writeAppFile(ctx, accountId, CLAIM_FILE, {
+    v: 1,
+    holder,
+    takenAt: now.toISOString(),
+    expires: new Date(now.getTime() + CLAIM_TTL_MS).toISOString(),
+  });
+  assert.equal(
+    await takeClaim(ctx, "process-other", now),
+    null,
+    "a live holder keeps the claim until it lapses",
+  );
+  await releaseClaim(ctx, holder);
 });
