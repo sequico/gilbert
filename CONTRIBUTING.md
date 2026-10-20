@@ -83,10 +83,11 @@ gate prints is fixed, whoever wrote the line.
 
 ### Code scanning
 
-**Semgrep** and **Gitleaks** run on every push and pull request, and once a
-night, in `.github/workflows/ci-security.yml` (ADR 0022). They are not in
-`check:ci` — Semgrep is a second toolchain and Gitleaks wants the whole history.
-A finding either prints is work to do in the same change.
+The **CodeQL** analysis runs on **GitHub only**: `.github/workflows/codeql.yml`,
+called by the release workflow as a pre-check and run weekly and on demand
+besides. There is no local analysis — no script, no bundled toolchain, no
+`CODEQL_CLI` lookup — so a checkout carries no second suite that could disagree
+with the release's. An alert is work to do in the same change.
 
 ## Code style
 
