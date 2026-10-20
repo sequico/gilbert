@@ -2029,6 +2029,49 @@ test("the agent proposes a page's change into its draft, and nothing is in force
 });
 
 /**
+ * A page inside a topic folder is named by its folder, not by its title: the
+ * listing answers the path, and the tree walks it segment by segment. Read by
+ * title, the page under `Policies` answers no page at all — the folder is the
+ * page's own identity.
+ */
+test("a page inside a topic folder is read by the folder the listing answers", async () => {
+  const title = "Returns";
+  const body = "A return is booked against its original order.";
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `knowledge/Policies/${knowledgeFolderName(title)}/draft.json`,
+    buildDraft({
+      id: "k-nested",
+      title,
+      tags: ["policy"],
+      blocks: blocksFromText(body),
+      text: body,
+      by: "a@example.com",
+      at: new Date().toISOString(),
+    }),
+  );
+
+  const listed = await callTool<{
+    pages: Array<{ title: string; folder: string }>;
+  }>("knowledge.list", {});
+  const page = listed.pages.find((one) => one.title === title);
+  assert.equal(page?.folder, "Policies/Returns", "the listing names the path");
+
+  const read = await callTool<{ text: string; folder: string }>("knowledge.read", {
+    folder: page?.folder,
+  });
+  assert.equal(read.text, body, "and the path reads the page");
+  assert.equal(read.folder, "Policies/Returns");
+
+  await assert.rejects(
+    () => callTool("knowledge.read", { title }),
+    /no knowledge page/,
+    "the bare title does not reach a page that lives in a topic folder",
+  );
+});
+
+/**
  * A page is a controlled document and can be long, and the answer travels into
  * a prompt paid for by the token: the read bounds its own text and says how
  * much there is, so `offset` reaches the rest — rather than the prompt cutting

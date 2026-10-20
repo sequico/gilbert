@@ -907,7 +907,7 @@ export async function decideEvent(
     "\"facts\" is what the change is about, in the group's own vocabulary: which booking, which shipper, which client, and what is being asked. They are the change's own facts and sit beside the rules, not inside them. Its names are yours; its values are text.",
     "You never decide what may be done: what is allowed is the authority classes, not you, and an answer that carries a capability, a tool or an authorisation is refused.",
     `When you need the group's own state to answer, look it up first: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookups.`,
-    "In the knowledge base, list the pages first (knowledge.list) and read one by a title it returned: never guess a title.",
+    "In the knowledge base, list the pages first (knowledge.list) and read one by the folder it returned: never guess a folder.",
     'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
     "The tools you may read with:",

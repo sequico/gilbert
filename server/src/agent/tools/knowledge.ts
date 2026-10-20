@@ -18,7 +18,14 @@ import {
   KNOWLEDGE_FOLDER,
   knowledgeFolderName,
 } from "../../shared/knowledge.js";
-import { argsRecord, countArg, notFound, TOOL_LIST_MAX, textArg } from "./args.js";
+import {
+  argsRecord,
+  countArg,
+  notFound,
+  optionalTextArg,
+  TOOL_LIST_MAX,
+  textArg,
+} from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 import { READ_IN_PROMPT_MAX } from "../prompt.js";
 
@@ -31,12 +38,30 @@ import { READ_IN_PROMPT_MAX } from "../prompt.js";
  * `offset` asks for the rest — one page in as many reads as it takes.
  */
 export const KNOWLEDGE_TEXT_MAX = READ_IN_PROMPT_MAX;
+
+/**
+ * The target a page is named by: the folder `knowledge.list` answered with, or
+ * a title at the tier's top level.
+ *
+ * The folder is the page's own identity — the tree walks it segment by segment,
+ * and a page inside a topic folder has no top-level name at all. A title is kept
+ * as the short way in for a page directly under the base, and resolved the way a
+ * create places one (`knowledgeFolderName`); naming a page by a title it was
+ * never filed under is the guess the listing exists to prevent.
+ */
+function pageTarget(args: Record<string, unknown>): { target: string; named: string } {
+  const folder = optionalTextArg(args, "folder");
+  if (folder) return { target: folder, named: folder };
+  const title = textArg(args, "title");
+  return { target: knowledgeFolderName(title), named: title };
+}
+
 export const listKnowledge = defineTool({
   name: "knowledge.list",
   description:
     "List the pages and folders of this account's knowledge base, with their " +
-    "titles. List before reading: a title is taken from this answer, never " +
-    `guessed. \`limit\` is how many entries to answer with (at most ${TOOL_LIST_MAX}); ` +
+    "titles and folders. List before reading: a page's `folder` is taken from " +
+    `this answer, never guessed. \`limit\` is how many entries to answer with (at most ${TOOL_LIST_MAX}); ` +
     "`total` and `truncated` say whether the base holds more.",
   authority: "reversible",
   writes: false,
@@ -60,14 +85,16 @@ export const listKnowledge = defineTool({
 export const readKnowledgePage = defineTool({
   name: "knowledge.read",
   description:
-    "Read one page of this account's knowledge base by its title, as a reader " +
-    "sees it now: the title, the tags, the text, and which revision is in force. " +
+    "Read one page of this account's knowledge base, as a reader sees it now: " +
+    "the title, the tags, the text, and which revision is in force. Name it by " +
+    "the `folder` knowledge.list answered with; `title` names a page directly " +
+    "under the base. " +
     `The text is at most ${KNOWLEDGE_TEXT_MAX} characters; \`textLength\` and ` +
     "`truncated` say whether the page holds more, and `offset` reads on from where " +
     "the last answer ended.",
   authority: "reversible",
   writes: false,
-  keys: ["offset", "title"],
+  keys: ["folder", "offset", "title"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const offset = args.offset ?? 0;
@@ -76,13 +103,13 @@ export const readKnowledgePage = defineTool({
         "bad_arguments",
         '"offset" must be a whole number of at least 0.',
       );
-    return { title: textArg(args, "title"), offset };
+    return { ...pageTarget(args), offset };
   },
-  run: async ({ ctx, accountId }, { title, offset }) => {
+  run: async ({ ctx, accountId }, { target, named, offset }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
     if (tier === null) throw notFound("knowledge base in this account");
-    const view = await readArticle(ctx, accountId, tier, knowledgeFolderName(title));
-    if (!view) throw notFound(`knowledge page titled "${title}"`);
+    const view = await readArticle(ctx, accountId, tier, target);
+    if (!view) throw notFound(`knowledge page "${named}"`);
     // What a reader sees now, and only it: the draft is behind the revision in
     // force once one is, and the history is not what the page says.
     const page = view.effective ?? view.draft;
@@ -105,25 +132,25 @@ export const readKnowledgePage = defineTool({
 export const proposePage = defineTool({
   name: "knowledge.propose",
   description:
-    "Propose a change to a page of this account's knowledge base, by its title. " +
-    "The words you give become the page's draft: a person reads them and approves " +
-    "the change, and nothing is in force until they do. The page's title, tags " +
-    "and checklist stay as they are.",
+    "Propose a change to a page of this account's knowledge base. Name it by the " +
+    "`folder` knowledge.list answered with; `title` names a page directly under " +
+    "the base. The words you give become the page's draft: a person reads them " +
+    "and approves the change, and nothing is in force until they do. The page's " +
+    "title, tags and checklist stay as they are.",
   authority: "reversible",
   writes: true,
   surface: "knowledge",
   spend: { steps: 1 },
-  keys: ["text", "title"],
+  keys: ["folder", "text", "title"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
-    return { title: textArg(args, "title"), text: textArg(args, "text") };
+    return { ...pageTarget(args), text: textArg(args, "text") };
   },
-  run: async ({ ctx, accountId }, { title, text }) => {
+  run: async ({ ctx, accountId }, { target, named, text }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
     if (tier === null) throw notFound("knowledge base in this account");
-    const folder = knowledgeFolderName(title);
-    const view = await readArticle(ctx, accountId, tier, folder);
-    if (!view) throw notFound(`knowledge page titled "${title}"`);
+    const view = await readArticle(ctx, accountId, tier, target);
+    if (!view) throw notFound(`knowledge page "${named}"`);
     /*
      * What the proposal keeps: the draft's own title, tags and checklist, and
      * the effective revision's when the page has no draft yet. Only the words
@@ -135,7 +162,7 @@ export const proposePage = defineTool({
       const summary = await proposeArticle(
         ctx,
         accountId,
-        folder,
+        target,
         {
           title: held?.title ?? view.summary.title,
           tags: held?.tags ?? [],
