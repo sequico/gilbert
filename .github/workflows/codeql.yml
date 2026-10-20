@@ -27,7 +27,11 @@ on:
 permissions:
   contents: read
   actions: read
-  security-events: read
+  # The analysis stores its result where the repository's code scanning reads
+  # it. This is the workflow's own ceiling, and a caller can only lower it: a
+  # `read` here made the CodeQL Action retry an upload it was not allowed to
+  # make, and the run still said success with nothing stored.
+  security-events: write
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -40,7 +44,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-      security-events: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
