@@ -98,6 +98,19 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   but it replaces Gilbert's sign-in page and may need an OAuth client registered.
   #75 is where it came from; the refusal points at app passwords.
 
+- **Granular roles and privileges.** A human account is one of two things: a
+  normal user, or an installation administrator whose door is proved by the
+  directory (ADR 0015). A normal user reaches their own account and the groups
+  they belong to, and inside a group there is no role to hold — membership is the
+  grant. To meet an ISO-style access-control requirement — least privilege,
+  segregation of duties, per-area grants that can be reviewed — an installation
+  needs more: roles, and a privilege per area (mail, calendar, contacts, files,
+  the KB, workorders, chat, administration), so a person can be trusted with one
+  part of the work and not another. That model is **not designed and not
+  built** — no model, no ADR, no code — and until it exists the product offers
+  the two-level boundary and the trace of every administrative act, which is not
+  the same thing.
+
 - **Signing and encrypting mail.** Reading a signature is built (S/MIME checked
   on read; signer remembered; a change called out — [Checking a
   signature](FEATURES.md#checking-a-signature)). Producing a signature or
