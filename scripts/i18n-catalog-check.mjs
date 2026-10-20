@@ -67,6 +67,10 @@ import {
  *
  * 212 -> 214: the cached and uncached token tiles (`AgentOverview.tsx`).
  *
+ * 224 -> 225: the Work panel's "Steps taken", the steps a run spent — "Steps"
+ * stays for the checklist, so the rename adds a source string
+ * (`views/admin/agents/AgentOverview.tsx`).
+ *
  * 223 -> 224: an answer the trust reading refused, on the run it would have
  * continued (`views/admin/agent/RunCard.tsx`).
  *
@@ -85,7 +89,7 @@ import {
  * 214 -> 216: a run row's unreadable label and its steps/calls summary
  * (`views/admin/agents/GroupRuns.tsx`).
  */
-const MISSING_MAX = 224;
+const MISSING_MAX = 225;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.
