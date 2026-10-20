@@ -9,6 +9,10 @@
  * `@gilbert/shared/memory`; what lives here is where the sheet is, how the
  * store is read, and the one write the agent makes.
  *
+ * A fact is standing knowledge and never a log: the door that writes one refuses
+ * a dated sentence and a record's id (`tools/memory.ts`), because what happened
+ * once belongs to the run's own record.
+ *
  * **A person's fact is in force.** The write refuses to replace a sheet whose
  * origin is a person — correcting one is the surface's to do (ADR 0033) — and
  * the refusal is a code a caller composes a sentence from. A sheet the agent
@@ -41,6 +45,9 @@
  * than overwriting a change this read never saw, and two writes that both found
  * a subject absent cannot both make a sheet for it.
  */
+// ADR-0033 OWED: memory-pruning -- a retired fact leaves the selection and keeps
+// its sheet, and the facts no run ever recalled are what a person is shown first
+// when the store is pruned by hand.
 
 import { randomUUID } from "node:crypto";
 import {

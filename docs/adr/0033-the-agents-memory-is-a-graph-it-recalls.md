@@ -115,3 +115,13 @@ those facts from Administration.
 - The Master's account becomes the place where the installation's agent has its
   understanding, which is one more reason the Master is the principal everything
   belongs to (ADR 0009).
+- A fact is **standing knowledge, not a log**: the door refuses a sentence that
+  carries a date or a record's id, and a subject that is one record rather than a
+  thing a later change names again (`server/src/agent/tools/memory.ts`). What
+  happened once belongs to the run's own record, which is where a reader looks
+  for it.
+- What the memory still owes is how a fact stops being carried **without being
+  deleted**: a retired fact leaves the selection and keeps its sheet, and the
+  facts no run ever recalled are the ones a person is shown first when the store
+  is pruned by hand.
+<!-- owed: memory-pruning -->
