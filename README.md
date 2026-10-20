@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/banner.png" alt="Gilbert — company mail and operations" width="880">
+  <img src="docs/media/banner.png" alt="Gilbert — company mail and operations, with AI agents inside" width="880">
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 # Gilbert
 
-**Company mail and operations, with an agent that does the paperwork.**
+**Company mail and operations, with AI agents inside.**
 
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
 **R**esource **T**raceability.

@@ -2,7 +2,7 @@
   "name": "gilbert",
   "version": "0.0.0",
   "private": true,
-  "description": "Gilbert \u2014 an enterprise butler for Stalwart: a first-class JMAP mail client",
+  "description": "Company mail and operations, with AI agents inside.",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "workspaces": [
