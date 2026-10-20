@@ -2195,6 +2195,10 @@ export const catalog: Catalog = {
     "Mark completed": "Als abgeschlossen markieren",
     "Succeeded by {uid}": "Abgelöst durch {uid}",
     "The workorder that succeeded this one": "Der Auftrag, der diesen abgelöst hat",
+    "Load earlier messages": "Ältere Nachrichten laden",
+    "Runs in flight": "Laufende Läufe",
+    "Waiting on a person": "Wartet auf eine Person",
+    "Nobody holds the agent.": "Niemand hält den Agenten.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

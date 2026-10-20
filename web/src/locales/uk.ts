@@ -2133,6 +2133,10 @@ export const catalog: Catalog = {
     "Mark completed": "Позначити як виконаний",
     "Succeeded by {uid}": "Наступник: {uid}",
     "The workorder that succeeded this one": "Workorder, що став наступником",
+    "Load earlier messages": "Завантажити попередні повідомлення",
+    "Runs in flight": "Поточні запуски",
+    "Waiting on a person": "Очікування відповіді людини",
+    "Nobody holds the agent.": "Агента ніхто не утримує.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

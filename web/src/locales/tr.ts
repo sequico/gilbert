@@ -2061,6 +2061,10 @@ export const catalog: Catalog = {
     "Mark completed": "Tamamlandı olarak işaretle",
     "Succeeded by {uid}": "Yerine geçen: {uid}",
     "The workorder that succeeded this one": "Bunun yerine geçen iş emri",
+    "Load earlier messages": "Önceki iletileri yükle",
+    "Runs in flight": "Sürmekte olan çalışmalar",
+    "Waiting on a person": "Bir kişi bekleniyor",
+    "Nobody holds the agent.": "Aracıyı tutan yok.",
   },
   plurals: {
     "({n} deleted first)": {

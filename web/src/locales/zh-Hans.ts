@@ -2071,6 +2071,10 @@ export const catalog: Catalog = {
     "Mark completed": "标记为已完成",
     "Succeeded by {uid}": "由 {uid} 接替",
     "The workorder that succeeded this one": "接替此工单的工单",
+    "Load earlier messages": "加载更早的消息",
+    "Runs in flight": "进行中的运行",
+    "Waiting on a person": "等待人员回复",
+    "Nobody holds the agent.": "没有进程持有代理。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

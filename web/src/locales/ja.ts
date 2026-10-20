@@ -2138,6 +2138,10 @@ export const catalog: Catalog = {
     "Mark completed": "完了としてマーク",
     "Succeeded by {uid}": "{uid} が後継",
     "The workorder that succeeded this one": "これを引き継いだワークオーダー",
+    "Load earlier messages": "以前のメッセージを読み込む",
+    "Runs in flight": "進行中の実行",
+    "Waiting on a person": "担当者の回答待ち",
+    "Nobody holds the agent.": "エージェントを保持しているプロセスはありません。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
