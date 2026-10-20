@@ -33,6 +33,7 @@ import { type Drop, dropEvent } from "./queue.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules } from "./rules.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
+import { takeOwnCalendarChange } from "./tools/calendar.js";
 import type { ImageReader } from "./tools/content.js";
 import { readMessageForAnswer, sendMail, takeOwnMailChange } from "./tools/mail.js";
 
@@ -347,7 +348,12 @@ export async function workChanges(
   const events = [
     ...due.map(dropEvent),
     ...read.events.filter(
-      (event) => !(event.source === "mail" && takeOwnMailChange(event.where)),
+      (event) =>
+        // The agent's own writes are not activity to answer (its sent mail, and
+        // its own calendar events): a rule that wakes on them opens a run whose
+        // write wakes it again.
+        !(event.source === "mail" && takeOwnMailChange(event.where)) &&
+        !(event.source === "calendar" && takeOwnCalendarChange(event.where)),
     ),
   ];
   if (!events.length) {

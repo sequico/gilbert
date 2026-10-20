@@ -3029,7 +3029,7 @@ function calendarEventSet(a: Obj) {
     }
   }
 
-  return setResp(accountOf(a), "CalendarEvent", {
+  const res = setResp(accountOf(a), "CalendarEvent", {
     created,
     updated,
     destroyed,
@@ -3037,6 +3037,23 @@ function calendarEventSet(a: Obj) {
     ...(Object.keys(notUpdated).length ? { notUpdated } : {}),
     ...(Object.keys(notDestroyed).length ? { notDestroyed } : {}),
   });
+  /*
+   * The calendar's own change log, which the agent reads to wake a rule
+   * (ADR 0031). Recorded from the answer's ids, never the request's keys, and
+   * only when the state moved: a refused write is not a change, and a log entry
+   * the reading cannot resolve would open a run on nothing.
+   */
+  if (res.newState !== res.oldState)
+    calendarChanges.record(
+      String(a.accountId ?? ACCOUNT),
+      {
+        created: Object.values(created).map((x) => x.id),
+        updated: Object.keys(updated),
+        destroyed,
+      },
+      String(res.newState),
+    );
+  return res;
 }
 
 /**
@@ -4338,6 +4355,18 @@ const handlers: Record<string, Handler> = {
   // participants addressed the RFC 8984 way. The mock did neither, which is how
   // #26 and #30 reached a live server unnoticed — so it now does both.
   "CalendarEvent/set": (a) => calendarEventSet(a),
+  /*
+   * The calendar's change log (ADR 0031): the agent's reading asks what moved in
+   * an account's events, exactly as it asks about mail and Files, and a calendar
+   * `watch` wakes a rule from it. The same paging and the same refusal as the
+   * other two logs, because it is the same JMAP shape.
+   */
+  "CalendarEvent/changes": (a) => {
+    const accountId = String(a.accountId ?? ACCOUNT);
+    const relevant = calendarChanges.since(accountId, a.sinceState);
+    if (!relevant) throw cannotCalculateChanges("CalendarEvent");
+    return pageChanges(accountId, "CalendarEvent", relevant, a.sinceState, a.maxChanges);
+  },
   "CalendarEvent/parse": (a) => calendarEventParse(a),
   "ParticipantIdentity/get": genericGet(participantIdentities, "ParticipantIdentity"),
   // Principal/query honours the type filter: Stalwart 0.16.21 maps
@@ -5327,6 +5356,13 @@ const fileNodeChanges = changeLog();
  * here -- so a bug living in it is unreproducible against the mock.
  */
 const contactCardChanges = changeLog();
+
+/**
+ * The CalendarEvent changes (ADR 0031): a calendar `watch` is a rule woken by an
+ * event written in the group's account, and the reading asks this log for it the
+ * way it asks about mail and Files.
+ */
+const calendarChanges = changeLog();
 
 /** The refusal a `/changes` gets when its `sinceState` is past the window. */
 function cannotCalculateChanges(type: string): MethodError {

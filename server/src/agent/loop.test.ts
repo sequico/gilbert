@@ -453,6 +453,50 @@ test("a change a rule watches opens a run, and the record shows every step of it
 });
 
 /**
+ * The calendar is a surface like any other (ADR 0031): an event written in the
+ * group's account wakes a rule that watches it, and the run it opens names the
+ * event by the id `calendar.read` takes.
+ */
+test("a calendar event written in the group's account wakes a rule that watches it", async () => {
+  const id = "intake-calendar";
+  await putRule(id, ["calendar"]);
+  const agent = loop();
+  await agent.start();
+
+  const created = await clientOf(ctx).call<{ created?: { e?: { id?: string } } }>(
+    "CalendarEvent/set",
+    {
+      accountId,
+      create: {
+        e: {
+          "@type": "Event",
+          start: "2026-10-22T09:00:00",
+          timeZone: "Europe/Rome",
+          duration: "PT1H",
+          title: "Container 12 arrives",
+        },
+      },
+    },
+    [CAPABILITIES.calendars],
+  );
+  const event = created.created?.e?.id;
+  assert.ok(event, "the event is in the account's calendar");
+
+  answerWith({ rules: [id], facts: { event } });
+  answerWith({ done: "noted" });
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 1, "the event is a change the rule answers");
+  const run = await runOf(id);
+  assert.equal(
+    run.startedBy.woke,
+    `calendar created: ${event}`,
+    "and the run says which event woke it, by the id calendar.read takes",
+  );
+  assert.equal(run.state, "done");
+});
+
+/**
  * A mail change is decided by one call over what the process already holds.
  *
  * The words of the message are read before the turn (`changes.ts`), so the turn

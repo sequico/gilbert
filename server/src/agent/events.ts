@@ -121,6 +121,14 @@ export interface EventCursor {
   /** The FileNode state the last read ended at. */
   files: string;
   /**
+   * The CalendarEvent state the last read ended at.
+   *
+   * A calendar event is not a node in Files, so the event rail is a third log:
+   * the mock and Stalwart both answer `CalendarEvent/changes` for it, and the
+   * cursor is the same pair of tokens the other two keep.
+   */
+  calendar: string;
+  /**
    * The path each node id was last read at, by id.
    *
    * A destroyed node cannot be read again, so a removal's surface is answered
@@ -164,7 +172,22 @@ export async function anchorEvents(ctx: Ctx, accountId: string): Promise<EventCu
   );
   if (typeof mail.state !== "string")
     throw new Error("The mail server answered no Email state for this account.");
-  return { mail: mail.state, files: await appFolderState(ctx, accountId), seen: {} };
+  const calendar = await clientOf(ctx).call<{ state?: unknown }>(
+    "CalendarEvent/get",
+    { accountId, ids: [] },
+    [CAPABILITIES.calendars],
+  );
+  // An account with no calendar still answers a state: the log exists whether or
+  // not an event was ever written, and a reading that refused here would leave
+  // a group without a calendar unable to read any of its other changes.
+  if (typeof calendar.state !== "string")
+    throw new Error("The mail server answered no CalendarEvent state for this account.");
+  return {
+    mail: mail.state,
+    files: await appFolderState(ctx, accountId),
+    calendar: calendar.state,
+    seen: {},
+  };
 }
 
 /** One `/changes` answer, as this build can use it. */
@@ -269,17 +292,19 @@ export async function readAccountEvents(
 ): Promise<AccountEvents> {
   let mail = cursor.mail;
   let files = cursor.files;
+  let calendar = cursor.calendar;
   let seen = cursor.seen;
   const events: AccountEvent[] = [];
   let pages = 0;
   for (;;) {
-    let page: { mail: ChangeSet; files: ChangeSet };
+    let page: { mail: ChangeSet; files: ChangeSet; calendar: ChangeSet };
     try {
       page = await readChanges(
         ctx,
         accountId,
         mail,
         files,
+        calendar,
         opts.maxChanges ?? MAX_CHANGES_PER_READ,
       );
     } catch (err) {
@@ -300,6 +325,10 @@ export async function readAccountEvents(
       throw new Error(
         "The mail server says the FileNode change log holds more but answered the state it was asked from: the reading cannot go on.",
       );
+    if (page.calendar.hasMoreChanges && page.calendar.newState === calendar)
+      throw new Error(
+        "The mail server says the CalendarEvent change log holds more but answered the state it was asked from: the reading cannot go on.",
+      );
 
     const paths = await nodePaths(ctx, accountId, [
       ...page.files.created,
@@ -314,6 +343,13 @@ export async function readAccountEvents(
     for (const change of ["created", "updated", "destroyed"] as const) {
       for (const id of page.mail[change])
         events.push({ source: "mail", change, where: id });
+      /*
+       * A calendar event names itself by its id: it is not a node, has no path,
+       * and `calendar.read` takes exactly that id. A removal is reported the same
+       * way — the event is gone and the id is the only name it ever had.
+       */
+      for (const id of page.calendar[change])
+        events.push({ source: "calendar", change, where: id });
       for (const id of page.files[change]) {
         // The path the server still answers for the node, or the one this
         // process read while the node was there: a removal named by the surface
@@ -356,11 +392,21 @@ export async function readAccountEvents(
 
     mail = page.mail.newState;
     files = page.files.newState;
+    calendar = page.calendar.newState;
     pages += 1;
     if (pages >= (opts.maxPages ?? Number.POSITIVE_INFINITY)) break;
-    if (!page.mail.hasMoreChanges && !page.files.hasMoreChanges) break;
+    if (
+      !page.mail.hasMoreChanges &&
+      !page.files.hasMoreChanges &&
+      !page.calendar.hasMoreChanges
+    )
+      break;
   }
-  return { events: fuseEvents(events), cursor: { mail, files, seen }, gap: null };
+  return {
+    events: fuseEvents(events),
+    cursor: { mail, files, calendar, seen },
+    gap: null,
+  };
 }
 
 /**
@@ -406,18 +452,25 @@ async function readChanges(
   accountId: string,
   mail: string,
   files: string,
+  calendar: string,
   maxChanges: number,
-): Promise<{ mail: ChangeSet; files: ChangeSet }> {
+): Promise<{ mail: ChangeSet; files: ChangeSet; calendar: ChangeSet }> {
   const answered: JmapResult = await clientOf(ctx).chain(
     [
       ["Email/changes", { accountId, sinceState: mail, maxChanges }, "mail"],
       [FILENODE_CHANGES, { accountId, sinceState: files, maxChanges }, "files"],
+      [
+        "CalendarEvent/changes",
+        { accountId, sinceState: calendar, maxChanges },
+        "calendar",
+      ],
     ],
-    [CAPABILITIES.mail, FILENODE_CAP],
+    [CAPABILITIES.mail, FILENODE_CAP, CAPABILITIES.calendars],
   );
   return {
     mail: readChangeSet(answered.args("mail"), "Email"),
     files: readChangeSet(answered.args("files"), "FileNode"),
+    calendar: readChangeSet(answered.args("calendar"), "CalendarEvent"),
   };
 }
 

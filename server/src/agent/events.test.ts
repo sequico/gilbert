@@ -276,6 +276,12 @@ interface ScriptedPage {
     created?: string[];
     refuse?: boolean;
   };
+  calendar?: {
+    newState?: string;
+    hasMoreChanges?: boolean;
+    created?: string[];
+    refuse?: boolean;
+  };
 }
 
 /**
@@ -300,8 +306,13 @@ async function scriptedUpstream(
       };
       const page = pages[Math.min(answered++, pages.length - 1)] ?? {};
       const methodResponses = body.methodCalls.map(([name, , id]) => {
-        if (name === "Email/changes" || name === "FileNode/changes") {
-          const side = name === "Email/changes" ? page.mail : page.files;
+        if (name.endsWith("/changes")) {
+          const side =
+            name === "Email/changes"
+              ? page.mail
+              : name === "FileNode/changes"
+                ? page.files
+                : page.calendar;
           if (side?.refuse)
             return ["error", { type: "cannotCalculateChanges", description: "gone" }, id];
           return [
@@ -347,7 +358,13 @@ test("a log that says it holds more without moving its state is refused", async 
   ]);
   try {
     await assert.rejects(
-      () => readAccountEvents(fake, "a1", { mail: "s0", files: "f0", seen: {} }),
+      () =>
+        readAccountEvents(fake, "a1", {
+          mail: "s0",
+          files: "f0",
+          calendar: "c0",
+          seen: {},
+        }),
       /holds more but answered the state it was asked from/,
       "a page that does not move the reading forward cannot be paged past",
     );
@@ -368,6 +385,7 @@ test("a refusal mid-read keeps the pages already read, and names the gap", async
     const read = await readAccountEvents(fake, "a1", {
       mail: "s0",
       files: "f0",
+      calendar: "c0",
       seen: {},
     });
     assert.deepEqual(
@@ -432,5 +450,94 @@ test("a removal whose path this process never read never wakes a rule", async ()
     events.find((event) => event.change === "destroyed" && event.where === id),
     undefined,
     "a removal nobody can name is not actionable, and the id is no address to report",
+  );
+});
+
+test("a calendar event written in the account is one change on the calendar surface", async () => {
+  /*
+   * The calendar is its own log, not a node in Files (ADR 0031): an event is
+   * named by its id, which is exactly what `calendar.read` takes, and it is read
+   * once — the cursor moves with the page like the other two logs.
+   */
+  const anchor = await anchorEvents(ctx, accountId);
+  const created = await clientOf(ctx).call<{ created?: { e?: { id?: string } } }>(
+    "CalendarEvent/set",
+    {
+      accountId,
+      create: {
+        e: {
+          "@type": "Event",
+          start: "2026-10-21T09:00:00",
+          timeZone: "Europe/Rome",
+          duration: "PT1H",
+          title: "Container 12 arrives",
+        },
+      },
+    },
+    [CAPABILITIES.calendars],
+  );
+  const id = created.created?.e?.id;
+  assert.ok(id, "the mock created the event");
+
+  const read = await readAccountEvents(ctx, accountId, anchor);
+  assert.deepEqual(
+    read.events.filter((event) => event.source === "calendar"),
+    [{ source: "calendar", change: "created", where: id }],
+    "the event is a change on the calendar surface, named by its id",
+  );
+
+  const again = await readAccountEvents(ctx, accountId, read.cursor);
+  assert.deepEqual(
+    again.events.filter((event) => event.source === "calendar"),
+    [],
+    "and the cursor it answered means the change is not reported twice",
+  );
+});
+
+test("the agent's own calendar write leaves a mark the reading takes once", async () => {
+  /*
+   * A rule watching the calendar that woke on the agent's own event would open a
+   * run whose write wakes it again: the writer leaves the event's id behind, and
+   * the change reading takes that mark as it reads the change (`changes.ts`), so
+   * the agent's own act is never answered.
+   */
+  const { runTool, TOOLS } = await import("./tools.js");
+  const { takeOwnCalendarChange } = await import("./tools/calendar.js");
+  const { startRun } = await import("../shared/run.js");
+  const run = startRun({
+    id: "r-calendar",
+    startedBy: { rule: "cal", instruction: null, woke: "test" },
+  });
+  const listed = (await runTool(TOOLS, { ctx, accountId, run }, "calendar.list", {})) as {
+    calendars: Array<{ id: string; mayWrite: boolean }>;
+  };
+  const writable = listed.calendars.find((one) => one.mayWrite);
+  assert.ok(writable, "the account has a calendar the agent may write");
+
+  // The reading's position is taken *before* the write, so what it reports is
+  // what the agent did since it.
+  const anchor = await anchorEvents(ctx, accountId);
+  const created = (await runTool(TOOLS, { ctx, accountId, run }, "calendar.create", {
+    calendar: writable.id,
+    title: "Written by the agent",
+    start: "2026-10-21T10:00:00",
+  })) as { id: string };
+  assert.ok(created.id, "the agent's event exists");
+
+  const read = await readAccountEvents(ctx, accountId, anchor);
+  assert.deepEqual(
+    read.events.filter((event) => event.source === "calendar"),
+    [{ source: "calendar", change: "created", where: created.id }],
+    "the change is in the log: the reading reports it, and the mark is what answers it",
+  );
+  assert.equal(
+    takeOwnCalendarChange(created.id),
+    true,
+    "the writer's mark is there for the change it explains",
+  );
+  assert.equal(
+    takeOwnCalendarChange(created.id),
+    false,
+    "and it explains one change only",
   );
 });

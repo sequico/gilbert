@@ -32,13 +32,21 @@ import { WORKORDER_FOLDER } from "../shared/workorder.js";
 /**
  * A surface of a group's own account that activity happens on (ADR 0027, 0031).
  *
- * The five the records name: its `chat`, its `mail`, its `knowledge` base, its
- * `workorder`s and its `files`. A chat message, a KB page and a workorder are
- * Files nodes like any other — the folder a node sits in is the whole of what
- * makes it what it is — but each is a surface of its own to a rule that watches
- * it, so a node outside those three folders is simply `files`.
+ * The six the records name: its `chat`, its `mail`, its `knowledge` base, its
+ * `workorder`s, its `files`, and its `calendar`. A chat message, a KB page and a
+ * workorder are Files nodes like any other — the folder a node sits in is the
+ * whole of what makes it what it is — but each is a surface of its own to a rule
+ * that watches it, so a node outside those three folders is simply `files`. A
+ * calendar event is not a node: it is read from its own log
+ * (`CalendarEvent/changes`), so its surface is the one the reading names.
  */
-export type AccountEventSource = "mail" | "files" | "chat" | "workorder" | "knowledge";
+export type AccountEventSource =
+  | "mail"
+  | "files"
+  | "chat"
+  | "workorder"
+  | "knowledge"
+  | "calendar";
 
 /**
  * What happened to the object: it appeared, it changed, or it was removed.

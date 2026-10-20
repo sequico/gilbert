@@ -15,9 +15,14 @@ names the surface it touches (`ToolSpec.surface`,
 the run keeps `off` with the code `surface_off` (`runTool`,
 `server/src/agent/tools.ts`), before the authority class is asked. A v1 rule is
 read as the matrix it means and is written as v2 on the next save. The calendar
-**surface** is in the matrix and its writes are enforced; the calendar **change
-log** that would wake a rule on it is not built, so a calendar `watch` does not
-wake anything yet — that source is owed. The builder of the prose the agent carries is
+**surface** is in the matrix and its writes are enforced, and the calendar
+**change log** wakes it: `CalendarEvent/changes` is read with its own cursor
+beside mail and Files (`server/src/agent/events.ts`, one page of each log in one
+request), an event written in the group's account is reported on the `calendar`
+surface named by its own id — which is what `calendar.read` takes — and the
+agent's own create, change and removal leave a mark the reading takes
+(`tools/calendar.ts`, `takeOwnCalendarChange`) so a rule never wakes on its own
+write. The builder of the prose the agent carries is
 `server/src/agent/prose.ts`, in the record's own order. A run records
 the rule or the instruction that started it (`server/src/shared/run.ts`,
 `RunStart`), the tools a rule's instruction is carried out with are

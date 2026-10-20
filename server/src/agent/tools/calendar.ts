@@ -266,6 +266,8 @@ export const createEvent = defineTool({
         "The mail server created the event but returned no id.",
         502,
       );
+    // Its own write, so the change reading does not answer it.
+    rememberOwnEvent(created);
     return { id: created, calendar: chosen.id, title, start, duration: event.duration };
   },
 });
@@ -317,9 +319,38 @@ export const updateEvent = defineTool({
     );
     const refused = res.notUpdated?.[id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    // Its own write, so the change reading does not answer it.
+    rememberOwnEvent(id);
     return { id, changed: Object.keys(patch) };
   },
 });
+
+/**
+ * The events this process wrote, so the change reading can tell the agent's own
+ * act from a person's.
+ *
+ * A create, a change or a removal the agent made is activity, but not activity
+ * to answer: a rule watching the calendar that woke on its own write would open
+ * a run, whose write would wake it again. The ids are the server's, the set is
+ * bounded because it is a speed-up and never a store, and the mark is taken by
+ * the first change it explains — one write is one change.
+ */
+const ownEvents = new Set<string>();
+const OWN_EVENTS_KEPT = 500;
+
+function rememberOwnEvent(id: string): void {
+  if (ownEvents.has(id)) return;
+  ownEvents.add(id);
+  if (ownEvents.size > OWN_EVENTS_KEPT) {
+    const oldest = ownEvents.values().next().value;
+    if (oldest !== undefined) ownEvents.delete(oldest);
+  }
+}
+
+/** Whether the next change of this event is the agent's own write, taking the mark with it. */
+export function takeOwnCalendarChange(id: string): boolean {
+  return ownEvents.delete(id);
+}
 
 export const deleteEvent = defineTool({
   name: "calendar.delete",
@@ -356,6 +387,8 @@ export const deleteEvent = defineTool({
     );
     const refused = res.notDestroyed?.[id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    // Its own removal, so the change reading does not answer it.
+    rememberOwnEvent(id);
     return { id, removed: true };
   },
 });

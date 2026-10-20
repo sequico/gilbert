@@ -161,9 +161,4 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   route answering whether the agent serves the group and the matrix it carries.
   The agent needs no new capability: the chat message it is sent is the one the
   chat rule already watches.
-- **The calendar as an event surface.** ADR 0031's matrix has the calendar row and
-  its writes are enforced, but the change log that would wake a rule on a
-  calendar change is not read: a calendar `watch` acts and does not wake. The
-  source — `CalendarEvent/changes` with its own cursor, the mock parity and the
-  filter for the agent's own calendar writes — is owed.
 
