@@ -342,7 +342,9 @@ withdrawn in Stalwart needs no restart.
 against that folder in `gilbert/pending.json` and answered once the folder has
 been quiet for five minutes, or once the drop is twenty minutes old — one
 decision, one run, one report, with every file the drop brought in the decision
-prompt. The queue is a document in the group's own app folder, so a restart
+prompt and in the run's own record — so its plan reads the names instead of
+listing the folder again. The queue is a document in the group's own app folder,
+so a restart
 resumes the same drop, and the instant the drop opened is part of the run's key,
 so a later drop in the same folder is a run of its own. A folder that appears is
 not a document and a removal whose path is unknown wakes no rule. A question is

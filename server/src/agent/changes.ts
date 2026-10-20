@@ -69,6 +69,8 @@ export interface ChangesDeps {
   dueDrops(accountId: string, now: Date): Promise<Drop[]>;
   /** Drop a folder from the queue, once its batch was worked. */
   forgetDrop(accountId: string, folder: string): Promise<void>;
+  /** Take a destroyed file out of a drop still waiting. */
+  forgetDropPath(accountId: string, path: string): Promise<void>;
   /** Read the one document a file change names, for the decision turn. */
   readEventFile(
     accountId: string,
@@ -123,17 +125,6 @@ export function wokeOf(event: AccountEvent): string {
     : base;
 }
 
-/**
- * Whether a path names a document rather than a folder.
- *
- * shortcut: a name with no dot is read as a folder, so a document filed without
- * an extension is not queued; the change log names a node's address, not its
- * type. Upgrade when the event can carry the node's type.
- */
-function looksLikeFile(path: string): boolean {
-  const name = path.slice(path.lastIndexOf("/") + 1);
-  return name.includes(".");
-}
 /**
  * Which rule and which change a run is the answer to: its own `startedBy`.
  *
@@ -368,13 +359,17 @@ export async function workChanges(
     /*
      * A document landing in a folder is one file of a drop, not a change to
      * answer on its own: it is queued against its folder and reported once the
-     * burst is over (ADR 0038). A folder that appears is not a document at all,
-     * and a removal is never queued — there is nothing to report at the end.
+     * burst is over (ADR 0038). The reading already tells a folder from a
+     * document, so only documents reach here. A removal is not queued; it takes
+     * its path out of a drop still waiting, so the report cannot name a file
+     * that is no longer in the folder.
      */
     if (event.source === "files" && event.change !== "destroyed" && !event.also) {
-      if (looksLikeFile(event.where)) await deps.noteDrop(accountId, event.where, now);
+      await deps.noteDrop(accountId, event.where, now);
       continue;
     }
+    if (event.source === "files" && event.change === "destroyed")
+      await deps.forgetDropPath(accountId, event.where);
     /*
      * A chat message is read once here, so the decision turn has its words
      * without spending a model call and a round trip on `chat.read`.

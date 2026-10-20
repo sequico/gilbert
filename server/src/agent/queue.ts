@@ -55,6 +55,12 @@ const DROPS_MAX = 40;
 /** How many paths one drop names; a longer burst keeps its newest files. */
 const PATHS_PER_DROP_MAX = 200;
 
+/** How long an empty queue is remembered, so every pass need not read it. */
+const EMPTY_TTL_MS = 30_000;
+
+/** The accounts whose queue was empty when last read, and when. */
+const emptySince = new Map<string, number>();
+
 /** One folder's burst, as the queue holds it. */
 export interface Drop {
   /** The folder the files landed in; "" is the Files root. */
@@ -100,16 +106,20 @@ function isDrop(x: unknown): x is Drop {
  * damage as "nothing pending" would forget them in silence. The pass stops and
  * says so, and the operator removes the document to start again from the files
  * that are still in the folder.
+ *
+ * An empty queue that was just read is remembered for `EMPTY_TTL_MS`: every
+ * pass asks, and a queue with nothing in it is the ordinary state. Any write
+ * clears the memory, so a file noted now is never hidden by the read before it.
  */
 async function readPending(ctx: Ctx, accountId: string): Promise<PendingDoc> {
-  /*
-   * The app-folder-relative path is the file's name: `writeAppFileAt` is under
-   * the app folder already. Prefixing the folder wrote the queue one level too
-   * deep (`gilbert/gilbert/pending.json`), where every write of the queue was a
-   * change of its own and the drop it created never went quiet.
-   */
+  const known = emptySince.get(accountId);
+  if (known !== undefined && Date.now() - known < EMPTY_TTL_MS)
+    return { v: PENDING_VERSION, drops: [] };
   const found = await readAppFileAt(ctx, accountId, PENDING_FILE);
-  if (!found) return { v: PENDING_VERSION, drops: [] };
+  if (!found) {
+    emptySince.set(accountId, Date.now());
+    return { v: PENDING_VERSION, drops: [] };
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(found.text);
@@ -134,6 +144,8 @@ async function readPending(ctx: Ctx, accountId: string): Promise<PendingDoc> {
       `The agent's drop queue (${APP_FOLDER_NAME}/${PENDING_FILE}) holds a drop this build cannot read, so the files it names cannot be reported.`,
     );
   }
+  if (!doc.drops.length) emptySince.set(accountId, Date.now());
+  else emptySince.delete(accountId);
   return { v: PENDING_VERSION, drops: doc.drops };
 }
 
@@ -142,6 +154,8 @@ async function writePending(
   accountId: string,
   drops: readonly Drop[],
 ): Promise<void> {
+  // A write is the end of "nothing pending", whatever it leaves behind.
+  emptySince.delete(accountId);
   await writeAppFileAt(ctx, accountId, PENDING_FILE, {
     v: PENDING_VERSION,
     drops: [...drops],
@@ -214,6 +228,31 @@ export async function forgetDrop(
     accountId,
     doc.drops.filter((drop) => drop.folder !== folder),
   );
+}
+
+/**
+ * Take one path out of the queue, because the file is no longer there.
+ *
+ * A drop names what the change log said arrived; a file destroyed (or renamed,
+ * which is a destroy and a create) before the drop is answered must not be
+ * reported as if it were still in the folder. A drop left with no path is
+ * removed: there is nothing left to report.
+ */
+export async function forgetPath(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<void> {
+  const doc = await readPending(ctx, accountId);
+  let changed = false;
+  const drops = doc.drops
+    .map((drop) => {
+      if (!drop.paths.includes(path)) return drop;
+      changed = true;
+      return { ...drop, paths: drop.paths.filter((one) => one !== path) };
+    })
+    .filter((drop) => drop.paths.length > 0);
+  if (changed) await writePending(ctx, accountId, drops);
 }
 
 /**

@@ -299,10 +299,11 @@ function rule(id: string, watches: RuleDoc["watches"] = ["mail"]): RuleDoc {
 }
 
 /** One message delivered into the account: a create in its own Email log. */
-async function deliver(subject: string): Promise<string> {
+/** One message delivered into an account: a create in its own Email log. */
+async function deliver(subject: string, into = accountId): Promise<string> {
   const answer = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
     "Email/set",
-    { accountId, create: { c: { subject, mailboxIds: { inbox: true } } } },
+    { accountId: into, create: { c: { subject, mailboxIds: { inbox: true } } } },
     [CAPABILITIES.mail],
   );
   const id = answer.created?.c?.id;
@@ -431,6 +432,11 @@ test("a drop of files is one run and one report, after the folder is quiet", asy
   );
   const said = await findChatMessages(ctx, accountId, "one drop", 10);
   assert.equal(said.length, 1, "one report for the drop");
+  assert.match(
+    seen[1]?.user ?? "",
+    /DOC201026\.pdf/,
+    "the run is told the files the drop brought, not only the folder",
+  );
 });
 
 test("two changes of one address open one run, not two", async () => {
@@ -1218,6 +1224,13 @@ test("an account whose rules cannot be read is a gap, and the others are still w
     answerWith({ rules: [id], facts: {} });
     answerWith({ done: "filed despite the other group's bad rule" });
     await deliver("a booking confirmation");
+    /*
+     * The account with the broken rule is worked too: a quiet account pays no
+     * rule listing, and a folder that appears is not activity, so a document
+     * only under gilbert/rules/ does not reach it. A message does, and the
+     * broken rule is the gap that must not take the other account with it.
+     */
+    await deliver("a second confirmation", mailAccount);
     const summary = await agent.pass();
 
     assert.equal(summary.claimed, true, "the pass holds the installation's claim");

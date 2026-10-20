@@ -11,7 +11,9 @@ event that stands for a drop carries the folder, its files and the instant it
 opened (`server/src/agent/accountEvent.ts`), and the decision turn is shown the
 files (`server/src/agent/prompt.ts`). A drop of one file is read before the
 decision turn (`readEventFile`, `server/src/agent/loop.ts`), and a file turn
-gets two lookups rather than four (`server/src/agent/changes.ts`). A folder that
+gets two lookups rather than four (`server/src/agent/changes.ts`). The run a drop
+opens carries the files it answers (`startedBy.batch`, `server/src/shared/run.ts`),
+so its plan reads the names instead of listing the folder again. A folder that
 appears is not a document, and a removal whose path is unknown wakes no rule
 (`server/src/agent/events.ts`). A run is shown the questions the group already
 has open, and `chat.ask` does not post a question an open run already waits on

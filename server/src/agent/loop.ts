@@ -129,7 +129,12 @@ import {
   usageMeter,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
-import { forgetDrop as dropForgotten, dueDrops as dropsDue, noteFile } from "./queue.js";
+import {
+  forgetDrop as dropForgotten,
+  dueDrops as dropsDue,
+  forgetPath as dropPathForgotten,
+  noteFile,
+} from "./queue.js";
 import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
 import {
@@ -815,6 +820,7 @@ export class AgentLoop {
           noteDrop: (a, path, at) => noteFile(this.ctx, a, path, at),
           dueDrops: (a, at) => dropsDue(this.ctx, a, at),
           forgetDrop: (a, folder) => dropForgotten(this.ctx, a, folder),
+          forgetDropPath: (a, path) => dropPathForgotten(this.ctx, a, path),
           readEventFile: (a, path) => this.readEventFile(a, path),
         },
         accountId,
@@ -876,6 +882,9 @@ export class AgentLoop {
         // and so does the correspondent it answers.
         sends: rule.sends,
         wakeFrom,
+        // The whole drop this run answers, so its plan reads the names instead
+        // of listing the folder again (ADR 0038).
+        ...(event.also?.length ? { batch: [...event.also] } : {}),
       },
     });
     await createRun(this.ctx, accountId, run);
@@ -1161,6 +1170,7 @@ export class AgentLoop {
         ...(facts ? { facts } : {}),
         memory: selection,
         ...(openQuestions?.length ? { openQuestions } : {}),
+        ...(current.startedBy.batch?.length ? { batch: current.startedBy.batch } : {}),
         authorisations: current.authorisations,
       };
       // Counted before the call: a provider that times out was paid for, and a

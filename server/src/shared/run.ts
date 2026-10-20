@@ -120,6 +120,14 @@ interface RunStart {
    */
   woke: string | null;
   /**
+   * The files a batched drop brought, when the run answers one (ADR 0038).
+   *
+   * The run is told the names it is answering, not only the folder: the change
+   * turn saw the whole drop, and the run that works it must not have to list the
+   * folder again to know what arrived.
+   */
+  batch?: readonly string[];
+  /**
    * Whether the rule that started this run declared that it sends (ADR 0032,
    * 0035). A group wrote that rule, and its instruction says what to send: the
    * declaration is the authority an outward act asks for, and it is false or
@@ -419,6 +427,14 @@ function isStart(x: unknown): x is RunStart {
   if (instruction !== null && !isMessageRef(instruction)) return false;
   if (woke !== null && (typeof woke !== "string" || !woke.trim())) return false;
   if ("sends" in x && typeof x.sends !== "boolean") return false;
+  if ("batch" in x) {
+    const batch = (x as { batch?: unknown }).batch;
+    if (
+      !Array.isArray(batch) ||
+      !batch.every((one) => typeof one === "string" && one !== "")
+    )
+      return false;
+  }
   const wakeFrom = (x as { wakeFrom?: unknown }).wakeFrom;
   if (wakeFrom !== undefined && wakeFrom !== null && typeof wakeFrom !== "string")
     return false;

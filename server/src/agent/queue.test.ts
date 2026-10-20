@@ -25,9 +25,8 @@ process.env.APP_SECRET = "test-secret-for-queue";
 const mock = await import("../mock/index.js");
 const { filesAccountId, readAppFileAt, writeAppFileAt } = await import("../appFolder.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { DROP_CAP_MS, DROP_QUIET_MS, dueDrops, forgetDrop, noteFile } = await import(
-  "./queue.js"
-);
+const { DROP_CAP_MS, DROP_QUIET_MS, dueDrops, forgetDrop, forgetPath, noteFile } =
+  await import("./queue.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -136,6 +135,20 @@ test("the queue lives at the app folder's own top level, not one level deeper", 
     null,
     "and not the nested gilbert/gilbert/pending.json",
   );
+  await forgetDrop(ctx, accountId, FOLDER);
+});
+
+test("a file removed before its drop is answered is not reported", async () => {
+  /*
+   * A drop names what the change log said arrived. A file destroyed (or
+   * renamed, which is a destroy and a create) before the drop is answered must
+   * not be cited as if it were still in the folder.
+   */
+  await noteFile(ctx, accountId, `${FOLDER}/a.pdf`, at(0));
+  await noteFile(ctx, accountId, `${FOLDER}/b.pdf`, at(1));
+  await forgetPath(ctx, accountId, `${FOLDER}/a.pdf`);
+  const due = await dueDrops(ctx, accountId, at(10));
+  assert.deepEqual(due[0]?.paths, [`${FOLDER}/b.pdf`]);
   await forgetDrop(ctx, accountId, FOLDER);
 });
 

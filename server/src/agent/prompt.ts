@@ -159,6 +159,12 @@ export function stepData(question: StepQuestion): string {
   return [
     "The change that woke this run:",
     dataBlock(token, [question.woke]),
+    ...(question.batch?.length
+      ? [
+          `The files this drop brought, all ${question.batch.length} of them:`,
+          dataBlock(token, [...question.batch]),
+        ]
+      : []),
     ...(question.facts && Object.keys(question.facts).length
       ? [
           "What the change was found to be about:",

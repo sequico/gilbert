@@ -1301,6 +1301,8 @@ export interface StepQuestion {
    * times, each from a new run that had no way to know.
    */
   openQuestions?: readonly string[];
+  /** The files a batched drop brought, when the run answers one (ADR 0038). */
+  batch?: readonly string[];
 }
 
 /**

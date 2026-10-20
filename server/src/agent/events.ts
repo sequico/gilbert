@@ -306,7 +306,10 @@ export async function readAccountEvents(
       ...page.files.updated,
       ...page.files.destroyed,
     ]);
-    seen = rememberPaths(seen, paths);
+    seen = rememberPaths(
+      seen,
+      new Map([...paths].map(([id, named]) => [id, named.path] as const)),
+    );
 
     for (const change of ["created", "updated", "destroyed"] as const) {
       for (const id of page.mail[change])
@@ -315,7 +318,15 @@ export async function readAccountEvents(
         // The path the server still answers for the node, or the one this
         // process read while the node was there: a removal named by the surface
         // its former path belonged to, and by its id only when neither is known.
-        const path = paths.get(id) ?? seen[id];
+        const named = paths.get(id);
+        const path = named?.path ?? seen[id];
+        /*
+         * A folder is not a document: only the nodes the server still answers
+         * as files are activity a rule can act on. The node's own type is read
+         * with its path, so a file whose name carries no dot is not mistaken
+         * for a folder (and a folder that appears opens no run).
+         */
+        if (named?.folder) continue;
         /*
          * The agent's own documents are not activity: a run's write, a rule's
          * edit and the standing instruction are what the agent itself just
@@ -433,12 +444,19 @@ function rememberPaths(
  * path, and neither has one whose parent is missing: half a chain would name a
  * node as something it is not. Such a node is the caller's to name by its id.
  */
+/** A node as the path walk reads it: its name, its parent and its type. */
+interface NamedNode {
+  name: string;
+  parentId: string | null;
+  nodeType?: unknown;
+}
+
 async function nodePaths(
   ctx: Ctx,
   accountId: string,
   ids: readonly string[],
-): Promise<Map<string, string>> {
-  const known = new Map<string, { name: string; parentId: string | null }>();
+): Promise<Map<string, { path: string; folder: boolean }>> {
+  const known = new Map<string, NamedNode>();
   let frontier = [...new Set(ids)];
   while (frontier.length) {
     const level = await nodeNames(ctx, accountId, frontier);
@@ -450,22 +468,23 @@ async function nodePaths(
     }
     frontier = next;
   }
-  const paths = new Map<string, string>();
+  const paths = new Map<string, { path: string; folder: boolean }>();
   for (const id of ids) {
     const path = pathOf(known, id);
-    if (path !== null) paths.set(id, path);
+    if (path !== null)
+      paths.set(id, { path, folder: known.get(id)?.nodeType === "directory" });
   }
   return paths;
 }
 
-/** One page-at-a-time read of the nodes named: their names and their parents. */
+/** One page-at-a-time read of the nodes named: their names, parents and type. */
 async function nodeNames(
   ctx: Ctx,
   accountId: string,
   ids: readonly string[],
-): Promise<Map<string, { name: string; parentId: string | null }>> {
+): Promise<Map<string, NamedNode>> {
   const client = clientOf(ctx);
-  const found = new Map<string, { name: string; parentId: string | null }>();
+  const found = new Map<string, NamedNode>();
   const size = client.maxObjectsInGet;
   for (let at = 0; at < ids.length; at += size) {
     const answer = await client.call<{ list?: FileNodeLike[] }>(
@@ -478,6 +497,7 @@ async function nodeNames(
       found.set(node.id, {
         name: node.name,
         parentId: typeof node.parentId === "string" ? node.parentId : null,
+        nodeType: node.nodeType,
       });
     }
   }
@@ -485,10 +505,7 @@ async function nodeNames(
 }
 
 /** A node's path from the account's root, or null when its chain is not all there. */
-function pathOf(
-  known: Map<string, { name: string; parentId: string | null }>,
-  id: string,
-): string | null {
+function pathOf(known: ReadonlyMap<string, NamedNode>, id: string): string | null {
   const names: string[] = [];
   const seen = new Set<string>();
   let at: string | null = id;
