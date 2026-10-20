@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FactDoc } from "../shared/memory.js";
+import type { RunStep } from "../shared/run.js";
 import type { DecisionQuestion, ReadMade, StepQuestion } from "./model.js";
 import type { RuleDoc } from "./rule.js";
 
@@ -15,6 +16,20 @@ export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
  * is visible rather than a call that fails.
  */
 export const READ_IN_PROMPT_MAX = 16 * 1024;
+
+/**
+ * How many of a plan's ended steps the prompt carries whole.
+ *
+ * The record keeps every outcome in full, and **every** choosing turn of the
+ * run re-sends the whole plan: twenty steps re-read up to forty times is a
+ * prompt that grows with the square of the plan. The last few ended steps are
+ * carried whole — they are what the next choice is made beside — and an older
+ * one is carried as its beginning, because what is done stays done.
+ */
+export const STEP_OUTCOME_FULL_MAX = 3;
+
+/** The most of an older step's outcome the prompt carries. */
+export const STEP_OUTCOME_OLD_MAX = 240;
 
 /**
  * The volatile tail of one call: the change, the candidate rules, and what has
@@ -144,6 +159,7 @@ export function clipped(text: string, max = OUTCOME_IN_PROMPT_MAX): string {
  */
 export function stepData(question: StepQuestion): string {
   const token = randomUUID().slice(0, 8);
+  const whole = carriedWhole(question.plan);
   const done = question.plan.map((step, index) =>
     dataBlock(token, [
       `step ${index + 1}: ${step.what}`,
@@ -153,7 +169,7 @@ export function stepData(question: StepQuestion): string {
       ...(step.needs
         ? [`waits on: step ${step.needs.step + 1} ending "${step.needs.when}"`]
         : []),
-      `outcome: ${clipped(step.outcome) || "(nothing yet)"}`,
+      `outcome: ${outcomeOf(step.outcome, whole.has(index))}`,
     ]),
   );
   return [
@@ -196,5 +212,40 @@ export function stepData(question: StepQuestion): string {
       : []),
     "What this run has done so far, and what each step answered:",
     ...(done.length ? done : [dataBlock(token, ["(nothing yet)"])]),
+    ...(question.plan.some(
+      (step, index) => !whole.has(index) && step.outcome.length > STEP_OUTCOME_OLD_MAX,
+    )
+      ? [
+          "An outcome that ends in … is carried as its beginning; the run's own record holds it whole.",
+        ]
+      : []),
   ].join("\n");
+}
+
+/**
+ * Which steps of a plan the prompt carries whole.
+ *
+ * The last few ended steps, and any step a step still to run waits on: what the
+ * next choice is made beside. Every other ended step is a line, and the run
+ * document is where its outcome is kept.
+ */
+function carriedWhole(plan: readonly RunStep[]): Set<number> {
+  const whole = new Set<number>();
+  let ended = 0;
+  for (let index = plan.length - 1; index >= 0; index -= 1) {
+    const step = plan[index];
+    if (!step || step.state === "open") continue;
+    ended += 1;
+    if (ended <= STEP_OUTCOME_FULL_MAX) whole.add(index);
+  }
+  for (const step of plan) {
+    if (step.state === "open" && step.needs) whole.add(step.needs.step);
+  }
+  return whole;
+}
+
+/** One step's outcome, as much of it as the prompt carries. */
+function outcomeOf(outcome: string, whole: boolean): string {
+  if (!outcome) return "(nothing yet)";
+  return whole ? clipped(outcome) : clipped(outcome, STEP_OUTCOME_OLD_MAX);
 }
