@@ -1405,6 +1405,17 @@ const agentIdentities: Obj[] = [
  * the mock says no so the two kinds stay apart, and the client's mailbox
  * probe lists only the accounts that answer with a tree.
  *
+ * Two things follow from an account answering no tree, and they are one rule: a
+ * read of its mail is empty, and a **create** naming a mailbox it does not have
+ * is refused (`invalidProperties`, the way a real server refuses a mailbox that
+ * is not there) -- a mock that accepted the write, handed back an id and stored
+ * nothing a reader could fetch lied twice about the same call.
+ *
+ * shortcut: the create is checked; an update that moves a message to a mailbox
+ * the account does not have is not, because a move patch names the mailbox in a
+ * flat `mailboxIds/<id>` key and nothing here has driven one yet -- check it
+ * when a surface moves mail to a computed mailbox.
+ *
  * The target principal (ADR 0001) is a fresh account: it has its own Files
  * (see `targetFileNodes`) and nothing else yet. The agent principal has the
  * mailbox and identity an account of the directory has, and nothing else.

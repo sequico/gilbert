@@ -191,7 +191,8 @@ const model: InstallationModel = chosen;
 
 let ctx: Ctx;
 /**
- * The account the loop works: a **group** of the Master's session.
+ * The account the loop works: a **group** of the Master's session, with a
+ * mailbox.
  *
  * The installation's memory lives in the Master's **own** account (ADR 0033)
  * and the runs and rules of a worked change live in the group's, and the two are
@@ -200,6 +201,11 @@ let ctx: Ctx;
  * reads the memory once and writes a fact against that reading's token, so a
  * fixture that made one account hold both would have the run documents it writes
  * invalidate the memory's token before the fact is written.
+ *
+ * A candidate whose `Mailbox/get` answers no tree is not a group the product
+ * would work — the folder share is listed as a non-personal account too — so the
+ * harness asks the server the same question the classifier does before it picks
+ * one.
  */
 let accountId: string;
 /** The Master's own account: the installation's memory lives here (ADR 0033). */
