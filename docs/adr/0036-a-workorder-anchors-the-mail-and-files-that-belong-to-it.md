@@ -3,20 +3,23 @@
 Status: Accepted
 
 Implementation: Not built.
-What the tree will carry: `tags`, `facets` and `layout` on `WorkorderDoc`
-(`server/src/shared/workorder.ts`) with their validators and the replacement
-carrying the tag list; the resolver that walks `replacedBy` and answers the
-non-terminal workorder a message belongs to; `files.attach` in the agent's
-catalogue (`server/src/agent/tools/files.ts`, over `downloadBlob` and
-`writeBytesIntoVisibleFolder`); `workorder.ref` beside the existing workorder
-tools (`server/src/agent/tools/workorders.ts`); and the bind step in the pass
-the supervisor already asks for (`server/src/agent/supervisor.ts`,
-`server/src/agent/loop.ts`), reported in the run record (ADR 0030). In
-**gilbertmailer**: the **Workorders** section beside Contacts and Files, the
-Files view scoped to a workorder's folder, the mail list scoped to its message
-refs, and the mail reader drawn flat. Owed: the `Email/query` text filter
-verified against the mock and against a live Stalwart, and the facet extraction
-a layout needs.
+What the tree will carry: `tags`, `facets` and `layout` on `WorkorderDoc`, and
+`thread` added to `WORKORDER_REF_KINDS`, with their validators and the replacement
+carrying the tag list (`server/src/shared/workorder.ts`); the resolver that walks
+`replacedBy` and answers the non-terminal workorder a message belongs to;
+`files.attach` in the agent's catalogue (`server/src/agent/tools/files.ts`, over
+`downloadBlob` and `writeBytesIntoVisibleFolder`); `workorder.ref` beside the
+existing workorder tools (`server/src/agent/tools/workorders.ts`); and the bind
+step in the pass the supervisor already asks for
+(`server/src/agent/supervisor.ts`, `server/src/agent/loop.ts`), reported in the
+run record (ADR 0030). In **gilbertmailer**: the **Workorders** section beside
+Contacts and Files, the Files view scoped to a workorder's folder, the mail list
+scoped to its refs, a composer opened inside the section, and the ref write the
+composer performs when the message is created — a member route beside the
+existing workorder routes (`server/src/routes/workorder.ts`). Owed: the
+`Email/query` text filter verified against the mock and against a live Stalwart;
+the facet extraction a layout needs; and that a thread's id stays the same id
+while the conversation grows.
 
 ## Context
 
@@ -46,10 +49,8 @@ Four facts about that shape decide this record.
   of them.** Mail, Calendar, Contacts, Files and KB are sections; a workorder is
   a panel launched from the top bar beside chat. A job's mail is in one section,
   its files in another, its checklist in a third, and nothing on any of them
-  says which job it is except a folder name. The same holds inside mail: a
-  mailbox per project repeats what one reference would say, and on a group's
-  account a mailbox grants nothing that group membership does not already grant
-  (ADR 0004).
+  says which job it is except a folder name — either a folder in Files or a
+  mailbox in mail.
 
 What is wanted: a workorder is where its own work is seen and done — its mail,
 its files, its checklist — the filestore stays aligned with the mail that
@@ -82,19 +83,50 @@ folder name.**
   workorder whose state is not terminal. A predecessor keeps its tags as
   history and is never matched.
 
-### The link is a ref, and it is the only home of the fact
+### The link is a ref on the thread, and it is the only home of the fact
 
-- The binder writes a `WorkorderRef` of kind `message` for a message it files,
-  and of kind `file` for a document that lives outside the workorder's folder.
-  The folder itself is one `folder` ref: what is inside it is the workorder's by
-  containment, so no ref per file is written for it.
+- **The association is made on a thread.** One ref of kind `thread` names a
+  conversation, and every message in it — the ones already received, the ones
+  still to arrive, the ones sent later — is the workorder's from then on. A
+  `message` ref is written only where the workorder is about that one message and
+  not its conversation.
+- The binder writes a `file` ref for a document that lives outside the
+  workorder's folder. The folder itself is one `folder` ref: what is inside it is
+  the workorder's by containment, so no ref per file is written for it.
 - **No keyword is written on the message by the binder.** A mark on the mail
   beside a ref on the workorder is the same fact in two stores, and the pair is
   the first thing to drift; the mail side has no writer of its own to keep them
-  together. A keyword a reader sets on a message is the reader's own label and
-  is not this record's business.
+  together. A keyword a reader sets is the reader's own label and is not this
+  record's business.
 - Refs are ids. A rename, a move to a facet subtree, or a correction of the key
   leaves every ref valid and untouched.
+
+### A thread is bound without a gesture
+
+**The product takes no position on how mail is organised.** A group's mailboxes
+may be flat, one per year, one per supplier, or anything else; a Sieve rule may
+keep filing into them; nothing in this record depends on where a thread sits, and
+no mailbox is ever created for a workorder. What a message is about is the ref,
+and the mailboxes stay the reader's. There is nothing to migrate, nothing to
+flatten and nothing to keep tidy.
+
+The association is made in three ways, none of which asks anybody, and only a
+residue is left over.
+
+- **A reply or a forward needs nothing.** The new message arrives in the thread
+  the server already threads it with, and that thread is bound. Inheritance is
+  the threading the mail already does.
+- **Composed inside the workorder.** The Workorders section opens its composer
+  with the workorder known; the ref is written on the thread of the message the
+  server reports having created. One write, no dialog, and the message is bound
+  whether it is still in Outbox, in Sent, or filed by a rule a second later.
+- **Composed from scratch anywhere else.** The same resolver that works received
+  mail works a sent message, on the tag its subject and participants carry. A
+  message a person sends about the job is bound for the same reason an incoming
+  one is: the key is in it.
+- **What is left over stays unbound, and that is not a workload.** There is no
+  prompt at send, no "associate with workorder?" dialog and no queue to clear; a
+  reader who wants a message bound says so once, through the same writer.
 
 ### The binder is deterministic, and it lives in the pass that already exists
 
@@ -103,10 +135,10 @@ folder name.**
   the message carries one of its tags, its attachments are written into the
   workorder's folder and the refs are written. No model turn is spent on a
   relation the declaration already answers.
-- **It is idempotent by the ref**: a message the workorder already refs is not
-  worked again, so a pass that re-reads a change it did not finish writes
-  nothing twice. The same function is the reconciliation — a pass is the retry,
-  and no separate repair job is introduced.
+- **It is idempotent by the ref**: a thread the workorder already refs is not
+  worked again, so a pass that re-reads a change it did not finish writes nothing
+  twice. The same function is the reconciliation — a pass is the retry, and no
+  separate repair job is introduced.
 - Nothing runs on a clock (ADR 0010): the wake-up is the account's own change.
 
 ### What the binder does not decide
@@ -137,11 +169,11 @@ folder name.**
 ### A workorder is a section, and its tree is composed
 
 - **Workorders is a section** of the navigation, between Contacts and Files: the
-  place a job's whole material is seen and worked. The checklist launcher stays
-  in the top bar, so a step can be settled from anywhere in the product; the
-  section is not the only door to it.
-- **Its tree is logical.** An entry is a reference to where a thing lives —
-  a `FileNode` folder or file, a message and its attachments, a KB page — and the
+  place a job's whole material is seen and worked, with its own composer. The
+  checklist launcher stays in the top bar, so a step can be settled from anywhere
+  in the product; the section is not the only door to it.
+- **Its tree is logical.** An entry is a reference to where a thing lives — a
+  `FileNode` folder or file, a thread and its attachments, a KB page — and the
   tree is assembled from the refs each time it is drawn. Nothing is copied into
   it and nothing is stored twice.
 - **The documents themselves are physical, in two places, and neither is the
@@ -152,34 +184,14 @@ folder name.**
   Files folder the workorder references, and that folder is what the section's
   file tree shows: the same nodes, one place, two doors.
 - **Running and archived** are the two lists of the section, read from the same
-  registry: an archived workorder is one whose state is terminal, and it is
-  still opened, searchable and followable.
+  registry: an archived workorder is one whose state is terminal, and it is still
+  opened, searchable and followable.
+- **The mail list is read from the refs**: the thread ids the workorder carries
+  are resolved with the server's own thread read, so a conversation is listed once
+  and its messages in order, wherever the reader has filed them.
 - **Nothing new is built to draw it**: the Files view scoped to a workorder's
-  folder, the mail list scoped to the refs of kind `message`, the checklist
-  beside them. No second file manager, no second reader, no second search.
-
-### A group's mail is flat
-
-- A message is in one of three places — **Inbox**, **Sent**, **Archive** — and
-  what it is *about* is a reference to a workorder, never a mailbox. Grouping by
-  year, by sender or by any other criterion is a **view** over keywords, dates
-  and refs, and it is never a tree the reader maintains.
-- **The product creates no mailbox for a workorder.** A mailbox per project
-  repeats a relation a ref already states, and the second copy of the relation is
-  the one that goes wrong.
-- **Privileges do not come from mailboxes.** A group's mail is the group's
-  account and membership is the boundary (ADR 0004); a tree of mailboxes grants
-  nothing that the account does not.
-- **The existing tree is flattened by hand, as the owner assigns messages to
-  workorders**, once the shape has proven itself. Nothing is migrated
-  automatically, no folder is moved by a pass, and the product simply stops
-  adding to the tree.
-- The shape forces three changes to what is built over mail, and they are
-  consequences rather than separate decisions: a Sieve rule **labels** a message
-  instead of filing it into a mailbox; **archive by date** becomes a view over a
-  keyword and the received date; **emptying** is a message-level act on Trash or
-  Archive, not a mailbox operation. A client that expects a tree — IMAP, a
-  phone — sees three mailboxes, and that is the accepted cost.
+  folder, the mail list scoped to its refs, the checklist beside them. No second
+  file manager, no second reader, no second search.
 
 ### The folder is a container, never an identity
 
@@ -192,8 +204,8 @@ folder name.**
   levels — because identity is in the refs and moving a node keeps its id, its
   sharing and its place in every reference. The path is a projection that can be
   recomputed, not a commitment.
-- No template language is introduced for it: a layout is an ordered list of
-  facet names, never a string with a syntax.
+- No template language is introduced for it: a layout is an ordered list of facet
+  names, never a string with a syntax.
 - The folder is not hidden from Files. It is shared by node, mirrored by whatever
   mirrors the account, and findable by a reader who does not know the workorder's
   key; hiding it would take all three away and buy nothing, because the section
@@ -201,16 +213,20 @@ folder name.**
 
 ## Consequences
 
-- **A job is worked in one place.** Its mail, its files and its checklist are
-  the Workorders section, while mail, Files and KB remain the surfaces for
-  everything that belongs to no job — a general inbox, a shared folder, a page.
-- **A workorder's mail is a query, not a mailbox.** A mail folder per workorder
-  disappears from the practice, and with it the second tree to keep in step.
+- **A job is worked in one place.** Its mail, its files and its checklist are the
+  Workorders section, while mail, Files and KB remain the surfaces for everything
+  that belongs to no job — a general inbox, a shared folder, a page.
+- **The mailboxes stay exactly as the reader wants them.** A folder per year, per
+  topic, per supplier or none at all: the association does not depend on it, no
+  folder is created, moved or emptied by the product on a workorder's behalf, and
+  a Sieve rule the reader keeps filing with goes on working.
+- **A thread is bound once for all its messages.** A reply inherits, a later
+  message inherits, and nothing keeps a per-message list in step.
 - **A workorder's files stay a folder**, because bytes need a container, a
   handover and an external mirror need a tree, and because a node has one parent
   — every other order is a query in the section, not a second tree.
 - **Alignment is a stored fact, so it can be audited and undone**: the ref names
-  the message and the workorder; removing it un-legates the material and leaves
+  the thread and the workorder; removing it un-legates the material and leaves
   the bytes where they are.
 - **Provenance is the run, not the node.** `FileNode` carries no author and no
   backlink, and the message carries no mark, so an automatic filing is
@@ -220,14 +236,14 @@ folder name.**
   a supplier — is a folder and a view, with no tag, no ref and no binder; forcing
   one would be the first thing to make the system unwelcome.
 - **The section is what makes refs a load.** It is the first consumer that lists
-  a workorder's whole mail, and that list is the document's refs: a few hundred
-  add up to a read of tens of kilobytes. At thousands the shape is revisited with
-  an index, never with a mark scattered over the mail.
+  a workorder's whole mail, and that list is one ref per conversation: a few
+  hundred stay a read of tens of kilobytes. At thousands the shape is revisited
+  with an index, never with a mark scattered over the mail.
 - **The cost of a tag the resolver cannot see**: a key written only inside a
   document that arrives as a PDF attachment is not matched by any filter, and
   that message reaches the prose rule and a model turn.
 - Not built, and deliberately so: a mail folder as a filestore; a mailbox created
   per workorder; a Sieve rule as the binder; materialising a workorder at close;
   a keyword written by the binder on the message; a policy field for a key that
-  has ended; a path template; an automatic flattening of existing mail; and any
-  design that rests on the blob outliving its message before that is established.
+  has ended; a path template; a question asked at send; and any design that rests
+  on the blob outliving its message before that is established.

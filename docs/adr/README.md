@@ -395,9 +395,10 @@ is, not what a user sees.
   section** of its own, between Contacts and Files, whose tree is composed from
   the refs — the files are the same nodes Files shows, the workorder's own
   documents live under `workorders/` in the app folder, and the checklist
-  launcher stays in the top bar. **A group's mail is flat**: Inbox, Sent and
-  Archive, with what a message is about kept in its ref and grouping drawn as a
-  view, because a mailbox per project repeats a relation a ref already states
-  and grants nothing that group membership does not. Existing mail is flattened
-  by hand and nothing is migrated. **Not built.**
+  launcher stays in the top bar. **A thread is bound, and no mailbox is.** The
+  product takes no position on how a group's mail is organised and never creates
+  a mailbox for a workorder: the association is one ref on the thread, inherited
+  by every reply, written when the message is composed inside the section, and
+  resolved by the tag for a message composed anywhere else — with no question
+  asked at send. **Not built.**
 
