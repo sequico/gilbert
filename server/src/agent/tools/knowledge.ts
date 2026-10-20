@@ -5,16 +5,19 @@
  * nothing of which is in force until a person approves it.
  */
 
-import { findFolderPath } from "../../appFolder.js";
+import { findFolderPath, readAppJsonAt } from "../../appFolder.js";
 import {
   KnowledgeAdminError,
   listArticles,
   proposeArticle,
   readArticle,
 } from "../../knowledgeAdmin.js";
+import { asDraft } from "../../knowledge/documents.js";
 import { AGENT_SIGNATURE } from "../../shared/agent.js";
+import { mapLimit, READ_CONCURRENCY } from "../../shared/concurrency.js";
 import {
   blocksFromText,
+  DRAFT_FILE,
   KNOWLEDGE_FOLDER,
   knowledgeFolderName,
 } from "../../shared/knowledge.js";
@@ -22,6 +25,7 @@ import {
   argsRecord,
   countArg,
   notFound,
+  offsetArg,
   optionalTextArg,
   TOOL_LIST_MAX,
   textArg,
@@ -61,19 +65,97 @@ export const listKnowledge = defineTool({
   description:
     "List the pages and folders of this account's knowledge base, with their " +
     "titles and folders. List before reading: a page's `folder` is taken from " +
-    `this answer, never guessed. \`limit\` is how many entries to answer with (at most ${TOOL_LIST_MAX}); ` +
+    `this answer, never guessed. \`limit\` is how many entries to answer with (at most ${TOOL_LIST_MAX}), ` +
+    "and `offset` is where to start when `truncated` said there is more; " +
     "`total` and `truncated` say whether the base holds more.",
   authority: "reversible",
   writes: false,
-  keys: ["limit"],
-  parse: (raw: unknown) => ({
-    limit: countArg(argsRecord(raw), "limit", TOOL_LIST_MAX) ?? TOOL_LIST_MAX,
-  }),
-  run: async ({ ctx, accountId }, { limit }) => {
+  keys: ["limit", "offset"],
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      limit: countArg(args, "limit", TOOL_LIST_MAX) ?? TOOL_LIST_MAX,
+      offset: offsetArg(args, "offset"),
+    };
+  },
+  run: async ({ ctx, accountId }, { limit, offset }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
     if (tier === null) return { pages: [], total: 0, truncated: false };
     const items = await listArticles(ctx, accountId, tier);
     const pages = items.map(({ kind, title, folder }) => ({ kind, title, folder }));
+    return {
+      pages: pages.slice(offset, offset + limit),
+      total: pages.length,
+      truncated: pages.length > offset + limit,
+    };
+  },
+});
+
+/**
+ * The most pages one search answers with.
+ *
+ * A search answer carries a title, a folder and a line of the page, so the page
+ * is smaller than a listing's: twenty matches is already a page of reading, and
+ * the model narrows the query rather than paging a search.
+ */
+export const KNOWLEDGE_SEARCH_MAX = 20;
+
+/** The page around a match: enough to read the sentence the words sit in. */
+const SNIPPET_AROUND_MAX = 240;
+
+export const searchKnowledge = defineTool({
+  name: "knowledge.search",
+  description:
+    "Find the pages of this account's knowledge base whose words or title name " +
+    "something: answers each page's title, the folder to read it by, and the " +
+    "line around the match. Search before listing when you are looking for a " +
+    `subject rather than a page. \`limit\` is how many pages to answer with (at most ${KNOWLEDGE_SEARCH_MAX}); ` +
+    "`total` and `truncated` say whether more matched.",
+  authority: "reversible",
+  writes: false,
+  keys: ["limit", "query"],
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      query: textArg(args, "query"),
+      limit: countArg(args, "limit", KNOWLEDGE_SEARCH_MAX) ?? KNOWLEDGE_SEARCH_MAX,
+    };
+  },
+  run: async ({ ctx, accountId }, { query, limit }) => {
+    const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
+    if (tier === null) return { pages: [], total: 0, truncated: false };
+    const items = (await listArticles(ctx, accountId, tier)).filter(
+      (one) => one.kind === "article",
+    );
+    const needle = query.toLowerCase();
+    /*
+     * A page is read by its own path, one document per page: the listing has
+     * already walked the tree, so resolving each page again would pay the walk
+     * a second time. What is searched is the draft's own text — the words a
+     * reader would approve — and never a revision's.
+     */
+    const found = await mapLimit(items, READ_CONCURRENCY, async (one) => {
+      const draft = asDraft(
+        await readAppJsonAt(
+          ctx,
+          accountId,
+          `${KNOWLEDGE_FOLDER}/${one.folder}/${DRAFT_FILE}`,
+        ),
+      );
+      const text = draft?.text ?? "";
+      const hit = text.toLowerCase().indexOf(needle);
+      // Clamped: lowercasing can lengthen a string, and a snippet is a window,
+      // never an index the page is trusted to still have.
+      const at = hit < 0 ? -1 : Math.min(hit, text.length);
+      const inTitle = one.title.toLowerCase().includes(needle);
+      if (at < 0 && !inTitle) return null;
+      return {
+        title: one.title,
+        folder: one.folder,
+        ...(at < 0 ? {} : { snippet: snippetAround(text, at, query.length) }),
+      };
+    });
+    const pages = found.filter((one): one is NonNullable<typeof one> => one !== null);
     return {
       pages: pages.slice(0, limit),
       total: pages.length,
@@ -81,6 +163,13 @@ export const listKnowledge = defineTool({
     };
   },
 });
+
+/** The words around one match, cut to a line a prompt carries. */
+function snippetAround(text: string, at: number, length: number): string {
+  const from = Math.max(0, at - Math.floor((SNIPPET_AROUND_MAX - length) / 2));
+  const to = Math.min(text.length, from + SNIPPET_AROUND_MAX);
+  return `${from > 0 ? "…" : ""}${text.slice(from, to)}${to < text.length ? "…" : ""}`;
+}
 
 export const readKnowledgePage = defineTool({
   name: "knowledge.read",
@@ -97,18 +186,12 @@ export const readKnowledgePage = defineTool({
   keys: ["folder", "offset", "title"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
-    const offset = args.offset ?? 0;
-    if (typeof offset !== "number" || !Number.isInteger(offset) || offset < 0)
-      throw new ToolError(
-        "bad_arguments",
-        '"offset" must be a whole number of at least 0.',
-      );
-    return { ...pageTarget(args), offset };
+    return { ...pageTarget(args), offset: offsetArg(args, "offset") };
   },
   run: async ({ ctx, accountId }, { target, named, offset }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
     if (tier === null) throw notFound("knowledge base in this account");
-    const view = await readArticle(ctx, accountId, tier, target);
+    const view = await readArticle(ctx, accountId, tier, target, { history: false });
     if (!view) throw notFound(`knowledge page "${named}"`);
     // What a reader sees now, and only it: the draft is behind the revision in
     // force once one is, and the history is not what the page says.
@@ -149,7 +232,7 @@ export const proposePage = defineTool({
   run: async ({ ctx, accountId }, { target, named, text }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
     if (tier === null) throw notFound("knowledge base in this account");
-    const view = await readArticle(ctx, accountId, tier, target);
+    const view = await readArticle(ctx, accountId, tier, target, { history: false });
     if (!view) throw notFound(`knowledge page "${named}"`);
     /*
      * What the proposal keeps: the draft's own title, tags and checklist, and

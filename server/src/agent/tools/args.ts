@@ -64,6 +64,24 @@ export function countArg(
   return Math.min(value, max);
 }
 
+/**
+ * Where a listing starts: 0 when the model names no place.
+ *
+ * A listing that answered `truncated` with no way to ask for the rest made the
+ * tail of a folder unreachable — the model concluded it did not exist. This is
+ * the other half of that answer.
+ */
+export function offsetArg(raw: Record<string, unknown>, key: string): number {
+  const value = raw[key];
+  if (value === undefined || value === null) return 0;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0)
+    throw new ToolError(
+      "bad_arguments",
+      `"${key}" must be a whole number of at least 0.`,
+    );
+  return value;
+}
+
 /** A missing object, in the model's own words: not a failure to report as one. */
 export function notFound(what: string): ToolError {
   return new ToolError("not_found", `There is no ${what}.`, 404);

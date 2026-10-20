@@ -71,7 +71,12 @@ import {
   renameFile,
   writeDocument,
 } from "./tools/files.js";
-import { listKnowledge, proposePage, readKnowledgePage } from "./tools/knowledge.js";
+import {
+  listKnowledge,
+  proposePage,
+  readKnowledgePage,
+  searchKnowledge,
+} from "./tools/knowledge.js";
 import {
   askByMail,
   createMailFolder,
@@ -128,6 +133,7 @@ export const TOOLS: readonly AnyTool[] = [
   readWorkorder,
   readKnowledgePage,
   listKnowledge,
+  searchKnowledge,
   readRunTool,
   fileMessage,
   trashMessage,

@@ -1988,6 +1988,40 @@ test("the agent settles a step of its group's workorder and signs it as the agen
       err.message.includes("intake.confirm"),
     "a path the checklist does not hold is a refusal that names the steps it has",
   );
+
+  /*
+   * A closed workorder is the record of the work and keeps still: the state is
+   * the root's, and the part this account holds carries none, so the rule is
+   * read from the root before the write.
+   */
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `workorders/wo-closed.json`,
+    buildWorkorderDoc({
+      uid: "wo-closed",
+      name: "Booking 4",
+      state: "completed",
+      by: "a@example.com",
+      at,
+      checklist: buildChecklist({
+        template: { accountId, id: "template-1", revision: "rev-1" },
+        variants: {},
+        items: {},
+        stepPaths: ["intake.confirm"],
+      }),
+    }),
+  );
+  await assert.rejects(
+    () =>
+      writeTool("workorder.settle", {
+        uid: "wo-closed",
+        path: "intake.confirm",
+        state: "done",
+      }),
+    /closed, so its checklist no longer changes/,
+    "a closed workorder is not settled, however it is reached",
+  );
 });
 
 test("the agent proposes a page's change into its draft, and nothing is in force", async () => {
@@ -2193,6 +2227,58 @@ test("a workorder's steps carry the template's words beside their paths", async 
   assert.equal(step?.label, "Confirm the booking", "the words come from the template");
 });
 
+/**
+ * The base can be paged and searched: a listing that answered `truncated` has an
+ * `offset` that reaches the rest, and a subject is found by the words of the
+ * pages rather than by listing them and reading them one at a time.
+ */
+test("the base is paged by offset and searched by the words of its pages", async () => {
+  const first = await callTool<{
+    pages: Array<{ folder: string }>;
+    total: number;
+    truncated: boolean;
+  }>("knowledge.list", { limit: 2 });
+  const next = await callTool<{ pages: Array<{ folder: string }>; truncated: boolean }>(
+    "knowledge.list",
+    { limit: 2, offset: 2 },
+  );
+  assert.equal(first.pages.length, 2, "a page is the limit it was asked for");
+  assert.notDeepEqual(
+    next.pages.map((one) => one.folder),
+    first.pages.map((one) => one.folder),
+    "and offset reads on rather than answering the same page",
+  );
+  assert.equal(
+    next.truncated,
+    first.total > 4,
+    "the answer says whether there is a page after this one",
+  );
+
+  const found = await callTool<{
+    pages: Array<{ folder: string; title: string; snippet?: string }>;
+    total: number;
+  }>("knowledge.search", { query: "original order" });
+  const page = found.pages.find((one) => one.folder === "Policies/Returns");
+  assert.ok(page, "the page whose words name the subject is found");
+  assert.match(
+    page?.snippet ?? "",
+    /original order/,
+    "and the answer carries the line the words sit in",
+  );
+  assert.ok(found.total >= 1, "with how many matched");
+
+  const none = await callTool<{ pages: unknown[] }>("knowledge.search", {
+    query: "nothing in this base says this",
+  });
+  assert.equal(none.pages.length, 0, "and nothing is found when nothing matches");
+});
+
+/**
+ * A page inside a topic folder is named by its folder, not by its title: the
+ * listing answers the path, and the tree walks it segment by segment. Read by
+ * title, the page under `Policies` answers no page at all — the folder is the
+ * page's own identity.
+ */
 test("a page inside a topic folder is read by the folder the listing answers", async () => {
   const title = "Returns";
   const body = "A return is booked against its original order.";

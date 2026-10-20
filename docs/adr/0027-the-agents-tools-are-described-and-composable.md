@@ -141,3 +141,11 @@ typed arguments, each acting on one of those objects.
 - The provider's contract is pinned against a stub, and **no real provider has
   answered it**: the first live call is owed before the model path is trusted.
 <!-- owed: model-provider-live -->
+- The catalogue is offered as **prose and a demanded JSON shape**, and the
+  request carries no `tools`: a provider's own tool calling is read when one
+  answers with it, and never asked for. Whether to offer it — a schema derived
+  from each tool's own keys, sent only to a model the installation says accepts
+  it — is a decision this record does not take, because a second rendering of
+  the catalogue is the duplication the whole design avoids and a wrong `tools`
+  field is a 400 on a gateway that does not know it.
+<!-- owed: native-tool-calls -->
