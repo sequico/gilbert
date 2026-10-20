@@ -82,7 +82,7 @@ export function AgentOverview({
       const rows = await Promise.all(
         groups.map(async (group) => ({
           group: group.name,
-          runs: await fetchGroupRuns(group.name, "running"),
+          runs: await fetchGroupRuns(group.name, "live"),
         })),
       );
       if (!live) return;
@@ -123,10 +123,18 @@ export function AgentOverview({
   const running = live
     .flatMap((entry) =>
       entry.runs
-        .filter((listed) => listed.state === "running")
+        .filter((listed) => listed.state === "running" || listed.state === "blocked")
         .map((listed) => ({ group: entry.group, listed })),
     )
     .sort((a, b) => (b.listed.startedAt ?? "").localeCompare(a.listed.startedAt ?? ""));
+
+  /** The runs in flight, under the group each belongs to, in the table's order. */
+  const inFlight = groups
+    .map((group) => ({
+      group: group.name,
+      rows: running.filter((one) => one.group === group.name),
+    }))
+    .filter((entry) => entry.rows.length > 0);
 
   // The numbers are over the history, which only the sixty-second read moves:
   // a live-row update must not walk every run again.
@@ -140,40 +148,14 @@ export function AgentOverview({
     <div>
       {error && <div className="error-box">{error}</div>}
       {switchError && <div className="error-box">{switchError}</div>}
-      {running.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <h2>{t("Current runs")}</h2>
-          <div style={{ display: "grid", gap: 6 }}>
-            {running.map(({ group, listed }) => (
-              <div key={`${group}:${listed.id}`} className="run-current">
-                <span className="run-state run-state-running">{t("Running")}</span>
-                <span className="run-row-id">{listed.id}</span>
-                <span className="run-row-meta">{group}</span>
-                {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
-                {listed.woke && <span className="run-row-meta">{listed.woke}</span>}
-                <StopRun
-                  group={group}
-                  id={listed.id}
-                  onStopped={() =>
-                    setLive((held) =>
-                      held.map((entry) =>
-                        entry.group === group
-                          ? {
-                              ...entry,
-                              runs: entry.runs.filter((one) => one.id !== listed.id),
-                            }
-                          : entry,
-                      ),
-                    )
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section>
+      {/*
+       * One line for the switch and where the agent stands: two sections for
+       * one question spent a heading and a screen of white space on it.
+       */}
+      <section
+        className="row"
+        style={{ gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}
+      >
         <Switch
           checked={on !== false}
           disabled={on === null}
@@ -186,30 +168,24 @@ export function AgentOverview({
           }}
           label={t("Agents on")}
         />
-        {on === false && (
-          <p className="hint">
-            {t(
-              "AI agents are turned off. No pass works anything and no model call is made.",
-            )}
-          </p>
-        )}
-      </section>
-
-      <section style={{ marginTop: 24 }}>
-        <h2>{t("Status")}</h2>
-        <p className="hint">
+        <span className="hint">
           {status?.claim
             ? t("Held by {who} since {when}, and believed until {until}.", {
                 who: status.claim.holder,
                 when: formatFullDate(status.claim.takenAt),
                 until: formatFullDate(status.claim.expires),
               })
-            : t("Nobody holds it.")}
-        </p>
-        {status && (
-          <p className="hint">{t("A pass every {n} s.", { n: status.passSeconds })}</p>
-        )}
+            : t("Nobody holds the agent.")}
+          {status ? ` ${t("A pass every {n} s.", { n: status.passSeconds })}` : ""}
+        </span>
       </section>
+      {on === false && (
+        <p className="hint">
+          {t(
+            "AI agents are turned off. No pass works anything and no model call is made.",
+          )}
+        </p>
+      )}
 
       <section style={{ marginTop: 24 }}>
         <h2>{t("Work")}</h2>
@@ -292,6 +268,52 @@ export function AgentOverview({
           </div>
         )}
       </section>
+
+      {/*
+       * What is being worked, under the numbers it is counted in: a run that is
+       * moving or waiting on a person is the one thing a reader of this page can
+       * act on, and stopping it is that act.
+       */}
+      {inFlight.length > 0 && (
+        <section style={{ marginTop: 24 }}>
+          <h2>{t("Runs in flight")}</h2>
+          {inFlight.map((entry) => (
+            <div key={entry.group} style={{ marginBottom: 16 }}>
+              <h3 style={{ margin: "8px 0 6px" }}>{entry.group}</h3>
+              <div style={{ display: "grid", gap: 6 }}>
+                {entry.rows.map(({ listed }) => (
+                  <div key={listed.id} className="run-current">
+                    <span className={`run-state run-state-${listed.state}`}>
+                      {listed.state === "blocked"
+                        ? t("Waiting on a person")
+                        : t("Running")}
+                    </span>
+                    <span className="run-row-id">{listed.id}</span>
+                    {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
+                    {listed.woke && <span className="run-row-meta">{listed.woke}</span>}
+                    <StopRun
+                      group={entry.group}
+                      id={listed.id}
+                      onStopped={() =>
+                        setLive((held) =>
+                          held.map((row) =>
+                            row.group === entry.group
+                              ? {
+                                  ...row,
+                                  runs: row.runs.filter((one) => one.id !== listed.id),
+                                }
+                              : row,
+                          ),
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

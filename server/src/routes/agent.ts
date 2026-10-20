@@ -368,9 +368,9 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   api.get("/groups/:name/runs", requireSession, async (c) => {
     const name = c.req.param("name") ?? "";
     const state = c.req.query("state");
-    if (state !== undefined && state !== "running")
+    if (state !== undefined && state !== "running" && state !== "live")
       return c.json(
-        { error: "bad_request", message: 'state is "running" or absent' },
+        { error: "bad_request", message: 'state is "running", "live" or absent' },
         400,
       );
     try {
@@ -406,7 +406,14 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const asked = Number.parseInt(c.req.query("limit") ?? "", 10);
       const limit = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 1000) : 100;
       const filtered =
-        state === "running" ? rows.filter((one) => one.state === "running") : rows;
+        state === "running"
+          ? rows.filter((one) => one.state === "running")
+          : state === "live"
+            ? // The runs a person is watching for: working, and waiting on a
+              // person's answer — both will move again without anyone opening a
+              // page, so the overview lists them together.
+              rows.filter((one) => one.state === "running" || one.state === "blocked")
+            : rows;
       const page = filtered.slice(offset, offset + limit);
       return c.json({
         group: name,

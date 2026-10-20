@@ -61,7 +61,7 @@ export async function fetchAgentMetrics(
  */
 export async function fetchGroupRunsPage(
   group: string,
-  opts: { state?: "running"; offset?: number; limit?: number } = {},
+  opts: { state?: "running" | "live"; offset?: number; limit?: number } = {},
 ): Promise<{ runs: RunSummary[]; more: boolean }> {
   const query = new URLSearchParams();
   if (opts.state) query.set("state", opts.state);
@@ -77,7 +77,7 @@ export async function fetchGroupRunsPage(
 /** Every run a group holds, for a reader that needs the whole set. */
 export async function fetchGroupRuns(
   group: string,
-  state?: "running",
+  state?: "running" | "live",
 ): Promise<RunSummary[]> {
   const page = await fetchGroupRunsPage(group, {
     ...(state ? { state } : {}),
