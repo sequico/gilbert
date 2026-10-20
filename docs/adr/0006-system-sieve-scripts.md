@@ -125,7 +125,7 @@ A new section, **System Sieve** (`web/src/views/admin/SystemSieve.tsx`),
 under the admin navigation's existing **Stalwart** group
 (`web/src/views/AdminView.tsx`).
 The client reaches it through `web/src/lib/adminSieve.ts`, one function per
-route on `/api/admin/sieve/system*` — the same shape `web/src/lib/agents.ts`
+route on `/api/admin/sieve/system*` — the same shape `web/src/lib/agentAdmin.ts`
 already gives the agent admin surfaces, not a direct JMAP call from the
 browser. It lists every system script by name, description and active state
 (without contents, kept out of the list answer), opens one in `SieveEditor`
@@ -188,7 +188,7 @@ destroyed.
 - `server/src/admin-sieve.test.ts`, `server/src/admin-sieve-nonadmin.test.ts`
   — the CRUD flow, the two refusals, the `requireAdmin` gate
 - `web/src/lib/adminSieve.ts` — one function per route, the shape
-  `web/src/lib/agents.ts` already gives the agent admin surfaces
+  `web/src/lib/agentAdmin.ts` already gives the agent admin surfaces
 - `web/src/views/admin/SystemSieve.tsx` — the admin surface
 - `web/src/ui/SieveEditor.tsx` — the shared CodeMirror component
 - `web/src/views/settings/FiltersSettings.tsx` — `ScriptsEditor`, the personal

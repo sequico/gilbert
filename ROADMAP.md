@@ -30,7 +30,8 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   (`server/src/agent/supervisor.ts`, started in `server/src/index.ts`): it runs on
   the installation's model, reads the Master's groups from the mail server on
   every pass — so a group added in Stalwart's own directory is worked by the next
-  one, with no restart — and asks for a pass every ten seconds, with the claim
+  one, with no restart — and asks for a pass every ten seconds, or thirty while
+  the wake stream is connected, with the claim
   keeping an installation to one agent when a second copy of the server runs.
   The writing half of the catalogue does the reversible work of the group's own
   account, and three of its tools are the acts the inventory promises:
@@ -44,9 +45,11 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   principal with access and parks the run on it, the reply that names it in its
   thread continues the run, and `mail.send` carries a message outward once a
   person's own words or a rule's own declaration license exactly that message
-  (ADR 0028). The one destructive act is **`mail.trash`**, a move to Deleted Items
-  a person licenses by naming the message, and an installation administrator's
-  override is read once the **directory** says the sender is one. What is owed is
+  (ADR 0028). The destructive acts are **`mail.trash`**, `files.overwrite`,
+  `files.delete`, `calendar.update` and `calendar.delete`, each licensed by the
+  object it names: `mail.trash` moves a message to Deleted Items, a person
+  licenses it by naming the message. An installation administrator's override is
+  read once the **directory** says the sender is one. What is owed is
   what no test here can answer: a live provider, the arrival record a real
   Stalwart writes, and the change log's own paging cap (the `owed:` markers in
   ADRs 0027, 0029 and 0030).

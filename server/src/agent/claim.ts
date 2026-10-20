@@ -10,9 +10,9 @@
  *
  * A holder **renews** it while it works, and a claim that lapses is free: a
  * process that dies without releasing leaves a claim that expires, and the next
- * start takes it over. The window after a holder's last renew is the one
- * question this answers, and it is why a restart needs no attention — a stale
- * claim costs one TTL of waiting, never a document to delete by hand.
+ * start takes it over. A holder this host can see to be gone is taken at once;
+ * one on another host waits the lease. Either way a restart never leaves a
+ * document to delete by hand.
  *
  * Holding the claim costs one read per pass; a renew or a take costs one write
  * (one upload). Nothing here is on a clock of its own: the caller says when.

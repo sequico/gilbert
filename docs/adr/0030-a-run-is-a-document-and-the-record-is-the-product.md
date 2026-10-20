@@ -24,7 +24,7 @@ installation administrator reads them, a run is drawn as the record carries it:
 `listRuns` for the loop, which refuses the first document it cannot read, and
 `listRunsForReading` for `server/src/routes/agent.ts`, which carries that run as
 a problem the view says out loud rather than drawing it blank
-(`web/src/views/admin/AdminAgent.tsx`, behind the installation's own door,
+(`web/src/views/admin/agents/GroupRuns.tsx`, behind the installation's own door,
 ADR 0027). The records a run writes next to a person's already exist — a
 workorder step's `state`/`by`/`at`/`note` (`server/src/shared/workorder.ts`) and
 a KB page's revisions (ADR 0020).

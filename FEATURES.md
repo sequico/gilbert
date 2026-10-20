@@ -4,8 +4,8 @@ What Gilbert is, in one paragraph, is the top of [README.md](README.md); what it
 is *for* — operations rather than sales, deliberately no CRM and no sales
 functions — is [there too](README.md#who-it-is-for). This is the inventory
 of everything it does, ordered the way the project cares about it: **Gilbert's
-own** first — the groups, the chat and above all the agents — and the client the
-mail core derives from after it.
+own** first — the groups, the chat and the agents that work them — and the client
+the mail core derives from after it.
 
 [ROADMAP.md](ROADMAP.md) is what Gilbert deliberately does **not** do and why;
 [KNOWN-ISSUES.md](KNOWN-ISSUES.md) is where Stalwart departs from a spec, the
@@ -66,8 +66,8 @@ bolted on. The **group** is the unit everything else is built around: a group
 mailbox is an account of its own, and what it owns — its chat, its label catalog,
 its calendars and files, the rules it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
-**Chat** is one conversation per group. **Agents** is built and part of the
-server's own process (ADR 0027–0033 below): the loop that works a run is there,
+**Chat** is one conversation per group. **Agents** run inside the server's own
+process (ADR 0027–0033 below): the loop that works a run is there,
 and a pass is asked for when Stalwart pushes a change, with ten seconds as the
 floor without a working stream and thirty with one.
 
@@ -80,7 +80,7 @@ else a member does to move mail around still works.
 
 # Agents
 
-> **Built, and part of the server.** The loop that works a run is
+> **The agent runs inside the server.** The loop that works a run is
 > `server/src/agent/loop.ts`: a pass claims the installation, re-arms the waits
 > it finds, reads each account's changes, asks the decision turn which rule
 > applies, and works a run from the model's own step-by-step choices with the
@@ -116,12 +116,11 @@ reversible work itself, and it stops wherever a person is answerable.
 
 **It does:** reads inside documents and attachments; files and labels mail;
 keeps the label catalog and the folders; drafts a reply to everyone; settles a
-workorder step; proposes a KB page; writes and moves documents under a person's
-word; creates events in the group's own calendar; says what it did; asks a
-person; remembers facts.
+workorder step; proposes a KB page; writes and moves documents; creates events in
+the group's own calendar; says what it did; asks a person; remembers facts.
 
-**It never does alone:** sends outward; destroys anything; acts against the
-written policy; decides intent.
+**It never does alone:** sends outward; destroys or rewrites anything; acts
+against the written policy; decides intent.
 
 ## The five authority classes
 
@@ -130,8 +129,8 @@ people's.
 
 | | Class | What it covers | Who decides |
 | --- | --- | --- | --- |
-| 1 | Reversible, inside the group's account | filing a message, a keyword, a label, a folder, moving or renaming a file, a draft, a workorder step, a KB proposal, an event in the group's own calendar, a fact, a question | **The agent** |
-| 2 | Irreversible or destructive | destroying a message, a folder or a page, emptying a folder, overwriting a document | **A person, always** |
+| 1 | Reversible, inside the group's account | filing a message, a keyword, a label, a folder, writing, moving or renaming a file, creating an event in the group's own calendar, a draft, a workorder step, a KB proposal, a fact, a question | **The agent** |
+| 2 | Irreversible or destructive | destroying a message, a folder or a page, emptying a folder, deleting or overwriting a document, changing or removing a calendar event | **A person, always** |
 | 3 | Outward | anything that reaches somebody outside the mandate, `mail.send` above all | **A person's word for exactly that message**, or a rule that declares in its own text that it sends |
 | 4 | Beyond the policy | an act the written policy forbids | **Only an installation administrator**, proved by the directory and never by the sentence |
 | 5 | The intent | which policy is right, what a workorder should carry, whether a KB change is accepted | **Never the agent**: it proposes, a person approves |
@@ -155,9 +154,9 @@ and its transitions are `server/src/shared/run.ts`, and where a run lives is
 calls and five minutes of work, so a model that is stuck ends at a record rather
 than looping on the account. **One claim per installation** keeps a
 single agent working it: a document taken by compare-and-set that a holder
-renews and that lapses on its own if it dies, so a restart costs one TTL of
-waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
-0032).
+renews, and a holder that died on this host is taken over at once — another host
+waits the lease — so a restart never leaves a document to delete by hand
+(`server/src/agent/claim.ts`, ADR 0032).
 
 ## What it remembers
 
@@ -489,7 +488,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   the next one, and an administrator's correction is in the pass after that, with
   no restart (`GET /api/admin/agent`, `GET /api/admin/groups/<group>/runs`,
   `GET`/`PUT`/`DELETE /api/admin/memory`; `server/src/routes/agent.ts`,
-  `web/src/views/admin/AdminAgent.tsx`).
+  `web/src/views/admin/agents/AgentMemory.tsx`).
 - **Forced password change** (ADR 0001): the directive is a file in the target
   user's hidden `gilbert` app folder; the server door answers 403 on every data
   route until the password changes, and the change clears the directive. The
@@ -2041,8 +2040,8 @@ signed-in screen.
   no-referrer`, a `Permissions-Policy` denying microphone, camera, geolocation,
   payment and USB, `Cross-Origin-Opener-Policy: same-origin`, HSTS over HTTPS, and
   `Cache-Control: no-store` by default.
-- **CSRF**: every API call must carry `X-Requested-With: gilbert`, and any request
-  whose `Sec-Fetch-Site` is not same-origin is refused outright.
+- **CSRF**: every mutating API call must carry `X-Requested-With: gilbert`, and a
+  request whose `Sec-Fetch-Site` names another site is refused outright.
 - **Rate limiting** on sign-in, keyed by IP *and* IP+username, with `Retry-After`;
   a separate limiter guards the endpoints that check a password. An **IPv6 address
   is counted by its /64**. The flood ceiling is consulted **before the body is

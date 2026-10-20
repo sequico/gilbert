@@ -30,7 +30,7 @@ what **accepts** a proposal, the sheet it writes carrying none; a dismissal drop
 the proposal and leaves everything else as it was; and a removal takes the sheet
 out entirely — all four written against the state the reading saw
 (`server/src/agent/memory.ts`, `server/src/routes/agent.ts`,
-`web/src/views/admin/AdminAgent.tsx`). The knowledge base stays a second store,
+`web/src/views/admin/agents/AgentMemory.tsx`). The knowledge base stays a second store,
 which is this record's decision and not work owed.
 
 ## Context

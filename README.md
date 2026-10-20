@@ -22,6 +22,8 @@
 
 # Gilbert
 
+**Company mail and operations, with an agent that does the paperwork.**
+
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
 **R**esource **T**raceability.
 
@@ -31,23 +33,27 @@ the reversible work of a group's own account — reads inside documents, files a
 labels mail, drafts the reply, settles workorder steps, proposes knowledge pages
 and remembers facts — and stops wherever a person is answerable. The loop is part
 of `gilbertserver`: the server starts it with itself and reads the Master's
-groups on every pass, so a group added in Stalwart is worked within ten seconds
-and nothing has to be restarted.
+groups on every pass, so a group added in Stalwart is worked without a restart.
 
-> **The agent (`gilbertagents`) is built and part of the server.** Its decisions
-> are ADR 0027–0033, and the tree carries all of it: the tool catalogue, a
-> group's rules in prose, the installation's one model, the memory of facts, the
-> loop that works a run and the supervisor the server's own boot starts. What is
-> still owed is a **live probe**, not a feature — a real model provider and the
-> arrival record a real Stalwart writes, the `owed:` markers in ADRs 0027, 0029
-> and 0030.
+Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail,
+the sessions themselves — is a document in your own [Stalwart](https://stalw.art)
+mail server, under the account it belongs to. There is no Gilbert database: no
+index, no cache tier, nothing durable on a disk, nothing to back up twice, and a
+redeploy that loses nothing. The only third parties the installation talks to are the
+model it configures and the addresses a reader asks it to fetch — a message's
+remote images, a calendar a group subscribes to — and those through a proxy that
+refuses private addresses.
 
-Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
-is a document in your own [Stalwart](https://stalw.art) mail server, under the
-account it belongs to. There is no Gilbert database: no index, no cache tier, no
-writable disk, nothing to back up twice, and a redeploy that loses nothing. The
-only thing that leaves the installation is the model call the installation itself
-configures.
+## Why teams pick it
+
+- **One place for the work.** Mail, calendar, contacts, files, the procedures and
+  the checklists of a job live in the same account, so the message that arrives
+  and the work it starts are never in two products.
+- **An agent with a paper trail.** It does the reversible work of the group's own
+  account and leaves every decision to a person; every run is a document the
+  group can read, written before the act.
+- **Yours, and only yours.** Self-hosted, AGPL, no telemetry; the only third
+  party the installation talks to on its own is the model you choose.
 
 ## Who it is for
 
@@ -77,9 +83,10 @@ from the mail server's change log, and it does the reversible work itself.
   the group's own Drafts, the thread carried, the group's own addresses left out.
 - **Settles workorder steps** signed as the agent with the evidence beside it,
   and **proposes knowledge pages** as drafts for a person to approve.
-- **Writes, moves and renames documents** in Files under a person's word, and
-  creates, changes or removes events in the group's own calendar without inviting
-  anybody outside it.
+- **Writes, moves and renames documents** in Files, and **creates events** in the
+  group's own calendar — reversible work it owns. Overwriting or deleting a
+  document, or changing or removing an event, needs a person's word; no
+  invitation is sent and nobody outside the group is written to.
 - **Remembers what it learns** as facts with the provenance they came from, and
   **says what it did** in the group's conversation or asks a person a question —
   the answer, in that same conversation or by mail, picks the run up again.
@@ -91,11 +98,11 @@ answerable — five authority classes (ADR 0028), and only the first is the
 agent's:
 
 - **It decides** the reversible work inside the group's account: filing, labels,
-  folders, drafts, knowledge-base proposals, workorder steps, calendar events,
-  facts, a question. Every effect is in the trace and can be undone by hand.
+  folders, drafts, knowledge-base proposals, workorder steps, creating a calendar
+  event, facts, a question. Every effect is in the trace and can be undone by hand.
 - **A person decides** anything irreversible or destructive — destroying a
-  message, a folder or a page, overwriting a document. The product's preference
-  is that nothing disappears.
+  message, a folder or a page, deleting or overwriting a document, changing or
+  removing a calendar event. The product's preference is that nothing disappears.
 - **A person's own words** licence anything outward, and a word for one message
   reaches no other: a send names the address and the words, and the guard
   compares the act exactly. A rule a group wrote may declare in its own text that
@@ -120,8 +127,9 @@ running one.
 
 A run is capped at **20 steps, 40 model calls and five minutes of work**, so a
 model that is stuck ends at a record instead of looping on the account. **One
-claim per installation** keeps exactly one agent working it; the claim lapses on
-its own, so a restart costs one wait and never a document deleted by hand.
+claim per installation** keeps exactly one agent working it; a holder that died
+on the same host is taken over at once, and one on another host waits the lease —
+a restart never leaves a document to delete by hand.
 
 ## Security at a glance
 
@@ -130,10 +138,10 @@ its own, so a restart costs one wait and never a document deleted by hand.
 | **No password in the browser** | Sign-in posts the password once; the server seals it (HKDF-SHA256 → AES-256-GCM) and the browser keeps only an `HttpOnly`, `SameSite=Lax` cookie. |
 | **Strict CSP, sanitised HTML** | `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`; message HTML is sanitised and remote images are fetched through a proxy. |
 | **Images cannot scan the network** | The proxy resolves every hostname and refuses private, loopback, link-local, CGNAT and IPv6 equivalents; one bad record fails the fetch. |
-| **CSRF and flooding** | Every API call carries `X-Requested-With: gilbert` and refuses a cross-site `Sec-Fetch-Site`; sign-in is rate-limited by IP and by IP+username before the body is read. |
-| **No telemetry, no third-party requests** | No analytics, no telemetry, and the CSP refuses any origin but its own. |
+| **CSRF and flooding** | Every mutating API call carries `X-Requested-With: gilbert` and refuses a cross-site `Sec-Fetch-Site`; sign-in is flood-limited by IP before the body is read and rate-limited by IP+username after it. |
+| **No telemetry, no third-party requests from the browser** | No analytics, no telemetry; the CSP refuses any origin but its own, and a message's remote images are fetched through the proxy. |
 | **Nothing to leak on disk** | No database and, with `IMMUTABLE=1`, no writable filesystem; sessions live in Stalwart, so a redeploy loses nothing. |
-| **The model call is the only way out** | Zero-retention opt-out on every request; a provider whose address is not public is refused unless the operator explicitly allows it. |
+| **No hidden third party** | Zero-retention opt-out on every model call; a provider whose address is not public is refused unless the operator explicitly allows it; remote images and subscribed calendars are fetched only on a reader's request, through a proxy that refuses private addresses. |
 
 The detail, item by item, is [FEATURES.md › Security and
 privacy](FEATURES.md#security-and-privacy).
@@ -149,12 +157,12 @@ other:
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
-- **gilbertagents** — the agent: designed by ADR 0027–0033 and built — the loop
+- **gilbertagents** — the agent: designed by ADR 0027–0033 — the loop
   that works a run and the supervisor the server's own boot starts, which asks
-  for a pass every ten seconds and reads the Master's groups from the mail server
-  on each one, so a group added in Stalwart is worked without a restart; what it
-  cannot resolve — no model chosen, no group to work — leaves it idle with a line
-  rather than stopping the server.
+  for a pass every ten seconds — thirty while the wake stream is connected — and
+  reads the Master's groups from the mail server on each one, so a group added in
+  Stalwart is worked without a restart; what it cannot resolve — no model chosen,
+  no group to work — leaves it idle with a line rather than stopping the server.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.
@@ -240,7 +248,7 @@ The full install and operation guide is [INSTALL.md](INSTALL.md).
 | | |
 | --- | --- |
 | 🚀 **[INSTALL.md](INSTALL.md)** | Installing, running, configuring and operating Gilbert |
-| 📋 **[FEATURES.md](FEATURES.md)** | Everything Gilbert does today, feature by feature |
+| 📋 **[FEATURES.md](FEATURES.md)** | Everything Gilbert does, feature by feature |
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | Where Stalwart departs from a spec, the settings a feature needs, and what Gilbert deliberately does not do |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
 | 🧭 **[CONTRIBUTING.md](CONTRIBUTING.md)** | Building, the gates, the mock, and how to contribute |

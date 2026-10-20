@@ -21,10 +21,13 @@ are in the catalogue: `mail.send` (class 3, `outward`) names the act it is for �
 the address it reaches and the words it carries — and `mayRun` compares that act
 exactly, so a person's word for one message sends no other; a rule the group wrote
 may declare that it sends, and the declaration travels on the run (ADR 0031).
-**`mail.trash`** is class 2 and is the one destructive act: it **moves** a message
-to the account's Deleted Items, where it can be recovered, and the act it asks a
-person to license is the message's id (owner decision 2026-10-18). Nothing the
-agent can reach destroys a document. The policy the agent reads is a KB page (ADR
+**`mail.trash`** is class 2: it **moves** a message to the account's Deleted
+Items, where it can be recovered, and the act it asks a person to license is the
+message's id (owner decision 2026-10-18). The same class covers the acts that
+destroy or rewrite what was there — `files.overwrite`, `files.delete`,
+`calendar.update` and `calendar.delete` — each naming the object the person's
+word is for. `files.write`, `files.move`, `files.rename` and `calendar.create`
+are reversible and the agent's. The policy the agent reads is a KB page (ADR
 0020).
 
 ## Context
@@ -40,13 +43,15 @@ authors deciding, in advance, what every company may do. What can be bounded is
 Five classes, and the agent's freedom is exactly the first.
 
 1. **Reversible, inside the group's account** — filing a message, a keyword, a
-   label, a folder, moving or renaming a file, opening a workorder, drafting a
-   text, saying something in the conversation, settling a step of a workorder,
-   proposing a change to a KB page, setting a wait. **The agent decides.**
+   label, a folder, writing, moving or renaming a file, creating an event in the
+   group's own calendar, opening a workorder, drafting a text, saying something in
+   the conversation, settling a step of a workorder, proposing a change to a KB
+   page, setting a wait. **The agent decides.**
    Everything it creates is the group's from creation; every effect is in the
    trace (ADR 0030) and can be undone by hand.
 2. **Irreversible or destructive** — destroying a message, a folder or a page,
-   emptying a folder, overwriting a document. **A person, always**, and never by
+   emptying a folder, deleting or overwriting a document, changing or removing a
+   calendar event. **A person, always**, and never by
    default: the product's own preference is that nothing disappears, because the
    record is what it is for.
 3. **Outward** — anything that reaches a person outside the mandate. **A person's

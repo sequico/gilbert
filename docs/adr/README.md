@@ -235,12 +235,12 @@ is, not what a user sees.
   agent's capabilities are a small catalogue of **tools**, each one a task over an
   object Stalwart offers, and the **model chooses** which to call and in what
   order — **one or more in a single answer, together where independent** — never a
-  list of permitted business actions, and no plan compiled at write time. It works on
-  **five surfaces and has all of them**: the group's chat,
-  mail, KB (checklist templates among its pages) and workorders, with its own runs
-  beside them, each readable and writeable within the authority classes. A tool's
-  description is the product's interface to the model; two tools that do one thing
-  are a defect. The catalogue **grows freely** — a new tool is not an architectural
+  list of permitted business actions, and no plan compiled at write time. It
+  works on **six surfaces — the group's chat, mail, KB (checklist templates among
+  its pages), workorders, Files and calendar** — with its own runs beside them,
+  each readable, and writeable within the rule's matrix (ADR 0031) and the
+  authority classes. A tool's description is the product's interface to the
+  model; two tools that do one thing are a defect. The catalogue **grows freely** — a new tool is not an architectural
   decision, a new **object** or a change to the authority classes is — and every
   run carries a budget of steps, time and model calls. One model serves the
   installation, chosen in Administration → Installation
@@ -266,8 +266,10 @@ is, not what a user sees.
   person's word arrives in the sentence that answers a run (`readAnswerAuthority`,
   `authoriseAnswer`), and `mail.send` is the outward act it licenses, for exactly
   the message it names; a rule that declares it sends is the authority of its own
-  outward acts. `mail.trash` is the one destructive act and it **moves** a message
-  to Deleted Items, licensed by the message's id; an override is proved by the
+  outward acts. `mail.trash` is class 2 and **moves** a message to Deleted Items,
+  licensed by the message's id; `files.overwrite`, `files.delete`,
+  `calendar.update` and `calendar.delete` are the same class, each licensed by the
+  object it names; an override is proved by the
   directory's answer about the sender (`isAdministrator`, `server/src/agent/loop.ts`).
 - **0029 — The conversation runs in chat and mail.** One
   conversation, two channels: a question, an answer, an authorisation and a report
@@ -302,7 +304,7 @@ is, not what a user sees.
   `server/src/agent/loop.ts`, and an installation administrator reads a group's
   runs from Administration → Agent, where the record is drawn as it is stored and
   a document this build cannot read is said rather than guessed at
-  (`server/src/routes/agent.ts`, `web/src/views/admin/AdminAgent.tsx`).
+  (`server/src/routes/agent.ts`, `web/src/views/admin/agents/GroupRuns.tsx`).
 - **0031 — A group's engagement is a rule in prose.** One rule is one
   document in the group's own account, giving **each surface a mode** — the
   account's chat, mail, KB, workorders, Files and calendar — and saying **in
@@ -353,7 +355,7 @@ is, not what a user sees.
   (`server/src/agent/model.ts`), the run records what it recalled (`recalled`,
   `server/src/shared/run.ts`), `memory.remember` is the tool
   (`server/src/agent/tools.ts`), and the surface is
-  `server/src/routes/agent.ts` and `web/src/views/admin/AdminAgent.tsx`. A conclusion
+  `server/src/routes/agent.ts` and `web/src/views/admin/agents/AgentMemory.tsx`. A conclusion
   against a person's fact is kept as a **proposal** (`FactProposal`) beside the
   person's sentence, and Administration accepts it — the correction path, whose
   write carries no proposal — or dismisses it.
