@@ -502,6 +502,10 @@ export async function callModel(
       if (cached !== null) meter.cachedTokens += cached;
     }
   }
+  // A model that answered by naming a tool is answering: the field is read
+  // before the text, because its `content` is empty or the arguments alone.
+  const calls = nativeToolCalls(body);
+  if (calls) return { nativeToolCalls: calls } satisfies NativeToolCallsAnswer;
   const content = messageContent(body);
   if (content === null)
     throw new ModelError(
@@ -640,6 +644,64 @@ function messageContent(body: unknown): string | null {
   const message = (first as { message?: { content?: unknown } }).message;
   const content = message?.content;
   return typeof content === "string" && content.trim() ? content : null;
+}
+
+/** One tool call a provider named natively rather than in the demanded JSON. */
+export interface NativeToolCall {
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+/** The answer a provider's own tool calls are handed to the turns as. */
+export interface NativeToolCallsAnswer {
+  nativeToolCalls: NativeToolCall[];
+}
+
+/** Whether an answer is a provider's native tool calls. */
+export function isNativeToolCalls(x: unknown): x is NativeToolCallsAnswer {
+  return (
+    isRecord(x) && Array.isArray((x as { nativeToolCalls?: unknown }).nativeToolCalls)
+  );
+}
+
+/**
+ * The tool calls a completion answered with, when it named any.
+ *
+ * `deepseek-flash` is a reasoning model that sometimes answers an OpenAI
+ * completion with native `tool_calls` and an empty or argument-shaped `content`
+ * — the live run of 2026-10-20 wedged on "answered without a message" while the
+ * call it meant sat in that field. The agent does not send a `tools` list, so a
+ * call here is the model's own vocabulary, and the turns read it as the answer
+ * it is rather than as a malformed one.
+ */
+export function nativeToolCalls(body: unknown): NativeToolCall[] | null {
+  if (!isRecord(body)) return null;
+  const choices = (body as { choices?: unknown }).choices;
+  if (!Array.isArray(choices) || !choices.length) return null;
+  const first = choices[0];
+  if (!isRecord(first)) return null;
+  const message = (first as { message?: { tool_calls?: unknown } }).message;
+  const raw = message?.tool_calls;
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const calls: NativeToolCall[] = [];
+  for (const one of raw) {
+    if (!isRecord(one)) return null;
+    const fn = (one as { function?: unknown }).function;
+    if (!isRecord(fn)) return null;
+    const name = typeof fn.name === "string" ? fn.name.trim() : "";
+    if (!name) return null;
+    let args: unknown = fn.arguments;
+    if (typeof args === "string") {
+      try {
+        args = JSON.parse(args);
+      } catch {
+        return null;
+      }
+    }
+    if (!isRecord(args)) return null;
+    calls.push({ name, arguments: args });
+  }
+  return calls;
 }
 
 function firstLine(text: string): string {
@@ -857,7 +919,7 @@ export async function decideEvent(
 
   const reads: ReadMade[] = [];
   for (let round = 0; round <= maxReads; round++) {
-    const answer = await callModel(
+    let answer = await callModel(
       access,
       {
         system,
@@ -867,6 +929,20 @@ export async function decideEvent(
       opts.meter,
       { allowText: true },
     );
+    /*
+     * A model that named its lookup natively is asking for that lookup: the
+     * turn reads it as the `read` answer it is, and the reading tools and their
+     * guard decide whether it may be made.
+     */
+    if (isNativeToolCalls(answer)) {
+      if (answer.nativeToolCalls.length !== 1)
+        throw new ModelError(
+          "model_answer_malformed",
+          "A change is looked up one tool at a time.",
+        );
+      const [one] = answer.nativeToolCalls;
+      answer = { read: { tool: one.name, arguments: one.arguments } };
+    }
     /*
      * A person wrote in the conversation and the model answered in prose: those
      * words are the reply, not a malformed answer. Every other surface keeps the
@@ -1409,7 +1485,7 @@ export async function chooseStep(
     .filter(Boolean)
     .join("\n");
 
-  const answer = await callModel(
+  let answer = await callModel(
     access,
     {
       system,
@@ -1418,6 +1494,15 @@ export async function chooseStep(
     },
     opts.meter,
   );
+  // A model that named its steps natively is planning: the same calls the
+  // demanded JSON would carry, validated by the same parser below.
+  if (isNativeToolCalls(answer))
+    answer = {
+      calls: answer.nativeToolCalls.map((one) => ({
+        name: one.name,
+        arguments: one.arguments,
+      })),
+    };
   const parsed = parseStepAnswerDetailed(answer);
   if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
   if (parsed.choice.kind === "plan") {

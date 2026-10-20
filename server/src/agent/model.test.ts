@@ -74,6 +74,11 @@ interface Seen {
 
 let seen: Seen[] = [];
 let answers: string[] = [];
+/**
+ * A native tool call the next answer carries, in the provider's own shape, for
+ * the model that answers `deepseek-flash`'s way.
+ */
+let nativeCalls: Array<{ function: { name: string; arguments: string } }> | null = null;
 /** A body to answer with verbatim, rather than a chat completion. */
 let rawBody: string | null = null;
 /** How long the stub waits before answering, so the call's own time bound is asked. */
@@ -108,9 +113,24 @@ const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     return;
   }
   res.writeHead(200, { "content-type": "application/json" });
+  let content = "{}";
+  let toolCalls: unknown = null;
+  if (nativeCalls) {
+    toolCalls = nativeCalls;
+    nativeCalls = null;
+  } else {
+    content = answers.shift() ?? "{}";
+  }
   res.end(
     JSON.stringify({
-      choices: [{ message: { content: answers.shift() ?? "{}" } }],
+      choices: [
+        {
+          message: {
+            content,
+            ...(toolCalls ? { tool_calls: toolCalls } : {}),
+          },
+        },
+      ],
     }),
   );
 });
@@ -174,6 +194,7 @@ after(() => {
 beforeEach(() => {
   seen = [];
   answers = [];
+  nativeCalls = null;
   rawBody = null;
   answerDelayMs = 0;
 });
@@ -1236,4 +1257,38 @@ test("the choosing turn lists each tool's own argument names", async () => {
     "the arguments are the tool's own, so a name is not guessed",
   );
   assert.match(SYSTEM(0), /- memory\.remember\(fact, links, standing, subject\)/);
+});
+
+test("a provider's native tool call is the step the turn meant", async () => {
+  /*
+   * The live failure this pins: `deepseek-flash` answered with native
+   * `tool_calls` and an empty `content`, and every freight change batch died as
+   * "answered without a message" — the call it meant sat in the other field.
+   */
+  nativeCalls = [{ function: { name: "files.list", arguments: '{"path":"MS2"}' } }];
+  const choice = await chooseStep(
+    TOOLS,
+    { model, allowPrivateProvider: true },
+    stepQuestion(),
+  );
+  assert.deepEqual(choice, {
+    kind: "plan",
+    calls: [{ name: "files.list", args: { path: "MS2" }, needs: null }],
+  });
+});
+
+test("a provider's native tool call is the lookup the decision meant", async () => {
+  nativeCalls = [{ function: { name: "files.list", arguments: "{}" } }];
+  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
+  const decision = await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, rules: [shipperRule], prose },
+    toolCall(),
+  );
+  assert.deepEqual(decision, {
+    kind: "decision",
+    rules: ["shipper-answer"],
+    facts: { shipper: "Maersk" },
+  });
+  assert.equal(seen.length, 2, "the named lookup was made, and the turn asked again");
 });
