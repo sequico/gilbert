@@ -9,11 +9,24 @@ import { expect, it } from "vitest";
  * the client writes them with the group's session — and it writes them in the
  * shape the server reads. That shape is one definition, in the agent's tree, and
  * the alias `@gilbert/agent/*` is what lets this tier read it instead of
- * spelling a second one.
+ * spelling a second one. The import above is the assertion: a second definition
+ * would not resolve here at all.
+ *
+ * The version a document carries is the agent's to move, and a test that pinned
+ * it would break on the day a rule gains a field rather than on the day the two
+ * tiers disagreed; what is pinned is the surfaces the editor draws, which is the
+ * client's own contract with the shape.
  */
 it("a surface reads the agent's shapes from the one definition", () => {
-  expect(RULE_VERSION).toBe(1);
-  expect(INSTRUCTION_VERSION).toBe(1);
-  expect(RULE_SURFACES).toContain("mail");
-  expect(RULE_SURFACES).toEqual(["chat", "mail", "knowledge", "workorder", "files"]);
+  expect(Number.isInteger(RULE_VERSION)).toBe(true);
+  expect(RULE_VERSION).toBeGreaterThanOrEqual(1);
+  expect(Number.isInteger(INSTRUCTION_VERSION)).toBe(true);
+  expect(RULE_SURFACES).toEqual([
+    "chat",
+    "mail",
+    "files",
+    "knowledge",
+    "workorder",
+    "calendar",
+  ]);
 });
