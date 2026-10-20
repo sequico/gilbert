@@ -851,7 +851,8 @@ export interface DecisionQuestion {
    * What the change itself says, when the reading already has it: a chat
    * message's sender, text and the message it answers. Carried here so the turn
    * answers without a lookup -- one model call and one round trip less for the
-   * commonest wake.
+   * commonest wake. The text is bounded where the prompt carries it
+   * (`prompt.ts`, `READ_IN_PROMPT_MAX`): one long paste is not the change.
    */
   detail?: { from: string; text: string; replyTo?: string };
   /**

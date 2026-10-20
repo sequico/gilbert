@@ -75,7 +75,9 @@ export function turnData(
           dataBlock(token, [
             `from: ${question.detail.from}`,
             ...(question.detail.replyTo ? [`answers: ${question.detail.replyTo}`] : []),
-            `text: ${question.detail.text}`,
+            // Bounded like a reading: the message is somebody else's text, and
+            // the turn that decided the change is paid for by the token.
+            `text: ${clipped(question.detail.text, READ_IN_PROMPT_MAX)}`,
           ]),
         ]
       : []),

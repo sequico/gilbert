@@ -79,3 +79,21 @@ test("a step a later step waits on is carried whole however old it is", () => {
 
   assert.ok(prompt.includes(plan[0]?.outcome ?? ""), "the waited-on step is whole");
 });
+
+/**
+ * A chat message is somebody else's text and can be a pasted log: the turn that
+ * decides the change carries its beginning, and the words it was not shown are
+ * what a later lookup is for.
+ */
+test("a chat message longer than the prompt's bound is carried as its beginning", () => {
+  const huge = "b".repeat(READ_IN_PROMPT_MAX + 500);
+  const question = {
+    event: { source: "chat", change: "created", where: "c-1" },
+    detail: { from: "someone@example.com", text: huge },
+  } as DecisionQuestion;
+  const prompt = turnData(question, [], []);
+
+  assert.ok(prompt.length < huge.length, "the whole paste is not in the prompt");
+  assert.ok(prompt.includes("b".repeat(1_000)), "its beginning is");
+  assert.ok(prompt.includes("…"), "and the cut is visible");
+});
