@@ -123,7 +123,7 @@ test("a created Email reads back with its text body and a preview", async () => 
           accountId: ACCOUNT,
           create: {
             p: {
-              mailboxIds: { mb1: true },
+              mailboxIds: { inbox: true },
               subject: "Preview",
               from: [{ email: "ada@example.org" }],
               to: [{ email: "bob@example.org" }],

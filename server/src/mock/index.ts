@@ -3321,6 +3321,31 @@ const handlers: Record<string, Handler> = {
          * `serverFail`. The default belongs here, where the object is made.
          */
         o.keywords = (o.keywords as Obj | undefined) ?? {};
+        /*
+         * A message lands in mailboxes, and the account must have them: an
+         * account the session lists without a mailbox tree — the folder share,
+         * which is not a mailbox a reader can open — is refused here, the way a
+         * real server refuses a create into a mailbox that is not there. Left
+         * unchecked, the mock accepted the write, handed back an id and stored
+         * the message nowhere it could be read: a client that "delivered" into
+         * such an account looked correct here and would have been refused on a
+         * real server.
+         */
+        const boxes = new Set(mailboxesFor(a.accountId).map((box) => String(box.id)));
+        const named = Object.keys((o.mailboxIds as Obj | undefined) ?? {});
+        if (!named.length)
+          throw new SetError(
+            "invalidProperties",
+            "A message is in at least one mailbox, and this create names none.",
+            ["mailboxIds"],
+          );
+        for (const id of named)
+          if (!boxes.has(id))
+            throw new SetError(
+              "invalidProperties",
+              `"${id}" is not a mailbox of this account.`,
+              ["mailboxIds"],
+            );
         const bv = (o.bodyValues as Record<string, { value: string }>) ?? {};
         /*
          * A part names its body one of two ways: `bodyValues` when the caller is

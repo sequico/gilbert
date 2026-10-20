@@ -217,8 +217,29 @@ before(async () => {
       session.accounts[id] as { name?: unknown; isPersonal?: unknown },
     ),
   );
-  const group = groups[0];
-  assert.ok(group, "the Master's session holds a group to work");
+  /*
+   * The candidate the pass will actually work: the session lists a folder share
+   * as a non-personal account too, and the product's own classifier asks the
+   * server for a mailbox tree before it calls one a group
+   * (`groupAccountsDetailed` → `probeMailStore`). A harness that skipped that
+   * question worked an account with no mail — where a delivered message was
+   * stored nowhere and could not be read back.
+   */
+  let group = "";
+  for (const id of groups) {
+    const boxes = await clientOf(ctx)
+      .call<{ list?: unknown[] }>(
+        "Mailbox/get",
+        { accountId: id, ids: null, properties: ["id", "role"] },
+        [CAPABILITIES.mail],
+      )
+      .catch(() => ({ list: [] }));
+    if ((boxes.list ?? []).length) {
+      group = id;
+      break;
+    }
+  }
+  assert.ok(group, "the Master's session holds a group mailbox to work");
   accountId = group;
 });
 
@@ -309,9 +330,20 @@ function rule(id: string, watches: WatchList = ["mail"]): RuleDoc {
   };
 }
 
-/** One message delivered into the account: a create in its own Email log. */
-/** One message delivered into an account: a create in its own Email log. */
+/** The inbox id of an account, read from the server: mailbox ids are its own. */
+async function inboxOf(account: string): Promise<string> {
+  const boxes = await clientOf(ctx).call<{
+    list?: Array<{ id?: string; role?: string }>;
+  }>("Mailbox/get", { accountId: account, ids: null, properties: ["id", "role"] }, [
+    CAPABILITIES.mail,
+  ]);
+  const inbox = (boxes.list ?? []).find((box) => box.role === "inbox")?.id;
+  assert.ok(inbox, `the account ${account} has an inbox`);
+  return inbox;
+}
+
 async function deliver(subject: string, into = accountId, body = ""): Promise<string> {
+  const inbox = await inboxOf(into);
   const answer = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
     "Email/set",
     {
@@ -319,7 +351,7 @@ async function deliver(subject: string, into = accountId, body = ""): Promise<st
       create: {
         c: {
           subject,
-          mailboxIds: { inbox: true },
+          mailboxIds: { [inbox]: true },
           // A message with words of its own, for the turns that are told them.
           ...(body
             ? {
@@ -419,13 +451,9 @@ test("a change a rule watches opens a run, and the record shows every step of it
  *
  * The words of the message are read before the turn (`changes.ts`), so the turn
  * that decides a mail does not spend a lookup — a whole model call — on the same
- * message. What this harness can show is the shape of the turn: one decision
- * call, told the change, with no reading block in it. The words themselves a
- * `Email/get` in this mock cannot answer for a group's own account, which is the
- * mock's gap and not the turn's (`readMessageForAnswer` answers a message with a
- * body when the account serves it).
+ * message: it is told them, fenced as data.
  */
-test("a mail change is decided in one call, and the turn is not handed a reading", async () => {
+test("a mail change is read before the decision turn, so the turn spends no lookup on it", async () => {
   const id = "intake-mail-words";
   await putRule(id);
   const agent = loop();
@@ -438,10 +466,15 @@ test("a mail change is decided in one call, and the turn is not handed a reading
 
   const decisions = seen.filter((one) => isDecision(one.system));
   assert.equal(decisions.length, 1, "one decision turn, and no lookup round before it");
-  assert.match(decisions[0]?.user ?? "", /surface: mail/, "which is told the change");
+  assert.match(
+    decisions[0]?.user ?? "",
+    /The message itself, so it need not be looked up again:/,
+    "the turn is told the message it decides",
+  );
+  assert.match(decisions[0]?.user ?? "", /BK-42/, "with the sender's own words");
   assert.ok(
     !(decisions[0]?.user ?? "").includes("What mail.read answered"),
-    "and spends no lookup on the message it decides",
+    "and spends no lookup on it",
   );
 });
 
@@ -1327,6 +1360,8 @@ test("an account whose rules cannot be read is a gap, and the others are still w
    */
   let mailAccount = "";
   for (const id of Object.keys(ctx.session.accounts)) {
+    // Another account than the one this harness works: the test needs two.
+    if (id === accountId) continue;
     const list = await clientOf(ctx).call<{ list?: unknown[] }>(
       "Email/get",
       { accountId: id, ids: null },
@@ -1386,23 +1421,11 @@ test("a question asked by mail parks the run, and a reply on its thread continue
    * answer is the message whose thread names the question — mail's own
    * correlation, and the same bound as chat: the sender is never the group itself.
    *
-   * The account is chosen for its **mail**: the shared account these tests work by
-   * default carries none in the mock, so a message created there is a change with
-   * no message behind it.
+   * The account is the group the harness works: it carries a mailbox of its own
+   * and a directory entry, which are the two things the question needs.
    */
-  let mailAccount = "";
-  for (const id of Object.keys(ctx.session.accounts)) {
-    const list = await clientOf(ctx).call<{ list?: unknown[] }>(
-      "Email/get",
-      { accountId: id, ids: null },
-      [CAPABILITIES.mail],
-    );
-    if ((list.list ?? []).length) {
-      mailAccount = id;
-      break;
-    }
-  }
-  assert.ok(mailAccount, "the mock has an account with mail");
+  const mailAccount = accountId;
+  const mailInbox = await inboxOf(mailAccount);
   const members = await groupMembers(ctx, mailAccount);
   assert.ok(members?.length, "the directory says who has access to it");
   // A person who is not the agent: its own address is its own mail, and an
@@ -1441,7 +1464,7 @@ test("a question asked by mail parks the run, and a reply on its thread continue
     {
       accountId: mailAccount,
       create: {
-        c: { subject: "a booking needing an answer", mailboxIds: { inbox: true } },
+        c: { subject: "a booking needing an answer", mailboxIds: { [mailInbox]: true } },
       },
     },
     [CAPABILITIES.mail],
@@ -1476,7 +1499,7 @@ test("a question asked by mail parks the run, and a reply on its thread continue
           to: [{ email: "demo@example.com" }],
           inReplyTo: [messageId],
           references: [messageId],
-          mailboxIds: { inbox: true },
+          mailboxIds: { [mailInbox]: true },
           bodyStructure: { partId: "text", type: "text/plain" },
           bodyValues: { text: { value: "it is BK-2" } },
           // A message created here stands in for a delivered one, and the
@@ -2239,7 +2262,7 @@ test("the agent's own send is not a change a rule watching mail wakes on", async
           subject: "a booking to answer",
           from: [{ email: "ops@shipper.example" }],
           to: [{ email: "team@example.org" }],
-          mailboxIds: { inbox: true },
+          mailboxIds: { [await inboxOf(group)]: true },
         },
       },
     },
@@ -2274,6 +2297,7 @@ test("the switch off answers a mention and a mail that names the agent alone, wi
   await postChatMessage(ctx, group, "sam@example.org", "@demo are you there?", {
     mentions: [{ kind: "principal", id: ctx.username }],
   });
+  const groupInbox = await inboxOf(group);
   const deliverTo = (subject: string, cc: boolean) =>
     clientOf(ctx).call<{ created?: { m?: { id?: string } } }>(
       "Email/set",
@@ -2285,7 +2309,7 @@ test("the switch off answers a mention and a mail that names the agent alone, wi
             from: [{ email: "ops@shipper.example" }],
             to: [{ email: ctx.username }],
             ...(cc ? { cc: [{ email: "colleague@shipper.example" }] } : {}),
-            mailboxIds: { inbox: true },
+            mailboxIds: { [groupInbox]: true },
           },
         },
       },
