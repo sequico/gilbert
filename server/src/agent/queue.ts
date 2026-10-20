@@ -22,7 +22,7 @@
  */
 
 import type { Ctx } from "../appFolder.js";
-import { readAppJsonAt, writeAppFileAt } from "../appFolder.js";
+import { readAppFileAt, writeAppFileAt } from "../appFolder.js";
 import { APP_FOLDER_NAME } from "../shared/appFolder.js";
 import { type AccountEvent, eventSourceOf } from "./accountEvent.js";
 
@@ -49,7 +49,7 @@ export const DROP_QUIET_MS = 5 * 60_000;
  */
 export const DROP_CAP_MS = 20 * 60_000;
 
-/** How many folders are held at once: past this, the oldest is answered first. */
+/** How many folders the queue holds before it starts answering the oldest. */
 const DROPS_MAX = 40;
 
 /** How many paths one drop names; a longer burst keeps its newest files. */
@@ -91,14 +91,44 @@ function isDrop(x: unknown): x is Drop {
   );
 }
 
-/** The queue as it stands; an absent or unreadable document is an empty one. */
+/**
+ * The queue as it stands.
+ *
+ * An absent document is an empty queue — the ordinary state before the first
+ * file. A document that is there but cannot be read is **not** an empty queue:
+ * the files it holds were consumed from the change log already, and reading the
+ * damage as "nothing pending" would forget them in silence. The pass stops and
+ * says so, and the operator removes the document to start again from the files
+ * that are still in the folder.
+ */
 async function readPending(ctx: Ctx, accountId: string): Promise<PendingDoc> {
-  const raw = await readAppJsonAt(ctx, accountId, `${APP_FOLDER_NAME}/${PENDING_FILE}`);
-  if (!raw || typeof raw !== "object") return { v: PENDING_VERSION, drops: [] };
+  const found = await readAppFileAt(ctx, accountId, `${APP_FOLDER_NAME}/${PENDING_FILE}`);
+  if (!found) return { v: PENDING_VERSION, drops: [] };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(found.text);
+  } catch {
+    throw new Error(
+      `The agent's drop queue (${APP_FOLDER_NAME}/${PENDING_FILE}) is not readable JSON, so the files it holds cannot be reported.`,
+    );
+  }
+  if (!raw || typeof raw !== "object") {
+    throw new Error(
+      `The agent's drop queue (${APP_FOLDER_NAME}/${PENDING_FILE}) is not a drop document.`,
+    );
+  }
   const doc = raw as Record<string, unknown>;
-  if (doc.v !== PENDING_VERSION || !Array.isArray(doc.drops))
-    return { v: PENDING_VERSION, drops: [] };
-  return { v: PENDING_VERSION, drops: doc.drops.filter(isDrop) };
+  if (doc.v !== PENDING_VERSION || !Array.isArray(doc.drops)) {
+    throw new Error(
+      `The agent's drop queue (${APP_FOLDER_NAME}/${PENDING_FILE}) is not a shape this build writes.`,
+    );
+  }
+  if (!doc.drops.every(isDrop)) {
+    throw new Error(
+      `The agent's drop queue (${APP_FOLDER_NAME}/${PENDING_FILE}) holds a drop this build cannot read, so the files it names cannot be reported.`,
+    );
+  }
+  return { v: PENDING_VERSION, drops: doc.drops };
 }
 
 async function writePending(
@@ -108,7 +138,7 @@ async function writePending(
 ): Promise<void> {
   await writeAppFileAt(ctx, accountId, `${APP_FOLDER_NAME}/${PENDING_FILE}`, {
     v: PENDING_VERSION,
-    drops: drops.slice(-DROPS_MAX),
+    drops: [...drops],
   } satisfies PendingDoc);
 }
 
@@ -149,10 +179,17 @@ export async function noteFile(
 export async function dueDrops(ctx: Ctx, accountId: string, now: Date): Promise<Drop[]> {
   const at = now.getTime();
   const drops = (await readPending(ctx, accountId)).drops;
-  return drops.filter((drop) => {
+  /*
+   * Past the ceiling, the oldest are answered even if their folder was just
+   * written to: the ceiling bounds a pass, it is never a reason to drop a
+   * folder's files on the floor.
+   */
+  const over = Math.max(0, drops.length - DROPS_MAX);
+  return drops.filter((drop, index) => {
     const last = Date.parse(drop.lastAt);
     const first = Date.parse(drop.firstAt);
     return (
+      index < over ||
       (Number.isFinite(last) && at - last >= DROP_QUIET_MS) ||
       (Number.isFinite(first) && at - first >= DROP_CAP_MS)
     );

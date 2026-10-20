@@ -514,7 +514,8 @@ export async function callModel(
     );
   const parsed = jsonObjectIn(content);
   if (parsed !== null) return parsed;
-  if (opts.allowText && content.trim()) return { text: content.trim() };
+  if (opts.allowText && content.trim() && !/DSML/i.test(content))
+    return { text: content.trim() };
   throw new ModelError(
     "model_answer_malformed",
     `${provider} answered with content that is not JSON: ${firstLine(content)}`,
@@ -935,12 +936,12 @@ export async function decideEvent(
      * guard decide whether it may be made.
      */
     if (isNativeToolCalls(answer)) {
-      if (answer.nativeToolCalls.length !== 1)
+      const one = answer.nativeToolCalls[0];
+      if (!one || answer.nativeToolCalls.length !== 1)
         throw new ModelError(
           "model_answer_malformed",
           "A change is looked up one tool at a time.",
         );
-      const [one] = answer.nativeToolCalls;
       answer = { read: { tool: one.name, arguments: one.arguments } };
     }
     /*

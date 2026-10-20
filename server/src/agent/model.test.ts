@@ -1259,6 +1259,32 @@ test("the choosing turn lists each tool's own argument names", async () => {
   assert.match(SYSTEM(0), /- memory\.remember\(fact, links, standing, subject\)/);
 });
 
+test("a provider's leaked tool markup is not prose the agent says", async () => {
+  // A reasoning model sometimes emits its tool-call tokens as text; those are
+  // not words the group should read in its conversation.
+  const chatRule: RuleDoc = {
+    v: RULE_VERSION,
+    id: "chat-answer",
+    watches: ["chat"],
+    instruction: "Answer the group in its own conversation.",
+    sends: false,
+  };
+  answers.push('<｜｜DSML｜｜invoke name="mail.find">cargo</｜｜DSML｜｜invoke>');
+  await assert.rejects(
+    () =>
+      decideEvent(
+        { model, allowPrivateProvider: true },
+        {
+          event: { source: "chat", change: "created", where: "c-1" },
+          rules: [chatRule],
+          prose,
+        },
+        toolCall(),
+      ),
+    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
+  );
+});
+
 test("a provider's native tool call is the step the turn meant", async () => {
   /*
    * The live failure this pins: `deepseek-flash` answered with native

@@ -410,8 +410,9 @@ const IMAGE_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "ima
  * every `.jpeg` labelled `application/octet-stream`, and a provider handed a
  * `data:application/octet-stream` part refuses the image outright while the bytes
  * are a valid JPEG (live: Deepseek answered "unsupported image ... webp, png,
- * jpeg, and gif"). The declared type answers when it is one the model reads; the
- * name is the next witness; the magic bytes are the last and strongest one.
+ * jpeg, and gif"). The magic bytes answer first, because they are what the
+ * provider decodes; a type the model reads and a name are the witnesses after
+ * them, for a format whose signature this build does not recognise.
  *
  * Null is a picture this installation cannot show the model — a BMP or a TIFF,
  * which the provider would refuse — and the caller says so without spending a
@@ -422,11 +423,11 @@ export function imageMediaType(
   name: string,
   bytes: Uint8Array,
 ): string | null {
+  const sniffed = sniffedImageType(bytes);
+  if (sniffed) return sniffed;
   const declared = type.toLowerCase().trim();
   if (IMAGE_MEDIA_TYPES.has(declared)) return declared;
-  const named = namedImageType(name);
-  if (named) return named;
-  return sniffedImageType(bytes);
+  return namedImageType(name);
 }
 
 /** The image type a file's extension names, or null. */

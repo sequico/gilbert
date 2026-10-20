@@ -318,8 +318,8 @@ test("a picture's type is its bytes', not the sender's label", () => {
   );
   assert.equal(
     imageMediaType("image/png", "x.jpeg", jpeg),
-    "image/png",
-    "a type the model reads is not second-guessed",
+    "image/jpeg",
+    "the bytes answer before a label that names another format",
   );
   const webp = new Uint8Array([
     0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,

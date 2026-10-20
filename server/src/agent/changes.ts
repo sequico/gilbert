@@ -123,7 +123,13 @@ export function wokeOf(event: AccountEvent): string {
     : base;
 }
 
-/** Whether a path names a document rather than a folder. */
+/**
+ * Whether a path names a document rather than a folder.
+ *
+ * shortcut: a name with no dot is read as a folder, so a document filed without
+ * an extension is not queued; the change log names a node's address, not its
+ * type. Upgrade when the event can carry the node's type.
+ */
 function looksLikeFile(path: string): boolean {
   const name = path.slice(path.lastIndexOf("/") + 1);
   return name.includes(".");
@@ -334,7 +340,17 @@ export async function workChanges(
    * The drops whose burst is over are changes of this pass too: one event per
    * folder, carrying the files that landed there while it was open (`queue.ts`).
    */
-  const due = await deps.dueDrops(accountId, now);
+  /*
+   * The queue is the agent's own bookkeeping: a document it cannot read costs
+   * the drops it names, never the group's mail. The failure is the pass's gap,
+   * and the files are still in the folder for a person to see.
+   */
+  let due: Drop[] = [];
+  try {
+    due = await deps.dueDrops(accountId, now);
+  } catch (err) {
+    summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+  }
   const events = [
     ...due.map(dropEvent),
     ...read.events.filter(
@@ -439,16 +455,15 @@ export async function workChanges(
       : null;
     const meter = usageMeter();
     /*
-     * A file event names one document, and the process can read it once here:
-     * the decision turn then answers about the document it was woken by instead
-     * of spending a lookup call asking for what the process already has.
+     * A drop of one file can be read once here: the decision turn then answers
+     * about the document it was woken by instead of spending a lookup call
+     * asking for what the process already has. A larger drop is left to the
+     * turn, which reads the one or two files it needs rather than paying a
+     * transcription for every file of the pack.
      */
     const document =
-      event.source === "files" &&
-      event.change !== "destroyed" &&
-      !event.also &&
-      looksLikeFile(event.where)
-        ? await deps.readEventFile(accountId, event.where)
+      event.source === "files" && event.also?.length === 1
+        ? await deps.readEventFile(accountId, event.also[0] as string)
         : null;
     const decision = await decideEvent(
       deps.access,

@@ -23,7 +23,7 @@ process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-queue";
 
 const mock = await import("../mock/index.js");
-const { filesAccountId } = await import("../appFolder.js");
+const { filesAccountId, writeAppFileAt } = await import("../appFolder.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { DROP_CAP_MS, DROP_QUIET_MS, dueDrops, forgetDrop, noteFile } = await import(
   "./queue.js"
@@ -106,4 +106,27 @@ test("two folders are two drops, each answered on its own clock", async () => {
   );
   await forgetDrop(ctx, accountId, FOLDER);
   await forgetDrop(ctx, accountId, "MS2/other");
+});
+
+test("past the ceiling the oldest folder is answered, not dropped", async () => {
+  // The ceiling bounds a pass. A queue that evicted the oldest would lose a
+  // folder's files with nobody told, which is the one thing this design refuses.
+  const folders = Array.from({ length: 41 }, (_, at) => `MS2/overflow-${at}`);
+  for (const folder of folders)
+    await noteFile(ctx, accountId, `${folder}/doc.pdf`, at(0));
+  const due = await dueDrops(ctx, accountId, at(0));
+  assert.equal(due.length, 1, "one folder is over the ceiling");
+  assert.equal(due[0]?.folder, folders[0], "and it is the oldest");
+  for (const folder of folders) await forgetDrop(ctx, accountId, folder);
+});
+
+test("a queue that cannot be read stops the pass instead of forgetting the drop", async () => {
+  // The files it names were consumed from the change log already: reading the
+  // damage as "nothing pending" would forget them in silence.
+  await writeAppFileAt(ctx, accountId, "gilbert/pending.json", "not a drop document");
+  await assert.rejects(() => dueDrops(ctx, accountId, at(0)), /not a drop document/);
+  await writeAppFileAt(ctx, accountId, "gilbert/pending.json", {
+    v: 1,
+    drops: [],
+  });
 });
