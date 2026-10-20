@@ -2233,6 +2233,25 @@ test("a workorder's steps carry the template's words beside their paths", async 
  * pages rather than by listing them and reading them one at a time.
  */
 test("the base is paged by offset and searched by the words of its pages", async () => {
+  // Its own page, with words no other fixture carries: a search that leans on
+  // another test's fixture is a test that reads the file's order.
+  const title = "Searchable note";
+  const body = "The customs seal goes on the second door of the container.";
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `knowledge/${knowledgeFolderName(title)}/draft.json`,
+    buildDraft({
+      id: "k-search",
+      title,
+      tags: [],
+      blocks: blocksFromText(body),
+      text: body,
+      by: "a@example.com",
+      at: new Date().toISOString(),
+    }),
+  );
+
   const first = await callTool<{
     pages: Array<{ folder: string }>;
     total: number;
@@ -2257,15 +2276,15 @@ test("the base is paged by offset and searched by the words of its pages", async
   const found = await callTool<{
     pages: Array<{ folder: string; title: string; snippet?: string }>;
     total: number;
-  }>("knowledge.search", { query: "original order" });
-  const page = found.pages.find((one) => one.folder === "Policies/Returns");
+  }>("knowledge.search", { query: "customs seal" });
+  const page = found.pages.find((one) => one.folder === title);
   assert.ok(page, "the page whose words name the subject is found");
   assert.match(
     page?.snippet ?? "",
-    /original order/,
+    /customs seal/,
     "and the answer carries the line the words sit in",
   );
-  assert.ok(found.total >= 1, "with how many matched");
+  assert.equal(found.total, 1, "with how many matched");
 
   const none = await callTool<{ pages: unknown[] }>("knowledge.search", {
     query: "nothing in this base says this",
