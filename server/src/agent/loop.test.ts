@@ -781,6 +781,44 @@ test("the same rule and the same change continue one run rather than open a seco
   );
 });
 
+test("a stopped run is not proposed again for the same change", async () => {
+  /*
+   * Stopping a run marks it `cancelled` (POST /groups/:name/runs/:id/stop), and
+   * the account's record is what says the change has been answered: a run whose
+   * `startedBy` names this rule and this change, **whatever state it ended in**.
+   * A stopped run therefore closes that change for the rule — a later pass that
+   * re-reads an unfinished batch does not open a fresh one beside it.
+   */
+  const id = "intake-stopped";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  const message = await deliver("a booking confirmation");
+  await createRun(
+    ctx,
+    accountId,
+    finishRun(
+      startRun({
+        id: "stopped-by-a-person",
+        startedBy: { rule: id, instruction: null, woke: `mail created: ${message}` },
+      }),
+      "cancelled",
+      { at: new Date().toISOString(), why: "a person stopped it" },
+    ),
+  );
+
+  onCall = (system) => (isDecision(system) ? { rules: [id], facts: {} } : { done: "no" });
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 0, "no run is opened for a change whose run was stopped");
+  const runs = (await listRuns(ctx, accountId)).filter(
+    (record) => record.run.startedBy.rule === id,
+  );
+  assert.equal(runs.length, 1, "the stopped run is the answer the change already has");
+  assert.equal(runs[0]?.run.state, "cancelled", "and it stays stopped");
+});
+
 test("a change no rule watches costs no model call and no step", async () => {
   const id = "intake-workorder";
   await putRule(id, ["workorder"]);
