@@ -102,7 +102,13 @@ function isDrop(x: unknown): x is Drop {
  * that are still in the folder.
  */
 async function readPending(ctx: Ctx, accountId: string): Promise<PendingDoc> {
-  const found = await readAppFileAt(ctx, accountId, `${APP_FOLDER_NAME}/${PENDING_FILE}`);
+  /*
+   * The app-folder-relative path is the file's name: `writeAppFileAt` is under
+   * the app folder already. Prefixing the folder wrote the queue one level too
+   * deep (`gilbert/gilbert/pending.json`), where every write of the queue was a
+   * change of its own and the drop it created never went quiet.
+   */
+  const found = await readAppFileAt(ctx, accountId, PENDING_FILE);
   if (!found) return { v: PENDING_VERSION, drops: [] };
   let raw: unknown;
   try {
@@ -136,7 +142,7 @@ async function writePending(
   accountId: string,
   drops: readonly Drop[],
 ): Promise<void> {
-  await writeAppFileAt(ctx, accountId, `${APP_FOLDER_NAME}/${PENDING_FILE}`, {
+  await writeAppFileAt(ctx, accountId, PENDING_FILE, {
     v: PENDING_VERSION,
     drops: [...drops],
   } satisfies PendingDoc);

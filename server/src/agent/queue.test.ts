@@ -23,7 +23,7 @@ process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-queue";
 
 const mock = await import("../mock/index.js");
-const { filesAccountId, writeAppFileAt } = await import("../appFolder.js");
+const { filesAccountId, readAppFileAt, writeAppFileAt } = await import("../appFolder.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { DROP_CAP_MS, DROP_QUIET_MS, dueDrops, forgetDrop, noteFile } = await import(
   "./queue.js"
@@ -120,12 +120,31 @@ test("past the ceiling the oldest folder is answered, not dropped", async () => 
   for (const folder of folders) await forgetDrop(ctx, accountId, folder);
 });
 
+test("the queue lives at the app folder's own top level, not one level deeper", async () => {
+  /*
+   * The live failure this pins: a path prefixed with the app folder wrote the
+   * queue to `gilbert/gilbert/pending.json`, where every write of the queue was
+   * a file event of its own and the drop it created never went quiet.
+   */
+  await noteFile(ctx, accountId, `${FOLDER}/DOC201026.pdf`, at(0));
+  assert.ok(
+    await readAppFileAt(ctx, accountId, "pending.json"),
+    "the queue is the app folder's own pending.json",
+  );
+  assert.equal(
+    await readAppFileAt(ctx, accountId, "gilbert/pending.json"),
+    null,
+    "and not the nested gilbert/gilbert/pending.json",
+  );
+  await forgetDrop(ctx, accountId, FOLDER);
+});
+
 test("a queue that cannot be read stops the pass instead of forgetting the drop", async () => {
   // The files it names were consumed from the change log already: reading the
   // damage as "nothing pending" would forget them in silence.
-  await writeAppFileAt(ctx, accountId, "gilbert/pending.json", "not a drop document");
+  await writeAppFileAt(ctx, accountId, "pending.json", "not a drop document");
   await assert.rejects(() => dueDrops(ctx, accountId, at(0)), /not a drop document/);
-  await writeAppFileAt(ctx, accountId, "gilbert/pending.json", {
+  await writeAppFileAt(ctx, accountId, "pending.json", {
     v: 1,
     drops: [],
   });
