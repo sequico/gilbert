@@ -391,5 +391,13 @@ is, not what a user sees.
   into the workorder's folder and writes the refs, idempotently, and a key that
   resolves to nothing is recorded and left to the group's rule in prose. The
   folder is a container, not an identity: a facet layout may nest it, and a
-  replaced workorder carries its tags to its successor. **Not built.**
+  replaced workorder carries its tags to its successor. **Workorders is a
+  section** of its own, between Contacts and Files, whose tree is composed from
+  the refs — the files are the same nodes Files shows, the workorder's own
+  documents live under `workorders/` in the app folder, and the checklist
+  launcher stays in the top bar. **A group's mail is flat**: Inbox, Sent and
+  Archive, with what a message is about kept in its ref and grouping drawn as a
+  view, because a mailbox per project repeats a relation a ref already states
+  and grants nothing that group membership does not. Existing mail is flattened
+  by hand and nothing is migrated. **Not built.**
 
