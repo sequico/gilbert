@@ -576,14 +576,12 @@ export async function approveArticle(
         created: draft.created,
       });
     const after = stateAfterApproval(base, issued, new Date(now));
-    // The listing follows the revision now in force for its **tags**, and never
-    // for the title: the title is the folder's, and a page named one thing and
-    // filed under another is a page no read by title can find. Renaming is its
-    // own act (`renameArticle`), which moves the folder with the words.
+    // The listing follows the revision now in force: a future-dated approval
+    // waits, and the title readers see stays the current one until then.
     const inForceNow = after.inForce?.revision === revision;
     const nextState = {
       ...after,
-      title: base.title,
+      title: inForceNow ? draft.title : base.title,
       tags: inForceNow ? draft.tags : base.tags,
       updated: { by: admin.username, at: now },
     };

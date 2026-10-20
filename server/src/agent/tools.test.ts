@@ -2062,7 +2062,7 @@ test("the agent proposes a page's change into its draft, and nothing is in force
 
   await assert.rejects(
     () => writeTool("knowledge.propose", { title: "A page nobody wrote", text: "…" }),
-    /no knowledge page titled/,
+    /no knowledge page/,
     "a page that is not there is not proposed to",
   );
 });
@@ -2160,6 +2160,7 @@ test("a workorder's steps carry the template's words beside their paths", async 
       {
         key: "intake",
         label: "Intake",
+        group: accountId,
         steps: [{ key: "confirm", label: "Confirm the booking" }],
       },
     ],

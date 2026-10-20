@@ -140,14 +140,21 @@ async function stepLabels(
   const reader: TemplateReader = { ctx, defs: new Map(), articleFolders: new Map() };
   const def = (await templateDef(reader, checklist.template)).checklist;
   if (!def) return labels;
-  for (const section of resolveChecklist(
-    def,
-    checklist.variants,
-    itemKeysOf(checklist.items),
-    accountId,
-  ))
-    for (const item of section.items)
-      for (const step of item.steps) labels.set(step.path, step.label);
+  /*
+   * Both targets: the sections this account owns, and the global ones it may
+   * hold — what a part document carries is the document's business, and a label
+   * resolved for the wrong scope is a path the model sees stripped of its words
+   * for no reason.
+   */
+  for (const target of [accountId, null])
+    for (const section of resolveChecklist(
+      def,
+      checklist.variants,
+      itemKeysOf(checklist.items),
+      target,
+    ))
+      for (const item of section.items)
+        for (const step of item.steps) labels.set(step.path, step.label);
   return labels;
 }
 

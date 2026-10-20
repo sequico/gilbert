@@ -179,15 +179,15 @@ test("approval records the administrator who approved, never the agent", async (
 });
 
 /**
- * The title is the folder's: a page named one thing and filed under another is a
- * page no read by title can find. A draft's words are the draft's, and approving
- * them is not a rename — `renameArticle` is, and it moves the folder with them.
+ * A page's title is what its reader sees and its folder is where it was filed:
+ * approving new words approves the title with them, and the folder is moved only
+ * by a rename. So the two can name the page differently — and the page is still
+ * read by the folder the listing answers, which is how the agent names one.
  */
-test("neither a draft's title nor its approval moves the page's name", async () => {
+test("a page approved under a new title is still read by the folder it was filed in", async () => {
   const article = await create("Filed name");
   await save(article.folder, "first body");
-  const issued = await approve(article.folder, new Date().toISOString());
-  assert.equal(issued.title, "Filed name");
+  await approve(article.folder, new Date().toISOString());
 
   const retitled = await post("/api/knowledge/save", {
     scope: "company",
@@ -195,18 +195,17 @@ test("neither a draft's title nor its approval moves the page's name", async () 
     input: { title: "Another name", tags: ["iso"], blocks: [], text: "second body" },
   });
   assert.equal(retitled.status, 200, JSON.stringify(retitled.body));
-  assert.equal(
-    summaryOf(retitled.body).title,
-    "Filed name",
-    "a draft does not rename the page while a revision is in force",
-  );
 
   const again = await approve(article.folder, new Date().toISOString());
-  assert.equal(again.title, "Filed name", "and approving it does not either");
+  assert.equal(again.title, "Another name", "the approved title is what readers see");
+  assert.equal(again.folder, article.folder, "and the page is where it was filed");
+
+  const view = await readBack(article.folder);
+  assert.equal(view?.summary.title, "Another name", "the listing mirrors the revision");
   assert.equal(
-    (await readBack(article.folder))?.summary.title,
-    "Filed name",
-    "so the listing and the folder still name one page",
+    view?.effective?.text,
+    "second body",
+    "and the revision is the approved one",
   );
 });
 

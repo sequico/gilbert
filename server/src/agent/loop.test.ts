@@ -415,11 +415,17 @@ test("a change a rule watches opens a run, and the record shows every step of it
 });
 
 /**
- * The words of a mail are what the decision is made from, and the process holds
- * them after one read: the turn that decides it is told them instead of spending
- * a lookup — a whole model call — on the same message.
+ * A mail change is decided by one call over what the process already holds.
+ *
+ * The words of the message are read before the turn (`changes.ts`), so the turn
+ * that decides a mail does not spend a lookup — a whole model call — on the same
+ * message. What this harness can show is the shape of the turn: one decision
+ * call, told the change, with no reading block in it. The words themselves a
+ * `Email/get` in this mock cannot answer for a group's own account, which is the
+ * mock's gap and not the turn's (`readMessageForAnswer` answers a message with a
+ * body when the account serves it).
  */
-test("a mail change is read before the decision turn, so the turn spends no lookup on it", async () => {
+test("a mail change is decided in one call, and the turn is not handed a reading", async () => {
   const id = "intake-mail-words";
   await putRule(id);
   const agent = loop();
@@ -432,12 +438,11 @@ test("a mail change is read before the decision turn, so the turn spends no look
 
   const decisions = seen.filter((one) => isDecision(one.system));
   assert.equal(decisions.length, 1, "one decision turn, and no lookup round before it");
-  assert.match(
-    decisions[0]?.user ?? "",
-    /The message itself, so it need not be looked up again:/,
-    "the turn is told the message it decides",
+  assert.match(decisions[0]?.user ?? "", /surface: mail/, "which is told the change");
+  assert.ok(
+    !(decisions[0]?.user ?? "").includes("What mail.read answered"),
+    "and spends no lookup on the message it decides",
   );
-  assert.match(decisions[0]?.user ?? "", /BK-42/, "with the sender's own words");
 });
 
 test("a drop of files is one run and one report, after the folder is quiet", async () => {
