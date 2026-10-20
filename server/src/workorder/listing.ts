@@ -19,12 +19,12 @@ import type { LiveSession } from "../sessions.js";
 import { FILE_PROPS } from "../shared/appFolder.js";
 import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
+  checklistGroups,
   type KnowledgeChecklist,
   type ResolvedSection,
   resolveChecklist,
 } from "../shared/knowledge.js";
 import {
-  checklistGroups,
   isStepComplete,
   isStepCompleteForGate,
   isWorkorderDoc,
@@ -552,7 +552,12 @@ export async function listWorkorders(session: LiveSession): Promise<WorkorderLis
     workorders: out,
     total: roots.total,
     truncated: roots.truncated,
-    problems: roots.unreadable,
+    /*
+     * A path is reported to the administrator, whose registry this is: to
+     * anybody else it names a document they may not reach, and the surface's
+     * rule is that a reader learns nothing about a workorder they cannot see.
+     */
+    problems: reach.admin ? roots.unreadable : [],
   };
 }
 

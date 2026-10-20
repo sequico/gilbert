@@ -259,8 +259,10 @@ installation that has chosen no model has no agent.
 
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0027): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
-— finds and reads a message, a folder, a document in Files, the titles of the
-KB's pages before reading one, a workorder, a run, the group's own conversation
+— finds and reads a message, a folder, a document in Files, a page of the
+KB **searched by its own words** and **listed** by title and folder before one is
+read, the **workorders the account holds a part of** beside one read by uid, a
+run, the group's own conversation
 the events of its calendars in a window, and people in the installation's
 Global contacts by name or address, and a document in Files is read
 **inside**: a PDF's text layer, a Word file, a spreadsheet, an OpenDocument or a
