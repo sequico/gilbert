@@ -1,5 +1,5 @@
 /**
- * The knowledge base store (ADR 0024).
+ * The knowledge base store (ADR 0020).
  *
  * One store serves both tiers — the company KB and each group's — because the
  * documents and the surface are the same and only the owning account differs.
@@ -12,7 +12,7 @@
  * per probed group mailbox, the contact sidebar's own arrangement.
  *
  * Search is Orama in-process over the articles' `text`, rebuilt lazily per
- * search (ADR 0024 Q14), so the human box shares a corpus with the server's
+ * search (ADR 0020 Q14), so the human box shares a corpus with the server's
  * own lookup — which reads the same `text` without Orama — without a second
  * service and without a cached index to go stale.
  */
@@ -70,7 +70,7 @@ interface KnowledgeEdit {
   tags: string[];
   blocks: unknown[];
   text: string;
-  /** A checklist template's rules, or null for an ordinary page (ADR 0030). */
+  /** A checklist template's rules, or null for an ordinary page (ADR 0026). */
   checklist: KnowledgeChecklist | null;
   dirty: boolean;
 }
@@ -114,7 +114,7 @@ interface KnowledgeStore {
     parentFolder: string | null,
     /** Initial blocks, for an ordinary page. */
     blocks?: unknown[],
-    /** Initial rules, for a checklist template (ADR 0030). */
+    /** Initial rules, for a checklist template (ADR 0026). */
     checklist?: KnowledgeChecklist | null,
   ): Promise<boolean>;
   createFolder(
@@ -466,7 +466,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         const tier = get().tiers.find((t) => t.accountId === accountId);
         const summary = tier?.articles.find((a) => a.nodeId === nodeId);
         // A topic folder is a group, not a page: it has no draft to open and
-        // must never be turned into an article by an edit (ADR 0024).
+        // must never be turned into an article by an edit (ADR 0020).
         if (summary?.kind === "folder") {
           set({ articleLoading: false });
           return;
@@ -767,7 +767,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     },
 
     /**
-     * A group's KB rides the FileNode push rail (ADR 0024); the company tier is
+     * A group's KB rides the FileNode push rail (ADR 0020); the company tier is
      * read when opened, so a change there is picked up on the next open. The
      * store ignores an account it does not hold, so every FileNode change can be
      * offered to it.
@@ -775,7 +775,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     async applyChanges(accountId) {
       const tier = get().tiers.find((t) => t.accountId === accountId);
       // Only a group's KB rides the FileNode rail; the company tier is read when
-      // opened, so it is not pushed (ADR 0024).
+      // opened, so it is not pushed (ADR 0020).
       if (tier?.scope !== "group") return;
       // The first change of a burst opens the window; the rest ride it.
       if (changeWindows.has(accountId)) return;

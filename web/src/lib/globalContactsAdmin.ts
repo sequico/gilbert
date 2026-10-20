@@ -1,5 +1,5 @@
 /**
- * The installation's Global contacts directory, client half (ADR 0023).
+ * The installation's Global contacts directory, client half (ADR 0019).
  *
  * The directory is owned by the Master, so no session reaches it: it is read
  * through the route that answers every account, and written only by an
@@ -19,7 +19,7 @@ import { apiFetch } from "@/jmap/client";
  * Every shared-book surface keys it by this, `accountOfCard` answers it for a
  * directory card, and no JMAP write path may ever take it for a real account:
  * the generic contact editor refuses it and the administration's own route is
- * the only door (ADR 0023).
+ * the only door (ADR 0019).
  */
 export const GLOBAL_CONTACTS_ACCOUNT_ID = "global";
 
@@ -28,7 +28,7 @@ export const GLOBAL_CONTACTS_BOOK_ID = "global-contacts";
 
 /**
  * The installation's directory, read through the route that acts as the Master
- * (ADR 0023).
+ * (ADR 0019).
  *
  * A member's session cannot reach the directory's book, so it is fetched here
  * rather than discovered as a shared book. A failed fetch is the caller's to
@@ -68,7 +68,7 @@ export async function deleteGlobalContact(id: string): Promise<void> {
  * The directory is read through a route and written only through the
  * administration route that acts as the Master; `GLOBAL_CONTACTS_ACCOUNT_ID`
  * is a store sentinel, not an account, so a JMAP call carrying it is a bug on
- * the surface rather than a request a server could answer (ADR 0023). The
+ * the surface rather than a request a server could answer (ADR 0019). The
  * guard sits on the write primitives, so a second surface that forgets the
  * check still cannot reach a server with it.
  */

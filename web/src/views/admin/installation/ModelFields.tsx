@@ -6,7 +6,7 @@ import { type KeyDraft, withModelField } from "./modelDocument";
 /**
  * The installation's model, as fields that write into the document.
  *
- * The document is the one home (ADR 0031): every field here rewrites
+ * The document is the one home (ADR 0027): every field here rewrites
  * `agent.provider` in the text the page holds, and the page is what publishes.
  * The key is the exception it has always been -- write-only, held by the page
  * and stated only as the publish is sent -- so the field and its switch report
@@ -33,7 +33,7 @@ export function ModelFields({
     <>
       {/*
        * The model is the one part of this document an administrator chooses
-       * rather than looks up (ADR 0031), so it gets fields of its own instead of
+       * rather than looks up (ADR 0027), so it gets fields of its own instead of
        * being JSON nobody can find. They are not a second home for it: what they
        * write is the document below, `agent.provider` and nothing else.
        */}

@@ -1,5 +1,5 @@
 /**
- * The waits a run leaves behind, armed against the mock Stalwart (ADR 0034).
+ * The waits a run leaves behind, armed against the mock Stalwart (ADR 0030).
  *
  * A wait is a date in the run document, so the five facts here are the whole of
  * the in-process side: a dated wait is armed and fires at its date, a wait with
@@ -132,7 +132,7 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
   // once, because the document is the source and not the alarm.
   await arm("past", new Date(now - 60_000).toISOString())();
   // A question left for a person carries no date, and the answer arrives as an
-  // event rather than as a timer (ADR 0033).
+  // event rather than as a timer (ADR 0029).
   await arm("person", null)();
   // A run that ended stopped waiting: a date it kept beside a blocking question
   // is not a wait to fire, or the end of the run would start itself again.

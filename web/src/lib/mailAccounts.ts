@@ -72,7 +72,7 @@ export function mailAccountCandidates(
 /**
  * The account that sends for the reader: where their own identities live.
  *
- * ADR 0007: a person's own list is the account that sends for them -- the one
+ * ADR 0005: a person's own list is the account that sends for them -- the one
  * the session names for `urn:ietf:params:jmap:submission` -- and not the
  * mailbox the client happens to have on screen. A mailbox on screen is where a
  * message is written; an identity is a claim about who is sending, and that

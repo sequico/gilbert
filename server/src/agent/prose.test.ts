@@ -1,5 +1,5 @@
 /**
- * The prose that reaches the model, and the order it reaches it in (ADR 0035).
+ * The prose that reaches the model, and the order it reaches it in (ADR 0031).
  *
  * The three levels are the installation's own line, the group's standing
  * instruction and the rule's own instruction, and the record names them

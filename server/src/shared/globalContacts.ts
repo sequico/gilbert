@@ -1,5 +1,5 @@
 /**
- * The constants and shapes of Global contacts both tiers read (ADR 0023).
+ * The constants and shapes of Global contacts both tiers read (ADR 0019).
  *
  * The name of the installation's directory and the shapes a card is read and
  * written through are decisions, not one tier's private spelling: the server
@@ -15,7 +15,7 @@
 export const GLOBAL_CONTACTS_BOOK_NAME = "Global contacts";
 
 /**
- * What an administrator types for one Global contacts card (ADR 0023).
+ * What an administrator types for one Global contacts card (ADR 0019).
  *
  * A small, deliberate shape rather than a whole JSContact object: the
  * administration sends these fields and the server builds the card, so a
@@ -31,7 +31,7 @@ export interface GlobalContactInput {
 }
 
 /**
- * A Global contacts card as both tiers read it (ADR 0023).
+ * A Global contacts card as both tiers read it (ADR 0019).
  *
  * The directory is served through a route, and this is the shape the route
  * answers: the fields a reader draws and a search matches, flattened from the

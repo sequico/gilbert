@@ -6,7 +6,7 @@ import { useCreateBlockNote } from "@blocknote/react";
 import { plainTextFromBlocks } from "@/lib/knowledge";
 
 /**
- * The block editor an article's body is written in (ADR 0024).
+ * The block editor an article's body is written in (ADR 0020).
  *
  * BlockNote keeps its document internally and reports every change as the whole
  * document, so the editor is seeded once and never re-seeded -- the parent

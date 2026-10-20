@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The live probe of the group classifier (ADR 0005, "What counts as a group").
+ * The live probe of the group classifier (ADR 0004, "What counts as a group").
  *
  * What the whole product means by "a group" rests on one premise: that a folder,
  * calendar or address-book share which carries an address answers `Mailbox/get`
@@ -129,7 +129,7 @@ try {
       "\n(no agent pair given: set GILBERT_PROBE_AGENT and GILBERT_PROBE_AGENT_PASS to ask the agent's own session, which is what the daemon serves from)",
     );
   console.log(
-    "\nWhat to write down: for each account the session lists, whether it answered as a mail store — and the date and server version, in ADR 0005's classifier section.",
+    "\nWhat to write down: for each account the session lists, whether it answered as a mail store — and the date and server version, in ADR 0004's classifier section.",
   );
 } catch (err) {
   console.error(`the probe failed: ${err.message}`);

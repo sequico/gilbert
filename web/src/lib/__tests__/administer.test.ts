@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mayAdminister } from "@/lib/administer";
 
 /**
- * Who may administer, as every surface must read it (ADR 0017).
+ * Who may administer, as every surface must read it (ADR 0015).
  *
  * The session carries two facts — the Stalwart admin marker and whether this
  * installation lets this session administer at all — and a surface that reads

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { personWord, type ReceivedMessage } from "./trust.js";
 
 /**
- * Whether a received message may be read as a person's word (ADR 0033).
+ * Whether a received message may be read as a person's word (ADR 0029).
  *
  * The decision is one pure answer about one message, and every case below is a
  * way a message must not become an instruction: a `From:` naming somebody the

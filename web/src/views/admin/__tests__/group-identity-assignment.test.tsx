@@ -8,7 +8,7 @@ import { GroupIdentities } from "../GroupIdentities";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * Who the administration says sends as what in a group (ADR 0007).
+ * Who the administration says sends as what in a group (ADR 0005).
  *
  * A group's account holds one identity per member, all carrying the group's own
  * address, and the fact that binds a member to one is an **assignment this
@@ -214,7 +214,7 @@ describe("the group identities tab", () => {
 
   it("marks the group's own identity as what an unassigned member sends as", async () => {
     /*
-     * The middle step of the composer's cascade (ADR 0007), said where an
+     * The middle step of the composer's cascade (ADR 0005), said where an
      * administrator can see it: an identity nobody is assigned is the group's own
      * voice, so a member with no identity of their own still writes as the group.
      */

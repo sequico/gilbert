@@ -1,5 +1,5 @@
 /**
- * System Sieve (ADR 0008): the admin editor for Stalwart's own trusted,
+ * System Sieve (ADR 0006): the admin editor for Stalwart's own trusted,
  * server-wide Sieve scripts — `x:SieveSystemScript`, not an account's own
  * script (that is `ScriptsEditor` in `../settings/FiltersSettings.tsx`,
  * which this view's list/edit shape deliberately mirrors). More than one

@@ -1,5 +1,5 @@
 /**
- * The file queue that makes a burst one report (ADR 0038).
+ * The file queue that makes a burst one report (ADR 0034).
  *
  * Pinned here is what the live run of 2026-10-20 needed: seven files saved into
  * one folder over half an hour are one drop, not seven — a folder answers when

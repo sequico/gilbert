@@ -1,5 +1,5 @@
 /**
- * The loop that works a run (ADR 0031, 0032, 0034, 0035, 0036).
+ * The loop that works a run (ADR 0027, 0028, 0030, 0031, 0032).
  *
  * One pass answers whatever the installation's own accounts have changed and
  * whatever a run was waiting for: it takes the installation's claim, resolves the
@@ -8,7 +8,7 @@
  * worked, with no restart — then works the runs whose wait has come due, reads
  * each account's changes, and for each change asks the **decision turn** which
  * rules apply. A change no rule watches costs no model call and no step; every
- * rule that applies opens or continues its own run (ADR 0035), and each run is
+ * rule that applies opens or continues its own run (ADR 0031), and each run is
  * worked by the **choosing turn** — the model asks for a plan of one or more
  * steps, each naming what it waits on, the loop **writes that plan on the run
  * before it acts on any of it**, runs the steps whose dependencies have ended
@@ -20,14 +20,14 @@
  * ordering of its own.
  *
  * **Every call starts from what the installation knows.** The pass reads the
- * memory the Master's account holds **once** (ADR 0037) and takes the
+ * memory the Master's account holds **once** (ADR 0033) and takes the
  * **selection** each change's own words name — with its nearest links and the
  * group's standing set, inside a ceiling — hands it to both turns fenced as
  * data, and records on the run which facts it carried, so a wrong conclusion
  * traces to the fact that carried it. A change with nothing to recall is worked
  * exactly as it was before the memory existed.
  *
- * **Every call is told the three levels of prose the record names** (ADR 0035),
+ * **Every call is told the three levels of prose the record names** (ADR 0031),
  * outermost first: the installation's own line, read from its document at the
  * boot; the group's standing instruction, one document in the group's account
  * read once per pass, so an edit is in force at the next one; and the rule's own
@@ -36,7 +36,7 @@
  * (`prose.ts`), never a caller's.
  *
  * **A sentence that answers a run is also read for what it authorises**
- * (ADR 0032): the reading is one call (`readAnswerAuthority`), what it reports is
+ * (ADR 0028): the reading is one call (`readAnswerAuthority`), what it reports is
  * recorded on the run with the person's own words and the message they wrote it
  * in, and the guard is what bounds it — an authorisation licenses the act it
  * names and no other. An override is refused by the reading, because class 4 is
@@ -44,14 +44,14 @@
  *
  * **The loop never decides what may be done.** A chosen call is run through
  * `runTool`, the only door to a writing tool: the authority guard (`mayRun`, ADR
- * 0032) answers, the loop never overrides it, and a refusal — an act beyond what
+ * 0028) answers, the loop never overrides it, and a refusal — an act beyond what
  * the run carries, or a call that failed — is written on the run as a failed step
  * rather than skipped, so the record shows what was refused and the model is told
  * it before it chooses again. An answer the choosing turn could not use at all —
  * an unknown tool, a call that is not a call, arguments a tool cannot take, any
  * key this build does not know — is refused whole and recorded the same way.
  *
- * **The run document is the product** (ADR 0034): the model is shown exactly what
+ * **The run document is the product** (ADR 0030): the model is shown exactly what
  * the document holds — the change that woke the run, the plan with what each step
  * waited on, and what each step answered — so a run picked up by the next holder
  * continues from the record and never from a process's memory.
@@ -157,10 +157,10 @@ import {
 } from "./tools.js";
 
 /**
- * The other ceilings a run's budget is measured against (ADR 0031).
+ * The other ceilings a run's budget is measured against (ADR 0027).
  *
  * Steps, time and model calls: the run stops when any of the three is spent, so
- * a loop that cannot finish stops and says so (ADR 0034). The step ceiling is
+ * a loop that cannot finish stops and says so (ADR 0030). The step ceiling is
  * `@gilbert/shared`'s (one answer may not carry more), and the two here are the
  * loop's own; neither is configuration, because an installation has one model
  * and one agent, and the number a run may spend is not a question the
@@ -173,7 +173,7 @@ const RUN_MS_MAX = 5 * 60_000;
  * How close to lapsing the claim is renewed.
  *
  * Holding a claim is not an event, so an ordinary pass costs one read and no
- * upload (ADR 0036); a holder renews only once the window it is believed in is
+ * upload (ADR 0032); a holder renews only once the window it is believed in is
  * down to half, which keeps the write off every pass and still pushes the expiry
  * out well before it lapses. A holder that never renewed would let a second copy
  * take the installation over beside it.
@@ -275,7 +275,7 @@ export interface AgentLoopOptions {
   allowPrivateProvider?: boolean;
   /**
    * The installation's own line of prose, carried into every call above every
-   * group's (ADR 0035). Read from the installation's document at the boot, like
+   * group's (ADR 0031). Read from the installation's document at the boot, like
    * the model: which document a booted process runs on is fixed at the boot.
    */
   installation?: string;
@@ -309,7 +309,7 @@ export class AgentLoop {
   /** The runs the alarms have handed over, worked on the next pass. */
   private readonly pending: DueWait[] = [];
   /**
-   * The installation's memory as **this** pass read it (ADR 0037).
+   * The installation's memory as **this** pass read it (ADR 0033).
    *
    * Resolved the first time a pass needs it and reused for the rest of that
    * pass, so the whole store is walked once rather than once per change and once
@@ -319,7 +319,7 @@ export class AgentLoop {
   private reading: Promise<MemoryStore> | null = null;
   /**
    * The prose levels above a rule's own, by account, as **this** pass read them
-   * (ADR 0035).
+   * (ADR 0031).
    *
    * The installation's line is the boot's own document and costs nothing here;
    * the group's standing instruction is one document in the group's account, read
@@ -417,7 +417,7 @@ export class AgentLoop {
    * holder that is busy is not taken over.
    *
    * The accounts are resolved **here**, once per pass and after the claim
-   * (ADR 0031): what the Master works is what Stalwart's directory says at this
+   * (ADR 0027): what the Master works is what Stalwart's directory says at this
    * moment, so a grant added or withdrawn needs no restart.
    */
   async pass(now = new Date()): Promise<PassSummary> {
@@ -767,7 +767,7 @@ export class AgentLoop {
    * fits it given its own run.
    *
    * A change no rule watches costs no model call and no step. Every rule the
-   * decision turn names opens or continues **its own** run (ADR 0035): two rules
+   * decision turn names opens or continues **its own** run (ADR 0031): two rules
    * over one change are two runs, each naming its own rule and the change that
    * woke it. The same rule over the same change is not a second run — the runs
    * the account already holds are read for it once, when the first change is
@@ -883,9 +883,9 @@ export class AgentLoop {
         sends: rule.sends,
         wakeFrom,
         // The whole drop this run answers, so its plan reads the names instead
-        // of listing the folder again (ADR 0038).
+        // of listing the folder again (ADR 0034).
         ...(event.also?.length ? { batch: [...event.also] } : {}),
-        // The matrix the rule carries at this instant (ADR 0035): the run says
+        // The matrix the rule carries at this instant (ADR 0031): the run says
         // where it may act, and a later edit of the rule does not move it.
         surfaces: { ...rule.surfaces },
       },
@@ -949,7 +949,7 @@ export class AgentLoop {
   }
 
   /**
-   * The run a **mail** message answers (ADR 0033).
+   * The run a **mail** message answers (ADR 0029).
    *
    * Mail is correlated the way mail is: by the thread. A reply carries the message
    * ids it answers (`inReplyTo`, `references`), and the run that asked is the one
@@ -1130,7 +1130,7 @@ export class AgentLoop {
        it, so a step does not pay for a read of its own document. */
     let token = state;
     /*
-     * What the memory recalls for this run (ADR 0037): the change it answers, the
+     * What the memory recalls for this run (ADR 0033): the change it answers, the
      * facts that change was found to be about, and the group's standing set,
      * against the store the pass read — the same one reading the decision turn
      * was handed. The selection is recorded on the run, so a wrong conclusion
@@ -1325,7 +1325,7 @@ export class AgentLoop {
        * run **together**, each outcome is read, and the steps that waited on it
        * follow. The plan the model wrote decides the order; the loop invents
        * none, and a step no branch of the plan reaches is left unrun on the
-       * record rather than guessed at (ADR 0034).
+       * record rather than guessed at (ADR 0030).
        */
       const base = current.plan.length;
       for (const call of choice.calls)
@@ -1336,7 +1336,7 @@ export class AgentLoop {
         );
       /*
        * The document is written **before** the answer is acted on: what the run
-       * is about to do is on the record while it is still to do (ADR 0034). The
+       * is about to do is on the record while it is still to do (ADR 0030). The
        * process is disposable by law and a container dies between two steps, so a
        * plan held only in memory would leave the effect in the account with
        * nothing that says what asked for it. The outcomes are written after the
@@ -1399,7 +1399,7 @@ export class AgentLoop {
          * The pass's one reading of the memory goes into every call, so the one
          * write that reaches it (`memory.remember`) is made against the reading
          * the selections were made from rather than listing the store again
-         * (ADR 0037).
+         * (ADR 0033).
          */
         const store = await this.memory();
         const settled = await Promise.allSettled(
@@ -1455,7 +1455,7 @@ export class AgentLoop {
        * the plan reached has run and is on the record, and the run then waits. A
        * wait with a date is the clock's, and the alarm picks it up; a wait with
        * none is a person's, and the run ends parked on the answer it left
-       * (ADR 0033, 0034).
+       * (ADR 0029, 0030).
        */
       if (wait) {
         current = waitUntil(current, wait);
@@ -1497,13 +1497,13 @@ export class AgentLoop {
 
   /**
    * What a person's answer authorises, recorded on the run it continued
-   * (ADR 0032, 0033).
+   * (ADR 0028, 0029).
    *
    * A run that asked a question is continued by the sentence that answers it,
    * and that sentence can also be the word the class asks for: the reading is a
    * call (`readAnswerAuthority`), and each act it reports is recorded with the
    * person's own words, the address it came from and the message it arrived in —
-   * the trace ADR 0032 asks for. What bounds it is `mayRun`: an authorisation
+   * the trace ADR 0028 asks for. What bounds it is `mayRun`: an authorisation
    * licenses the act it names and no other, so a sentence read too generously
    * still moves nothing. An answer the reading cannot use is a step that says so
    * and grants nothing; the answer itself still continues the run.
@@ -1517,7 +1517,7 @@ export class AgentLoop {
       /*
        * Whether the person who answered is an installation administrator is
        * asked **here**, of the directory, as the Master: only that marker lets
-       * the reading report an override (ADR 0032). A directory that will not
+       * the reading report an override (ADR 0028). A directory that will not
        * answer is a no, and the answer still continues the run.
        */
       const granted = await readAnswerAuthority(
@@ -1567,7 +1567,7 @@ export class AgentLoop {
   }
 
   /**
-   * The installation's model's eyes, as a reading tool asks for them (ADR 0031).
+   * The installation's model's eyes, as a reading tool asks for them (ADR 0027).
    *
    * Bound once, so a catalogue that turns a picture into words goes through the
    * one model the installation chose and the one switch the operator set, and a
@@ -1661,7 +1661,7 @@ export class AgentLoop {
     }
   }
 
-  /** The two prose levels above a rule's own, as this pass read them (ADR 0035). */
+  /** The two prose levels above a rule's own, as this pass read them (ADR 0031). */
   private async proseAbove(
     accountId: string,
   ): Promise<Partial<Record<ProseLevel, string>>> {
@@ -1689,7 +1689,7 @@ export class AgentLoop {
   }
 
   /**
-   * The installation's memory, as this pass read it (ADR 0037).
+   * The installation's memory, as this pass read it (ADR 0033).
    *
    * Read from the **Master's** own account and never from the group's the run
    * lives in: one memory serves the installation, which is the whole point of it
@@ -1756,7 +1756,7 @@ export class AgentLoop {
       // record back at the working path.
       if (!before) return null;
       // `blocked` is the one state the loop may write over: it is what an answer
-      // takes the run out of (ADR 0033). Every ending — `cancelled` among them —
+      // takes the run out of (ADR 0029). Every ending — `cancelled` among them —
       // is the document's, not this process's.
       if (before.run.state !== "running" && before.run.state !== "blocked") return null;
       token = before.state;
@@ -1805,7 +1805,7 @@ export class AgentLoop {
    *
    * A claim that is no longer this process's is not a warning: the run this write
    * belongs to is somebody else's to work now, and continuing would be two agents
-   * over one installation (ADR 0036).
+   * over one installation (ADR 0032).
    */
   private async keepClaim(): Promise<void> {
     if (this.claimRenewal) return await this.claimRenewal;
@@ -1830,7 +1830,7 @@ export class AgentLoop {
 
 /**
  * What a run's own change and facts name, as the one text the memory is read
- * against (ADR 0037): the change that woke it in the group's own words, and
+ * against (ADR 0033): the change that woke it in the group's own words, and
  * what the decision found that change to be about — "shipper: Maersk" is how
  * the change names the shipper, and a fact about it is recalled by that name.
  */
@@ -1857,7 +1857,7 @@ interface StepReadiness {
 }
 
 /**
- * Which of one answer's steps can run now, and which were left unrun (ADR 0034).
+ * Which of one answer's steps can run now, and which were left unrun (ADR 0030).
  *
  * A step that waits on nothing is ready as soon as the run reaches it. One that
  * waits on a step ending a given way is ready once that step has ended that way,
@@ -1898,7 +1898,7 @@ function readiness(plan: readonly RunStep[], base: number): StepReadiness {
  * The run of an account that is parked on this very question.
  *
  * A run that ended blocked keeps the sentence it asked in (`finishRun`), which is
- * what a message coming back can be recognised against (ADR 0033): the question's
+ * what a message coming back can be recognised against (ADR 0029): the question's
  * own address, matched on the document, rather than anything about the message
  * that answers it.
  */
@@ -1951,7 +1951,7 @@ function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDo
   return null;
 }
 
-/** The ceiling a run has spent, or null when it has budget left (ADR 0031). */
+/** The ceiling a run has spent, or null when it has budget left (ADR 0027). */
 function overBudget(run: RunDoc): string | null {
   if (run.spent.steps >= RUN_STEPS_MAX) return `it took ${RUN_STEPS_MAX} steps`;
   if (run.spent.calls >= RUN_CALLS_MAX) return `it made ${RUN_CALLS_MAX} model calls`;

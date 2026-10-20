@@ -1,5 +1,5 @@
 /**
- * The memory's store against the mock Stalwart (ADR 0037).
+ * The memory's store against the mock Stalwart (ADR 0033).
  *
  * The three facts the design rests on: a fact is one small sheet in the
  * **Master's** own account, written and read back whole; a sheet the agent
@@ -66,7 +66,7 @@ after(() => {
  * The installation's memory as one reading of it.
  *
  * A write is made against a reading and the reading carries the token it uses
- * (ADR 0037), so every write below is handed the store as the pass would hand
+ * (ADR 0033), so every write below is handed the store as the pass would hand
  * it over.
  */
 const store = () => listFacts(ctx, accountId);
@@ -193,7 +193,7 @@ test("a later sentence about a subject keeps the mark and the links it does not 
 
 test("a write whose reading was overtaken is decided again, against one sheet", async () => {
   /*
-   * The write is a compare-and-set against the reading it was given (ADR 0037):
+   * The write is a compare-and-set against the reading it was given (ADR 0033):
    * the token is the FileNode state that reading saw, so a write landing between
    * the read and the write makes this one stale. It is refused — and then read
    * again, because the store is read once per pass and the first write of a pass
@@ -334,7 +334,7 @@ test("two writes of one reading leave one sheet for one subject", async () => {
   /*
    * Two `memory.remember` calls in one answer run **together** (the loop's wave,
    * `Promise.allSettled`) and both are made against the pass's one reading
-   * (ADR 0037), so each finds the subject absent and each asks for a sheet. The
+   * (ADR 0033), so each finds the subject absent and each asks for a sheet. The
    * first lands and moves the state; the second loses the compare-and-set, reads
    * the memory again, finds the sheet the other call made, and updates it. One
    * subject stays one sheet, and neither call is refused.

@@ -1,10 +1,10 @@
 /**
  * The surfaces of a group's own account, and what a rule may do on each
- * (ADR 0035).
+ * (ADR 0031).
  *
  * One definition for both tiers: the rule's parser and guard read it, the run
  * document carries it, and the Administration editor draws it. A mode is not an
- * authority class (ADR 0032): it says **where** a run may act, never that a
+ * authority class (ADR 0028): it says **where** a run may act, never that a
  * destructive act needs no person's word.
  *
  * - `off`: no wake, no write. Reading stays free — a reading is proof, not an

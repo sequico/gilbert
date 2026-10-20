@@ -1,5 +1,5 @@
 /**
- * The workorder surface's door (ADR 0028).
+ * The workorder surface's door (ADR 0024).
  *
  * A workorder is one **uid** and a document named `<uid>.json` under
  * `workorders/` in an account's `gilbert` app folder. The **Master's** copy is
@@ -13,9 +13,9 @@
  * the writes.
  *
  * The Master does every read and every write, because it is a member of every
- * group the installation grants it on (ADR 0007): the route serves the surface
+ * group the installation grants it on (ADR 0005): the route serves the surface
  * as the Master and decides, per request, what each caller may reach by the
- * caller's own group membership (ADR 0017). Nothing here is read through a
+ * caller's own group membership (ADR 0015). Nothing here is read through a
  * Stalwart share — a workorder is route-only. Because the Master is the only
  * writer, the caller's own address on a step's signature comes from the
  * authenticated session, never from the request.

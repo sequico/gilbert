@@ -13,7 +13,7 @@
  * for `EmailDelivery` alone — which is what `web/src/lib/webpush.ts` sends — is
  * sent **nothing** for a degraded delivery if the state change names `Email`. A
  * group's mail would then stop notifying a closed client, silently, rather than
- * merely losing its sender. ADR 0016 keeps this as the fifth item of its debt,
+ * merely losing its sender. ADR 0014 keeps this as the fifth item of its debt,
  * under `degraded-statechange-type`.
  *
  * Two ways to ask, and the probe does both:
@@ -261,13 +261,13 @@ if (!seen.size) {
    */
   note(
     "deliveries seen",
-    "none — either nothing was delivered during the wait, or EmailDelivery names no state change at all (which is the answer, and is the failure ADR 0016 warns about)",
+    "none — either nothing was delivered during the wait, or EmailDelivery names no state change at all (which is the answer, and is the failure ADR 0014 warns about)",
   );
 }
 
 process.exit(
   report({
     where:
-      "ADR 0016, the `degraded-statechange-type` item of its debt, and the note in `web/src/lib/webpush.ts`",
+      "ADR 0014, the `degraded-statechange-type` item of its debt, and the note in `web/src/lib/webpush.ts`",
   }),
 );

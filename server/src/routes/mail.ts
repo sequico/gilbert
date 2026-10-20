@@ -79,7 +79,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
     /*
      * For a session that may not administer -- administration switched off on
      * this installation, or a device not marked as the person's own -- the body
-     * is read and checked before it goes anywhere (ADR 0017). A session that may
+     * is read and checked before it goes anywhere (ADR 0015). A session that may
      * administer streams straight through as it always has, and pays nothing for
      * this.
      */
@@ -347,7 +347,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
         out.flushHeaders();
         out.write(": subscribed\n\n");
         /*
-         * The tab also follows the installation's own account (ADR 0028).
+         * The tab also follows the installation's own account (ADR 0024).
          *
          * A step an administrator checks on the installation's checklist is
          * written in the Master's account, which no member is a member of, so
@@ -358,7 +358,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
          * data -- and the reader answers it by re-reading through its own
          * route, which decides what it may see.
          *
-         * One resolution answers both this and the session payload (`ADR 0028`'s
+         * One resolution answers both this and the session payload (`ADR 0024`'s
          * `installationAccount`), so the id the client filters on and the account
          * subscribed here cannot be different accounts.
          *

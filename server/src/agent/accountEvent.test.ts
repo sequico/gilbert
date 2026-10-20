@@ -1,5 +1,5 @@
 /**
- * Which surface a node's path belongs to (ADR 0035).
+ * Which surface a node's path belongs to (ADR 0031).
  *
  * The classifier is what makes "its Files, its KB, its chat and the writes to
  * its own workorders" four answers rather than one, and it is pure, so the

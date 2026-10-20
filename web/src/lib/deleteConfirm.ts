@@ -8,7 +8,7 @@
  * list said "{n} message will be permanently deleted" about a folder whose
  * sidebar said "This permanently deletes the folder and its {n} messages".
  *
- * Nothing here decides *whether* a delete may be taken — that is ADR 0015's
+ * Nothing here decides *whether* a delete may be taken — that is ADR 0013's
  * rule, asked by the store before this is called — nor whether the reader wants
  * to be asked at all (`settings.confirmDelete`, which each caller reads for
  * itself). It composes what the dialog says and answers whether the reader

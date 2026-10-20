@@ -363,7 +363,7 @@ test("a valid publish is what the next read returns, and the answer names when i
 
 test("the model's key is write-only: a save keeps it unless it names a provider needing none", async () => {
   /*
-   * The installation's model lives in its own document (ADR 0011, 0031), and
+   * The installation's model lives in its own document (ADR 0009, 0027), and
    * its key is write-only the way an app password is: the surface can set it and
    * nothing reads it back. So the text both halves of this door answer with has
    * the key **taken out** — while the document the account holds keeps it, or the
@@ -661,7 +661,7 @@ test("an account with no Files account to hold the document is refused, not thro
 
 test("a save that states no key keeps the installation's own line beside the model", async () => {
   /*
-   * The line of prose the agent carries into every call (ADR 0035) is the second
+   * The line of prose the agent carries into every call (ADR 0031) is the second
    * thing the agent's section holds, and the door that puts a stored key back
    * rebuilds that section. The line must survive a save that says nothing about
    * the key — otherwise choosing a model would erase what the installation works

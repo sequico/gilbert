@@ -67,7 +67,7 @@ mailbox is an account of its own, and what it owns — its chat, its label catal
 its calendars and files, the rules it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
 **Chat** is one conversation per group. **Agents** is built and part of the
-server's own process (ADR 0031–0037 below): the loop that works a run is there,
+server's own process (ADR 0027–0033 below): the loop that works a run is there,
 and a pass is asked for when Stalwart pushes a change, with ten seconds as the
 floor without a working stream and thirty with one.
 
@@ -75,7 +75,7 @@ The one thing a member cannot do with group-owned mail is **end it**: the mail
 server tells one member's delete from another's by nothing and offers no rank
 inside a group, so the refusal is this client's rule, and ending a message — out
 of Deleted Items or Junk Mail, by emptying either, or by deleting a folder with
-its mail — is an installation administrator's decision (ADR 0015). Everything
+its mail — is an installation administrator's decision (ADR 0013). Everything
 else a member does to move mail around still works.
 
 # Agents
@@ -95,17 +95,17 @@ else a member does to move mail around still works.
 > stream, thirty with one — an installation
 > that has chosen no model, or a Master who works no group, leaves it idle with
 > a line in the console instead (said once, when the state begins). The agent's decisions are
-> [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
-> described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
+> [ADR 0027](docs/adr/0027-the-agents-tools-are-described-and-composable.md) (a
+> described catalogue of tools), [0028](docs/adr/0028-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
-> [0033](docs/adr/0033-the-conversation-runs-in-chat-and-mail.md) (one
-> conversation in chat and mail), [0034](docs/adr/0034-a-run-is-a-document-and-the-record-is-the-product.md)
+> [0029](docs/adr/0029-the-conversation-runs-in-chat-and-mail.md) (one
+> conversation in chat and mail), [0030](docs/adr/0030-a-run-is-a-document-and-the-record-is-the-product.md)
 > (a run is a document, and the record is the product),
-> [0035](docs/adr/0035-a-groups-engagement-is-a-rule-in-prose.md) (a group's
+> [0031](docs/adr/0031-a-groups-engagement-is-a-rule-in-prose.md) (a group's
 > engagement is a rule in prose),
-> [0036](docs/adr/0036-one-agent-per-installation-held-by-a-claim.md) (one claim
+> [0032](docs/adr/0032-one-agent-per-installation-held-by-a-claim.md) (one claim
 > holds the installation's single agent) and
-> [0037](docs/adr/0037-the-agents-memory-is-a-graph-it-recalls.md) (the agent's
+> [0033](docs/adr/0033-the-agents-memory-is-a-graph-it-recalls.md) (the agent's
 > memory: a graph of facts it recalls on every call).
 
 ## At a glance
@@ -125,7 +125,7 @@ written policy; decides intent.
 
 ## The five authority classes
 
-The agent's freedom is exactly the first class (ADR 0032); the others are
+The agent's freedom is exactly the first class (ADR 0028); the others are
 people's.
 
 | | Class | What it covers | Who decides |
@@ -151,17 +151,17 @@ what it waits for and the sentence it asked in,
 every authorisation with the message it arrived in and the authority given, the
 evidence behind its claims, and the budget it has spent — the shape, its parser
 and its transitions are `server/src/shared/run.ts`, and where a run lives is
-`server/src/agent/runs.ts` (ADR 0034). **A run is capped** at 20 steps, 40 model
+`server/src/agent/runs.ts` (ADR 0030). **A run is capped** at 20 steps, 40 model
 calls and five minutes of work, so a model that is stuck ends at a record rather
 than looping on the account. **One claim per installation** keeps a
 single agent working it: a document taken by compare-and-set that a holder
 renews and that lapses on its own if it dies, so a restart costs one TTL of
 waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
-0036).
+0032).
 
 ## What it remembers
 
-**The agent remembers, and every call starts from what it knows** (ADR 0037): a
+**The agent remembers, and every call starts from what it knows** (ADR 0033): a
 graph of small **facts**, each about a **group** and each with the provenance it
 came from, kept in the
 **Master's** own account — one memory for the installation, so a group reasons
@@ -195,7 +195,7 @@ the sheet as it was — and the next pass reads it with no restart.
 
 ## A group's engagement is a rule in prose
 
-**A group's engagement is a rule in prose** (ADR 0035): one document in the
+**A group's engagement is a rule in prose** (ADR 0031): one document in the
 group's own account, under `rules/`, that gives each of the account's surfaces a
 **mode** — **off**, **watch** or **on demand** — and says in prose what should
 happen when the rule is woken. The surfaces are its **chat**, its **mail**, its
@@ -205,7 +205,7 @@ its report is written. **watch** wakes the rule and lets the run it opens write
 that surface; **on demand** never wakes it but lets a run already open — from
 chat, from mail, from another watched surface — write it; **off** neither wakes
 nor writes (reading stays free). The matrix says *where* a run may act, never
-*what*: the authority classes (ADR 0032) still bound every act, and a write on a
+*what*: the authority classes (ADR 0028) still bound every act, and a write on a
 surface the rule keeps off is refused (`surface_off`). The run carries the matrix
 its rule had when it opened, so an edit does not move a run in flight; a v1 rule
 is read as the matrix it means (watched surfaces `watch`, the rest `ondemand`)
@@ -236,7 +236,7 @@ Installation, and it is read at every pass.
 
 ## One model, two turns
 
-**One model serves the installation** (ADR 0031), chosen in Administration and
+**One model serves the installation** (ADR 0027), chosen in Administration and
 stored in the installation's own document with a **write-only** key: a read of a
 document this build can parse takes the key out of it, while a document that is
 not JSON is handed back byte for byte so a person can repair it by hand; a save
@@ -258,7 +258,7 @@ installation that has chosen no model has no agent.
 
 ## The catalogue of tools
 
-**The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
+**The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0027): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
 — finds and reads a message, a folder, a document in Files, the titles of the
 KB's pages before reading one, a workorder, a run, the group's own conversation
@@ -295,7 +295,7 @@ picks the run up again**: a message that replies to the question it asked, writt
 by somebody other than the agent, becomes a step of its own on the run that asked
 — naming the message it came in and carrying what the person said — rather than a
 change that opens a run beside it. That sentence is also read once for **what it
-authorises** (ADR 0032): an act it names is recorded on the run with the person's
+authorises** (ADR 0028): an act it names is recorded on the run with the person's
 own words, the class, the act it is for and the message it arrived in, and the
 guard licenses exactly that act and no other. An **override** (class 4) is an
 installation administrator's, and it is proved by the **directory**: before the
@@ -310,7 +310,7 @@ read by the loop. `mail.send` is the act that reaches somebody **outside**: it i
 class `outward`, and it is refused until a person's own words license exactly that
 message — the address and the words — because a word for one send reaches no
 other. Every tool declares the **authority class** it
-exercises (ADR 0032), the **argument names** it takes and what it costs the
+exercises (ADR 0028), the **argument names** it takes and what it costs the
 run's budget — a call naming a field the tool does not take is refused whole,
 naming the fields it does, rather than read as if the field it meant were
 absent; the guard asks the class
@@ -322,7 +322,7 @@ whole catalogue is exercised against the mock Stalwart.
 
 ## The loop
 
-**The loop that works a run is `server/src/agent/loop.ts`** (ADR 0031–0036): one
+**The loop that works a run is `server/src/agent/loop.ts`** (ADR 0027–0032): one
 pass takes the installation's claim, works the runs whose wait has come due,
 reads each account's changes and puts each one to the decision turn. A change no
 rule watches costs no model call and no step; every rule that fits the change
@@ -348,7 +348,7 @@ withdrawn in Stalwart needs no restart.
 
 ## A drop is one change
 
-**A burst of files is one drop** (ADR 0038): a file landing in a folder is noted
+**A burst of files is one drop** (ADR 0034): a file landing in a folder is noted
 against that folder in `gilbert/pending.json` and answered once the folder has
 been quiet for five minutes, or once the drop is twenty minutes old — one
 decision, one run, one report, with every file the drop brought in the decision
@@ -385,7 +385,7 @@ holds it and until when it is believed — with the ten-second pass beside it, a
 the model named with a link to the section that chooses it rather than a second
 set of fields. **Nothing on that page starts or stops the agent**: it is part of
 the server, and the boot starts it. Each group's **runs** are drawn as the record
-carries them, since the record is the product (ADR 0034): the change that woke
+carries them, since the record is the product (ADR 0030): the change that woke
 the run, the rule or the instruction that answered, every step with what it waited
 on — *after step 1 if it ended Worked* — the branch that was not taken, what each
 step answered, what the run spent, what it recalled — each fact resolved to its
@@ -418,7 +418,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   capability registry. Admin without Stalwart's `Impersonate` permission
   administers the install but cannot act on another user; the per-user writes fail
   closed.
-- **Administration is a door, not a menu (ADR 0017).** `/api/jmap` refuses any
+- **Administration is a door, not a menu (ADR 0015).** `/api/jmap` refuses any
   body naming a registry object beyond the account's own — an allowlist of the
   self-service objects — with the refused method named; ordinary mail, calendars,
   contacts and files are not inspected, and a session that may administer streams
@@ -442,7 +442,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   it survives a redeploy and needs no volume under `IMMUTABLE=1` (ADR 0001). It
   applies at once and signs other signed-in clients out so their next sign-in
   reads it (`GET`/`POST /api/admin/policy`, `GET /api/account/policy`). **Each
-  publish is a job with an id (ADR 0010)**: one id is minted before the first
+  publish is a job with an id (ADR 0008)**: one id is minted before the first
   copy, every copy carries `published: { id, at }`, and the job is one document —
   `gilbert/publish-job.json` in the publishing administrator's app folder —
   holding when it started, who published, the population the directory reported
@@ -459,7 +459,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   **the Master's own account's** `gilbert` app folder, which a boot reads whole
   after signing in as the Master — and publishes it. Both halves act on the
   Master's account by impersonation; a deployment that names no Master
-  (`GILBERT_AGENT_ADDRESS` unset) is refused with its own code (ADR 0011). The
+  (`GILBERT_AGENT_ADDRESS` unset) is refused with its own code (ADR 0009). The
   read answers the text as the account holds it, including a document this build
   cannot read, and whether one exists; publishing validates with the boot's
   validator and refuses anything that is not a document, with the reason, before a
@@ -472,7 +472,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   Master's credential are not in the document (`GET`/`POST
   /api/admin/installation`; `server/src/installationAdmin.ts`,
   `server/src/shared/installation.ts`).
-- **The agent's own surface** (ADR 0031, 0034, 0036, 0037): the Agent section
+- **The agent's own surface** (ADR 0027, 0030, 0032, 0033): the Agent section
   shows where the installation's agent is — the claim it holds and the ten-second
   pass — and **starts nothing**: the server's own boot does that, so a control
   here would promise something no route can keep. The model is **linked** to the
@@ -503,7 +503,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   wall, and the first says nobody asked, which is what an app-password session
   gets.
 - **Group label catalog**: an administrator defines the label catalog of a group
-  mailbox (ADR 0005). The catalog is **the group's** and lives in the group's own
+  mailbox (ADR 0004). The catalog is **the group's** and lives in the group's own
   `gilbert` app folder. The write is made **as the Master**, the principal that
   reaches a group's own files (the deployment's credential where there is one,
   impersonation otherwise), so the requirement is the Master's grant on the
@@ -514,12 +514,12 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   they name the agent's work and are never an entry in a catalog — the catalog's
   own write refuses the reserved namespace, so a group's `labels.json` can only
   ever hold its human labels.
-- **What counts as a group** (ADR 0005): an account that answers as a **mail
+- **What counts as a group** (ADR 0004): an account that answers as a **mail
   store**. The session's list is only candidates — Stalwart advertises the same
   capabilities on every account it lists — and the one classifier is a probe of
   the account's mailbox tree, server-side and in the client alike. A share is
   never administered or served as a group.
-- **Identities** (ADR 0007), under *Gilbert Mailer* after *Force passwords*: one
+- **Identities** (ADR 0005), under *Gilbert Mailer* after *Force passwords*: one
   section, two tabs — **User identities** and **Group identities**. Each picks a
   principal from a menu of the accounts the server reports (the empty choice is a
   real entry; a deployment that does not enumerate them falls back to a typed
@@ -537,12 +537,12 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   it with no sign-in in between; the button reads **Enforced** while it holds, and
   sessions re-read the record. The lock is a rule about **this product's
   surface**: Stalwart has no per-field permission on an identity.
-- **The default sending identity** (ADR 0007), on the User identities tab: shows
+- **The default sending identity** (ADR 0005), on the User identities tab: shows
   which identity an account sends from by default and sets it. It is one key of
   that account's own settings document, so the administration and the person's own
   section read and write **one** stored value; clearing the choice is a real state
   and the account then sends with its first identity.
-- **Group identities** (ADR 0007): a group mailbox holds **one identity per
+- **Group identities** (ADR 0005): a group mailbox holds **one identity per
   member** — the group's own address, carrying each member's display name and
   signature. The administration **assigns** a member their identity; the fact
   lives in the group's own app folder next to the identity, and it is an
@@ -556,7 +556,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   mailbox). Where the Master is not granted, the surface names the missing grant;
   where the roster cannot be read, identities are listed alone and the surface
   says no assignment can be made until it reads again.
-- **One list, two surfaces** (ADR 0007): the identities a person may send as live
+- **One list, two surfaces** (ADR 0005): the identities a person may send as live
   in the account that **sends for them** — the one their session names for
   submission — and Settings → Identities & signatures reads and writes **that**
   account, whether the mailbox on screen is their own or a group's. That section
@@ -570,8 +570,8 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
 - **What an identity reaches**: mail **composed in Gilbert** — the composer and
   the group's own correspondence go through one signature function. Mail written elsewhere
   carries that client's own body and signature; there is no server-side footer
-  (ADR 0007).
-- **An identity's Bcc** (ADR 0007): addresses every message sent from the identity
+  (ADR 0005).
+- **An identity's Bcc** (ADR 0005): addresses every message sent from the identity
   is copied to (a filing address, a ticket system, a compliance archive), written
   into the **Bcc field of the draft** when it opens, so it is visible and
   removable for one message; nothing adds it back at send time. Applied to new
@@ -581,7 +581,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   to the client. It reaches only mail composed in Gilbert. On an **enforced**
   account it is an address the person cannot take off, which the Enforce controls
   say.
-- **System Sieve** (ADR 0008), under *Stalwart*: an editor for Stalwart's own
+- **System Sieve** (ADR 0006), under *Stalwart*: an editor for Stalwart's own
   **trusted, server-wide** Sieve scripts — the `x:SieveSystemScript` JMAP registry
   object, not an account's own filters. The write runs as the signed-in
   administrator's own session (no impersonation, since the object belongs to no
@@ -609,7 +609,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
 # Chat
 
 A text conversation per group mailbox — the teams you belong to — owned by and
-stored in the group's own account, like its calendars and files (ADR 0005).
+stored in the group's own account, like its calendars and files (ADR 0004).
 Offered from a **launcher in the top bar**, first of the action cluster, only when
 the session holds group mailboxes.
 
@@ -640,13 +640,13 @@ the session holds group mailboxes.
   others left, quote replies on hover) and a sheet in the content area on mobile —
   between the top bar and the tab bar — not a sixth tab. It closes when a composer
   opens, and its z-order sits below the composer dock.
-- **V1 boundaries** (ADR 0005): no attachments, no typing indicator, no presence,
+- **V1 boundaries** (ADR 0004): no attachments, no typing indicator, no presence,
   no deletion or moderation — growth is append-only; a group that wants to retire
   a chat clears the folders through Files.
 
 ## Global contacts
 
-**A directory everyone reads** (ADR 0023): one address book, owned by the Master,
+**A directory everyone reads** (ADR 0019): one address book, owned by the Master,
 created by the installation at boot, **served to every account through a server
 route** (`/api/global-contacts`) and written only by an administrator, from inside
 Contacts. A `shareWith` naming every account cannot work — Stalwart caps a share at
@@ -662,7 +662,7 @@ A knowledge base lives inside Gilbert, in the account it belongs to: the company
 policies and procedures and the checklist templates a job of work starts from. It
 is the **fifth** module, **KB**, beside Mail, Calendar, Contacts and Files — its
 own surface, not a folder of Files — and it is for people and agents alike. Every
-page is kept in the mail store (ADR 0024).
+page is kept in the mail store (ADR 0020).
 
 ## Two knowledge bases
 
@@ -742,7 +742,7 @@ running workorder.
 A **workorder** gathers, by reference, the folders, files and KB pages a job of
 work belongs to, and carries a checklist. It opens from a **factory icon** in the
 top bar beside chat, into a large panel: the list of workorders and the open one
-stay in the panel while the rest of the app is used beside it (ADR 0028).
+stay in the panel while the rest of the app is used beside it (ADR 0024).
 
 ## One workorder, a root and its parts
 
@@ -767,7 +767,7 @@ carries no data — the read goes through the route, which is what decides what 
 reader may see — and the **global** checklist, kept in the installation's own
 account, arrives the same way: that is the one account a tab's own credential does
 not cover, so the deployment subscribes to it with the credential it already holds
-and fans its frames out to the tabs that follow it (ADR 0028).
+and fans its frames out to the tabs that follow it (ADR 0024).
 
 ## Checklists, and who checked what
 
@@ -964,7 +964,7 @@ The arithmetic lives in `web/src/lib/touch.ts`.
 Archive, delete, spam, star, mark read/unread, move and label all offer **Undo** in
 the toast that follows, restoring the previous state.
 
-- **Archive puts a conversation back where it was filed** (ADR 0022): a reply that
+- **Archive puts a conversation back where it was filed** (ADR 0018): a reply that
   returns a thread to the Inbox is filed back to the folder holding the newest
   filed message; only a never-filed conversation goes to Archive, and a message
   already in that folder is filed away as before. A group's copy of the
@@ -992,10 +992,10 @@ the account whose tree is on screen.
   server role are structural and not offered.
 - **Subscribe / unsubscribe** — *Show in list* / *Hide from list*. An unsubscribed
   folder still receives; Inbox cannot be hidden. **In a group mailbox a member's
-  folders are subscribed for them** (ADR 0021): the client writes the subscription
+  folders are subscribed for them** (ADR 0017): the client writes the subscription
   back for every folder that lacks it as it reads the tree; hiding one is not
   offered in a group.
-- **A group's tree is drawn whole** (ADR 0021), subscribed or not, because group
+- **A group's tree is drawn whole** (ADR 0017), subscribed or not, because group
   folders arrive unsubscribed. Which tree is whose is asked of the session, so it
   holds from the first frame.
 - **Mark all as read**, optionally including subfolders. **Folder colours** per
@@ -1006,7 +1006,7 @@ the account whose tree is on screen.
   sidebar and are not listed there.
 - Rights are respected per folder: rename, delete, create-child and share grey out
   when `myRights` says no.
-- **In a group, ending mail is an administrator's decision** (ADR 0015). A group
+- **In a group, ending mail is an administrator's decision** (ADR 0013). A group
   mailbox is reached by membership, so the mail server tells one member's delete
   from another's by nothing; the rule is the client's, in one module. Filing,
   archiving, labelling, replying and forwarding all still work, and the three things
@@ -1026,13 +1026,13 @@ applied from `l` or the context menu, and optionally listed in the sidebar.
 
 - **The list belongs to the account in the foreground**: the reader's personal
   labels on their own mailbox, and a **group's own catalog** on a group's
-  (ADR 0005). The pencil goes only where the client manages labels; a group's
+  (ADR 0004). The pencil goes only where the client manages labels; a group's
   catalog is read from the group's own app folder.
 - **A group's sidebar shows the product's reserved labels too, read-only.** Below
   the group's own labels a **System labels** section lists the `G-` processing
   states the agent applies (`AGENT_LABELS`) — each a filter carrying a count from
   the same read the labels use — and draws no rename, delete or Manage control.
-  They name the agent's work, which runs in a group's account only (ADR 0031), so
+  They name the agent's work, which runs in a group's account only (ADR 0027), so
   a person's own sidebar has no such section.
 - **A change made by another member shows up live.** A star or label written in a
   group mailbox reaches other members through the push rail as an `Email` change,
@@ -1185,7 +1185,7 @@ minimisable and maximisable; full-screen on mobile.
   font size, alignment, bulleted and numbered lists, indent/outdent, blockquote,
   code block, links (`Ctrl+K`), inline images, an emoji picker, and remove
   formatting. Tab and Shift+Tab indent inside a list. The editor is **Squire**
-  (ADR 0029): a quoted or forwarded message keeps its original markup, quoting
+  (ADR 0025): a quoted or forwarded message keeps its original markup, quoting
   nests, and the same component serves the composer, templates and an identity's
   signature.
 - **Plain text** as a per-message or default format.
@@ -1194,7 +1194,7 @@ minimisable and maximisable; full-screen on mobile.
   Free-form addresses parse leniently (`Ann <ann@x>, bob@y; "C, D" <c@z>`). A
   **group** is offered with them, marked with its size, and taking it adds those
   people — one address per member, the preferred one — with a note when a member
-  had no address (ADR 0004).
+  had no address (ADR 0003).
 - **Recipient picker** — the contacts button beside Cc/Bcc, or the To label — opens
   the address books to search across every book or one, tick people and send them
   to To, Cc or Bcc. Every address gets its own row; a group gets a row of its own,
@@ -1205,7 +1205,7 @@ minimisable and maximisable; full-screen on mobile.
 - **Identities**: multiple From addresses, a per-account default that Gilbert keeps
   (JMAP has no such flag), and hiding identities from the picker without deleting
   them. In a **group mailbox** the picker offers the identity the administration
-  **assigned** to the reader and the group's own behind it (ADR 0007); the composer
+  **assigned** to the reader and the group's own behind it (ADR 0005); the composer
   says so only when the group holds no identity at all.
 - **Signatures** in HTML per identity, inserted above or below the quote. Stalwart
   caps an identity signature at 2047 **bytes** of UTF-8, so Gilbert compacts the
@@ -1449,7 +1449,7 @@ JMAP Contacts and JSContact.
   **bold**, a person's carries the **company** beside it, and an organisation says
   *· organization* because its own name is the company. A card with no person name
   is shown as its company. **Email group** addresses its members through the one
-  resolution the composer uses (ADR 0004).
+  resolution the composer uses (ADR 0003).
 - **All contacts holds every group's contacts as well as your own**, with the group
   named on the row that came from one. A colleague's shared book stays out. A row
   is opened by its account and its id, because ids are minted per account.
@@ -1493,7 +1493,7 @@ JMAP Contacts and JSContact.
   account the card is in. The book itself is named by whoever may write it, and the
   write goes to the account that holds it. A colleague's read-only share stays
   read-only.
-- **Moving a contact between accounts is an administrator's** (ADR 0018). A card
+- **Moving a contact between accounts is an administrator's** (ADR 0016). A card
   lives in one account and a group's card is the group's, so a right-click offers
   **Move to…** to an installation administrator only, naming each group and its
   books. Filing a **new** contact into a group's book, editing one where it lives
@@ -1526,7 +1526,7 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 - **Open a folder by double-clicking it.** A single click selects a row, the name
   included; in the sidebar a single click goes to the folder and a double click
   opens or shuts its branch, with the twisty doing the same.
-- **Merge two folders into one** (ADR 0014). Ticking exactly two makes **Merge
+- **Merge two folders into one** (ADR 0012). Ticking exactly two makes **Merge
   folders…** usable; it asks which of the two **names stays**, and everything the
   other holds moves into it — a subfolder in both is merged, a **file** whose name
   is in both has the other's bytes written into the node that already holds it
@@ -1543,7 +1543,7 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 - **Dropping a folder that is already there adds to it** rather than making a
   second one: folders are resolved first and only what is missing is created. A
   **file** whose name the folder already holds is **written over, in place**
-  (ADR 0013), so its id, sharing and place in the tree stay and only the content
+  (ADR 0011), so its id, sharing and place in the tree stay and only the content
   changes; dropping the same tree twice is one tree holding the latest bytes. A
   file may not write over a **folder** of its name — nothing is renamed, destroyed
   or put beside it, and the file is reported on top. A folder the drop could not
@@ -1562,7 +1562,7 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   downloaded, into your own files or a group's, and into **any folder inside it**,
   walked or created in the dialog. Offered for one attachment as much as ten. A
   file the chosen folder already holds is reported rather than replaced
-  (ADR 0013).
+  (ADR 0011).
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds the
   settings file and signature images, and the Files view drops it from the listing.
 
@@ -1865,9 +1865,9 @@ half.
   a reader's own unread backlog is never announced; where the briefing has no
   Inbox for the account, or the read cannot be made, the notice names the mailbox
   and says that mail arrived. What a live server does with
-  the map is ADR 0016's owed probe. A chat message wakes it through `FileNode`,
+  the map is ADR 0014's owed probe. A chat message wakes it through `FileNode`,
   and the worker reads the newest nodes of the group's chat folder and announces
-  what is newer than the watermark and not the reader's own (ADR 0016, whose
+  what is newer than the watermark and not the reader's own (ADR 0014, whose
   live-server probes stay owed). Read from Stalwart's source at v0.16.22.
 - **A full account is not the end of notifications.** Stalwart allows fifteen
   subscriptions per account, shared with Gilbert's own server-side row, and the

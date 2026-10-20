@@ -171,7 +171,7 @@ export async function findArticleById(
 }
 
 /**
- * The company KB's tree, read through the route as the Master (ADR 0024).
+ * The company KB's tree, read through the route as the Master (ADR 0020).
  *
  * A reader is not a member of the Master's account, so the company tier is
  * reached by a server route rather than a JMAP share: `shareWith` cannot name

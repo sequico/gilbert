@@ -1,7 +1,7 @@
 /**
  * One publish of the installation policy, as the account that made it holds it.
  *
- * A publish is a job with an id (ADR 0010): the id rides the copies it wrote
+ * A publish is a job with an id (ADR 0008): the id rides the copies it wrote
  * into every account (`PolicyPublished`), the population it measured itself
  * against is the directory as it read it, and `complete` is the claim itself —
  * true only when the directory was the whole directory and every account it

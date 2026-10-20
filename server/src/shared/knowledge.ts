@@ -1,5 +1,5 @@
 /**
- * The knowledge base's durable format (ADR 0024) — one definition, both tiers.
+ * The knowledge base's durable format (ADR 0020) — one definition, both tiers.
  *
  * The KB is a tree of **articles** and **topic folders** under
  * `gilbert/knowledge` in an account's own app folder: the Master's account for
@@ -65,7 +65,7 @@ interface KnowledgeTimes {
 }
 
 /**
- * A checklist template's **rules** — the process, as data (ADR 0030).
+ * A checklist template's **rules** — the process, as data (ADR 0026).
  *
  * A template is not a form: it is an ordered list of **sections**, each holding
  * steps. *What exists* depends on the **variants** chosen once for a workorder;
@@ -152,7 +152,7 @@ export interface KnowledgeDraft {
   blocks: unknown[];
   /** The denormalised plain text: what search and an agent read. */
   text: string;
-  /** A checklist template's rules, or null for an ordinary page (ADR 0030). */
+  /** A checklist template's rules, or null for an ordinary page (ADR 0026). */
   checklist?: KnowledgeChecklist | null;
   created: KnowledgeTimes;
   updated: KnowledgeTimes;
@@ -318,7 +318,7 @@ export interface KnowledgeArticleInput {
   tags: string[];
   blocks: unknown[];
   text: string;
-  /** A checklist template's rules, when the page is one (ADR 0030). */
+  /** A checklist template's rules, when the page is one (ADR 0026). */
   checklist?: KnowledgeChecklist | null;
 }
 
@@ -637,7 +637,7 @@ export function emptyChecklist(): KnowledgeChecklist {
   return { variants: [], sections: [] };
 }
 
-/** Whether a draft defines a checklist template (ADR 0030). */
+/** Whether a draft defines a checklist template (ADR 0026). */
 export function isChecklistTemplate(
   draft: Pick<KnowledgeDraft, "checklist"> | null | undefined,
 ): boolean {
@@ -684,7 +684,7 @@ export function conditionClause(condition: KnowledgeCondition | undefined): stri
 }
 
 /**
- * Build a checklist template's body from its rules (ADR 0030).
+ * Build a checklist template's body from its rules (ADR 0026).
  *
  * The rules are the source and the body is the **rendering** every reader walks:
  * a section is a heading and a step a `checkListItem`, with its condition and a
@@ -733,7 +733,7 @@ export function checklistGroups(checklist: KnowledgeChecklist): string[] {
  * The other half of `checklistGroups`, read from the same field: a section
  * carries a group's account when that group owns it and carries nothing when it
  * is the workorder's own. Such a section is what makes a workorder **global**
- * (ADR 0028), and it is what makes the workorder itself every user's to see
+ * (ADR 0024), and it is what makes the workorder itself every user's to see
  * rather than the members' of the groups its other sections name — so a caller
  * asking "may I see this workorder at all" asks this first and the groups only
  * when it answers no.
@@ -783,7 +783,7 @@ function conditionHolds(
  * The sections, items and steps that apply, given a workorder's chosen values.
  *
  * This is the **one** place branching and repeats are resolved, read by a
- * workorder's instantiation and by its view (ADR 0028, ADR 0030). A section
+ * workorder's instantiation and by its view (ADR 0024, ADR 0026). A section
  * whose condition does not hold is left out; a repeated section yields one item
  * per chosen key; a step whose condition does not hold is left out; and a
  * condition resolves against the **same** values wherever it sits — the
@@ -848,7 +848,7 @@ export function buildDraft(input: {
 }): KnowledgeDraft {
   const times: KnowledgeTimes = { by: input.by, at: input.at };
   const checklist = input.checklist ?? null;
-  // A checklist template's body is **derived** from its rules (ADR 0030): the
+  // A checklist template's body is **derived** from its rules (ADR 0026): the
   // definition is the one source, so the blocks and the text are the rendering
   // every reader walks rather than a second copy somebody could edit apart.
   const blocks = checklist ? checklistBlocks(checklist) : input.blocks;

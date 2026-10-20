@@ -14,7 +14,7 @@ import { after, test } from "node:test";
 
 /**
  * The pre-push hook verifies a tree, and the only tree it can verify from a
- * checkout is the one checked out (`scripts/gate-prepush.sh`, ADR 0025). Which
+ * checkout is the one checked out (`scripts/gate-prepush.sh`, ADR 0021). Which
  * commit a push carries is what git says on the hook's stdin, so that is read
  * and acted on: a push whose tip is not HEAD is refused rather than gated
  * against this branch's tree — the hole this file pins, because

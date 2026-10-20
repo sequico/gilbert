@@ -73,7 +73,7 @@ interface InstallationServer {
    * `ADMINISTRATION` (default `true`): whether this installation offers
    * administration to accounts whose Stalwart role allows it. Off means off --
    * no menu, and the JMAP proxy refuses registry methods beyond the account's
-   * own (ADR 0017, `adminGate.ts`). Stalwart's own interface is unaffected
+   * own (ADR 0015, `adminGate.ts`). Stalwart's own interface is unaffected
    * either way.
    */
   administration: boolean;
@@ -137,13 +137,13 @@ interface InstallationPush {
 }
 
 /**
- * The one model an installation runs on (ADR 0031).
+ * The one model an installation runs on (ADR 0027).
  *
  * Provider, model, an OpenAI-compatible base URL and a key. One model serves
  * the whole installation — which model a kind of work deserves is not a
  * question the administration is asked — and an installation with no provider
  * here has no agent. It is chosen in Administration and stored in the
- * installation's own document (ADR 0011), which is why it lives here rather
+ * installation's own document (ADR 0009), which is why it lives here rather
  * than in a second document of its own.
  *
  * The key is **write-only**: `apiKey` is stored so a call can carry it, and the
@@ -168,18 +168,18 @@ export interface InstallationModel {
 }
 
 /**
- * The agent's own section of the installation's document (ADR 0031).
+ * The agent's own section of the installation's document (ADR 0027).
  *
  * Two things live here: the model the installation runs on, and the line of
  * prose its agent carries into every call. The section is kept rather than
- * folded into `branding` because the record names it (ADR 0011) and because the
+ * folded into `branding` because the record names it (ADR 0009) and because the
  * agent's configuration is its own subject.
  */
 interface InstallationAgentSection {
   /** The installation's model, or absent when it has none and therefore no agent. */
   provider?: InstallationModel;
   /**
-   * The installation's own line of prose, carried into every call (ADR 0035):
+   * The installation's own line of prose, carried into every call (ADR 0031):
    * what whoever runs it wants its agent to work by, above every group's
    * standing instruction and every rule. Absent says nothing, and a level that
    * says nothing contributes nothing to the prompt.
@@ -263,7 +263,7 @@ export function installationDefaults(): InstallationDocument {
       rawRelay: true, // RAW_PUSH_RELAY (`"0"` turned it off)
     },
     upstreams: {},
-    // No model: an installation that has chosen none has no agent (ADR 0031).
+    // No model: an installation that has chosen none has no agent (ADR 0027).
     // What a provider is, and that its key is write-only, is `InstallationModel`.
     agent: {},
     branding: {
@@ -336,7 +336,7 @@ function readUpstreams(
  * (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`) is absent here for that same reason
  * and one more: it is read from the environment and nowhere else, because an
  * installation must not grant itself the right to aim its model at the network
- * the deployment runs in (ADR 0011).
+ * the deployment runs in (ADR 0009).
  *
  * A `version` this build does not know is refused. That is what the field is
  * for: a document written by a newer Gilbert may carry a field whose meaning

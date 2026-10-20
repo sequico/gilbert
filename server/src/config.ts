@@ -102,7 +102,7 @@ export function assertImmutable(root: string): void {
 if (config.immutable) assertImmutable(fileURLToPath(new URL("../..", import.meta.url)));
 
 /**
- * The address of the installation's own account — the Master (ADR 0011).
+ * The address of the installation's own account — the Master (ADR 0009).
  *
  * The deployment names it — `GILBERT_AGENT_ADDRESS`, beside the password that
  * account signs in with, in the environment of whoever starts the server. That

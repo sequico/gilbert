@@ -417,7 +417,7 @@ export function Composer({ draft }: { draft: Draft }) {
           )}
           {/*
             A group mailbox offers the identity the administration assigned to
-            the reader, and the group's own behind it (ADR 0007) -- so this is
+            the reader, and the group's own behind it (ADR 0005) -- so this is
             empty only when the group holds no identity at all, which is the one
             state with nothing to send from.
           */}

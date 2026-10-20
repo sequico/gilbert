@@ -1,5 +1,5 @@
 /**
- * The workorder panel's store (ADR 0028).
+ * The workorder panel's store (ADR 0024).
  *
  * The surface is route-only: the store holds the list the route served and
  * every mutation asks the route and writes its answer back. There is no direct
@@ -283,7 +283,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
     },
 
     /**
-     * A change on the FileNode rail (ADR 0028): a workorder's parts are app
+     * A change on the FileNode rail (ADR 0024): a workorder's parts are app
      * folder documents in the reader's own groups, and a check somebody else
      * made is a write there and nothing more — the rail carries no payload to
      * apply, so the answer is the route's read, which is also what re-decides

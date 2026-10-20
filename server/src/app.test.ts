@@ -396,7 +396,7 @@ test("the API fallback follows the mount prefix", async () => {
 });
 
 /*
- * The gated JMAP read (ADR 0017) is entered for a session that may not
+ * The gated JMAP read (ADR 0015) is entered for a session that may not
  * administer. A body past the cap is a size violation (413); a stream that
  * fails for any other reason -- a client abort, a transport error -- is not,
  * and must not be labelled one.

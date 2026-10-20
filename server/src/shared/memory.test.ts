@@ -1,5 +1,5 @@
 /**
- * The memory's sheet and its selection (ADR 0037) — no server, no I/O.
+ * The memory's sheet and its selection (ADR 0033) — no server, no I/O.
  *
  * What is pinned here is the whole of what a call carries: a malformed sheet is
  * refused and never guessed at, a sheet of the version before this one reads as

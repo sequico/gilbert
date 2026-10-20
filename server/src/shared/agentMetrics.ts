@@ -1,5 +1,5 @@
 /**
- * What a set of runs spent, and how they ended (ADR 0034).
+ * What a set of runs spent, and how they ended (ADR 0030).
  *
  * One definition for both tiers: the Administration page draws these numbers
  * and the server computes them over a group's runs, so a page and the answer it

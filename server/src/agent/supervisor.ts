@@ -1,5 +1,5 @@
 /**
- * The process that asks the loop for a pass (ADR 0031, 0034, 0036).
+ * The process that asks the loop for a pass (ADR 0027, 0030, 0032).
  *
  * `agent/loop.ts` works a run — it claims the installation, re-arms the waits it
  * finds, reads each account's changes and answers each one a rule covers — and a
@@ -7,7 +7,7 @@
  * own boot is what starts it** (`index.ts`): the agent is part of the product, so
  * launching Gilbert is what makes it exist. It runs on the installation the boot
  * just read — the model the installation has chosen, and the line of prose its
- * document carries into every call (ADR 0035) — and asks the loop for a pass on
+ * document carries into every call (ADR 0031) — and asks the loop for a pass on
  * an interval. The groups it works are **not** settled at the boot:
  * every pass reads them from the mail server (`resolveGroupAccounts` below), so
  * a grant added or withdrawn in Stalwart's own directory needs no restart.
@@ -21,13 +21,13 @@
  * the very next pass, because nothing about the installation's groups is decided
  * at the boot (`loop.ts` asks for the accounts on every pass). A pass with
  * nothing to do is cheap enough to repeat at that rate: it reads the
- * installation's claim (one read, and no write while it is held — ADR 0036),
+ * installation's claim (one read, and no write while it is held — ADR 0032),
  * re-reads the session the Master's groups are resolved from (one read, and the
  * mail-store probe the one classifier for that question makes per candidate only
  * when the session names a different set of candidates — `groupAccess.ts`), and
  * reads each group's runs and its change log (a request per page apiece, and a
  * run document whose stamp has not moved is not downloaded again). It
- * asks the model **only** when a rule covers a change (ADR 0035), so a quiet
+ * asks the model **only** when a rule covers a change (ADR 0031), so a quiet
  * installation costs reads and nothing else. Ten seconds is far below the
  * claim's own `CLAIM_TTL_MS` (ten
  * minutes), so a working process's renewals are ordinary rather than a race with
@@ -45,7 +45,7 @@
  * the moment it is repeated.
  *
  * **A claim a peer holds is not an error.** The loop answers such a pass without
- * working anything (ADR 0036), which is one installation with one agent: this
+ * working anything (ADR 0032), which is one installation with one agent: this
  * process waits its turn rather than fighting for the claim or reporting a
  * refusal. That is also the whole of what a dead peer costs — its claim lapses
  * at `CLAIM_TTL_MS` and the next pass takes the installation over, with no
@@ -62,7 +62,7 @@
  *
  * **Nothing is kept.** The loop, its reading cursors, the roster the last pass
  * resolved and its alarms live in memory, which is disposable by law
- * (`IMMUTABLE=1`, ADR 0031): what outlives the process is the claim, the runs
+ * (`IMMUTABLE=1`, ADR 0027): what outlives the process is the claim, the runs
  * and the waits, all documents in Stalwart. There is no lock file, no pid file
  * and no state of its own on disk.
  */
@@ -318,7 +318,7 @@ interface AgentStartOptions {
  * agent, and `exit` stays the server's own fatal boot's business:
  *
  * - **A model** `boot.installation.agent.provider`, the installation's own
- *   document (ADR 0011, ADR 0031), together with the operator's statement about
+ *   document (ADR 0009, ADR 0027), together with the operator's statement about
  *   where it may sit (`boot.configuration.agent.allowPrivateProvider`,
  *   `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER` in the environment). An installation
  *   with no model has no agent: a default provider nobody chose is the one thing
@@ -362,7 +362,7 @@ export async function startAgent(
     setRunningModelAccess(access);
     if (!access)
       log(
-        "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
+        "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0027)",
       );
     /*
      * The loop starts even with no model: the pass re-reads the document, so a
@@ -435,7 +435,7 @@ export async function resolveGroupAccounts(ctx: Ctx): Promise<readonly string[]>
  *
  * Per `Ctx`, which is the agent's own and lives as long as the process: a
  * restart has no roster and probes for its first one, which is the whole of what a
- * disposable process needs to know here (ADR 0036).
+ * disposable process needs to know here (ADR 0032).
  */
 const rosters = new WeakMap<Ctx, { candidates: string; roster: readonly string[] }>();
 

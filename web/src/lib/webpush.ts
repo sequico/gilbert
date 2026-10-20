@@ -183,7 +183,7 @@ export function deviceClientId(): string {
  * and notifies more widely, which is a worse default but a working one.
  *
  * What this answers is read from Stalwart's own source at v0.16.22 rather than
- * from a running server (ADR 0016): a subscription is stored in the account
+ * from a running server (ADR 0014): a subscription is stored in the account
  * that asked for it and registered for every account in that token's
  * `member_ids()` -- its own plus its group mailboxes -- while `emailPush` is a
  * **map** with one entry per account, each with its own filter, and the entry
@@ -193,10 +193,10 @@ export function deviceClientId(): string {
  * account, the account's Inbox as its filter's `inMailbox`. What a running
  * server still has to say is written down where the record keeps its debt.
  *
- * ADR-0016 OWED: group-emailpush-payload
- * ADR-0016 OWED: chat-wake-read
- * ADR-0016 OWED: verification-per-device
- * ADR-0016 OWED: degraded-statechange-type
+ * ADR-0014 OWED: group-emailpush-payload
+ * ADR-0014 OWED: chat-wake-read
+ * ADR-0014 OWED: verification-per-device
+ * ADR-0014 OWED: degraded-statechange-type
  */
 export function subscriptionPayload(
   sub: PushSubscription,
@@ -229,12 +229,12 @@ export function subscriptionPayload(
      * wakes the device for every file write in every account the subscription
      * serves -- an upload, an agent document, the reader's own settings -- and
      * the worker's read is what turns the chat ones into a notification and
-     * the rest into nothing (ADR 0016). A reader in no group asks for neither.
+     * the rest into nothing (ADR 0014). A reader in no group asks for neither.
      *
      * A delivery with no `emailPush` entry describing its account -- a group
      * mailbox, today -- is degraded to a state change instead, and whether that
      * state change wears this same name is a fact only a live server can settle
-     * (ADR 0016, `degraded-statechange-type`). If it does not, a group delivery
+     * (ADR 0014, `degraded-statechange-type`). If it does not, a group delivery
      * stops waking this device rather than merely losing its sender, which is
      * why the question is written down rather than assumed.
      */
@@ -243,7 +243,7 @@ export function subscriptionPayload(
   if (supportsEmailPush()) {
     /*
      * One entry per account the subscription serves -- the reader's own and
-     * every group mailbox -- each with its own Inbox filter (ADR 0016). The map
+     * every group mailbox -- each with its own Inbox filter (ADR 0014). The map
      * is what makes a delivery to a group arrive as an `EmailPush` that names
      * it, rather than a bare `StateChange`. An account whose Inbox id is not
      * yet known gets **no** entry: an entry carries that account's own Inbox

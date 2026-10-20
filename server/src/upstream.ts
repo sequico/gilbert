@@ -218,7 +218,7 @@ export function outranks(viewer: readonly string[], target: readonly string[]): 
 }
 
 /**
- * Whether the session holds a group mailbox to chat in (ADR 0005): a
+ * Whether the session holds a group mailbox to chat in (ADR 0004): a
  * non-personal account with an address. Any non-personal account counts for
  * the chat push rail — there is no product-admin group to exclude since ADR
  * 0001 removed it, and a group mailbox that shares mail is a working group.

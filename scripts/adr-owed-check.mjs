@@ -4,15 +4,15 @@
  *
  * A debt that has a site in the code is marked twice, once on each side:
  *
- *   docs/adr/0013-a-dropped-name-is-written-over.md <!-- owed: modified-on-update -->
- *   server/src/mock/index.ts    // ADR-0013 OWED: modified-on-update
+ *   docs/adr/0011-a-dropped-name-is-written-over.md <!-- owed: modified-on-update -->
+ *   server/src/mock/index.ts    // ADR-0011 OWED: modified-on-update
  *
  * An ADR may describe a debt for ever. What it may not do is keep a marked
  * debt whose code site is gone, or name a site the ADR stopped listing. An
  * alignment that rests on whoever remembers it rests on nothing: an ADR is
  * read when it is written and almost never afterwards.
  *
- * The comparison is per ADR, because the number in `ADR-0013 OWED:` is what
+ * The comparison is per ADR, because the number in `ADR-0011 OWED:` is what
  * says which document owns the debt: two ADRs may both carry a slug such as
  * `retry`, and each is compared with the tags that name it. A slug repeated on
  * one side is an error on its own -- two lines of an ADR declaring the same
@@ -49,7 +49,7 @@ const HTML_COMMENT = /<!--([\s\S]*?)-->/g;
 /** An ADR marker, whole: `<!-- owed: <slug> -->` and nothing else in the body. */
 const ADR_MARKER = /^\s*owed\s*:\s*(\S*)\s*$/i;
 
-/** A code tag: `ADR-0013 OWED: <slug>`, the slug being the token after the colon. */
+/** A code tag: `ADR-0011 OWED: <slug>`, the slug being the token after the colon. */
 const CODE_TAG = /\bADR-(\d+)[\t ]+OWED:[\t ]*(\S*)/g;
 
 /** A slug is lower-case letters, digits and inner hyphens, and nothing else. */

@@ -1,5 +1,5 @@
 /**
- * Group chat store (ADR 0005).
+ * Group chat store (ADR 0004).
  *
  * One conversation per group mailbox the session holds. Everything durable
  * lives in the group account's own Files: the `gilbert/chat` folder holds one
@@ -439,7 +439,7 @@ export const useChat = create<ChatState>((set, get) => {
         .then(() => {
           // The marker is born at first open, reading up to the newest message:
           // a chat opened for the first time starts read, rather than counting
-          // every message already in it (ADR 0005 kind rule).
+          // every message already in it (ADR 0004 kind rule).
           markAt(accountId);
         });
     },
@@ -497,7 +497,7 @@ export const useChat = create<ChatState>((set, get) => {
         const me = get().me();
         if (!me) return;
         const body = text.slice(0, CHAT_MAX_TEXT);
-        /* The same list the picker offered (ADR 0005): the roster when one was
+        /* The same list the picker offered (ADR 0004): the roster when one was
            read, the transcript otherwise, so a mention the writer could pick is
            a mention the document records. */
         const participants = mentionablesOf(participantsOf(conv.nodes, me), null, [me]);
@@ -589,7 +589,7 @@ export const useChat = create<ChatState>((set, get) => {
         let changed = nodes.length !== conv.nodes.length;
         /*
          * A marker or a reply target names a node by id, and a node that has
-         * been destroyed -- the retirement path ADR 0005 names, an
+         * been destroyed -- the retirement path ADR 0004 names, an
          * administrator clearing the chat folders through Files -- leaves
          * both pointing at nothing: the marker falls into `unreadCount`'s
          * `at < 0` branch and reads as nothing unread, and a reply would name

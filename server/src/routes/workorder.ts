@@ -1,5 +1,5 @@
 /**
- * The workorder surfaces (ADR 0028): one route-only view, composed per caller
+ * The workorder surfaces (ADR 0024): one route-only view, composed per caller
  * from the Master's root and the caller's own groups' parts.
  */
 
@@ -28,7 +28,7 @@ import type { Env } from "./shared.js";
 import { failureFor, readJson, requireAdmin, requireSession } from "./shared.js";
 
 export function registerWorkorderRoutes(api: Hono<Env>): void {
-  // ---------- Workorders (ADR 0028) ----------
+  // ---------- Workorders (ADR 0024) ----------
 
   /** A refusal from the workorder surface: its code and sentence, or upstream's. */
   const workorderFailure = failureFor(WorkorderAdminError);

@@ -1,5 +1,5 @@
 /**
- * The rule store against the mock Stalwart (ADR 0035).
+ * The rule store against the mock Stalwart (ADR 0031).
  *
  * A rule is one document under `rules/` in the group's own account, and these
  * tests are the facts the design rests on: it is addressed by its own name and

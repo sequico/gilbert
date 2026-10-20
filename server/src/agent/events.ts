@@ -1,8 +1,8 @@
 /**
  * What a group's account changed, read from the server's own change logs
- * (ADR 0035).
+ * (ADR 0031).
  *
- * The installation holds a push subscription (ADR 0016), and a `StateChange`
+ * The installation holds a push subscription (ADR 0014), and a `StateChange`
  * names an account whose data moved. This is the reading that turns that
  * notification into the group's own vocabulary: mail that arrived or was sent,
  * and the nodes written in its Files — chat messages, workorders and everything
@@ -34,7 +34,7 @@
  * A **first** read anchors at the account's current state, which is what makes
  * a process that starts ask for the changes after it started rather than for
  * the account's whole history. A cursor is process state and only process
- * state: the run document is what is durable (ADR 0034), and a process that
+ * state: the run document is what is durable (ADR 0030), and a process that
  * dies is replaced by one that anchors afresh. The consequence is stated rather
  * than hidden — mail that arrived while no agent was running is not replayed to
  * the next one.
@@ -48,7 +48,7 @@
  * same address" is the event's own `source` and `where` — the surface and the
  * path (or the id a removal has no path left for) — so the two changes of one
  * node are one event and a rule watching that surface opens one run for one
- * document rather than two (ADR 0034). A **removal is never folded**: a node
+ * document rather than two (ADR 0030). A **removal is never folded**: a node
  * created and then destroyed in one read is reported as both, because hiding the
  * removal behind the creation is the kind of silence this design refuses.
  */
@@ -91,7 +91,7 @@ import { RUNS_DIR } from "./runs.js";
  * whether the log holds more.
  */
 /*
- * ADR-0034 OWED: change-log-cap -- `hasMoreChanges` and the server's own
+ * ADR-0030 OWED: change-log-cap -- `hasMoreChanges` and the server's own
  * `changes_max_results` are modelled in the mock and never seen on a live
  * server: the probe is owed before the loop trusts a page boundary.
  */
@@ -365,7 +365,7 @@ export async function readAccountEvents(
 
 /**
  * One event per address: a create and a later update of the same node are one
- * change to a rule that only acts on the address (ADR 0034).
+ * change to a rule that only acts on the address (ADR 0030).
  *
  * The two changes of one document are folded into the **`created`**, which is
  * the one a reader acts on — the node did not exist before this read and does

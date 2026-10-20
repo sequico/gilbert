@@ -12,7 +12,7 @@ import { ContactEditor } from "../ContactEditor";
 
 /**
  * Which accounts the editor offers an **existing** card as its address book
- * (ADR 0018).
+ * (ADR 0016).
  *
  * A new card may be filed anywhere the reader can write — that is how a group's
  * directory is filled — but an existing card may only change the account it

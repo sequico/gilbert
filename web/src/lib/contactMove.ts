@@ -3,10 +3,10 @@
  *
  * A contact card is an object of one account: a personal book's card is the
  * reader's, a group mailbox's card is the **group's**, filed in the account the
- * group owns (ADR 0005). Moving one between accounts is therefore not a filing
+ * group owns (ADR 0004). Moving one between accounts is therefore not a filing
  * change: the card goes where the target account lives, and it belongs to
  * whoever that account belongs to afterwards. That is the step this rule is
- * about, and it is an installation administrator's, for the reason ADR 0015
+ * about, and it is an installation administrator's, for the reason ADR 0013
  * gives about a group's mail — the group's data is not one member's to hand
  * over, and there is no rank inside a group that would say which member's it
  * is.
@@ -15,7 +15,7 @@
  * them is refused by this rule:
  *
  *   - filing a **new** card into a group's book, which is how group data is
- *     created and is what a member is for (ADR 0005);
+ *     created and is what a member is for (ADR 0004);
  *   - editing a card where it lives, group books included;
  *   - changing which book of **one account** holds it, which changes nothing
  *     about whose it is.

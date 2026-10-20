@@ -3,7 +3,7 @@ import type { ContactCard } from "@/jmap/types";
 import { groupRecipients } from "@/lib/contacts";
 
 /**
- * Who a group stands for (ADR 0004).
+ * Who a group stands for (ADR 0003).
  *
  * A group is a name for people who are already cards, and the resolution is
  * one address per member -- the preferred one, because a card carrying two is

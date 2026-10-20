@@ -14,7 +14,7 @@ import { IdentitiesSettings } from "../IdentitiesSettings";
  * The person's own section, and the identity somebody else removed.
  *
  * The list this page is built on is the **server's**, and the administration
- * writes it by impersonating the account (ADR 0007) — from another session, or
+ * writes it by impersonating the account (ADR 0005) — from another session, or
  * in Stalwart's own administration, nothing of which this session hears about.
  * So the section reads it when it opens rather than trusting the copy the store
  * read at sign-in: a list read once and then believed shows an identity that no
@@ -103,7 +103,7 @@ describe("the person's own identities section", () => {
 
 /**
  * The group block, and the one question it answers for a member: which of that
- * group's identities is theirs (ADR 0007).
+ * group's identities is theirs (ADR 0005).
  *
  * The assignment is the administration's, written from another session, so it
  * is read as this section opens rather than taken from whatever the store

@@ -14,7 +14,7 @@ import { fakeJmapServer } from "@/test/jmapServer";
 import { useToasts } from "@/ui/toast";
 
 /**
- * The invariant ADR 0015 rests on: in a group mailbox, mail is ended by an
+ * The invariant ADR 0013 rests on: in a group mailbox, mail is ended by an
  * installation administrator and by nobody else.
  *
  * Every case here fails if the guard is removed rather than merely observing
@@ -174,7 +174,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("destroying mail in a group (ADR 0015)", () => {
+describe("destroying mail in a group (ADR 0013)", () => {
   it("refuses a member's final delete without asking any server", async () => {
     const s = transport();
     mount(GROUP, { isAdmin: false, withGroup: true });

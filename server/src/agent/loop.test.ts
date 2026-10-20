@@ -1,6 +1,6 @@
 /**
  * The loop that works a run, against the mock Stalwart and a stub model
- * (ADR 0031, 0034, 0035, 0036).
+ * (ADR 0027, 0030, 0031, 0032).
  *
  * What is pinned here is one mechanism per test, and each of them is a mechanism
  * rather than a run of the code:
@@ -192,7 +192,7 @@ let ctx: Ctx;
 /**
  * The account the loop works: a **group** of the Master's session.
  *
- * The installation's memory lives in the Master's **own** account (ADR 0037)
+ * The installation's memory lives in the Master's **own** account (ADR 0033)
  * and the runs and rules of a worked change live in the group's, and the two are
  * never one account — a group is a shared account (`isPersonal: false`) while
  * the Master's own is personal, which is what the classifier reads. The pass
@@ -201,7 +201,7 @@ let ctx: Ctx;
  * invalidate the memory's token before the fact is written.
  */
 let accountId: string;
-/** The Master's own account: the installation's memory lives here (ADR 0037). */
+/** The Master's own account: the installation's memory lives here (ADR 0033). */
 let memoryAccountId: string;
 
 before(async () => {
@@ -378,7 +378,7 @@ test("a change a rule watches opens a run, and the record shows every step of it
   assert.equal(
     run.startedBy.surfaces?.mail,
     "watch",
-    "and carries the matrix the rule had at that instant (ADR 0035)",
+    "and carries the matrix the rule had at that instant (ADR 0031)",
   );
   assert.equal(run.state, "done", "the model said the work was done");
   assert.equal(run.ended?.why, "the shipper's message is filed", "in its own words");
@@ -490,7 +490,7 @@ test("two changes of one address open one run, not two", async () => {
 test("every rule that fits one change opens its own run", async () => {
   // Two rules a group wrote over the same surface. Both are its decision, so
   // neither is set aside for the other: the change is put to the decision turn
-  // once, and every rule it names gets a run of its own (ADR 0035).
+  // once, and every rule it names gets a run of its own (ADR 0031).
   const first = "intake-bookings";
   const second = "intake-containers";
   await putRule(first);
@@ -785,7 +785,7 @@ test("a person's answer continues the run that asked for it", async () => {
    * its own, which the change log reports at a path of its own, so nothing about
    * the change names the run. What ties the two together is the question: the
    * message replies to the sentence the run recorded as its wait, and somebody
-   * other than the agent wrote it (ADR 0033, 0034).
+   * other than the agent wrote it (ADR 0029, 0030).
    */
   const id = "intake-answer";
   // The question, and the run that parked on it, are both there before the loop
@@ -829,7 +829,7 @@ test("a person's answer continues the run that asked for it", async () => {
   /*
    * An answer is correlated by the record, not decided: the run it continues is
    * found from the message it replies to, so no decision call is made. What the
-   * answer authorises is read before the run goes on (ADR 0032): the sentence
+   * answer authorises is read before the run goes on (ADR 0028): the sentence
    * only says which booking it is, so it authorises no act.
    */
   answerWith({ authorisations: [] });
@@ -863,10 +863,10 @@ test("a person's answer continues the run that asked for it", async () => {
 test("an answer is worked once, whatever the decision names beside it", async () => {
   /*
    * One person's reply continues the run that asked, and it is worked once
-   * (ADR 0033). The decision turn may name more than one rule for the message —
+   * (ADR 0029). The decision turn may name more than one rule for the message —
    * two rules watching chat both fit a reply — and working the same answer once
    * per rule, from the document as it stood before the first working, rewrites
-   * the steps the first one recorded. The record is the product (ADR 0034), so
+   * the steps the first one recorded. The record is the product (ADR 0030), so
    * the step the answer wrote is on it exactly once.
    */
   const id = "answer-once";
@@ -1018,7 +1018,7 @@ test("a chat message that answers nothing can be answered by the fast path", asy
 
 test("a run stopped while the agent works it is not overwritten, and no step follows", async () => {
   /*
-   * The fourth ending is the person's (ADR 0034): the document they stopped is
+   * The fourth ending is the person's (ADR 0030): the document they stopped is
    * left exactly as they put it. A step that was already in flight may have
    * landed before the stop; what must not happen is the agent writing its plan
    * over the ending and planning on from a run that is no longer its own.
@@ -1075,7 +1075,7 @@ test("a run stopped while the agent works it is not overwritten, and no step fol
 
 test("a person's answer is the word an outward act asks for, recorded for that act", async () => {
   /*
-   * The path ADR 0032 leaves open (owner decision 2026-10-18): the sentence that
+   * The path ADR 0028 leaves open (owner decision 2026-10-18): the sentence that
    * answers a run's question can also be the word a class asks for. The reading is
    * a call, and what bounds it is the act: the authorisation names one act, and
    * the guard compares that act exactly, so what is recorded here licenses the step
@@ -1117,7 +1117,7 @@ test("a person's answer is the word an outward act asks for, recorded for that a
   await putRule(id, ["chat"]);
 
   /* The act a person is asked for, as a stand-in: the mail channel's send is not
-     in the catalogue (ADR 0033), and what is under test is the word and the guard. */
+     in the catalogue (ADR 0029), and what is under test is the word and the guard. */
   const sent: string[] = [];
   const sendOut = defineTool<{ to: string; text: string }>({
     name: "test.send",
@@ -1266,7 +1266,7 @@ test("an account whose rules cannot be read is a gap, and the others are still w
 
 test("a question asked by mail parks the run, and a reply on its thread continues it", async () => {
   /*
-   * The conversation's other half (ADR 0033). The question leaves from the group's
+   * The conversation's other half (ADR 0029). The question leaves from the group's
    * own identity to a principal with access, the run waits with no date, and the
    * answer is the message whose thread names the question — mail's own
    * correlation, and the same bound as chat: the sender is never the group itself.
@@ -1366,7 +1366,7 @@ test("a question asked by mail parks the run, and a reply on its thread continue
           bodyValues: { text: { value: "it is BK-2" } },
           // A message created here stands in for a delivered one, and the
           // reading takes an answer only on the server's record of the
-          // submission: the account that authenticated is the sender (ADR 0033).
+          // submission: the account that authenticated is the sender (ADR 0029).
           "header:Received:asText:all": [
             `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id x1 (Authenticated sender: ${answerer})`,
           ],
@@ -1668,7 +1668,7 @@ test("a wait in an answer is honoured after it, with the other calls on the reco
 
 test("a step that waits on an earlier one runs the branch that step's outcome names", async () => {
   /*
-   * The model writes the order and the conditions (ADR 0034): the later steps of
+   * The model writes the order and the conditions (ADR 0030): the later steps of
    * the plan both wait on the first, one for each outcome it can have, so the
    * same plan takes whichever branch the outcome names — and the branch that did
    * not come is left unrun on the record, with which step and which outcome left
@@ -1876,7 +1876,7 @@ test("two answers refused in a row end the run instead of paying for a third", a
   /*
    * A model stuck on one malformed answer repeats it: every repeat is a model
    * call on the run's budget and moves nothing. Two refusals in a row end the
-   * run, and the record says why (ADR 0034, the budget's own ending).
+   * run, and the record says why (ADR 0030, the budget's own ending).
    */
   const id = "intake-stuck-model";
   await putRule(id);
@@ -2232,7 +2232,7 @@ test("the switch off answers a mention and a mail that names the agent alone, wi
 
 test("a fact one run learns is handed to the next change's call, and the record names it", async () => {
   /*
-   * The whole point of the memory (ADR 0037): what the agent came to know while
+   * The whole point of the memory (ADR 0033): what the agent came to know while
    * working one change is carried into the next one, and the run's record says
    * which fact it reasoned from.
    */
@@ -2267,7 +2267,7 @@ test("a fact one run learns is handed to the next change's call, and the record 
   assert.equal(
     learned.group,
     accountId,
-    "and it records the group it is about — the run's own account (ADR 0037)",
+    "and it records the group it is about — the run's own account (ADR 0033)",
   );
 
   // Run two, over a later change: the memory is read first and what was learned
@@ -2333,7 +2333,7 @@ test("two memories of one answer leave one sheet, and neither step is refused", 
   /*
    * A `memory.remember` repeated in one answer is two steps of one wave
    * (`Promise.allSettled`), and both decide against the pass's **one** reading of
-   * the store (ADR 0037): each finds the subject absent and each asks for a
+   * the store (ADR 0033): each finds the subject absent and each asks for a
    * sheet. The first lands and moves the state; the second loses the
    * compare-and-set, reads the memory again, finds the sheet, and updates it —
    * one subject stays one sheet, and the fact is not lost to a refusal.
@@ -2445,7 +2445,7 @@ test("the plan is on the run before the first act of the answer runs", async () 
 test("a fact a pass writes is visible to the next pass, not to the pass that wrote it", async () => {
   /*
    * The pass reads the store **once** and hands that one reading to the recall
-   * and to the write (ADR 0037), so a fact written while the pass works is not
+   * and to the write (ADR 0033), so a fact written while the pass works is not
    * in the reading the rest of the same pass recalls from: what one change
    * learned reaches the **next** pass's calls. That is the price of not walking
    * the whole memory again for every change, and it is pinned here, so a reading

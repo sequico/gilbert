@@ -4,7 +4,7 @@
  * The forced-password-change directive (ADR 0001), the installation-wide
  * settings policy and its publish, and the directory reads the Users and
  * Groups surfaces stand on. Every route here is behind `requireSession` and
- * `requireAdmin` (ADR 0017).
+ * `requireAdmin` (ADR 0015).
  */
 
 import { randomUUID } from "node:crypto";
@@ -76,7 +76,7 @@ import {
 const FORCED_FLAGS_MAX = 250;
 
 export function registerAdminRoutes(api: Hono<Env>): void {
-  // ---------- Administration (ADR 0001, ADR 0017) ----------
+  // ---------- Administration (ADR 0001, ADR 0015) ----------
 
   /**
    * Set or clear the forced-password-change directive for a user (ADR 0001).
@@ -210,7 +210,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * The installation-wide settings policy (ADR 0001, ADR 0001, ADR 0001).
+   * The installation-wide settings policy (ADR 0001, ADR 0008, ADR 0015).
    *
    * GET reads the signed-in administrator's own account — the last publish
    * wrote there like everywhere else, so the editor's next load shows exactly
@@ -533,7 +533,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * The group label catalog surface (ADR 0005): list group mailboxes and read
+   * The group label catalog surface (ADR 0004): list group mailboxes and read
    * or replace the labels.json in a group's own Files. The catalog is the
    * agent's, and so is the door: it is read and written as the installation's
    * agent — the deployment's own credential when it holds one, otherwise

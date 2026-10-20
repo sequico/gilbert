@@ -31,7 +31,7 @@ const EMPTY: Identity[] = [];
 /**
  * The person's own identities, and the group mailboxes they are a member of.
  *
- * ADR 0007: a person's own list is the account that sends for them, not the
+ * ADR 0005: a person's own list is the account that sends for them, not the
  * mailbox the client happens to have on screen -- an identity is a claim about
  * who is sending, and it does not move because the reader opened a group's
  * mail or a share. The administration edits that same account, so the two
@@ -104,7 +104,7 @@ export function IdentitiesSettings() {
    * Read it whenever the section opens, the way each group block below does,
    * and whenever the account behind it changes. What the session holds is a
    * head start rather than the answer: an identity the administration removed
-   * (ADR 0007) leaves neither the account nor the entry anywhere, so a list
+   * (ADR 0005) leaves neither the account nor the entry anywhere, so a list
    * read at sign-in would go on showing it for the rest of the session.
    */
   useEffect(() => {
@@ -268,7 +268,7 @@ export function IdentitiesSettings() {
  * One group mailbox the reader is a member of, read-only.
  *
  * A group's identities belong to its members, one each, and the administration
- * writes them and **assigns** each to a member (ADR 0007) -- so there is nothing
+ * writes them and **assigns** each to a member (ADR 0005) -- so there is nothing
  * here to edit, delete or make default, and no hiding either: the compose picker
  * in that mailbox offers the identity assigned to the reader, which is not a
  * choice this page makes. What the member gets is the list, and which of them is
@@ -311,7 +311,7 @@ function GroupIdentities({ account }: { account: MailAccountInfo }) {
       </p>
       {/*
        * Which of them is the reader's is the one thing this page can answer
-       * (ADR 0007), and it is worth saying: it is the identity their mail leaves
+       * (ADR 0005), and it is worth saying: it is the identity their mail leaves
        * the group as, and with none assigned they send as the group itself.
        */}
       {assignment &&

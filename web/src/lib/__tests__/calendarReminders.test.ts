@@ -9,7 +9,7 @@ import {
 import { parseIcs } from "@/lib/ics";
 
 /**
- * When an event's own reminder falls due (ADR 0016).
+ * When an event's own reminder falls due (ADR 0014).
  *
  * Only an event that carries a reminder is announced, the instant is the start
  * less the trigger's offset, and the calendar's default stands in only for an

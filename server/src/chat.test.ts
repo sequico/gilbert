@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort } from "./testkit.js";
 
 /**
- * Group chat on the mock (ADR 0005): a member writes message documents into
+ * Group chat on the mock (ADR 0004): a member writes message documents into
  * the group account's `gilbert/chat` folder over JMAP FileNode, the change
  * log answers `FileNode/changes`, and the event source announces the FileNode
  * state change the way a real 0.16 server does -- the rail another member's

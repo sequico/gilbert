@@ -1,5 +1,5 @@
 /**
- * The workorder launcher (ADR 0028): the top-bar entry to the workorder
+ * The workorder launcher (ADR 0024): the top-bar entry to the workorder
  * surface.
  *
  * Beside chat's launcher in the action cluster, but a different shape once it

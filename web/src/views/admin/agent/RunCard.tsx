@@ -4,7 +4,7 @@ import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 
 /**
- * How a step of a plan left it, in a reader's words (ADR 0034).
+ * How a step of a plan left it, in a reader's words (ADR 0030).
  *
  * The four states are the document's own, held in one table and translated where
  * they are drawn — a run is a record of what happened, and "skipped" on its own
@@ -19,7 +19,7 @@ const STEP_STATE_LABELS: Record<RunStepState, string> = {
   skipped: "Not reached",
 };
 
-/** How a run ended, or that it is still in flight (ADR 0034). */
+/** How a run ended, or that it is still in flight (ADR 0030). */
 export const RUN_STATE_LABELS: Record<RunState, string> = {
   running: "Running",
   done: "Finished",
@@ -57,7 +57,7 @@ export function RunCard({
 /**
  * One fact the run recalled, as the screen can say it now.
  *
- * The record names the sheets by id (ADR 0037) and the surface holds the
+ * The record names the sheets by id (ADR 0033) and the surface holds the
  * memory's own list, so the id is resolved to the sheet that carries it; one
  * that has since been removed is drawn by its id, because that is all the
  * record says about it.

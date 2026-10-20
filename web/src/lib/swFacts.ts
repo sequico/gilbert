@@ -54,7 +54,7 @@ interface WorkerAccountFact {
 export interface WorkerFacts {
   /** The reader's own address, so a message they wrote is never announced. */
   ownAddress: string;
-  /** One entry per account the subscription covers (ADR 0016). */
+  /** One entry per account the subscription covers (ADR 0014). */
   accounts: WorkerAccountFact[];
   /** The worker's own user-visible text, in the language this tab is in. */
   strings: {
@@ -127,7 +127,7 @@ export function folderIdOfRole(
 /**
  * The accounts the worker's briefing lists, built from what the app holds.
  *
- * One entry per account the subscription covers (ADR 0016): each with the Inbox
+ * One entry per account the subscription covers (ADR 0014): each with the Inbox
  * and archive **of that account's own tree** — never the account on screen,
  * which is what `roleId` reads and what once put a group's Inbox in the own
  * entry and sent a notification for own mail into the group — its name, and, for

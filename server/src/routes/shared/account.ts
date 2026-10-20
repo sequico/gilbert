@@ -2,7 +2,7 @@
  * The signed-in session's own account, and the credential it holds.
  *
  * The account context a route acts with, what the session payload states
- * (including the installation's own account, ADR 0028), whether a candidate is
+ * (including the installation's own account, ADR 0024), whether a candidate is
  * the account's password, and the name an app password is minted under.
  */
 
@@ -107,7 +107,7 @@ interface InstallationAccount {
  * The account is the Master's, and it is the whole reason the client cannot
  * find this fact on its own: no member's session is a member of it, so its id
  * is on no list the session holds, and a FileNode change naming it would mean
- * nothing to a reader (ADR 0028, `followAccount` in push.ts). Resolved through
+ * nothing to a reader (ADR 0024, `followAccount` in push.ts). Resolved through
  * the identity door with the credential the deployment holds, and remembered
  * once it answers — the id *and* the session, because both callers need the
  * session to act on the account: the session payload states the id, and the
@@ -155,7 +155,7 @@ export function sessionExtras(
       /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
       isAdmin,
       /**
-       * ADR 0017: whether this session may administer at all. The menu follows
+       * ADR 0015: whether this session may administer at all. The menu follows
        * it, and the JMAP proxy is the door that enforces it: a false here also
        * means every `x:` method beyond the account's own is refused. False when
        * the installation offers no administration, and when it asked for the
@@ -188,7 +188,7 @@ export function sessionExtras(
       /** What the upstream server would tell us about itself. */
       server: { edition: info.edition },
       /**
-       * ADR 0007, ADR 0001: an administrator has taken this account's
+       * ADR 0005, ADR 0001: an administrator has taken this account's
        * identity over, so the product offers it no Identities & signatures
        * section at all. Read from the account's own app folder (the caller
        * resolves it, since that is an async lookup); it is a rule about the
@@ -196,7 +196,7 @@ export function sessionExtras(
        */
       identityLocked,
       /**
-       * ADR 0028: Stalwart's id for the installation's own account — the
+       * ADR 0024: Stalwart's id for the installation's own account — the
        * Master's, where the global checklist and the registry live. No member's
        * session is a member of it, so the id cannot be read off the session's
        * own accounts, and a FileNode change naming it would mean nothing to the

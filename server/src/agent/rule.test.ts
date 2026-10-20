@@ -1,5 +1,5 @@
 /**
- * The rule document's shape, and its surface matrix (ADR 0035).
+ * The rule document's shape, and its surface matrix (ADR 0031).
  *
  * A rule says what wakes it and what it may touch — one mode per surface — in
  * prose what should happen, and whether it declares that it sends. This is the
@@ -101,7 +101,7 @@ test("a key this build does not know is ignored, not refused", () => {
   assert.equal(
     "capabilities" in parsed.rule,
     false,
-    "and it is dropped on the next write: a rule carries no list of permitted actions (ADR 0035)",
+    "and it is dropped on the next write: a rule carries no list of permitted actions (ADR 0031)",
   );
 
   const extraSurface = parseRuleDocumentDetailed(

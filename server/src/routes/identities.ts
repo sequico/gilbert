@@ -1,6 +1,6 @@
 /**
  * The identities an administrator sets, and the assignment a member reads
- * (ADR 0007).
+ * (ADR 0005).
  *
  * A person's identities, a group's identities and roster, the signature HTML
  * kept in the account's own Files, and the identity the signed-in member sends
@@ -38,7 +38,7 @@ import {
 export const identityFailure = failureFor(IdentityAdminError);
 
 export function registerIdentityRoutes(api: Hono<Env>): void {
-  // ---------- Identities an administrator sets (ADR 0007) ----------
+  // ---------- Identities an administrator sets (ADR 0005) ----------
 
   /**
    * A person's identities, and the one write that reaches them.
@@ -89,13 +89,13 @@ export function registerIdentityRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * The lock an administrator applies to a person's identity (ADR 0007,
+   * The lock an administrator applies to a person's identity (ADR 0005,
    * ADR 0001).
    *
    * Recorded in that account's own app folder, by impersonation — the same
    * door `setPersonDefaultIdentity` writes through. Applying one ends
    * nothing: a lock is a rule about what the product offers, so the session
-   * that writes one sees it at once (ADR 0007, the cache below is cleared
+   * that writes one sees it at once (ADR 0005, the cache below is cleared
    * for exactly that) and a session already open sees it the next time it
    * reads its own.
    */
@@ -115,7 +115,7 @@ export function registerIdentityRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * The identity an account sends from by default (ADR 0007).
+   * The identity an account sends from by default (ADR 0005).
    *
    * Not a Stalwart property: it is one key of the client's own settings
    * document, in that account's app folder, so the administrator and the
@@ -141,7 +141,7 @@ export function registerIdentityRoutes(api: Hono<Env>): void {
 
   /**
    * A group's identities, its roster, and the assignment that binds a member to
-   * one of them (ADR 0007).
+   * one of them (ADR 0005).
    *
    * Written as the installation's agent, always: Stalwart refuses to impersonate
    * a group mailbox, and the agent is the principal that exists for this. Where
@@ -190,7 +190,7 @@ export function registerIdentityRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * Remove one of a group's identities, as the agent (ADR 0007).
+   * Remove one of a group's identities, as the agent (ADR 0005).
    *
    * What a member was assigned, deleted: they fall back to the group's own
    * identity, which is what a member with no identity of their own sends as.
@@ -212,7 +212,7 @@ export function registerIdentityRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * The identity the signed-in member sends as in one group (ADR 0007).
+   * The identity the signed-in member sends as in one group (ADR 0005).
    *
    * The composer's own question, answered as the member rather than as an
    * administrator: `assignedId` is the identity the administration assigned

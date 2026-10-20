@@ -1,5 +1,5 @@
 /**
- * What a delete does here, and who may take one — the one rule (ADR 0015).
+ * What a delete does here, and who may take one — the one rule (ADR 0013).
  *
  * A group mailbox is reached by membership rather than by a share, so the mail
  * server tells one member's delete from another's by nothing and offers no rank
@@ -125,7 +125,7 @@ export function destroyRefusal(
 }
 
 /**
- * The roles of the two folders whose mail a delete ends (ADR 0015).
+ * The roles of the two folders whose mail a delete ends (ADR 0013).
  *
  * One list, three readers: `isFinalFolderRole` below is built from it, the
  * pair `finalFoldersOf` returns is keyed by `FinalFolderRole`, and the guard in
@@ -214,7 +214,7 @@ export function deleteEffectInFolder(
 }
 
 /**
- * Whether a surface may draw its delete entry here (ADR 0015).
+ * Whether a surface may draw its delete entry here (ADR 0013).
  *
  * Only the delete that **ends** a message is withdrawn in a group; the one that
  * files it stays, because deleting from a group's Inbox still moves the message

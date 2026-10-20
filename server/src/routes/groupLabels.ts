@@ -1,5 +1,5 @@
 /**
- * A group mailbox's label catalog (ADR 0005): the group's own, read and written
+ * A group mailbox's label catalog (ADR 0004): the group's own, read and written
  * as the Master by an installation administrator.
  */
 

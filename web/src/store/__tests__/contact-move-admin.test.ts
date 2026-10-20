@@ -6,11 +6,11 @@ import { useSession } from "@/store/session";
 import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
- * Who may move a card from one account to another (ADR 0018).
+ * Who may move a card from one account to another (ADR 0016).
  *
  * A card lives in one account, and a group mailbox's card is the group's, so
  * moving one between accounts changes whose it is: it is an installation
- * administrator's, and nobody else's -- the same posture ADR 0015 takes for a
+ * administrator's, and nobody else's -- the same posture ADR 0013 takes for a
  * group's mail. What this pins is that the refusal is on the **write** and not
  * on the menu that offers it, so a form that changes a card's account is
  * refused too, and that a refusal reaches no server at all.
@@ -98,7 +98,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("moving a contact between accounts (ADR 0018)", () => {
+describe("moving a contact between accounts (ADR 0016)", () => {
   it("refuses a non-administrator's move without asking any server", async () => {
     const calls = stubServer();
     await expect(

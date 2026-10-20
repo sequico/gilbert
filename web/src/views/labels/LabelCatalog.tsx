@@ -9,7 +9,7 @@ import { ColorSwatches } from "@/ui/misc";
 /**
  * One label, as both catalogue editors draw it.
  *
- * A group's own catalogue (`views/admin/GroupLabels.tsx`, ADR 0005) and a
+ * A group's own catalogue (`views/admin/GroupLabels.tsx`, ADR 0004) and a
  * person's own labels (`views/settings/LabelsSettings.tsx`) are held in
  * different places and written through different doors — one is a document in
  * the group's Files, written as the installation's agent; the other is a

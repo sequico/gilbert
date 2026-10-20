@@ -44,7 +44,7 @@ export interface IcsEvent {
   description?: string;
   /** True when the source carried an RRULE that has not been expanded. */
   recurring: boolean;
-  /** The `DISPLAY` alarms it carries, for the reminder sweep (ADR 0016). */
+  /** The `DISPLAY` alarms it carries, for the reminder sweep (ADR 0014). */
   alarms: IcsAlarm[];
 }
 

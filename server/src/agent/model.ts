@@ -1,5 +1,5 @@
 /**
- * The installation's model, and the two turns it is asked (ADR 0031).
+ * The installation's model, and the two turns it is asked (ADR 0027).
  *
  * One model serves the installation: the provider, the model, its
  * OpenAI-compatible base URL and a write-only key, chosen in Administration and
@@ -16,7 +16,7 @@
  * this — the header is a property of the client, so no future call site can
  * forget it.
  *
- * **Both turns are handed the installation's memory** (ADR 0037): the selection
+ * **Both turns are handed the installation's memory** (ADR 0033): the selection
  * the loop made — the subjects the change at hand names, their nearest links and
  * the group's standing set — rendered in the user turn, fenced as data like
  * every other block of text somebody outside the group decided. The selection is
@@ -28,7 +28,7 @@
  * does not answer with a public address is refused unless the **operator** has
  * said the installation's model may sit inside the deployment's own network
  * (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`, `configuration.ts`); the switch is
- * never read from a document an installation wrote (ADR 0011). The check is
+ * never read from a document an installation wrote (ADR 0009). The check is
  * made in `callModel`, so every path to the provider passes it.
  *
  * **The decision turn.** Given one change in a group's own account and the
@@ -39,7 +39,7 @@
  * facts and nothing else. It never grants an authority and never chooses a tool
  * that writes; anything but the demanded shape is refused, never guessed at.
  *
- * **The choosing turn** (`chooseStep`) works a run (ADR 0031, 0034): it is
+ * **The choosing turn** (`chooseStep`) works a run (ADR 0027, 0030): it is
  * handed the catalogue as the catalogue describes itself — one definition, never
  * a second prose copy — and the run so far, and answers with a **plan**: a list
  * of one or more steps, each a tool, its arguments and what it waits on, or that
@@ -48,7 +48,7 @@
  * and a step that must follow another's outcome says so. It is handed the whole
  * catalogue rather than the write-free half, because it may always propose an
  * act; whether the act runs is the authority guard's answer (`runTool`, ADR
- * 0032) and never the model's. An answer of any other shape — a tool the
+ * 0028) and never the model's. An answer of any other shape — a tool the
  * catalogue does not hold, an entry that is not a step, arguments a tool cannot
  * use, a step waiting on a name the answer does not carry, any key this build
  * does not know — refuses the whole answer, never guessed at, and the caller
@@ -56,7 +56,7 @@
  *
  * The loop that works a run is `agent/loop.ts`, and it asks both turns here; the
  * loop that carries a person's instruction out — a sentence in the chat or the
- * mail — is to be written with `gilbertagents` (ADR 0035).
+ * mail — is to be written with `gilbertagents` (ADR 0031).
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -155,8 +155,8 @@ export interface ModelAccess {
  * The installation's model, as its own document states it.
  *
  * The one place a provider is read: the document is where the choice lives
- * (ADR 0011), and an installation that has chosen no model has no agent
- * (ADR 0031) — which is `null` here, not a default provider nobody chose.
+ * (ADR 0009), and an installation that has chosen no model has no agent
+ * (ADR 0027) — which is `null` here, not a default provider nobody chose.
  */
 export function modelAccess(
   document: InstallationDocument,
@@ -170,7 +170,7 @@ export function modelAccess(
  * The installation's model, or the refusal a surface composes its sentence from.
  *
  * Absence is a state of the installation and not a failure of a call: an
- * installation that has chosen no model has no agent (ADR 0031). A caller that
+ * installation that has chosen no model has no agent (ADR 0027). A caller that
  * needs a model comes through here rather than reading a `null` for itself, so
  * absence is refused in the shape every other refusal has — a code a surface
  * composes its sentence from, the way `assertUsableProvider` refuses an address.
@@ -256,7 +256,7 @@ interface ModelRequest {
   timeoutMs?: number;
   maxOutputTokens?: number;
   /**
-   * Images the user turn carries, for a model that can see (ADR 0031).
+   * Images the user turn carries, for a model that can see (ADR 0027).
    *
    * A scan, a photograph or a page of a PDF that has no text layer is read this
    * way and no other: the installation's model is the reader, so an installation
@@ -282,7 +282,7 @@ interface ModelImage {
  * shape the answer is read against is what bounds it.
  */
 /*
- * ADR-0031 OWED: model-provider-live -- the caller's contract is pinned against
+ * ADR-0027 OWED: model-provider-live -- the caller's contract is pinned against
  * a stub, and no real provider has answered it yet: the zero-retention opt-out,
  * the private-address switch and an OpenAI-compatible reply are all modelled.
  * `scripts/probe-*.mjs` is how a live provider is asked, by hand.
@@ -725,7 +725,7 @@ function firstLine(text: string): string {
  *
  * There is nothing else an answer can be. It carries no authority and no tool
  * that writes: an authorisation is a person's word recorded on the run
- * (ADR 0032, 0034) and never a model's, and the only tools a read may name are
+ * (ADR 0028, 0030) and never a model's, and the only tools a read may name are
  * the write-free half of the catalogue.
  */
 type ModelAnswer =
@@ -832,14 +832,14 @@ export interface DecisionQuestion {
   /** The group's rules, from the group's own account. */
   rules: readonly RuleDoc[];
   /**
-   * The prose that reaches every call, outermost first (ADR 0035): the
+   * The prose that reaches every call, outermost first (ADR 0031): the
    * installation's own line, then the group's standing instruction. The rule's
    * own instruction is the third level, and this is the turn that chooses which
    * rule it is, so the candidates carry theirs.
    */
   prose: { installation?: string; group?: string };
   /**
-   * What the installation's memory recalls for this change (ADR 0037) — a
+   * What the installation's memory recalls for this change (ADR 0033) — a
    * selection, never the whole graph, and empty when the memory holds nothing
    * about it. A fact is data: it is read and reasoned over, and it carries no
    * authority whatever it says.
@@ -875,7 +875,7 @@ export interface ReadMade {
  * trusted to the model. A change no rule watches is decided without a call at
  * all — and without a bill. Every candidate that fits the change is named and
  * runs: a change two rules cover is the group's own decision, so the model
- * chooses between no two of them (ADR 0035).
+ * chooses between no two of them (ADR 0031).
  *
  * The model may look the group's own state up with the **reading tools** before
  * it answers, up to `DECISION_READS_MAX` times; each read is run through
@@ -1010,10 +1010,10 @@ export async function decideEvent(
 /* ------------------------------------------------------------------ */
 
 /**
- * What one person's answer authorises, once the run has read it (ADR 0032).
+ * What one person's answer authorises, once the run has read it (ADR 0028).
  *
  * The class is an override only when the answer came from an installation
- * administrator: class 4 is theirs (ADR 0032), the directory is what proves it,
+ * administrator: class 4 is theirs (ADR 0028), the directory is what proves it,
  * and an answer from anybody else that claims one is refused rather than
  * recorded.
  */
@@ -1029,7 +1029,7 @@ interface ReadAuthorisation {
  * Read what a person's own words authorise, when they answer a run's question.
  *
  * A run that asked a question is continued by the sentence that answers it
- * (`takeAnswer`), and that sentence may be the word ADR 0032 asks for — the
+ * (`takeAnswer`), and that sentence may be the word ADR 0028 asks for — the
  * person who wrote it says the act may be taken. Reading it is a call, because a
  * sentence is not a form. Three things bound the reading, and the guard is the
  * first of them: the authorisation names **one act**, and `mayRun` compares that
@@ -1125,7 +1125,7 @@ function parseAuthorisations(raw: unknown, admin = false): ReadAuthorisation[] {
 /* ------------------------------------------------------------------ */
 
 /**
- * What an image says, read by the installation's model (ADR 0031).
+ * What an image says, read by the installation's model (ADR 0027).
  *
  * A document that is a picture — a photograph of a delivery note, a scan, a PDF
  * page with no text layer — has no bytes a reader can turn into prose. The
@@ -1222,7 +1222,7 @@ export { OUTCOME_IN_PROMPT_MAX } from "./prompt.js";
  * run's step keeps and the next call is shown.
  *
  * One function for both, because the run document is the agent's only durable
- * state (ADR 0034) and the model is told the document: what the record holds and
+ * state (ADR 0030) and the model is told the document: what the record holds and
  * what the model remembers are the same string, however large the answer was.
  */
 export function boundedText(value: unknown): string {
@@ -1231,7 +1231,7 @@ export function boundedText(value: unknown): string {
 
 /**
  * One step of a plan: a tool of the catalogue, the arguments it is given, and
- * what it waits on (ADR 0031, 0034).
+ * what it waits on (ADR 0027, 0030).
  *
  * A plan is a list of these. `needs` is null when the step is ready as soon as
  * the run reaches it; otherwise it names a step of the **same answer**, by its
@@ -1245,7 +1245,7 @@ export interface StepCall {
 }
 
 /**
- * What one choosing call answered (ADR 0031, 0034).
+ * What one choosing call answered (ADR 0027, 0030).
  *
  * A **plan** is one or more steps: the model decides what the change needs —
  * one thing, several, one tool twice — and says which steps wait on which, and
@@ -1258,7 +1258,7 @@ export interface StepCall {
  *
  * What a step carries is a tool, its arguments and what it waits on, and nothing
  * beside them: it grants no authority and names no capability, because what may
- * be done is the authority classes (ADR 0032) and never the model's.
+ * be done is the authority classes (ADR 0028) and never the model's.
  */
 type StepChoice = { kind: "plan"; calls: StepCall[] } | { kind: "done"; why: string };
 
@@ -1267,7 +1267,7 @@ type StepChoice = { kind: "plan"; calls: StepCall[] } | { kind: "done"; why: str
  *
  * The plan is the whole of what the model is told it has done — what each step
  * was and what it answered — because the run document is the agent's only
- * durable state (ADR 0034) and a turn that could see more than the document
+ * durable state (ADR 0030) and a turn that could see more than the document
  * would answer differently after a restart. `facts` is what the decision turn
  * found the change to be about, when this turn follows one.
  */
@@ -1276,19 +1276,19 @@ export interface StepQuestion {
   woke: string;
   /** The steps the run has taken so far, and how each ended. */
   plan: readonly RunStep[];
-  /** The prose the turn carries, outermost first (ADR 0035). */
+  /** The prose the turn carries, outermost first (ADR 0031). */
   prose: Partial<Record<ProseLevel, string>>;
   /** What the decision found the change to be about, when this turn follows one. */
   facts?: Record<string, string>;
   /**
-   * What a person has already authorised for this run (ADR 0032): the class, the
+   * What a person has already authorised for this run (ADR 0028): the class, the
    * act and the words it was read from. The guard compares an act exactly, so a
    * turn that must take one is shown the act it may take — without it the model
    * reproduces words it never saw and the step is refused for a space.
    */
   authorisations?: readonly RunAuthorisation[];
   /**
-   * What the installation's memory recalls for this run (ADR 0037): the
+   * What the installation's memory recalls for this run (ADR 0033): the
    * subjects the change and its facts name, their nearest links and the group's
    * standing set, inside the ceiling — a selection, and empty when the memory
    * holds nothing about it.
@@ -1301,7 +1301,7 @@ export interface StepQuestion {
    * times, each from a new run that had no way to know.
    */
   openQuestions?: readonly string[];
-  /** The files a batched drop brought, when the run answers one (ADR 0038). */
+  /** The files a batched drop brought, when the run answers one (ADR 0034). */
   batch?: readonly string[];
 }
 
@@ -1312,7 +1312,7 @@ export interface StepQuestion {
  * answer** carries, and the parser resolves that name to the call's index there
  * — the loop shifts it into the run's plan. A name the answer has not defined
  * yet, including the call's own, waits on nothing that can end, and refusing it
- * is what makes a cycle unwritable rather than merely unlikely (ADR 0034). The
+ * is what makes a cycle unwritable rather than merely unlikely (ADR 0030). The
  * outcome it waits for is one of the two a step can end with, so a branch no
  * outcome can reach is refused with the whole answer rather than kept as a step
  * that can never run.
@@ -1519,7 +1519,7 @@ export async function chooseStep(
     /*
      * Every call is put to the catalogue's own door before any of them runs: a
      * name the catalogue does not hold, or arguments its tool cannot use, is the
-     * whole answer's refusal (ADR 0031), never a plan with the bad step quietly
+     * whole answer's refusal (ADR 0027), never a plan with the bad step quietly
      * left out. The arguments are validated again where the call runs (`runTool`
      * does it too), and one definition of that lives in `tools.ts`.
      */
@@ -1535,7 +1535,7 @@ export async function chooseStep(
         );
       }
     }
-    // A run holds one wait (ADR 0034): a plan with two questions in it would
+    // A run holds one wait (ADR 0030): a plan with two questions in it would
     // park on the last and lose the first without saying so.
     if (asking > 1)
       throw new ModelError(

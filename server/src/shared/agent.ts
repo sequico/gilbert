@@ -1,5 +1,5 @@
 /**
- * The installation's one agent, as both tiers read it (ADR 0031, 0036).
+ * The installation's one agent, as both tiers read it (ADR 0027, 0032).
  *
  * The claim is a **stored document** — one `agent-claim.json` in the app folder
  * of the account the agent signs in as — in the same position a run and a fact
@@ -58,9 +58,9 @@ export function isClaimDoc(x: unknown): x is ClaimDoc {
  *
  * What an administrator reads about the process itself, and nothing it could act
  * on: the claim is a fact about who is working the installation, and **nothing
- * here starts or stops anything** — the server's own boot does that (ADR 0031),
+ * here starts or stops anything** — the server's own boot does that (ADR 0027),
  * so a control that pretended otherwise would be a lie. The model's own fields
- * are the installation section's (ADR 0011), which a surface links to rather
+ * are the installation section's (ADR 0009), which a surface links to rather
  * than copies.
  */
 export interface AgentStatus {
@@ -68,7 +68,7 @@ export interface AgentStatus {
    * The claim as it is stored, or null when nobody holds one.
    *
    * A claim that is **stored but past its expiry** is a claim nobody is believed
-   * to hold: the instant means one thing (ADR 0036), and a reader that showed a
+   * to hold: the instant means one thing (ADR 0032), and a reader that showed a
    * lapsed claim as a held one would report an agent where there is none.
    */
   claim: ClaimDoc | null;
@@ -77,7 +77,7 @@ export interface AgentStatus {
 }
 
 /**
- * The signature a step the agent settles carries (ADR 0028).
+ * The signature a step the agent settles carries (ADR 0024).
  *
  * A step's `by` is the actor, and the record says a step the agent checks is
  * signed as the agent, which is not a person. The value cannot be mistaken for

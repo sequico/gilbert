@@ -1,5 +1,5 @@
 /**
- * The run document against the mock Stalwart (ADR 0034).
+ * The run document against the mock Stalwart (ADR 0030).
  *
  * A run is one document in the group's own account, and these tests are the
  * two facts the design rests on: a **wait is a date in the run**, so a process
@@ -138,7 +138,7 @@ test("only the runs whose wait has come due are ready to be re-armed", async () 
 
 test("a closed run older than a year moves to its month's drawer, and nothing else does", async () => {
   /*
-   * `runs/` is the working set every pass lists (ADR 0034). A run that ended
+   * `runs/` is the working set every pass lists (ADR 0030). A run that ended
    * more than twelve months ago is moved — never deleted — into
    * `runs/archive/<year-month>/`; a run still running, or one that ended inside
    * the year, stays where the surface reads it.

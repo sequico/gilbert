@@ -1,5 +1,5 @@
 /**
- * The prose that reaches the model, in the order it is told it (ADR 0035).
+ * The prose that reaches the model, in the order it is told it (ADR 0031).
  *
  * The instruction an agent carries has three levels, and the record names them
  * outermost first. One **builder** produces that order for every caller, so
@@ -19,13 +19,13 @@
  * them would tell the model to read past them. A group's standing instruction is
  * the group's own way of saying how its agent works, so it belongs in that
  * instruction and not behind a fence; what bounds the agent is not the fence but
- * the authority classes (ADR 0032), which nothing here changes. The rule's own
+ * the authority classes (ADR 0028), which nothing here changes. The rule's own
  * instruction is fenced where it is data rather than instruction: it also
  * reaches the model in the user turn, inside the fence there, because it is the
  * prose a change is matched against (`model.ts`).
  */
 
-/** The three levels of prose, outermost first (ADR 0035). */
+/** The three levels of prose, outermost first (ADR 0031). */
 export const PROSE_LEVELS = ["installation", "group", "rule"] as const;
 
 /** One level of prose, named by where it is written. */

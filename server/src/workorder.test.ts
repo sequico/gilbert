@@ -14,10 +14,10 @@ import {
 import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
- * Workorders (ADR 0028), end to end against the mock.
+ * Workorders (ADR 0024), end to end against the mock.
  *
  * The Master owns the root and composes the surface; a checklist is an instance
- * of a KB template's **process** (ADR 0030), bound to the revision in force,
+ * of a KB template's **process** (ADR 0026), bound to the revision in force,
  * holding the chosen variant values and repeated items, each applicable step's
  * path and its last signature — never a copy of the controlled text. Closing
  * moves the root to `closed/` and keeps it. Each test fails if the mechanism is
@@ -62,7 +62,7 @@ await useDurableSessions(
 const app = createApp();
 
 // The Master's own session, to read the groups it holds: a section is assigned
-// to a group by that group's account id (ADR 0030), so the test needs one.
+// to a group by that group's account id (ADR 0026), so the test needs one.
 const master = await signInAsMaster({
   stalwartUrl: `http://127.0.0.1:${PORT}`,
   masterAddress: "gilbert@example.com",
@@ -174,7 +174,7 @@ const post = postWith(call);
 /**
  * A **member's** own session: the mock's agent principal is a member of the
  * groups the mock grants it and is not an installation administrator, which is
- * what a plain group member is on this surface (ADR 0028 — a member reads the
+ * what a plain group member is on this surface (ADR 0024 — a member reads the
  * workorders their groups are assigned to and the ones carrying a global
  * section, and checks only their own parts).
  *
@@ -275,7 +275,7 @@ async function createWorkorder(
 
 test("a repeat whose section condition is false needs no items", async () => {
   /*
-   * A section the chosen value excludes does not materialise (ADR 0030), so its
+   * A section the chosen value excludes does not materialise (ADR 0026), so its
    * repeat names no items and none are required — only a section that will
    * appear needs at least one. The create succeeds and the excluded repeat
    * contributes no item and no step.
@@ -325,7 +325,7 @@ test("a repeat whose section condition is false needs no items", async () => {
 
 test("a section assigned to a group lands in that group's part", async () => {
   /*
-   * Competence is data (ADR 0030): a section names the group it is assigned to,
+   * Competence is data (ADR 0026): a section names the group it is assigned to,
    * by that group's account id, so a workorder's parts are derived from the
    * template — the global holds the unassigned sections and the group's part
    * holds its own. Nothing about the group is named at creation.
@@ -563,7 +563,7 @@ test("replacing hands the work over: the successor exists and the old one names 
   /*
    * One act: the successor is created from the same body a creation takes, and
    * the predecessor is marked `replaced` naming it in the same request. Nothing
-   * is copied from the one it replaces (ADR 0028), so the successor is a new
+   * is copied from the one it replaces (ADR 0024), so the successor is a new
    * workorder with its own uid.
    */
   const template = await templateRef();
@@ -764,7 +764,7 @@ test("a closed workorder's checklist no longer changes", async () => {
 
 test("a gated section is hidden until its prerequisite completes once, then stays", async () => {
   /*
-   * The gate (ADR 0030): a section shows only after the sections it names have
+   * The gate (ADR 0026): a section shows only after the sections it names have
    * been completed **once**, and the latch keeps it shown when a prerequisite is
    * reopened for a revision — a group never loses a section it was given. Both
    * halves fail if the mechanism is removed.
@@ -844,7 +844,7 @@ test("a gated section is hidden until its prerequisite completes once, then stay
 
 test("a group section gated on a global section opens across parts", async () => {
   /*
-   * The gate resolves over the WHOLE workorder (ADR 0030): a section in a
+   * The gate resolves over the WHOLE workorder (ADR 0026): a section in a
    * group's part may wait on a section in the global checklist, so completing
    * the global prerequisite — a write to a different document — opens the group
    * section for the group. Fails if the cross-part resolution is removed.
@@ -900,7 +900,7 @@ test("a group section gated on a global section opens across parts", async () =>
 
 test("a prerequisite naming no section, and one with no steps, do not block", async () => {
   /*
-   * Two dead ends the gate must not open into (ADR 0030): a prerequisite naming
+   * Two dead ends the gate must not open into (ADR 0026): a prerequisite naming
    * a section an editor removed is **tolerated**, and a prerequisite with no
    * applicable steps is **complete** — neither hides the dependent section for
    * ever. Fails if either tolerance is removed.
@@ -966,7 +966,7 @@ test("a prerequisite the chosen variant excludes does not hide its dependent", a
    * only the sections the resolver materialised. A prerequisite the chosen
    * values exclude is known but never computed, and waiting for it would hide
    * the dependent section for ever. It is tolerated like a key that names no
-   * section (ADR 0030). Fails if the tolerance is removed.
+   * section (ADR 0026). Fails if the tolerance is removed.
    */
   const gated = {
     variants: [
@@ -1151,7 +1151,7 @@ test("a close whose folder move is refused keeps the state and the workorder fin
 test("a member reaches a workorder whose group part document has gone missing", async () => {
   /*
    * Visibility is **competence**: the template assigns a section to a group the
-   * caller is in, so the workorder is theirs (ADR 0028, ADR 0030). A part whose
+   * caller is in, so the workorder is theirs (ADR 0024, ADR 0026). A part whose
    * document is gone is simply not there in the view — it is never a reason the
    * whole workorder, and with it the global checklist the member is entitled to
    * read, disappears. Fails if visibility goes back to reading the part's
@@ -1222,7 +1222,7 @@ test("a member reaches a workorder whose group part document has gone missing", 
    * And reading it is checking it: whoever may see a part may check it, and the
    * step records **who** did, from the session. No role is asked for on this
    * surface — administration is a rule about templates, whose approval is the
-   * administrator's (ADR 0024, `/api/knowledge/approve`) and nothing here.
+   * administrator's (ADR 0020, `/api/knowledge/approve`) and nothing here.
    */
   const checked = await callAs(member, "/api/workorders/check", {
     method: "POST",
@@ -1348,7 +1348,7 @@ test("a group check announces the group's part on the FileNode rail", async () =
    * to that group's app folder, and the server announces it as a FileNode
    * StateChange naming the group's account — the frame a member is woken by,
    * because their own credential's push subscription covers the group mailboxes
-   * they are in (ADR 0005/0028; the per-token scoping is live-verified, the mock
+   * they are in (ADR 0004/0024; the per-token scoping is live-verified, the mock
    * broadcasts to its subscribers). Fails if the part stops being written where
    * it is read from, or the write stops being announced.
    */

@@ -1,5 +1,5 @@
 /**
- * The tools over mail, its folders and the group's labels (ADR 0031).
+ * The tools over mail, its folders and the group's labels (ADR 0027).
  *
  * A search and a read of messages and their attachments, the account's folders,
  * filing and trashing and keywords, a label in the group's own catalog, a
@@ -483,12 +483,12 @@ async function sendingIdentities(
   });
 }
 
-/** One message as a run's answer path reads it (ADR 0033). */
+/** One message as a run's answer path reads it (ADR 0029). */
 export async function readMessageForAnswer(
   ctx: Ctx,
   accountId: string,
   id: string,
-  /** Who may speak, and who the agent is: the one trust question (ADR 0033). */
+  /** Who may speak, and who the agent is: the one trust question (ADR 0029). */
   asker: { own: string; known: ReadonlyArray<string> },
 ): Promise<{
   from: string | null;
@@ -898,7 +898,7 @@ export const editDraft = defineTool({
 
 /**
  * Send one message from this group's own identity: written into Sent, then
- * submitted (ADR 0033).
+ * submitted (ADR 0029).
  *
  * One door for both acts that send — the question to a person with access and the
  * message that reaches somebody outside — so the two cannot disagree about the

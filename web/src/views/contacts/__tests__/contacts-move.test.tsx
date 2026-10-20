@@ -11,7 +11,7 @@ import { ContactsView } from "../ContactsView";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * Where a contact can be moved from, and who is offered the question (ADR 0018).
+ * Where a contact can be moved from, and who is offered the question (ADR 0016).
  *
  * Moving a card between accounts changes whose it is, so the right-click menu
  * carries it only for an installation administrator -- and the dialog offers the

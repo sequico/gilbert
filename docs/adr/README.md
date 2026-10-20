@@ -37,7 +37,7 @@ is, not what a user sees.
   nothing flows back, and no mirror branch is kept. Hand-taken commits are
   recorded in `docs/upstream.md`, because taking one never makes a release's own
   commit an ancestor of `main`.
-- **0004 — A contact group is not a recipient.** A group card
+- **0003 — A contact group is not a recipient.** A group card
   (`kind: "group"`, its `members` named by `uid`, no address of its own) is a
   client-side convenience over addresses: the composer's To/Cc/Bcc
   autocomplete, the recipient picker and the contact card's "Email group"
@@ -46,9 +46,9 @@ is, not what a user sees.
   drafts and the replies never know a group exists. Resolved against every book
   the reader may read, a group mailbox's books among them; a member that cannot
   be resolved is skipped and counted; no nesting, and no threshold of its own.
-- **0005 — Group chat and the group label catalog.** Both are layers on the
+- **0004 — Group chat and the group label catalog.** Both are layers on the
   group account's own JMAP Files, owned by the group from creation.
-- **0007 — Identity administration.** An administrator sets a person's or a
+- **0005 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it, and the
   lock is about personal mailboxes only. Which identity a member sends as in
@@ -59,37 +59,37 @@ is, not what a user sees.
   set. A member with no assignment sends as **the group's own identity**, the
   one the agent sends as, and only a group holding no identity at all leaves
   the composer with nothing to offer.
-- **0008 — System Sieve scripts.** An admin editor for Stalwart's own
+- **0006 — System Sieve scripts.** An admin editor for Stalwart's own
   trusted, server-wide Sieve scripts — a JMAP registry object
   (`x:SieveSystemScript`), not an account's own script — written directly as
   the administrator's session, no impersonation, gated by a permission
   separate from Gilbert's admin marker. Shares its editor component with the
   personal "Scripts (advanced)" tab rather than duplicating one.
-- **0009 — The push subscription covers every live type, at the request's
+- **0007 — The push subscription covers every live type, at the request's
   own origin.** One subscription per account names every state type a
   Gilbert surface keeps live, and its callback address is derived from the
   request rather than configured.
-- **0010 — The policy publish is a job with an id.** One id per publish,
+- **0008 — The policy publish is a job with an id.** One id per publish,
   carried by every copy it writes, and the job — the population the
   directory reported, the accounts the policy reached, the ones it did not
   with a code each, and whether the installation can be said to carry the
   policy — is one document in the publishing administrator's own app
   folder. Every per-account write is conditional, and the outcome cannot
   claim more than it reached.
-- **0011 — The installation's configuration is the Master's own document.**
+- **0009 — The installation's configuration is the Master's own document.**
   `installation.json` in the Master account's `gilbert` app folder, read
   whole at boot and written by the administration through the same
   impersonation door; the environment carries only the handshake, the
   container's and the image's own facts, the operator's own switch, and the
   facts about the process itself. A publish applies from the next boot.
-- **0012 — A durable write is caused by a change, not by a clock.** Stalwart
+- **0010 — A durable write is caused by a change, not by a clock.** Stalwart
   charges an account for every blob it uploads and never gives one back, so a
   write on a clock — a session's activity stamp —
   spends a finite budget saying that a process is alive. Liveness and activity
   are process facts (the sessions store), a write that would
   store what is already there is not made, and an idle installation therefore
   costs nothing.
-- **0013 — A dropped name is written over, in place.** A drop or a picker
+- **0011 — A dropped name is written over, in place.** A drop or a picker
   selection lands on a name the folder already holds by writing the bytes into
   the node that holds it — same id, same sharing, same place in the tree, only
   `blobId`, `type` and `size` change — so dropping a tree twice is one tree.
@@ -97,16 +97,16 @@ is, not what a user sees.
   is listed first; a name a **folder** holds stops the file instead of writing
   into it, and saving an attachment into Files still refuses a taken name rather
   than replacing one.
-- **0014 — Merging two folders is planned before it is written.** Both trees are
+- **0012 — Merging two folders is planned before it is written.** Both trees are
   read, the plan is built, and any collision — a name that is a folder on one
   side and a file on the other, or a right the reader does not hold — stops
   every step with nothing written. The folder whose name the reader keeps is the
   node that survives; a name both hold as a file is written into in place (ADR
-  0013) and its source node destroyed; the folder given up is destroyed last and
+  0011) and its source node destroyed; the folder given up is destroyed last and
   only once it is empty, so a stopped merge leaves both folders standing. The
   entry is offered for exactly two folders and drawn always, disabled until the
   selection is one it can act on.
-- **0015 — A group's mail is deleted by an administrator only.** A group mailbox
+- **0013 — A group's mail is deleted by an administrator only.** A group mailbox
   is reached by membership rather than by a share, so the mail server tells one
   member's delete from another's by nothing and offers no rank inside a group;
   the rule is the client's. Moving, binning, labelling, archiving and forwarding
@@ -116,7 +116,7 @@ is, not what a user sees.
   installation administrator, each refusal saying which one it is and what still
   works. It is a rule the product keeps, not a boundary: another client destroys
   the same mail.
-- **0016 — What notifies a closed Gilbert: the permission door, every mailbox, and chat.** A push subscription belongs to the
+- **0014 — What notifies a closed Gilbert: the permission door, every mailbox, and chat.** A push subscription belongs to the
   principal that registered it and is served for every account that principal is
   a **member** of, so one row covers the reader's own mailbox and each of their
   groups — the group's mail already wakes a closed client today, as a
@@ -128,7 +128,7 @@ is, not what a user sees.
   notification permission is asked for in the reader's own gesture, iOS is
   answered with the install instruction rather than a switch that cannot work,
   and no sender of ours is introduced.
-- **0017 — Administration is a door, not a menu.** The decision that a session
+- **0015 — Administration is a door, not a menu.** The decision that a session
   may administer is made where the request is: the JMAP proxy refuses a body
   that names a registry object the session may not reach, behind an allowlist of
   the account's own objects, and every `/api/admin` route enforces the same two
@@ -136,13 +136,13 @@ is, not what a user sees.
   in its own document), and, where the installation asked for the rule, the
   session was signed in on a device marked as the person's own. The menu
   announces the decision and says why when it cannot; the server is the door.
-- **0018 — A contact is moved between accounts by an administrator only.** A card
+- **0016 — A contact is moved between accounts by an administrator only.** A card
   is an object of one account and a group's card is the group's, so moving one
   across that line changes whose it is: the guard sits on the write
   (`moveCardTo`), the surfaces draw the entry from the same answer, and filing a
   new card into a group's book, editing one where it lives and re-filing a card
   inside one account are not moves and are unchanged.
-- **0021 — A group's folders are subscribed for every member.** A subscription
+- **0017 — A group's folders are subscribed for every member.** A subscription
   is read state kept for one principal, and membership writes none of it: a
   member of a working group holds the whole tree unsubscribed, which is
   invisible inside `gilbertmailer` (a tree that is not the reader's own is drawn
@@ -153,7 +153,7 @@ is, not what a user sees.
   so a member's tree is whole from the first frame and whatever the probe
   answers later. A member may write that field — confirmed live on 0.16.23
   (2026-09-24).
-- **0022 — Archive puts a conversation back where it was filed.** A reply
+- **0018 — Archive puts a conversation back where it was filed.** A reply
   arrives, joins the thread, and the conversation is back in the Inbox while the
   rest of it sits in the folder it was filed under — so the archive button
   returns it there, and only a conversation that was never filed anywhere goes
@@ -163,19 +163,19 @@ is, not what a user sees.
   account the action is aimed at, because a group's copy of a conversation and
   the reader's own are two threads. The dated entries keep their literal
   meaning.
-- **0023 — Global contacts.** One address book in the Master's account, created
+- **0019 — Global contacts.** One address book in the Master's account, created
   by the installation rather than by hand, **read by every account through a
   server route** and written only by an administrator from inside Contacts. It
   leads the Contacts sidebar, above `All contacts` and the reader's own books, as
   well as being merged in it; its cards are ordinary cards. A `shareWith` naming
   every account cannot work — Stalwart caps a share at 10 principals per item
   (live-probed, 2026-10-02) — so the route is the door.
-- **0024 — The knowledge base.** An enterprise knowledge base inside
+- **0020 — The knowledge base.** An enterprise knowledge base inside
   Gilbert, for people and for agents: a company-wide one owned by the Master and
   one per group, over app-folder documents in Stalwart. An article has one shared
   unapproved draft that users and agents both edit, and only an administrator
   approves it into force. Built for v1; co-editing and diagrams are deferred.
-- **0025 — One gate, and nothing merges or ships unverified.** The gate has one
+- **0021 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check
   (`workflow:pin`) rather than a reviewer's memory; the dependency audit runs
@@ -184,7 +184,7 @@ is, not what a user sees.
   a Dependabot pull request merges only on its CI run's green completion,
   through `workflow_run` so the token may write, merging the exact commit the CI
   verified. The procedure and the rollback are `docs/releasing.md`. Built.
-- **0026 — Supply-chain scanning in CI.** What the one gate of ADR 0025 does not
+- **0022 — Supply-chain scanning in CI.** What the one gate of ADR 0021 does not
   answer — a known-weak code pattern, a credential in the history — is a
   separate workflow (`ci-security.yml`), deliberately outside `check:ci`:
   Semgrep at ERROR level across the TypeScript, Node, security-audit and OWASP
@@ -193,18 +193,18 @@ is, not what a user sees.
   secrets and `.semgrepignore` to point the SAST scan at the code that ships. A
   finding is work to do in the same change, and an allowlist entry is a positive
   proof rather than a silence. Built.
-- **0027 — The CodeQL analysis runs with the release.** CodeQL is not a
+- **0023 — The CodeQL analysis runs with the release.** CodeQL is not a
   per-push gate: it is a 686 MB toolchain, so it runs as a release pre-check —
   `.github/workflows/codeql.yml`, called by `release.yml`, with `cut` waiting on
   it — plus weekly and on dispatch. A file names it rather than a repository
   setting, so it is reviewed and pinned like the rest; it runs **on GitHub only**
   and there is no local analysis or toolchain (owner decision 2026-10-18). Built.
-- **0028 — Workorders are group-owned parts.** A workorder is one uid
+- **0024 — Workorders are group-owned parts.** A workorder is one uid
   with a root document in the Master's and a part in each competent group's own
   app folder; nothing is copied and no marker is planted in a work folder. The
   Master does every read and write. A checklist instantiates a KB template in
-  force (ADR 0024) and materialises its applicable steps by path (ADR 0030).
-- **0029 — The composer's editor is Squire.** Every surface
+  force (ADR 0020) and materialises its applicable steps by path (ADR 0026).
+- **0025 — The composer's editor is Squire.** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for
   email, whose HTML is the source of truth so a quote or a forward keeps a third
@@ -216,11 +216,11 @@ is, not what a user sees.
   building markup, which removes the string-built-markup XSS class by
   construction. One component serves all three surfaces, sanitisation stays one
   policy (`sanitizeEditorFragment` for the engine, `sanitizeEditorHtml` for the
-  rest), and the KB's block editor (ADR 0024) is a different tool. The library
+  rest), and the KB's block editor (ADR 0020) is a different tool. The library
   is taken unmodified — ADR 0002's download-only stance applied to a library —
   and its releases arrive through Dependabot's npm channel. Its MIT notice is in
   `NOTICE`.
-- **0030 — A checklist template branches on data, not on groups.**
+- **0026 — A checklist template branches on data, not on groups.**
   One generic template per kind of job, in the company KB or a group's, and every
   group instantiates it; a group owns the **instance** and signs it, and is never
   a template of its own. The template is a **process document** — **variants**
@@ -231,7 +231,7 @@ is, not what a user sees.
   are **derived**. The authoring surface is Gilbert's own, not an off-the-shelf
   form builder. The workorder side materialises the applicable steps by **path**,
   with the four step states. **Built.**
-- **0031 — The agent's tools are described and composable.** The
+- **0027 — The agent's tools are described and composable.** The
   agent's capabilities are a small catalogue of **tools**, each one a task over an
   object Stalwart offers, and the **model chooses** which to call and in what
   order — **one or more in a single answer, together where independent** — never a
@@ -252,7 +252,7 @@ is, not what a user sees.
   reading tools, the choosing over the whole catalogue and answering a plan), and
   the loop that works a run is `server/src/agent/loop.ts`, started by the server's
   own boot (`server/src/agent/supervisor.ts`).
-- **0032 — What the agent decides, and what only a person decides.**
+- **0028 — What the agent decides, and what only a person decides.**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
   always, and the product's preference is that nothing disappears; **outward** a
@@ -269,7 +269,7 @@ is, not what a user sees.
   outward acts. `mail.trash` is the one destructive act and it **moves** a message
   to Deleted Items, licensed by the message's id; an override is proved by the
   directory's answer about the sender (`isAdministrator`, `server/src/agent/loop.ts`).
-- **0033 — The conversation runs in chat and mail.** One
+- **0029 — The conversation runs in chat and mail.** One
   conversation, two channels: a question, an answer, an authorisation and a report
   are the same in the group's chat and in mail, and **everything is in words** —
   no link, no signed token, no form, because a person away from the product has a
@@ -283,7 +283,7 @@ is, not what a user sees.
   (`server/src/agent/trust.ts`) decides whether a message is anybody's word: a
   submission on the account the server authenticated, and an outside message
   refused until the `authserv-id` of a live verdict is probed.
-- **0034 — A run is a document, and the record is the product.** A run
+- **0030 — A run is a document, and the record is the product.** A run
   is one document in the group's account and the whole of the agent's durable
   state: which rule or instruction started it, the plan, each step's outcome,
   what it touched, what it waits for and where it asked, every authorisation with
@@ -303,7 +303,7 @@ is, not what a user sees.
   runs from Administration → Agent, where the record is drawn as it is stored and
   a document this build cannot read is said rather than guessed at
   (`server/src/routes/agent.ts`, `web/src/views/admin/AdminAgent.tsx`).
-- **0035 — A group's engagement is a rule in prose.** One rule is one
+- **0031 — A group's engagement is a rule in prose.** One rule is one
   document in the group's own account, giving **each surface a mode** — the
   account's chat, mail, KB, workorders, Files and calendar — and saying **in
   prose what should happen** when the rule is woken. `watch` wakes the rule and
@@ -311,7 +311,7 @@ is, not what a user sees.
   open run write it; `off` neither wakes nor writes, and reading stays free.
   Chat is always `watch`. The matrix is the rule's and the run carries it; the
   guard refuses a write on an `off` surface (`surface_off`) and the authority
-  classes (ADR 0032) still bound what an act may be. A v1 rule is read as the
+  classes (ADR 0028) still bound what an act may be. A v1 rule is read as the
   matrix it means (watched surfaces `watch`, the rest `ondemand`). The calendar
   surface is in the matrix; the change log that would wake a rule on it is owed.
   A rule may **declare that it sends**. The agent's prose has three levels,
@@ -326,7 +326,7 @@ is, not what a user sees.
   rules and gives every rule that fits it its own run is
   `server/src/agent/loop.ts`, started by the server's own boot
   (`server/src/agent/supervisor.ts`).
-- **0036 — One agent per installation, held by a claim.** One
+- **0032 — One agent per installation, held by a claim.** One
   `agent-claim.json` in the app folder of the account the agent signs in as — the
   Master's, one per installation and no per-group lease — taken by the
   compare-and-set JMAP offers and renewed while the holder works. It carries who
@@ -337,12 +337,12 @@ is, not what a user sees.
   TTL. A release takes nobody's claim but its own; and a claim document that
   cannot be read is no claim at all, so a damaged one cannot leave the
   installation with no agent. **Built** (`server/src/agent/claim.ts`).
-- **0037 — The agent's memory is a graph, and it recalls it on every call.** The agent **always** has memory: a graph of small facts with a
+- **0033 — The agent's memory is a graph, and it recalls it on every call.** The agent **always** has memory: a graph of small facts with a
   provenance, in the **Master's own account**, in a **second store** beside the
   knowledge base — one memory for the installation, so a group reasons with what
   the whole installation knows. A call recalls a **selection** — the change's own
   subjects with their nearest links, plus the group's standing set, inside a
-  ceiling — and what was recalled is written into the run's record (ADR 0034). The
+  ceiling — and what was recalled is written into the run's record (ADR 0030). The
   agent writes facts as it works, within the authority classes; an installation
   administrator reads, corrects and removes them from Administration → Agent, and
   **a person's fact is in force** — what the agent concludes against one it
@@ -357,7 +357,7 @@ is, not what a user sees.
   against a person's fact is kept as a **proposal** (`FactProposal`) beside the
   person's sentence, and Administration accepts it — the correction path, whose
   write carries no proposal — or dismisses it.
-- **0038 — A burst of files is one drop, and a question is asked once.** A
+- **0034 — A burst of files is one drop, and a question is asked once.** A
   `FileNode` change is one file of a drop, not a change of its own: a file
   landing in a folder is queued against that folder in the group's own app
   folder and answered once — one decision, one run, one report — when the folder
@@ -372,3 +372,14 @@ is, not what a user sees.
   spent and the plan entries that failed as the two tallies they are.
   **Built** (`server/src/agent/queue.ts`, `changes.ts`, `events.ts`, `model.ts`,
   `tools/chat.ts`, `web/src/views/admin/agents/AgentOverview.tsx`).
+- **0035 — Ask Gilbert from a selection.** A file or a message selected in a
+  group's Files or mail is sent to the agent as a chat draft: the context menu
+  opens the group's conversation with the mention and the references — a file's
+  path, a message's id and subject — and the person completes the request and
+  sends it. The agent needs no new capability: the chat rule wakes on the
+  message, reads the references with the tools it has, and acts within the
+  surface matrix (ADR 0031) and the authority classes (ADR 0028). Offered only
+  where the agent serves the group, answered by a member route with the matrix;
+  at most ten items, because a bulk write is one step each in a twenty-step
+  plan. **Not built.**
+

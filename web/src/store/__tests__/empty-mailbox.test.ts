@@ -93,7 +93,7 @@ const messages = () => useToasts.getState().toasts.map((t) => t.message);
 beforeEach(() => {
   /*
    * The account under test is the reader's own, which the delete rule has to be
-   * able to prove (ADR 0015): the session names it, so this rig says what the
+   * able to prove (ADR 0013): the session names it, so this rig says what the
    * app's session always says before any action is taken. A rig that left the
    * account unnamed would be a group as far as the rule can tell.
    */

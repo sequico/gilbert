@@ -56,7 +56,7 @@ const PUSH_HOST_RE =
 
 /**
  * The https origin Stalwart can reach this installation at, read off the
- * request that carried the session (ADR 0009).
+ * request that carried the session (ADR 0007).
  *
  * Upstream POSTs back only to what the subscription named, and RFC 8620
  * requires https there, so this answers `null` -- leaving the account on the

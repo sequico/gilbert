@@ -5,7 +5,7 @@
  * Three documents in three accounts, and one door. The **claim** and the
  * **memory** live in the Master's own app folder — the account the agent signs
  * in as, which is where the installation's own configuration lives too (ADR
- * 0011) — so they are reached the way every one of the installation's own
+ * 0009) — so they are reached the way every one of the installation's own
  * documents is: as the installation, through `openAgentSession` (the deployment's
  * own credential where there is one, impersonation from this administrator's
  * session otherwise). The **runs** live in each group's own account and go
@@ -15,9 +15,9 @@
  * not granted on is refused with the section it was asked for.
  *
  * The door is the installation administrator's own, reused
- * (`requireSession, requireAdmin` — ADR 0001, ADR 0017) rather than a second
+ * (`requireSession, requireAdmin` — ADR 0001, ADR 0015) rather than a second
  * check written here. **Nothing here starts or stops the agent**: the server's
- * own boot does that (ADR 0031), and a control on this surface would promise
+ * own boot does that (ADR 0027), and a control on this surface would promise
  * something no route could keep.
  *
  * The **write** is a server route, like a group's label catalog: a browser may
@@ -26,7 +26,7 @@
  * (`agent/memory.ts`). What a person writes is a **person's fact** from that
  * moment: the agent's own write cannot overwrite it, and what it concludes
  * instead is kept beside it as a **proposal** a person accepts or dismisses
- * (ADR 0037), which is what makes a correction something the agent reasons from
+ * (ADR 0033), which is what makes a correction something the agent reasons from
  * rather than something it silently corrects on the next pass.
  */
 
@@ -195,12 +195,12 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * The claim, and the interval the supervisor asks for a pass on — the two facts
    * about the process that live in no document the browser can reach on its own.
    * **A claim that is stored but past its expiry is no claim**: that instant
-   * means one thing (ADR 0036), and answering with a lapsed holder would report
+   * means one thing (ADR 0032), and answering with a lapsed holder would report
    * an agent working an installation that no agent is working.
    *
    * The model is deliberately not answered here: it is the installation's own
    * document, and the surface **links** to the section that chooses it rather
-   * than keeping a second copy of fields edited there (ADR 0011, ADR 0031).
+   * than keeping a second copy of fields edited there (ADR 0009, ADR 0027).
    */
   api.get("/admin/agent", requireSession, requireAdmin, async (c) => {
     try {
@@ -265,7 +265,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   /**
    * The runs a group has worked, each as the record carries it.
    *
-   * The run document is the product (ADR 0034): this answers the documents as
+   * The run document is the product (ADR 0030): this answers the documents as
    * they are stored, and the surface draws them — what woke the run, the rule or
    * the instruction that answered, every step with what it waited on and how it
    * left, the tally, and where it parked and why. A document this build cannot
@@ -311,7 +311,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * Stop a run (ADR 0034, the fourth ending): the document is ended as
+   * Stop a run (ADR 0030, the fourth ending): the document is ended as
    * `cancelled`, and the pass that was working it sees the state on its next
    * write and leaves it exactly so.
    *
@@ -500,7 +500,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * A group's prose — its standing instruction and its rules (ADR 0035).
+   * A group's prose — its standing instruction and its rules (ADR 0031).
    *
    * The write path is here, behind the administrator door, and not in the
    * browser: a group's prose is decided by an installation administrator (owner
@@ -666,7 +666,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   );
 
   /**
-   * The installation's memory: every fact the agent reasons from (ADR 0037).
+   * The installation's memory: every fact the agent reasons from (ADR 0033).
    *
    * One reading of the whole graph, each sheet as it is stored — the subject, the
    * one sentence held true of it, the group it is about, where it came from and
@@ -747,7 +747,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * Dismiss the agent's proposal against a person's fact (ADR 0037).
+   * Dismiss the agent's proposal against a person's fact (ADR 0033).
    *
    * The sheet keeps everything it has — its sentence, where it came from, the
    * person's correction, its links — and loses only the words the agent

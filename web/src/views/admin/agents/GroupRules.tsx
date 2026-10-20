@@ -1,5 +1,5 @@
 /**
- * One group's prose, edited from Administration (ADR 0035): the standing
+ * One group's prose, edited from Administration (ADR 0031): the standing
  * instruction and the rules. The group is the tab the page is on.
  *
  * The editor is the administration's section now, not a dialog in the top bar:
@@ -38,7 +38,7 @@ const SURFACE_LABEL: Record<(typeof RULE_SURFACES)[number], string> = {
   calendar: "Calendar",
 };
 
-/** The three modes, and the sentence each stands for (ADR 0035). */
+/** The three modes, and the sentence each stands for (ADR 0031). */
 const MODES: readonly SurfaceMode[] = ["off", "watch", "ondemand"];
 
 /** The word a mode goes by, translated where it is drawn. */

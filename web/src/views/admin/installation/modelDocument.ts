@@ -56,7 +56,7 @@ export function withModelField(
  * The document with the installation's own line of prose set.
  *
  * The line is `agent.instruction` — the outermost prose the agent is told, above
- * every group's own instruction (ADR 0035). It is edited here as a field, beside
+ * every group's own instruction (ADR 0031). It is edited here as a field, beside
  * the model, because it is the other thing of that section a person chooses
  * rather than looks up.
  */

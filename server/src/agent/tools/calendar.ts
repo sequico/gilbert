@@ -1,5 +1,5 @@
 /**
- * The tools over the account's own calendars (ADR 0031).
+ * The tools over the account's own calendars (ADR 0027).
  *
  * The calendars a person may write to, the events in a window, one event read
  * by its id, and an event saved or removed. The group's calendar is the
@@ -271,7 +271,7 @@ export const createEvent = defineTool({
 });
 
 /**
- * A change of an existing event: destructive (ADR 0032 names a document
+ * A change of an existing event: destructive (ADR 0028 names a document
  * overwritten), so it runs only under a person's word for that event.
  */
 export const updateEvent = defineTool({

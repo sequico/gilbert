@@ -18,7 +18,7 @@ import { flushTwice as flush, identity } from "@/test/testkit";
  * so a reader with a group mailbox open edited the group's list under the
  * heading of their own — and a group mailbox's list is one identity per member.
  *
- * ADR 0007: a person's own list is the account that sends for them, and a
+ * ADR 0005: a person's own list is the account that sends for them, and a
  * person's Settings addresses that account and no other. The From picker in a
  * group mailbox offers the identity the administration **assigned** to the
  * reader, and the group's own behind it — an assignment recorded in the group's
@@ -179,7 +179,7 @@ describe("the two views of one cache", () => {
 
   it("offers the group's own identity to a member nothing is assigned to", async () => {
     /*
-     * The middle step of the cascade (ADR 0007), and the reason a member is
+     * The middle step of the cascade (ADR 0005), and the reason a member is
      * never stuck: an identity nobody is assigned is the group's own voice — the
      * one the agent sends as — so somebody the administration has not got to yet
      * writes as the group rather than being refused a sender. Never another
@@ -223,7 +223,7 @@ describe("the two views of one cache", () => {
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
 
     // The administration gives the reader the group's own identity, and the
-    // writer refreshes this session's answer (ADR 0007): the next read is the
+    // writer refreshes this session's answer (ADR 0005): the next read is the
     // new one.
     assignment = { assignedId: "g1" };
     await useMail.getState().refreshIdentities();

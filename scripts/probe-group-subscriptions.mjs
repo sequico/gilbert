@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The live probe of a member's own subscription on a group's folders (ADR 0021).
+ * The live probe of a member's own subscription on a group's folders (ADR 0017).
  *
  * A group mailbox is reached by membership, and a subscription is not part of
  * the grant: `isSubscribed` is read state kept for one principal, and a newly
@@ -10,7 +10,7 @@
  * **may** write that field is read rather than confirmed — the folder grants
  * them rename and delete, and the same tree has read the server refuse that
  * field on an address book shared read-only while accepting it on a shared
- * calendar. So this is the question ADR 0021 leaves owed, asked the way the
+ * calendar. So this is the question ADR 0017 leaves owed, asked the way the
  * code asks it:
  *
  *   1. does a member's own credential reach the group account, and does

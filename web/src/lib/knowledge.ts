@@ -1,5 +1,5 @@
 /**
- * The knowledge base, client half (ADR 0024).
+ * The knowledge base, client half (ADR 0020).
  *
  * The durable format — the draft, the revisions, the lifecycle pointer, the
  * validators and the pure helpers — is one definition in
@@ -11,9 +11,9 @@
  *
  * Writes go through `/api/knowledge/*`, because the company KB lives in the
  * Master's account and a reader reaches it through a route, not a session that
- * may write it (ADR 0024, Q1). The **company** KB is read through the route
+ * may write it (ADR 0020, Q1). The **company** KB is read through the route
  * too: a `shareWith` naming every account cannot work (Stalwart caps a share at
- * 10 principals per item, live-probed; ADR 0023), so the route is how every
+ * 10 principals per item, live-probed; ADR 0019), so the route is how every
  * account reaches the folder. A group's KB is read straight from the reader's
  * own session on the group account, membership being the grant; its approval
  * still goes through the route, an administrator's alone.
@@ -93,7 +93,7 @@ export async function findKnowledgeFolder(accountId: Id): Promise<Id | null> {
 }
 
 /**
- * The company KB's tree, as the server reads it as the Master (ADR 0024, Q1).
+ * The company KB's tree, as the server reads it as the Master (ADR 0020, Q1).
  *
  * The route answers the account the articles live in and their summaries, so
  * the client never searches an account it cannot enter. A route that fails is
@@ -505,7 +505,7 @@ export async function readArticleRevision(
 }
 
 /* ------------------------------------------------------------------ */
-/* Writes — the server acts as the Master (ADR 0024, Q1)               */
+/* Writes — the server acts as the Master (ADR 0020, Q1)               */
 /* ------------------------------------------------------------------ */
 
 /** The summary the server echoes after a write; the route always answers one. */
@@ -518,7 +518,7 @@ interface Written {
  * Create an article folder, optionally under a parent article's folder name.
  *
  * A checklist template is created with its (empty) rules so the builder has a
- * definition to edit from the first moment (ADR 0030).
+ * definition to edit from the first moment (ADR 0026).
  */
 export async function createArticle(
   target: KnowledgeTarget,
@@ -571,7 +571,7 @@ export async function reorderKnowledgeArticle(
  *
  * Used when a drop's fractional order has run out of precision: the whole
  * family is renumbered and its new places travel together rather than one
- * request per row (ADR 0024). The server applies each with its own
+ * request per row (ADR 0020). The server applies each with its own
  * compare-and-set, so the numbers stay independent.
  *
  * A batch can half-apply, and the answer says which half: a write that is

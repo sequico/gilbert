@@ -36,7 +36,7 @@ import { type Anchor, anchorFromEl, MenuItem, Popover } from "@/ui/popover";
 import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 
 /**
- * The knowledge base's tree of articles and topic folders (ADR 0024).
+ * The knowledge base's tree of articles and topic folders (ADR 0020).
  *
  * Two tiers, one shape: the company KB leads -- it is the installation's, read
  * by everyone -- and each group the reader is in follows. The tree is the
@@ -162,7 +162,7 @@ function InlineCreateRow({
     if (!value) return;
     if (kind === "page") void create(tier, value, parentFolder);
     else if (kind === "template")
-      // A new template starts with empty rules, which the builder edits (ADR 0030).
+      // A new template starts with empty rules, which the builder edits (ADR 0026).
       void create(tier, value, parentFolder, undefined, emptyChecklist());
     else void createFolder(tier, value, parentFolder);
   };
@@ -354,7 +354,7 @@ export function KnowledgeSidebar() {
   /**
    * Whether a folder holds an approved page anywhere under it, read from the
    * tier the tree already lists. The server refuses to destroy such a folder,
-   * so the control says so rather than inviting the click (ADR 0024).
+   * so the control says so rather than inviting the click (ADR 0020).
    */
   const approvedDescendantsOf = (tier: KnowledgeTierView, nodeId: string): boolean => {
     const seen = new Set<string>([nodeId]);

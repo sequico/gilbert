@@ -1,5 +1,5 @@
 /**
- * The tools over the group's own conversation (ADR 0005).
+ * The tools over the group's own conversation (ADR 0004).
  *
  * Finding a message and reading it, saying something in the conversation, and
  * asking a person there — the one question whose answer is read from the
@@ -131,7 +131,7 @@ export const findChat = defineTool({
 /**
  * The text of a chat message, bounded where the document is.
  *
- * `CHAT_MAX_TEXT` is the chat's own ceiling (ADR 0005): a message longer than it
+ * `CHAT_MAX_TEXT` is the chat's own ceiling (ADR 0004): a message longer than it
  * is a message the reader would not render, so it is refused here rather than
  * written and silently cut.
  */
@@ -191,7 +191,7 @@ export const sayInChat = defineTool({
     return { text: chatText(args), replyTo: optionalTextArg(args, "replyTo") };
   },
   run: async ({ ctx, accountId }, { text, replyTo }) => {
-    // The agent writes as itself and acts in the group's account (ADR 0033):
+    // The agent writes as itself and acts in the group's account (ADR 0029):
     // the sender is the address the session signed in as.
     const id = await postChatMessage(ctx, accountId, ctx.username, text, {
       ...(replyTo ? { replyTo } : {}),
@@ -239,7 +239,7 @@ export const askInChat = defineTool({
     /*
      * What the run waits for is a person's answer, and that wait carries **no
      * date**: the run is picked up when the answer arrives in the conversation,
-     * never by a clock (ADR 0033, 0034). The answer goes into the run's own
+     * never by a clock (ADR 0029, 0030). The answer goes into the run's own
      * document by the loop (`waitUntil`) — the run is the loop's to write, as
      * its tally is — and `asked` is the message the answer will reply to.
      */

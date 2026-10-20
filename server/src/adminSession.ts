@@ -147,7 +147,7 @@ export async function openMasterAccount(
  *
  * The marker alone, and deliberately: what the *door* allows an administrator to
  * do is a separate question with its own answer (`adminAllows`: the installation
- * offers administration, and the device is the person's own, ADR 0017) and it
+ * offers administration, and the device is the person's own, ADR 0015) and it
  * bounds writes. Visibility is not a write, and an owner's decision keeps these
  * two apart: a workorder a member may see is decided by competence, and whether
  * a session may *administer* never changes what it may read. So a session signed

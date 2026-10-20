@@ -75,10 +75,10 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   each member adding the book** — membership is the subscription
   (`store/contacts/slices/sharing.ts` `loadShared`, which also loads for group accounts).
   Cards load by page up to 5 000 per account; `loadShared` is single-flight.
-- **Chat (ADR 0005)**: one JSON node per message in `gilbert/chat` and one
+- **Chat (ADR 0004)**: one JSON node per message in `gilbert/chat` and one
   read marker per member in `gilbert/chat-state`, both in the group account,
   pushed by FileNode state changes (`lib/chat.ts`, `store/chat.ts`).
-- **Labels (ADR 0005)**: a group's catalog is the group's own file, edited from
+- **Labels (ADR 0004)**: a group's catalog is the group's own file, edited from
   Administration, and the reserved `G-` states the agent marks a message with are
   never entries in it — the catalog's write refuses the namespace and a read
   drops one an older document still carries. Wherever a group's labels are drawn
@@ -87,8 +87,8 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   (`views/mail/MailboxTree.tsx`, drawn for a group's account only, as filters
   carrying the counts the other labels carry). A person's own label surface shows
   the one section and is not guarded — the agent works in a group's account and
-  never in a person's (ADR 0031).
-- **Deleting the group's mail (ADR 0015)**: the one thing a member may not do.
+  never in a person's (ADR 0027).
+- **Deleting the group's mail (ADR 0013)**: the one thing a member may not do.
   A group is reached by membership, so the mail server tells one member's delete
   from another's by nothing and there is no rank inside a group; the rule is the
   client's and lives in `lib/mailDelete.ts` alone. The three entry points that
@@ -120,5 +120,5 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 4. UI strings are English `t()` keys (see gilbert-i18n); group names in copy
    are the account names as the session reports them.
 5. A group-only rule is asked from **one** module and guarded on the **effect**,
-   not on the surface that draws the entry (ADR 0015). A surface that asks for
+   not on the surface that draws the entry (ADR 0013). A surface that asks for
    itself, or a guard on a menu item, is how the group rule drifts.

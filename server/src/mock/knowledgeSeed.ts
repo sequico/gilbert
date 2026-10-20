@@ -1,7 +1,7 @@
 /**
  * The demo data the mock Stalwart serves: an industrial manufacturer's company
- * knowledge base, its workorders (ADR 0024, 0028, 0030) and the installation's
- * own document (ADR 0011).
+ * knowledge base, its workorders (ADR 0020, 0024, 0026) and the installation's
+ * own document (ADR 0009).
  *
  * The demo an installation shows is the mock, so the mock ships the product's
  * own features as data. Everything here is **derived from the shared builders**
@@ -105,8 +105,8 @@ const HOUR_MS = 60 * 60 * 1000;
 /**
  * The installation document the demo holds.
  *
- * The defaults a first boot writes (ADR 0011), plus a secret this build can seal
- * a session with and **a model** — the one field an agent needs (ADR 0031). It
+ * The defaults a first boot writes (ADR 0009), plus a secret this build can seal
+ * a session with and **a model** — the one field an agent needs (ADR 0027). It
  * is the same shape through the same builder a real first boot uses, so a
  * section added to the document appears here without a second definition, and
  * the provider's address is deliberately one nobody serves: the demo carries no
@@ -181,7 +181,7 @@ function nodeFactory(putBlob: PutBlob, at: string) {
 }
 
 /**
- * The shipping process (ADR 0030): one variant, a step conditioned on it, a
+ * The shipping process (ADR 0026): one variant, a step conditioned on it, a
  * repeated section with a data field, and a section assigned to a group — every
  * feature the model carries, in one template.
  */
@@ -218,7 +218,7 @@ function shippingProcess(group: string): KnowledgeChecklist {
           { key: "load", label: "Load the container" },
           { key: "seal", label: "Seal the container" },
           {
-            // A condition **inside** a repeated section (ADR 0030's cross-scope
+            // A condition **inside** a repeated section (ADR 0026's cross-scope
             // rule): the label applies per container, and only for one line.
             key: "label",
             label: "Apply the Maersk container label",
@@ -323,9 +323,9 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
     dir("kb-app", null, APP_FOLDER_NAME),
     /*
      * The installation's own document, which a boot reads from this folder and
-     * creates when it is absent (ADR 0011). The demo carries one so the server
+     * creates when it is absent (ADR 0009). The demo carries one so the server
      * that starts the agent with itself (`dev:mock`) has one to run: an
-     * installation with no model has none (ADR 0031), and the model is the
+     * installation with no model has none (ADR 0027), and the model is the
      * document's field rather than an environment variable. The address is a
      * placeholder because the demo ships no rules, so a pass never calls the
      * model; a developer who wants a turn points it at their own provider in
@@ -601,7 +601,7 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
   });
 
   // The workorder registry: active roots under `workorders/`, closed ones under
-  // `workorders/closed/` (ADR 0028).
+  // `workorders/closed/` (ADR 0024).
   masterNodes.push(dir("kb-wo", "kb-app", WORKORDER_FOLDER));
   masterNodes.push(dir("kb-wo-closed", "kb-wo", WORKORDER_CLOSED_FOLDER));
 

@@ -1,5 +1,5 @@
 /**
- * The one place a fact is addressed (ADR 0037).
+ * The one place a fact is addressed (ADR 0033).
  *
  * A fact is one document named `<id>.json` under `memory/` in the **Master's
  * own account** — the installation's memory, one for the installation wherever
@@ -10,7 +10,7 @@
  * store is read, and the one write the agent makes.
  *
  * **A person's fact is in force.** The write refuses to replace a sheet whose
- * origin is a person — correcting one is the surface's to do (ADR 0037) — and
+ * origin is a person — correcting one is the surface's to do (ADR 0033) — and
  * the refusal is a code a caller composes a sentence from. A sheet the agent
  * wrote itself is replaced in place, keeping its id, so the links that point at
  * it keep pointing at it and the memory does not fill with a second spelling of
@@ -114,7 +114,7 @@ interface FactRecord {
 }
 
 /**
- * The installation's memory as one reading of it saw it (ADR 0037).
+ * The installation's memory as one reading of it saw it (ADR 0033).
  *
  * `state` is the account's FileNode state at the moment of the read — the token
  * **every** write of the store carries, so a write that lost the race is refused
@@ -193,7 +193,7 @@ export async function readFact(
 }
 
 /**
- * The whole memory, as one reading of it (ADR 0037): the sheets, and the token
+ * The whole memory, as one reading of it (ADR 0033): the sheets, and the token
  * a write of the store carries.
  *
  * The selection is made from `facts` (`recallFacts`), and the write asks that
@@ -285,7 +285,7 @@ function checkedText(
   return { subject: trimmed, sentence: held };
 }
 
-/** What the agent says while it works, for the one write below (ADR 0037). */
+/** What the agent says while it works, for the one write below (ADR 0033). */
 interface FactWrite {
   /** What the fact is about, in the group's own words. */
   subject: string;
@@ -300,7 +300,7 @@ interface FactWrite {
    *
    * It is what the standing set is filtered by — a fact marked `standing` is
    * carried by every call of this group and of no other — while every fact is
-   * recalled by its subject for any group (ADR 0037).
+   * recalled by its subject for any group (ADR 0033).
    */
   group: string;
   /** The **subjects** of the facts it is linked to, resolved to their ids. */
@@ -314,7 +314,7 @@ interface FactWrite {
  * subject and refusing a person's.
  *
  * The write is made **against a reading of the store** that the caller hands in
- * — the pass's one reading (ADR 0037) — and both the sheet it replaces and the
+ * — the pass's one reading (ADR 0033) — and both the sheet it replaces and the
  * token it carries come from that reading, so a write landing since is refused
  * rather than overwritten. A refusal is not the end of the write: the store is
  * read once per pass, so the first write of a pass moves the state every later
@@ -326,7 +326,7 @@ interface FactWrite {
  * **group it is about** (`FactWrite.group`, the run's own account): that is what
  * its `standing` mark is filtered by, so a fact a group keeps about itself is
  * carried by that group's calls and not by another's. A **person's** sheet is
- * not replaced at all — a person's fact is in force (ADR 0037) — and the
+ * not replaced at all — a person's fact is in force (ADR 0033) — and the
  * refusal says so in a code.
  */
 export async function rememberFact(
@@ -373,7 +373,7 @@ async function writeFact(
   if (same && isInForce(same)) {
     /*
      * A person's word stands: what the agent concluded is written **beside** it
-     * as a proposal (ADR 0037), and the sentence in force is left exactly as it
+     * as a proposal (ADR 0033), and the sentence in force is left exactly as it
      * is. A person reads the proposal in Administration and either accepts it —
      * which is `correctFactByPerson` with those words, and that write clears the
      * proposal — or dismisses it, which leaves the sheet as it was.
@@ -429,7 +429,7 @@ async function writeFact(
 /**
  * Drop the agent's proposal against a person's fact, and nothing else.
  *
- * Dismissing is a person's answer to a proposal (ADR 0037): the sheet keeps its
+ * Dismissing is a person's answer to a proposal (ADR 0033): the sheet keeps its
  * sentence, its origin, its correction and its links, and loses only the words
  * the agent concluded. A sheet that carries no proposal is already what a
  * dismissal leaves, so the answer is the sheet as it stands rather than a
@@ -592,7 +592,7 @@ export async function correctFactByPerson(
  *
  * A removal is the one write nothing brings back: a fact the agent learned and
  * that everybody's next call carries is gone with the sheet, so the caller is the
- * one that asks (the Administration surface, ADR 0037) and it is conditional on
+ * one that asks (the Administration surface, ADR 0033) and it is conditional on
  * the state its reading saw, like every other write here — a removal decided
  * against a stale list is refused (`fact_moved`, 409) rather than taking a fact
  * that was just corrected. A sheet that is not there is a refusal rather than a

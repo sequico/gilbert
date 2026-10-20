@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The live probe of the mail-trust reading (ADR 0033).
+ * The live probe of the mail-trust reading (ADR 0029).
  *
  * `personWord` (`server/src/agent/trust.ts`) decides whether a message is the
  * sender's own word from the **first `Received` hop** the receiving server

@@ -1,18 +1,18 @@
 /**
- * A group's engagement, as a document (ADR 0035).
+ * A group's engagement, as a document (ADR 0031).
  *
  * One rule is one document in the **group's own account**: `<id>.json` under
  * `rules/` in that account's `gilbert` app folder, addressed by `./rules`. It
  * says two things — **what wakes it and what it may touch**, one mode per
- * surface of the group's own account (ADR 0035), and **in prose what should
+ * surface of the group's own account (ADR 0031), and **in prose what should
  * happen** when it is woken. It may also **declare that it sends**, which is
- * the one power a rule carries of its own (ADR 0032, class 3).
+ * the one power a rule carries of its own (ADR 0028, class 3).
  *
  * A surface mode is not an authority class: `watch` and `ondemand` say *where*
  * a run may act, and the classes still decide whether a particular act needs a
- * person's word (ADR 0032). A rule is an instruction written in advance; a
+ * person's word (ADR 0028). A rule is an instruction written in advance; a
  * sentence in the chat or in the mail is an instruction written now, and it is
- * a plan rather than a rule (ADR 0033).
+ * a plan rather than a rule (ADR 0029).
  *
  * This module is the shape, its parser and the one test of whether a rule
  * watches an event: no I/O, so what a rule means is answerable in a test
@@ -57,7 +57,7 @@ export const RULE_VERSION = 2;
  * A rule says **what may wake it and what it may touch** — one mode per surface
  * of the group's own account — and **in prose what should happen** when it is
  * woken. It may also **declare that it sends**, which is the one power it
- * carries of its own (ADR 0032, class 3). The authority classes still bound
+ * carries of its own (ADR 0028, class 3). The authority classes still bound
  * every act: a surface `ondemand` says *where* the run may act, never that a
  * destructive act needs no person's word.
  */
@@ -70,7 +70,7 @@ export interface RuleDoc {
   surfaces: RuleSurfaces;
   /** In prose, what should happen when that activity is met. */
   instruction: string;
-  /** Whether the rule declares that it sends (ADR 0032, class 3). */
+  /** Whether the rule declares that it sends (ADR 0028, class 3). */
   sends: boolean;
 }
 
@@ -114,13 +114,13 @@ function migratedSurfaces(watches: readonly AccountEventSource[]): RuleSurfaces 
  * Strict JSON, an object at the top, then every declared field checked. The
  * **first** field that is wrong is named and nothing is returned: a rule this
  * build cannot read is refused with its path and the reason (as an unreadable
- * run is, ADR 0034), never guessed at. A key this build does not know is
+ * run is, ADR 0030), never guessed at. A key this build does not know is
  * ignored — a field a later build added, or a retired one, decides nothing here
  * and does not refuse a rule that is otherwise whole — and the parsed rule
  * carries only the fields above, so the next write of it drops what was
  * unknown.
  *
- * A **v1** document is read as the matrix it means (ADR 0035): the surfaces it
+ * A **v1** document is read as the matrix it means (ADR 0031): the surfaces it
  * watched stay `watch`, every other surface is `ondemand`, and chat is `watch`.
  * A `v` beyond this build is refused: a document written by a newer Gilbert may
  * carry a field whose meaning changed, and reading it as though it had not is

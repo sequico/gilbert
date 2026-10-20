@@ -43,14 +43,14 @@ export interface JmapSession {
     /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
     isAdmin: boolean;
     /**
-     * ADR 0017: whether this session may administer at all — the installation
+     * ADR 0015: whether this session may administer at all — the installation
      * offers administration and this device was marked as the person's own. The
      * server refuses `x:` methods beyond the account's own when it is false, so
      * the menu follows it rather than the other way round.
      */
     administration?: boolean;
     /**
-     * ADR 0017: an administrator signed in on a device not marked as their own.
+     * ADR 0015: an administrator signed in on a device not marked as their own.
      * The menu says why rather than losing the entry without a word.
      */
     administrationNeedsOwnDevice?: boolean;
@@ -61,12 +61,12 @@ export interface JmapSession {
      */
     mustChangePassword?: boolean;
     /**
-     * ADR 0007: an administrator has taken this account's identity over, and
+     * ADR 0005: an administrator has taken this account's identity over, and
      * the product offers the person no Identity & signatures section at all.
      */
     identityLocked?: boolean;
     /**
-     * ADR 0028: Stalwart's id for the installation's own account, where the
+     * ADR 0024: Stalwart's id for the installation's own account, where the
      * global checklist and the registry live. No member's session is a member
      * of it, so a `StateChange` naming that account cannot be recognised from
      * the session's own accounts — this is the fact that turns it into a read.

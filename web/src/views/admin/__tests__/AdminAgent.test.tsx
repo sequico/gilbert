@@ -8,7 +8,7 @@ import { AgentsView } from "../agents/AgentsView";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The agent's administration surface (ADR 0031, 0034, 0036, 0037): what a run
+ * The agent's administration surface (ADR 0027, 0030, 0032, 0033): what a run
  * looks like when the agent's own record is the thing on the screen, what a fact
  * of the installation's memory looks like, and what a correction and a removal do.
  *
@@ -347,7 +347,7 @@ describe("the agent's administration surface", () => {
     });
 
     // Accepting writes no new route: the proposal's words become the person's
-    // own correction, which is what puts them in force (ADR 0037).
+    // own correction, which is what puts them in force (ADR 0033).
     const written = fetchMock.mock.calls.find(
       (call) => (call[1] as RequestInit)?.method === "PUT",
     );

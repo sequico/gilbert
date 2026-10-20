@@ -1,5 +1,5 @@
 /**
- * The workorder panel (ADR 0028): the surface a workorder is worked in.
+ * The workorder panel (ADR 0024): the surface a workorder is worked in.
  *
  * A large fixed panel, not a popover -- wide and tall enough to hold the open
  * workorder (its global checklist and the reader's own groups' checklists)
@@ -9,13 +9,13 @@
  *
  * The durable documents live in Stalwart -- the Master's root and one part per
  * group, joined by the uid -- and are read through the workorder route, never
- * through a Stalwart share (ADR 0028). This file is the view over the store:
+ * through a Stalwart share (ADR 0024). This file is the view over the store:
  * the checklist a reader may check, and every reference by id, are the store's
  * answers, and nothing here composes a document of its own.
  *
  * A checklist is not a flat list. The server resolves the template revision the
  * checklist is bound to against the workorder's chosen variant values and its
- * chosen items (ADR 0030) and answers `groups`: one per applicable section,
+ * chosen items (ADR 0026) and answers `groups`: one per applicable section,
  * each holding the items that apply -- the single item of a plain section, one
  * per named item of a repeated one -- and each item its steps. The controlled
  * text of every step, item and section is read from that revision and never
@@ -148,7 +148,7 @@ function StateBadge({
 
 /**
  * The checklist template a workorder instantiates, named with its revision, in
- * the panel's head. A workorder binds one template and one revision (ADR 0028),
+ * the panel's head. A workorder binds one template and one revision (ADR 0024),
  * so every part names the same one; the global part is the one shown.
  */
 function TemplateChip({ part }: { part: WorkorderPartView }) {
@@ -276,7 +276,7 @@ function StepRow({
 /**
  * One part's checklist: the global one or a group's.
  *
- * The part arrives grouped by the template's sections (ADR 0030): a plain
+ * The part arrives grouped by the template's sections (ADR 0026): a plain
  * section holds its steps once; a repeated section holds one labelled block per
  * chosen item, its own data fields beside the name, and each block its steps.
  * Progress counts the states that finish a job -- `done` and `skipped` -- and
@@ -334,7 +334,7 @@ function PartSection({
                 {group.label}
               </h4>
               {/* The section's gate, once opened: a small read-only marker
-                  naming the sections it waited on (ADR 0030). */}
+                  naming the sections it waited on (ADR 0026). */}
               {group.gate && (
                 <span className="chip nowrap">
                   {t("after {sections}", {
@@ -475,15 +475,15 @@ interface ItemDraft {
 /**
  * The administrator's creation form: a friendly name, a KB template and the
  * template's own choices. The parts follow the template — the groups its
- * sections are assigned to, and the global checklist for the rest (ADR 0030).
+ * sections are assigned to, and the global checklist for the rest (ADR 0026).
  *
- * A template is offered only when it has a revision in force (ADR 0028): a
+ * A template is offered only when it has a revision in force (ADR 0024): a
  * checklist is the operational instance of a revision, and one that was never
  * approved -- or whose first is still pending -- has nothing to bind. The KB
  * may not have been read in this session at all, so the form asks for it when
  * it appears rather than making a visit to /kb a precondition.
  *
- * The template's **rules** name what the workorder must choose (ADR 0030): one
+ * The template's **rules** name what the workorder must choose (ADR 0026): one
  * value per variant, and one or more items per repeated section, each with its
  * optional data fields. The rules are not on the listing, only on the revision
  * the template binds to, so the revision is read when a template is chosen and
@@ -495,7 +495,7 @@ interface ItemDraft {
  * `replacing` names the workorder this one succeeds: the body the form builds is
  * a creation's either way — a name, a template, its choices — because a
  * successor **is** a new workorder, and nothing is copied from the one it
- * replaces (ADR 0028). The mode changes the heading and the verb, and calls the
+ * replaces (ADR 0024). The mode changes the heading and the verb, and calls the
  * door that writes both documents in one act.
  */
 function NewWorkorderForm({
@@ -542,13 +542,13 @@ function NewWorkorderForm({
           useKnowledge.getState().tiers.flatMap((tier) =>
             tier.articles.flatMap((a) => {
               // Only a checklist template instantiates a workorder: a page
-              // whose body holds checklist steps and no other (ADR 0028).
+              // whose body holds checklist steps and no other (ADR 0024).
               if (a.template !== "checklist") return [];
               /*
                * The revision in force is the one a checklist may bind to, and it
                * is `revisionInForceAt`'s answer rather than `a.inForce`: a
                * revision approved for an instant that has since arrived is the
-               * one in force, and the route refuses any other bind (ADR 0028).
+               * one in force, and the route refuses any other bind (ADR 0024).
                */
               const issued = revisionInForceAt(a);
               if (!issued) return [];
@@ -1094,7 +1094,7 @@ export function WorkorderPanel() {
                     {/* The references surface is being reworked; until it is,
                         it is a placeholder rather than a half-working
                         gatherer. The model itself (references by id, never
-                        copies, ADR 0028) is unchanged in the documents. */}
+                        copies, ADR 0024) is unchanged in the documents. */}
                     <section className="card">
                       <div className="card-head">
                         <h3>{t("References")}</h3>

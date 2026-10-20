@@ -408,7 +408,7 @@ export function MailView({
         if (!t.length) return;
         const mail = useMail.getState();
         /*
-         * The ask follows the one rule (ADR 0015) rather than the trash role
+         * The ask follows the one rule (ADR 0013) rather than the trash role
          * alone: Junk Mail destroys too, so a selection sitting there used to
          * be destroyed under a dialog that said only "Delete?".
          */
@@ -417,7 +417,7 @@ export function MailView({
           (id) => deleteEffect(mail.emails[id], folders) === "final",
         );
         /*
-         * ADR 0015: no confirmation in front of a delete that cannot happen.
+         * ADR 0013: no confirmation in front of a delete that cannot happen.
          * A wholly-refused selection goes straight to the guard, which is what
          * announces the refusal — a dialog would only offer the impossible and
          * then say no. A *mixed* selection is not refused as a whole: the half
@@ -437,7 +437,7 @@ export function MailView({
          * The guard's answer decides whether the list is treated as changed: a
          * refusal leaves every row where it was, so moving the focus and
          * clearing the selection would be the list lying about a message that
-         * did not go (ADR 0015).
+         * did not go (ADR 0013).
          */
         const outcome = await mail.trash(t);
         if (outcome.ok) afterAction(true);

@@ -12,7 +12,7 @@ import { useMail } from "./mail";
 import { useSession } from "./session";
 
 /**
- * Group-owned label catalogs (ADR 0005, "group label catalog").
+ * Group-owned label catalogs (ADR 0004, "group label catalog").
  *
  * A group mailbox is the group's own account; the labels that name its
  * messages belong to the group, not to any member. They live in a

@@ -1,5 +1,5 @@
 /**
- * The installation's single claim (ADR 0036).
+ * The installation's single claim (ADR 0032).
  *
  * One agent acts for an installation, and a second copy of the process must not
  * work the same runs. There is no per-group lease and no coordinator to ask:

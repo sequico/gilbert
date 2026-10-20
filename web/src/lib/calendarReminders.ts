@@ -3,7 +3,7 @@ import { parseDuration, zonedToDate } from "./dates";
 import type { IcsEvent } from "./ics";
 
 /**
- * When a calendar event's own reminder falls due (ADR 0016).
+ * When a calendar event's own reminder falls due (ADR 0014).
  *
  * An event that carries a reminder is announced when its instant arrives, and
  * an event with none is not announced at all -- the reminder *is* the opt-in.

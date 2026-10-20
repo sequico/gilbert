@@ -120,7 +120,7 @@ export interface PersonIdentitiesView {
 /**
  * A group's identities, its roster, and who sends as which of them.
  *
- * A group holds one identity per member (ADR 0007) — the group's own address,
+ * A group holds one identity per member (ADR 0005) — the group's own address,
  * each member's own display name and signature — so this is a list where the
  * surface used to hold one, and an administrator assigns them by member.
  * `granted: false` is a state, not a failure: the agent is not on that group,
@@ -131,7 +131,7 @@ export interface GroupIdentityView {
   name: string;
   granted: boolean;
   /**
-   * One identity per member (ADR 0007): the group's own address, each member's
+   * One identity per member (ADR 0005): the group's own address, each member's
    * own display name and signature.
    */
   identities: Identity[];

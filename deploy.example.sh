@@ -45,7 +45,7 @@ APP="${GILBERT_APP:-$HOME/apps/gilbert}"
 # outside the repo's tracked files: it holds APP_SECRET and the upstream URL,
 # and, when the deployment runs an agent, the Master's own
 # GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD, which the server reads at
-# boot (ADR 0011). Never sourced; the one name read out of it is BASE_PATH
+# boot (ADR 0009). Never sourced; the one name read out of it is BASE_PATH
 # below, with `sed`.
 ENVF="${GILBERT_ENV:-$APP/.env.production}"
 # The subpath the image is built for. It has to match the container's own

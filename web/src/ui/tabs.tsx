@@ -14,7 +14,7 @@ import { t } from "@/lib/i18n";
  *
  * The identities surface is a fourth `role="tablist"` and deliberately not this
  * one: both of its panels stay mounted, the one not shown carrying `hidden`, so a
- * tab keeps what it was in the middle of (its own docstring, ADR 0007). A strip
+ * tab keeps what it was in the middle of (its own docstring, ADR 0005). A strip
  * that renders one panel at a time cannot keep the other.
  *
  * `idPrefix` is what keeps two strips on one page apart, since both render a

@@ -81,13 +81,13 @@ Where the integration lives:
   (signatures capped at 2047 bytes of UTF-8 — Rust `len()`, see
   `web/src/lib/signatureHtml.ts`), calendar events, contacts, sieve scripts,
   principal/group structure.
-- **Global contacts** (ADR 0023, `gilbert-global-contacts`): one `AddressBook` +
+- **Global contacts** (ADR 0019, `gilbert-global-contacts`): one `AddressBook` +
   `ContactCard`s in the **Master's** account, written only by an administrator
   from inside Contacts and **read by every account through a server route** — a
   Stalwart object, never a second store. A `shareWith` naming every account was
   live-probed and **cannot work**: Stalwart caps a share at **10 principals per
   item** (see the live questions below), so the route is the door. The same
-  applies to the KB's company tier (ADR 0024).
+  applies to the KB's company tier (ADR 0020).
 - Installation policy: `server/src/config.ts` (settings-policy file/env),
   served by `/api/config`; admin group concept in `docs/adr/0001` (admin is
   membership of a Stalwart group, e.g. `admins@domain`; policy documents in
@@ -118,7 +118,7 @@ Where the integration lives:
   id, and a writer that means to **replace** does not look the name up at all —
   the refusal names the node, and writing the new bytes into it is an update of
   `blobId`/`type`/`size`, which is why a name on a level past the account
-  read's page is still written over (ADR 0013). The mock reproduces the
+  read's page is still written over (ADR 0011). The mock reproduces the
   refusal, the id and the case-sensitivity (`server/src/mock/index.ts`,
   `FileNode/set`).
 - A destroy of a **folder that still holds something** is refused unless the
@@ -129,7 +129,7 @@ Where the integration lives:
   sends the flag, and has always sent it) and a **merge**'s last step, which
   deliberately does not: it destroys a folder it emptied, so a folder it did not
   empty stops the merge instead of disappearing with whatever landed in it
-  meanwhile (ADR 0014). The mock models the refusal, the empty case and the
+  meanwhile (ADR 0012). The mock models the refusal, the empty case and the
   cascade (`server/src/mock/destroy-non-empty-folder.test.ts`).
 - Unshared nodes report `shareWith: {}`, not `null` (0.16.19, 2026-08-27) —
   test with `Object.keys(...).length`.
@@ -193,7 +193,7 @@ Where the integration lives:
   Gilbert spends it in one place: the chat's `@` picker reads the group's
   roster as the Master (`groupMembers` in `server/src/groupAccess.ts`, cached a
   minute, `null` when it cannot be read) and falls back to the transcript
-  (ADR 0005).
+  (ADR 0004).
 
 - Stalwart 0.16 added **JMAP impersonation**: a principal granted the
   impersonation right can authenticate to JMAP as another user with a
@@ -201,7 +201,7 @@ Where the integration lives:
   account's credentials. Stalwart's `master` there is **its** word for the
   impersonating principal — in Gilbert that is the signed-in administrator
   (ADR 0001), which is why the code composes `{target}%{admin}`, and it is not
-  the **Master** account of ADR 0011.
+  the **Master** account of ADR 0009.
   **App passwords are refused for impersonation**
   (server source, `authentication.rs`). Consequences to design for: an
   administrator with impersonation can read and write any account's Files —
@@ -233,7 +233,7 @@ version and its date.
 The three below were run against a live 0.16.23 installation on 2026-09-24 and
 their answers are recorded, and the universal-share question was run against the
 deployment on 2026-10-02 and is recorded below. The questions that remain owed
-are ADR 0016's, kept in that record and asked by
+are ADR 0014's, kept in that record and asked by
 `scripts/probe-degraded-statechange.mjs`.
 
 ### A share naming every principal — the cap (2026-10-02)
@@ -244,7 +244,7 @@ with `invalidProperties` / "Maximum number of shares per item exceeded (max:
 recognized on a **FileNode** — the refusal is the ceiling, not the type — so a
 nested folder cannot be shared with an unbounded set of accounts either. An
 installation-wide resource is therefore **served through a route**, not shared:
-the KB's company tier (ADR 0024) and Global contacts (ADR 0023) both. The probe
+the KB's company tier (ADR 0020) and Global contacts (ADR 0019) both. The probe
 did not record the server version; the cap is "10 per item" as answered.
 
 ### `scripts/probe-directory-paging.mjs` — the directory read's paging
@@ -338,7 +338,7 @@ note.
 ### `scripts/probe-group-subscriptions.mjs` — a member's own subscription
 
 Confirmed live on 0.16.23 (2026-09-24), for `ensureSubscribed` in
-`web/src/store/mail/` and the decision in ADR 0021: a **member may** write
+`web/src/store/mail/` and the decision in ADR 0017: a **member may** write
 `isSubscribed` on a folder of their group. `Mailbox/set` with
 `update: {<folder id>: {isSubscribed: true}}` on a folder of a group the
 credential is a member of answers `updated`, and the folder reads back
@@ -436,7 +436,7 @@ what this file assumed about who a browser subscription reaches:
   subscription per device is what keeps the handshake one code.
 
 Where the client stands against this, and what is still owed a running server,
-is ADR 0016.
+is ADR 0014.
 
 ## FileNode state, changes and push (verified live 2026-09-07)
 

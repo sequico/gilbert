@@ -11,7 +11,7 @@ import { INSTALLATION_VERSION } from "./shared/installation.js";
 
 /**
  * The boot: the handshake, the sign-in, the installation's own document
- * (ADR 0001, ADR 0011).
+ * (ADR 0001, ADR 0009).
  *
  * Three values come from the environment and nothing else, because they are
  * how Stalwart is reached at all; everything the installation decides lives in

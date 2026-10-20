@@ -33,7 +33,7 @@ import {
 import type { ContactsGet, ContactsSet, ContactsState, SharedBook } from "../types";
 
 /**
- * The directory's address book, as the store draws any shared book (ADR 0023).
+ * The directory's address book, as the store draws any shared book (ADR 0019).
  *
  * It is not a real JMAP `AddressBook`: the directory is served through the
  * route that acts as the Master, so its book is synthesised in the shape every
@@ -194,7 +194,7 @@ export function sharingSlice(
           ([id, a]) => isSharedAccountRecord(a) && id !== own,
         );
         /*
-         * The installation's directory first (ADR 0023). It is not a share and it
+         * The installation's directory first (ADR 0019). It is not a share and it
          * does not live in any account the reader can enter: the route reads it
          * as the Master and answers every session, so it is installed here as one
          * more shared book under the sentinel the rest of the store keys it by. A
@@ -320,7 +320,7 @@ export function sharingSlice(
          * Answers arrive in any order, and the sidebar lists them in the session's
          * order -- so the account books are put back in it rather than left in
          * whatever order the requests happened to finish. The directory leads
-         * them, as the first row of the sidebar (ADR 0023).
+         * them, as the first row of the sidebar (ADR 0019).
          */
         const order = new Map(accounts.map(([id], i) => [id, i]));
         books.sort(
@@ -387,7 +387,7 @@ export function sharingSlice(
           (b) => b.accountId === accountId && b.book.id === id,
         );
         // The directory has no owner to name it after -- it is the
-        // installation's (ADR 0023) -- so it reads as its own name.
+        // installation's (ADR 0019) -- so it reads as its own name.
         if (held)
           names.push(
             isGlobalContactsBook(held.book)

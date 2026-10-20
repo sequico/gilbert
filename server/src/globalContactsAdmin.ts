@@ -13,7 +13,7 @@ import {
 import { refusalOf } from "./shared/jmap.js";
 
 /**
- * The Global contacts directory, written and read as the Master (ADR 0023).
+ * The Global contacts directory, written and read as the Master (ADR 0019).
  *
  * The directory is the installation's, owned by the Master and read by every
  * account through a server route; only an administrator writes it, and both go
@@ -21,7 +21,7 @@ import { refusalOf } from "./shared/jmap.js";
  * credential, or impersonation from the administrator's session. A client JMAP
  * call cannot be the door because a reader is not a member of the Master's
  * account, and a `shareWith` cannot name every account: Stalwart caps a share
- * at 10 principals per item (ADR 0023, live-probed 2026-10-02).
+ * at 10 principals per item (ADR 0019, live-probed 2026-10-02).
  */
 
 /**

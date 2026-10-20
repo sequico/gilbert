@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { hasChatGroupAccounts } from "./upstream.js";
 
 /*
- * The server-side chat-flag classifier (ADR 0005). It is the wire-level
+ * The server-side chat-flag classifier (ADR 0004). It is the wire-level
  * superset of the client's groupMailboxAccounts -- the client probes mail
  * trees, the server only reads account names -- so the tests pin the two
  * directions that matter: any non-personal account with an address counts,

@@ -1,14 +1,14 @@
 /**
- * The in-process side of a run's waits (ADR 0034).
+ * The in-process side of a run's waits (ADR 0030).
  *
  * A wait is a **date in the run document**, never a timer here: the document is
  * what a process that has just started reads, and this is only the alarm beside
  * it. That is the whole of the design — `arm` reads an account's runs and arms
  * every date they carry, so a restart loses no wait and a container that dies
  * is not an incident; a holder that takes the installation over re-arms the same
- * waits from the same documents (ADR 0036).
+ * waits from the same documents (ADR 0032).
  *
- * A wait with **no** date is a question left for a person (ADR 0033, 0034): it
+ * A wait with **no** date is a question left for a person (ADR 0029, 0030): it
  * is never armed, because the answer arrives in the group's own account as an
  * event (`events.ts`) rather than at an instant this process can compute. So is
  * a run that has ended, including one that ended blocked on a person and keeps
@@ -30,7 +30,7 @@
  * the account again. With both halves kept, a re-arm beside a run that has
  * already fired changes nothing; with the caller's half skipped, this process
  * still refuses to fire the same instant twice, but the next holder reads the
- * unadvanced document (ADR 0036) and the wait is handed over afresh.
+ * unadvanced document (ADR 0032) and the wait is handed over afresh.
  */
 
 import type { Ctx } from "../appFolder.js";

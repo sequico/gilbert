@@ -1,6 +1,6 @@
 /**
- * The installation's own document (ADR 0011) and the system Sieve scripts
- * (ADR 0008).
+ * The installation's own document (ADR 0009) and the system Sieve scripts
+ * (ADR 0006).
  *
  * The document's door opens onto the Master's account by impersonation from the
  * administrator's own session — no second credential and no Management API. The
@@ -140,7 +140,7 @@ export function registerInstallationRoutes(api: Hono<Env>): void {
     }
   });
 
-  // ---------- System Sieve scripts (ADR 0008) ----------
+  // ---------- System Sieve scripts (ADR 0006) ----------
 
   /** A refusal from this surface: the code and the sentence, or upstream's. */
   const systemSieveFailure = failureFor(SystemSieveError);

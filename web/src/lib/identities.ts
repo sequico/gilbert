@@ -1,5 +1,5 @@
 /**
- * The identities an administrator sets, as the client calls them (ADR 0007).
+ * The identities an administrator sets, as the client calls them (ADR 0005).
  *
  * One function per route the server serves under `/api/admin/identities`. The
  * answer shapes are read from the same declarations the routes build: an
@@ -44,7 +44,7 @@ export type {
  * Read this session's identity lists again, after one of the writes below.
  *
  * The write is the server's and is made as somebody else — an impersonation of
- * the account, or the agent for a group (ADR 0007) — so nothing in this
+ * the account, or the agent for a group (ADR 0005) — so nothing in this
  * session's own store learns about it. The lists the session is holding are the
  * ones it goes on showing, which is how the administration and the person's own
  * Settings come to disagree: one deleted identity stays on the person's page for
@@ -203,7 +203,7 @@ export function fetchGroupIdentity(name: string): Promise<GroupIdentityView> {
  * to a member**, as the agent.
  *
  * `member` is the member's address, which is what binds the identity to them
- * (ADR 0007): the display name is what a recipient reads, not a key. `id` names
+ * (ADR 0005): the display name is what a recipient reads, not a key. `id` names
  * the identity to write, `null` meaning "the one this member already holds, else
  * a new one", so a save that lands twice changes one identity rather than
  * making a second. Answers the id written.

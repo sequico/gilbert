@@ -210,7 +210,7 @@ describe("folder drill-down", () => {
 /**
  * Whose labels the sidebar lists, and where they sit.
  *
- * A group mailbox has a catalog of its own (ADR 0005), so the section belongs
+ * A group mailbox has a catalog of its own (ADR 0004), so the section belongs
  * to whichever account is in the foreground — the reader's personal labels on
  * the reader's own mailbox, the group's own on a group's. And it sits under
  * that account's folder tree and before the other accounts' sections, because

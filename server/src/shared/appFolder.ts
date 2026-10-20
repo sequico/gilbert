@@ -200,7 +200,7 @@ export async function findAppFolderId(
  * Find-then-create is the half worth sharing. A tier that wrote its own would
  * decide for itself what "already there" means, and a folder created beside an
  * existing one is a second folder with the same name — the same rule a file
- * follows when it is written into this folder (ADR 0013).
+ * follows when it is written into this folder (ADR 0011).
  */
 export async function ensureAppFolderId(
   children: AppFolderChildren,

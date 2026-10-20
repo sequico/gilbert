@@ -35,12 +35,12 @@ groups on every pass, so a group added in Stalwart is worked within ten seconds
 and nothing has to be restarted.
 
 > **The agent (`gilbertagents`) is built and part of the server.** Its decisions
-> are ADR 0031–0037, and the tree carries all of it: the tool catalogue, a
+> are ADR 0027–0033, and the tree carries all of it: the tool catalogue, a
 > group's rules in prose, the installation's one model, the memory of facts, the
 > loop that works a run and the supervisor the server's own boot starts. What is
 > still owed is a **live probe**, not a feature — a real model provider and the
-> arrival record a real Stalwart writes, the `owed:` markers in ADRs 0031, 0033
-> and 0034.
+> arrival record a real Stalwart writes, the `owed:` markers in ADRs 0027, 0029
+> and 0030.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
@@ -87,7 +87,7 @@ from the mail server's change log, and it does the reversible work itself.
 ## What it will never do on its own
 
 The guard is not the model's judgement. It is what can be undone and who is
-answerable — five authority classes (ADR 0032), and only the first is the
+answerable — five authority classes (ADR 0028), and only the first is the
 agent's:
 
 - **It decides** the reversible work inside the group's account: filing, labels,
@@ -149,7 +149,7 @@ other:
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
-- **gilbertagents** — the agent: designed by ADR 0031–0037 and built — the loop
+- **gilbertagents** — the agent: designed by ADR 0027–0033 and built — the loop
   that works a run and the supervisor the server's own boot starts, which asks
   for a pass every ten seconds and reads the Master's groups from the mail server
   on each one, so a group added in Stalwart is worked without a restart; what it

@@ -29,7 +29,7 @@ interface SwipeContext {
   /** The role of the folder on screen, where it has one. */
   role?: string | null;
   /**
-   * What deleting this row would do to it, from the one rule (ADR 0015).
+   * What deleting this row would do to it, from the one rule (ADR 0013).
    *
    * Handed in rather than worked out from `role`, because the row is the only
    * thing that knows which folders hold *this* message: the label used to be
@@ -38,7 +38,7 @@ interface SwipeContext {
    */
   deleteEffect: DeleteEffect;
   /**
-   * Whether this reader may take that delete at all — ADR 0015's answer for the
+   * Whether this reader may take that delete at all — ADR 0013's answer for the
    * account on screen, from `deleteEntryOffered`.
    *
    * A direction that would be refused resolves to `null` and the row does not
@@ -103,7 +103,7 @@ export function describeSwipe(
         : { action, label: "Archive", icon: "archive", tone: "accent", removes: true };
     case "delete":
       /*
-       * Withdrawn where the rule would refuse it (ADR 0015): a delete that would
+       * Withdrawn where the rule would refuse it (ADR 0013): a delete that would
        * end the message, by a reader who may not end one. The condition reads the
        * effect as well as the offer, so a caller that passes a stale offer cannot
        * take away a direction that only files — a move is never what the rule

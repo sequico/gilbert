@@ -147,12 +147,12 @@ export interface MailState {
    * needs a second view at the same time -- the reader's own list, which lives
    * in the account that sends for them and is rarely the account they are
    * browsing -- and both are read from this one cache, so the two surfaces
-   * cannot disagree about what an account's identities are (ADR 0007).
+   * cannot disagree about what an account's identities are (ADR 0005).
    */
   identitiesByAccount: Record<Id, Identity[]>;
   /**
    * What a group mailbox has **assigned to the reader**, by account id
-   * (ADR 0007): the identity that is theirs there.
+   * (ADR 0005): the identity that is theirs there.
    *
    * Only the assignment is kept, because it is the one thing the client cannot
    * work out: which of the group's identities an administrator gave this member
@@ -232,7 +232,7 @@ export interface MailState {
    */
   accountOfMailbox(mailboxId: Id, hint?: Id | null): Id | null;
   /**
-   * ADR 0015: whether a destroy may be taken in the account on screen at all.
+   * ADR 0013: whether a destroy may be taken in the account on screen at all.
    *
    * The rule itself is `@/lib/mailDelete`, and this is the store's read of the
    * two inputs it needs — the account on screen, and the session's `isAdmin`
@@ -284,7 +284,7 @@ export interface MailState {
   /** Read one account's identities: the one fetch behind both views. */
   loadIdentitiesFor(accountId: Id): Promise<Identity[]>;
   /**
-   * Read which identity a group mailbox has assigned to the reader (ADR 0007).
+   * Read which identity a group mailbox has assigned to the reader (ADR 0005).
    *
    * Answered as the member, because it is their own assignment: the group's own
    * document, read through the group's access rule. Only a group mailbox has
@@ -320,7 +320,7 @@ export interface MailState {
    *
    * The administration writes identities through its own routes, not through
    * this store's client -- the server does it by impersonating the account
-   * (ADR 0007) -- so the session that asked for the write is the one thing that
+   * (ADR 0005) -- so the session that asked for the write is the one thing that
    * never hears about it. A list read before it is what Settings would go on
    * showing and what a reply would go on offering as a sender, so the writes
    * themselves ask for this once the server has accepted the change.

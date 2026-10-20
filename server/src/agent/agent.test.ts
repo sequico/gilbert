@@ -1,11 +1,11 @@
 /**
- * The agent the server starts with itself (ADR 0031, 0036).
+ * The agent the server starts with itself (ADR 0027, 0032).
  *
  * What is pinned is the wiring that makes the agent part of the product rather
  * than a second process: the installation's **real boot** against the mock
  * Stalwart (`bootInstallation`), handed to the agent's own start
  * (`supervisor.ts`), finds the installation's **model** in the document the
- * Master's account already holds (the demo seed, ADR 0011) and asks the loop for
+ * Master's account already holds (the demo seed, ADR 0009) and asks the loop for
  * a pass — the pass is what takes the installation's claim, so the claim
  * document's holder is the proof that a pass was asked.
  *
@@ -109,7 +109,7 @@ test("the installation's boot and its model are an agent whose first pass takes 
 test("an installation that has chosen no model leaves the boot done and the agent idle", async () => {
   /*
    * The document the boot reads, with no model: the administration has not
-   * chosen one, which ADR 0031 answers with no agent rather than a provider
+   * chosen one, which ADR 0027 answers with no agent rather than a provider
    * nobody chose. What is asserted is the whole of what the server needs — the
    * boot resolved and the agent answered a value — so a condition of the agent
    * can never be the reason a server does not come up.
@@ -133,7 +133,7 @@ test("an installation that has chosen no model leaves the boot done and the agen
   const agent = await startAgent(boot, { log: (line: string) => lines.push(line) });
   assert.ok(
     agent,
-    "the agent starts with no model: a model published later is picked up by the next pass (ADR 0031)",
+    "the agent starts with no model: a model published later is picked up by the next pass (ADR 0027)",
   );
   /*
    * The schedule holds the process open by design, so a test that starts it
@@ -142,7 +142,7 @@ test("an installation that has chosen no model leaves the boot done and the agen
    */
   await agent.stop();
   assert.deepEqual(lines, [
-    "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
+    "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0027)",
     "[gilbert] agent: asking for a pass every 10 s, or 30 s while the wake stream is connected",
     "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
     "[gilbert] agent: the installation names no model, so this pass worked nothing",

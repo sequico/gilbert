@@ -8,7 +8,7 @@ import { freePort } from "./testkit.js";
  * An API route that reads JSON takes a small body and no more, whether or not
  * anyone is signed in. The JMAP route streams straight through for a session
  * that may administer; for one that may not it reads the body to check it
- * (ADR 0017), and that read is bounded three ways — in size, in how many one
+ * (ADR 0015), and that read is bounded three ways — in size, in how many one
  * session runs at once, and in bytes across everyone.
  */
 
@@ -21,7 +21,7 @@ process.env.APP_SECRET = "test-secret-for-request-limits";
 process.env.LOGIN_RATE_LIMIT = "10000";
 /*
  * The checked read is the path under test, so this file is about the
- * installation that asked for it (ADR 0017): every session here is signed in
+ * installation that asked for it (ADR 0015): every session here is signed in
  * without "This is my own device", which is what makes the proxy read and
  * bound the body at all. An installation without the rule streams straight
  * through and holds nothing, which is the case `adminGateProxy.test.ts`

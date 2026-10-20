@@ -1,7 +1,7 @@
 import { deflateSync } from "node:zlib";
 
 /**
- * The text a document holds (ADR 0031).
+ * The text a document holds (ADR 0027).
  *
  * The agent works in a company's own account, and what it is asked to act on
  * usually arrives as a document: a purchase order as a PDF, a price list as a

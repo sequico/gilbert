@@ -358,13 +358,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </span>
         <SearchBar />
         <div className="topbar-actions">
-          {/* Chat comes first in the action cluster: ADR 0005. Rendered (or
+          {/* Chat comes first in the action cluster: ADR 0004. Rendered (or
               not) by the launcher itself. */}
           <ChatLauncher />
-          {/* The workorder launcher sits beside chat's: ADR 0028. It opens a
+          {/* The workorder launcher sits beside chat's: ADR 0024. It opens a
               panel rather than a popover, but the entry point is the same. */}
           <WorkorderLauncher />
-          {/* A group's prose sits beside them: ADR 0035. Its documents are the
+          {/* A group's prose sits beside them: ADR 0031. Its documents are the
               group's own, written by a member with the group's session. */}
           {mayAdminister(session?.gilbert) && (
             <button

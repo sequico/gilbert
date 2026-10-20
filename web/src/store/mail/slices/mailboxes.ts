@@ -388,7 +388,7 @@ export function mailboxesSlice(
       const accountId = get().accountId!;
       /*
        * A folder that holds mail is destroyed **with** it, so this is the third of
-       * the three entry points ADR 0015 closes in a group. The count is the one
+       * the three entry points ADR 0013 closes in a group. The count is the one
        * the folder list already carries: an empty folder is not mail, and a
        * group's tree stays the group's to shape.
        */

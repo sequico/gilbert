@@ -11,7 +11,7 @@ import { IdentityDialog } from "../IdentityDialog";
  * The Bcc field of the identity form, and the one thing it must not do.
  *
  * The form is the same object for a person's own identities and for the
- * administration's two tabs (ADR 0007), so a field missing here is a field
+ * administration's two tabs (ADR 0005), so a field missing here is a field
  * missing everywhere — and this one is worse than missing. A save that built
  * its patch without `bcc` would write `null` over an address somebody had set:
  * the identity would come back carrying nothing, and nothing would say so.

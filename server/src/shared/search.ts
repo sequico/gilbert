@@ -75,7 +75,7 @@ export type SearchFilter = SearchFilterCondition | SearchFilterOperator;
  *
  * A prompt that offered a syntax this module does not parse would be a promise
  * the server refuses, so the sentence a model is given is written here, beside
- * the parser that keeps it true (ADR 0031).
+ * the parser that keeps it true (ADR 0027).
  */
 export const SEARCH_GRAMMAR =
   'the mail search grammar: bare words match text, and "from:", "to:", "cc:", ' +

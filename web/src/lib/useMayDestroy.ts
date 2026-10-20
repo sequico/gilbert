@@ -1,5 +1,5 @@
 /**
- * Whether this reader may end the mail in the account on screen (ADR 0015), as a
+ * Whether this reader may end the mail in the account on screen (ADR 0013), as a
  * surface reads it.
  *
  * The answer itself is the store's `mayDestroyHere()`, which asks the rule with
@@ -7,7 +7,7 @@
  * on top of that is a reason to re-render when either moves, and the mail store
  * only knows about one of the two: `isAdmin` lives in the session, so a surface
  * subscribed to the mail store alone would keep drawing the old answer after the
- * flag changed — the staleness ADR 0015 names in its consequences.
+ * flag changed — the staleness ADR 0013 names in its consequences.
  *
  * The extra subscription is the established shape here: a component reads the
  * value it depends on purely so that a change re-renders it, as a list row does

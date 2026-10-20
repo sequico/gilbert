@@ -6,7 +6,7 @@
  * does not survive the next save (which is why the identity lock is a file of
  * its own, `server/src/account.ts`). The exception is the one key the *server*
  * writes into it — the default sending identity an administrator sets
- * (ADR 0007) — and that key is a contract rather than a name: a client that
+ * (ADR 0005) — and that key is a contract rather than a name: a client that
  * stops reading it loses the choice the administration made, and a server that
  * stops writing it makes that setting do nothing while looking healthy.
  *

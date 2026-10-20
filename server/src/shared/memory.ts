@@ -1,5 +1,5 @@
 /**
- * The agent's memory, as a document (ADR 0037) — one definition, both tiers.
+ * The agent's memory, as a document (ADR 0033) — one definition, both tiers.
  *
  * A fact is one small **sheet** in the **Master's own account**: a document
  * named `<id>.json` under `memory/` in that account's `gilbert` app folder,
@@ -16,7 +16,7 @@
  * while any fact, standing or not, is recalled by its subject for **any** group:
  * one memory serves the installation, which is the point of it. **A fact is
  * information, never an instruction**: it grants nothing and authorises nothing,
- * the authority classes (ADR 0032) and the trust of a sender (ADR 0033) are
+ * the authority classes (ADR 0028) and the trust of a sender (ADR 0029) are
  * untouched by anything it says, and a fact that reads like an order does not
  * become one by being remembered.
  *
@@ -94,7 +94,7 @@ export function subjectProblem(subject: string): string | null {
 }
 
 /**
- * What a call carries, at most (ADR 0037): facts, and the characters of their
+ * What a call carries, at most (ADR 0033): facts, and the characters of their
  * subjects and sentences together.
  *
  * The memory is recalled on **every** call, so what bounds it is the whole
@@ -109,7 +109,7 @@ export const RECALL_FACTS_MAX = 20;
 export const RECALL_CHARS_MAX = 4_000;
 
 /**
- * What a fact came from (ADR 0037): the run that wrote it, or a person.
+ * What a fact came from (ADR 0033): the run that wrote it, or a person.
  *
  * A person's fact is **in force**: the agent reasons from it and proposes
  * against it rather than overwriting it, and the store's own write is where
@@ -118,7 +118,7 @@ export const RECALL_CHARS_MAX = 4_000;
 type FactOrigin = { by: "run"; run: string } | { by: "person"; who: string };
 
 /**
- * A person's correction of a sheet, beside the origin it corrected (ADR 0037).
+ * A person's correction of a sheet, beside the origin it corrected (ADR 0033).
  *
  * The sheet keeps where its conclusion came from and when, and this says who
  * overruled it and when: the two are not one field, because the trace of a
@@ -132,7 +132,7 @@ interface FactCorrection {
 
 /**
  * What the agent concluded against a person's fact, kept as a proposal
- * (ADR 0037).
+ * (ADR 0033).
  *
  * The in-force sentence is not written over: the sheet carries the proposal
  * beside it, a person reads it in Administration, and **accepting it makes the
@@ -191,7 +191,7 @@ export interface FactDoc {
   at: string;
   /**
    * A person's correction of the sheet, beside the origin it corrected
-   * (ADR 0037).
+   * (ADR 0033).
    *
    * A correction keeps the origin and the instant the sheet already had, so a
    * fact the agent concluded still says which run concluded it and when, while
@@ -201,7 +201,7 @@ export interface FactDoc {
   correction?: FactCorrection;
   /**
    * The agent's conclusion against this person's fact, awaiting a person
-   * (ADR 0037): written beside the sentence in force, never in place of it.
+   * (ADR 0033): written beside the sentence in force, never in place of it.
    */
   proposal?: FactProposal;
   /** The ids of the facts it is linked to. */
@@ -209,7 +209,7 @@ export interface FactDoc {
   /** Whether every call of the group it is about carries it, whatever the change names. */
   standing: boolean;
   /**
-   * The group the fact is about: the account of the run that wrote it (ADR 0037).
+   * The group the fact is about: the account of the run that wrote it (ADR 0033).
    *
    * It is what the **standing** set is filtered by — a standing fact is carried
    * by every call of this group and of no other, because the standing set is what
@@ -401,7 +401,7 @@ export function sameSubject(a: string, b: string): boolean {
 /**
  * What one call carries out of the memory: a selection, never the whole graph.
  *
- * Three parts, in the order they are taken (ADR 0037):
+ * Three parts, in the order they are taken (ADR 0033):
  *
  * 1. the **standing set of the group being worked** — every fact marked
  *    `standing` that is about `group`, because that is what a group keeps about

@@ -29,7 +29,7 @@ export const GROUP_NOT_ACCESSIBLE = "group_not_accessible";
  *
  * A probe that did not answer is not a group the Master lacks: the surface says
  * what it could not establish, so a person retries or looks at the server
- * rather than editing a grant that was never the problem (ADR 0005).
+ * rather than editing a grant that was never the problem (ADR 0004).
  */
 export const GROUP_UNREADABLE = "group_unreadable";
 

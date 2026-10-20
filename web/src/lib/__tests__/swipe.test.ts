@@ -30,7 +30,7 @@ describe("describeSwipe", () => {
   it("says out loud that a delete from Deleted Items is permanent", () => {
     expect(describeSwipe("delete", inbox)?.label).toBe("Delete");
     // The effect, not the folder's role: the row is what knows which folders
-    // hold this message, and Junk Mail destroys too (ADR 0015).
+    // hold this message, and Junk Mail destroys too (ADR 0013).
     expect(describeSwipe("delete", { ...inbox, deleteEffect: "final" })?.label).toBe(
       "Delete forever",
     );

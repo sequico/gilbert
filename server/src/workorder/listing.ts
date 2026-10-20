@@ -119,7 +119,7 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
   return docs.filter((doc): doc is WorkorderDoc => isWorkorderDoc(doc));
 }
 
-/** The gate state over one whole workorder (ADR 0030). */
+/** The gate state over one whole workorder (ADR 0026). */
 export interface WorkorderGates {
   /** The sections completed right now, by key. */
   completion: Map<string, boolean>;
@@ -130,7 +130,7 @@ export interface WorkorderGates {
   /**
    * Every section key the template defines. A prerequisite naming no section —
    * one an editor removed — is **tolerated**: the gate is treated as satisfied
-   * rather than hiding the section for ever (ADR 0030).
+   * rather than hiding the section for ever (ADR 0026).
    */
   known: Set<string>;
 }
@@ -144,7 +144,7 @@ export interface WorkorderGates {
  * variants, items and part decide **which** sections materialise here, so a
  * prerequisite the resolver leaves out is absent from this map; `gateOpen`
  * tolerates a prerequisite it cannot see rather than waiting for it for ever
- * (ADR 0030).
+ * (ADR 0026).
  */
 export function sectionCompletion(
   def: KnowledgeChecklist,
@@ -177,7 +177,7 @@ export function sectionCompletion(
  * seen at all: a key the template does not define (an editor removed the
  * section) and a section the resolver never materialised here (the chosen
  * variant excludes it, or its part is not among these) are both tolerated, so a
- * gate never waits for ever on something nothing will ever complete (ADR 0030).
+ * gate never waits for ever on something nothing will ever complete (ADR 0026).
  */
 function prerequisiteSatisfied(key: string, gates: WorkorderGates): boolean {
   return !gates.known.has(key) || gates.completion.get(key) !== false;
@@ -186,7 +186,7 @@ function prerequisiteSatisfied(key: string, gates: WorkorderGates): boolean {
 /**
  * Whether a section's gate is open: latched, or every prerequisite satisfied.
  * A prerequisite that is unknown, or that the resolver never computed, is
- * tolerated, never a silent dead end (ADR 0030).
+ * tolerated, never a silent dead end (ADR 0026).
  */
 export function gateOpen(
   section: { key: string; requires?: string[] },
@@ -211,7 +211,7 @@ function openedGate(
 }
 
 /**
- * One checklist's sections as a reader sees them (ADR 0030).
+ * One checklist's sections as a reader sees them (ADR 0026).
  *
  * The instance's own chosen `variants` and item `key`s are resolved through
  * the template's rules — the one place branching and repeats are decided — and
@@ -320,7 +320,7 @@ async function partEntries(
        * a privileged one: the signature says who asserted it, and a
        * checklist's reader can see whether that is the person they expected.
        * Administration is a rule about **templates** (only an administrator
-       * approves one, ADR 0024) and has nothing to say about a workorder.
+       * approves one, ADR 0020) and has nothing to say about a workorder.
        */
       canCheck: true,
     },
@@ -362,7 +362,7 @@ async function partEntries(
  *
  * Completion is read across every part; a section key is unique in the
  * template, so one map serves them all. The ladder is the root's: a gate that
- * opened stays open even if its prerequisite is reopened later (ADR 0030).
+ * opened stays open even if its prerequisite is reopened later (ADR 0026).
  */
 function gatesFor(root: WorkorderDoc, entries: PartEntry[]): WorkorderGates {
   const gates: WorkorderGates = {

@@ -8,11 +8,11 @@ Gilbert's own and listed in this repository.
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
 - **What the agent still owes is a live probe, not a feature.** The Master's agent is
-  designed by ADR 0031 (its tools), 0032 (what
-  it decides and what only a person decides), 0033 (the conversation, in chat and
-  mail), 0034 (a run is a document, and the record is the product), 0035 (a
-  group's engagement is a rule in prose), 0036 (one installation claims its
-  agent) and 0037 (its memory is a graph of facts it recalls). What the tree
+  designed by ADR 0027 (its tools), 0028 (what
+  it decides and what only a person decides), 0029 (the conversation, in chat and
+  mail), 0030 (a run is a document, and the record is the product), 0031 (a
+  group's engagement is a rule in prose), 0032 (one installation claims its
+  agent) and 0033 (its memory is a graph of facts it recalls). What the tree
   carries is a run's durable
   state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the catalogue of
   tools a run's steps are taken with (`server/src/agent/tools.ts`), a group's
@@ -36,20 +36,20 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   account, and three of its tools are the acts the inventory promises:
   `mail.draft` drafts a reply to everyone into the group's Drafts, sent by
   a person and by nobody else; `workorder.settle` settles a step of a workorder
-  signed as the agent (ADR 0028); `knowledge.propose` writes a page's draft for a
-  person to approve (ADR 0024). A conclusion
+  signed as the agent (ADR 0024); `knowledge.propose` writes a page's draft for a
+  person to approve (ADR 0020). A conclusion
   against a person's fact is proposed beside it rather than written over, and
-  Administration accepts or dismisses it (ADR 0037). The conversation runs in
-  **mail** as well as in chat (ADR 0033): `mail.ask` sends the question to a
+  Administration accepts or dismisses it (ADR 0033). The conversation runs in
+  **mail** as well as in chat (ADR 0029): `mail.ask` sends the question to a
   principal with access and parks the run on it, the reply that names it in its
   thread continues the run, and `mail.send` carries a message outward once a
   person's own words or a rule's own declaration license exactly that message
-  (ADR 0032). The one destructive act is **`mail.trash`**, a move to Deleted Items
+  (ADR 0028). The one destructive act is **`mail.trash`**, a move to Deleted Items
   a person licenses by naming the message, and an installation administrator's
   override is read once the **directory** says the sender is one. What is owed is
   what no test here can answer: a live provider, the arrival record a real
   Stalwart writes, and the change log's own paging cap (the `owed:` markers in
-  ADRs 0031, 0033 and 0034).
+  ADRs 0027, 0029 and 0030).
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier
@@ -57,7 +57,7 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   tree reads or removes it today, and it costs an installation nothing but a
   hidden folder. `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD` are the
   Master's own handshake and stay as they are: they are an operator's spelling,
-  and the installation's document is read with them (ADR 0011). Anything that
+  and the installation's document is read with them (ADR 0009). Anything that
   gains the agent's vocabulary later follows the same rule — it moves with every
   reader and writer of it in one change, or it does not move.
 
@@ -134,7 +134,20 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
 - **The knowledge base's later phases.** The KB ships (storage, lifecycle and
   approval, the surface and its editor, search — [The knowledge
-  base](FEATURES.md#the-knowledge-base)). ADR 0024 defers real-time co-editing and
-  diagram pages. The company KB is read through the server route ADR 0023's probe
+  base](FEATURES.md#the-knowledge-base)). ADR 0020 defers real-time co-editing and
+  diagram pages. The company KB is read through the server route ADR 0019's probe
   settled on: a `shareWith` naming every account cannot work (Stalwart caps a
   share at 10 principals per item), so no share probe is owed.
+
+- **Ask Gilbert from a selection.** ADR 0035 records the command and its shape;
+  the tree does not carry it. It needs a shared action in Files and group mail, a
+  per-account chat draft read by the group conversation's composer, and a member
+  route answering whether the agent serves the group and the matrix it carries.
+  The agent needs no new capability: the chat message it is sent is the one the
+  chat rule already watches.
+- **The calendar as an event surface.** ADR 0031's matrix has the calendar row and
+  its writes are enforced, but the change log that would wake a rule on a
+  calendar change is not read: a calendar `watch` acts and does not wake. The
+  source — `CalendarEvent/changes` with its own cursor, the mock parity and the
+  filter for the agent's own calendar writes — is owed.
+

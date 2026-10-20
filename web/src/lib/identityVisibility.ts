@@ -17,7 +17,7 @@
  *
  * Which identity a **group** mailbox offers is not decided here: that is the
  * assignment the administration recorded, with the group's own identity behind
- * it (ADR 0007), and it lives in `@gilbert/shared/identityAssignment`.
+ * it (ADR 0005), and it lives in `@gilbert/shared/identityAssignment`.
  */ import type { Identity } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
 
@@ -38,7 +38,7 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
  * Which of an account's own identities is **theirs**, in one place.
  *
  * A group's account holds one identity per member, and a member is bound to
- * theirs by an assignment the administration records (ADR 0007) — so *which* of
+ * theirs by an assignment the administration records (ADR 0005) — so *which* of
  * a person's own identities is theirs is read here for one thing only: the
  * display name to write on the identity the administration creates for them,
  * read from their own account rather than typed a second time.

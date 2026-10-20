@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort, jsonCall } from "./testkit.js";
 
 /**
- * System Sieve scripts (ADR 0008) sit behind `requireAdmin` like every other
+ * System Sieve scripts (ADR 0006) sit behind `requireAdmin` like every other
  * admin route (ADR 0001). Separate file on purpose — the mock reads
  * MOCK_ADMIN at import, so the admin and non-admin cases need separate
  * processes (see `admin-nonadmin.test.ts`).

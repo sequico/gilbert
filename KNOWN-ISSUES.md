@@ -5,7 +5,7 @@
 > is told, the installation's one model with its turns, its memory of facts, the
 > loop that works a run, the supervisor the server's own boot starts with itself,
 > the conversation in chat **and in mail**, and the administration of all of it;
-> its decisions are ADR 0031–0037. What it owes is a live probe, not a feature —
+> its decisions are ADR 0027–0033. What it owes is a live probe, not a feature —
 > a real provider, the arrival record, the change log's cap — listed in
 > [ROADMAP.md](ROADMAP.md).
 
@@ -75,11 +75,11 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
   and Deleted Items stays empty. No undo; the three entry points share one dialog
   saying so. Only Deleted Items and Junk Mail can be emptied, enforced in the
   store. **In a group mailbox, refused for everyone but an installation
-  administrator** (ADR 0015), as are destroying out of Deleted Items/Junk Mail
+  administrator** (ADR 0013), as are destroying out of Deleted Items/Junk Mail
   and deleting a folder with its mail — so a group's Deleted Items and Junk Mail
   fill and cannot be emptied, and the installation watches the group's quota.
   The rule is a client convention, **not a boundary** (another JMAP or IMAP
-  client, or the server administration, destroys the same mail); ADR 0015: a
+  client, or the server administration, destroys the same mail); ADR 0013: a
   group has no server-readable rank and destroy permission is per role, so
   withdrawing it would close the holder's own mail too.
 
@@ -180,7 +180,7 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
 
 - **An identity's Bcc is deferred to the client by the spec; Stalwart carries
   it.** RFC 8621 says the client adds `Identity.bcc` recipients to the message;
-  Gilbert writes them into the draft's own Bcc field as it opens (ADR 0007).
+  Gilbert writes them into the draft's own Bcc field as it opens (ADR 0005).
   `Identity/set` accepts `bcc`, `Identity/get` returns it, and a submission from
   that identity is accepted. The mock matches.
 
@@ -214,7 +214,7 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
   `{"type": "nodeHasChildren", "description": "Cannot delete non-empty folder."}`
   and changes nothing. The Files view's delete sends the flag; a **folder merge**'s
   last step deliberately does not, so a folder it did not empty stops the merge
-  instead of vanishing with late arrivals (ADR 0014). Empty folders are destroyed
+  instead of vanishing with late arrivals (ADR 0012). Empty folders are destroyed
   either way. The mock models it, pinned by
   `server/src/mock/destroy-non-empty-folder.test.ts`; the refusal reaches the
   reader as the server's sentence.
@@ -372,7 +372,7 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
     serves every account its principal is a member of**, registering a verified row
     for each id in the token's `member_ids()` (the account plus its
     `member_group_ids`), so a group member is woken by the group's mail regardless
-    — which is why the per-account payload ADR 0016 owes is a map in one row.
+    — which is why the per-account payload ADR 0014 owes is a map in one row.
   - **One delivery is two pushes** (same source): the storage transaction that
     writes a message broadcasts a `StateChange`
     (`crates/common/src/storage/transaction.rs`) and the delivery broadcasts an
@@ -388,4 +388,4 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
     the subject — so the cost of the wrong answer is the wake-up, not the wording:
     if the state change does not name `EmailDelivery`, the bitmap filters it out
     and no push wakes the device for that delivery at all. That is the fifth item
-    under ADR 0016's debt.
+    under ADR 0014's debt.

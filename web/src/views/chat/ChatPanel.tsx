@@ -1,5 +1,5 @@
 /**
- * The chat panel (ADR 0005): a glance-and-reply conversation surface.
+ * The chat panel (ADR 0004): a glance-and-reply conversation surface.
  *
  * Shown as a popover under the top-bar launcher on desktop and a sheet in the
  * content area on mobile. It holds the conversation switcher (one entry per group
@@ -49,7 +49,7 @@ function snippet(text: string): string {
  * Render a message's text with its known emoticons as bundled Twemoji
  * images (yellow, WhatsApp style) instead of the OS's glyphs; anything not
  * in the fixed set stays text, exactly as typed. Emoticon → image is display
- * only -- the message itself is plain text (ADR 0005).
+ * only -- the message itself is plain text (ADR 0004).
  */
 function EmojiText({ text }: { text: string }) {
   const parts = useMemo(() => graphemes(text), [text]);
@@ -280,7 +280,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     if (el.scrollTop < 24) void older();
   };
 
-  // ----- what the group's agent is doing, live (ADR 0034) -----
+  // ----- what the group's agent is doing, live (ADR 0030) -----
   const [runsOpen, setRunsOpen] = useState(false);
 
   // ----- search across the selected group's messages -----

@@ -27,14 +27,14 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * The administration's groups, and what each one is for.
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the
- * installation's own document (ADR 0011), **the installation's agent** (where it
+ * installation's own document (ADR 0009), **the installation's agent** (where it
  * is, the runs its groups have worked, the facts it reasons from), the group
  * label catalogs, forced password changes, and **Identities**,
- * one section holding a person's and a group's behind two tabs (ADR 0007) —
- * the surfaces ADR 0001/0005 cover.
+ * one section holding a person's and a group's behind two tabs (ADR 0005) —
+ * the surfaces ADR 0001/0004 cover.
  * "Stalwart"
  * is the mail server's own records, written over JMAP: **System Sieve**, its
- * trusted, server-wide Sieve scripts (ADR 0008). The
+ * trusted, server-wide Sieve scripts (ADR 0006). The
  * split keeps each kind of thing under a heading that names it,
  * rather than both under one unlabelled "Gilbert".
  */
@@ -108,9 +108,9 @@ function sections(): AdminSection[] {
  * installation document, the installation's agent, forced passwords, group label
  * catalogs, and the
  * identities an administrator sets as one section with a tab per kind of
- * principal, ADR 0007), and "Stalwart"
+ * principal, ADR 0005), and "Stalwart"
  * for the mail server's own records — its trusted,
- * server-wide Sieve scripts (ADR 0008) — with About ungrouped at the tail.
+ * server-wide Sieve scripts (ADR 0006) — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const adminSections = sections();

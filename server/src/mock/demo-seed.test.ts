@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort, jsonCall } from "../testkit.js";
 
 /**
- * The demo the mock ships (ADR 0024, 0028, 0030): the company knowledge base and
+ * The demo the mock ships (ADR 0020, 0024, 0026): the company knowledge base and
  * the workorders of an industrial manufacturer. What these pin is that the seed
  * is reachable through the **same routes a reader uses** — the tier really is
  * the Master's, a template's rules resolve the way a workorder reads them, and a
@@ -263,8 +263,8 @@ test("the demo's workorders are running and completed, with their steps' states"
 test("the demo carries an installation with a model, which is what an agent needs", async () => {
   /*
    * The server starts the agent with itself, and an installation with no model
-   * has no agent (ADR 0031): the seed therefore holds the installation's own
-   * document (ADR 0011) naming one. Pinned here, next to the simulation, because
+   * has no agent (ADR 0027): the seed therefore holds the installation's own
+   * document (ADR 0009) naming one. Pinned here, next to the simulation, because
    * a seed that lost it would leave every `dev:mock` server running without an
    * agent and every unit test green.
    */

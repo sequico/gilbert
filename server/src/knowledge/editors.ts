@@ -299,7 +299,7 @@ export async function saveDraft(
 }
 
 /**
- * Write a page's draft as the agent (ADR 0024, ADR 0031).
+ * Write a page's draft as the agent (ADR 0020, ADR 0027).
  *
  * A proposal is the draft and nothing more: approval still mints the revision,
  * and a person is still its author. The write is `writeDraft`'s — the same
@@ -423,7 +423,7 @@ export async function writeDraft(spec: {
         order: existingState?.order ?? 0,
         // The rules decide whether the page is a checklist template: a
         // definition makes it one, and clearing it makes an ordinary page again
-        // (ADR 0030).
+        // (ADR 0026).
         template: isChecklistTemplate(draft) ? "checklist" : null,
       }),
     };
@@ -463,7 +463,7 @@ export async function writeDraft(spec: {
  * force: a date already passed puts it in force at once, a future one leaves it
  * pending beside the revision still in force (`stateAfterApproval`). The
  * approver and the approval instant come from the authenticated session, never
- * from the request (ADR 0024, Q8).
+ * from the request (ADR 0020, Q8).
  */
 export async function approveArticle(
   admin: LiveSession,
@@ -518,7 +518,7 @@ export async function approveArticle(
     effectiveAt: when,
     // The administrator's own address, not the Master's: the door writes as the
     // Master, whose username is the installation's agent, and an approval the
-    // agent signed would be exactly the separation ADR 0024 exists to keep.
+    // agent signed would be exactly the separation ADR 0020 exists to keep.
     approvedBy: admin.username,
     approvedAt: now,
     title: draft.title,

@@ -8,7 +8,7 @@ import { workerSource } from "./readSource";
  * `web/public/sw.js` is not a module a test can import: it registers listeners
  * on `self` at load. So this file reads it, the same loader `swPushRules.test.ts`
  * uses, and each assertion fails when the rule it names is removed. What a live
- * 0.16 does with the read is ADR 0016's `chat-wake-read` debt; the rules the
+ * 0.16 does with the read is ADR 0014's `chat-wake-read` debt; the rules the
  * worker applies to what it reads are pinned here.
  */
 const worker = workerSource();

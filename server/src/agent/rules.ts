@@ -1,12 +1,12 @@
 /**
- * The one place a rule is addressed (ADR 0035).
+ * The one place a rule is addressed (ADR 0031).
  *
  * A rule is one document named `<id>.json` under `rules/` in the **group's own
  * account** — the group's `gilbert` app folder — so reading a group's rules is
  * reading its own documents, under the group's own access, like its runs and
- * its workorders. The shape, its parser and the one test of what a rule watches
- * are `./rule`; what lives here is where the document is, how it is read and
- * how it is written.
+ * its workorders. The shape, its parser and the matrix's matcher are `./rule`;
+ * what lives here is where the document is, how it is read and how it is
+ * written.
  *
  * JMAP offers no lock, so a replace carries the account's FileNode state as
  * `ifInState` (`appFolder.ts`), and the token is read **before** the document:
@@ -94,7 +94,7 @@ export async function createRule(
 ): Promise<void> {
   /*
    * A create is a compare-and-set against the state the absence was read at
-   * (ADR 0035): two writers who both find the name free — this one and a
+   * (ADR 0031): two writers who both find the name free — this one and a
    * member's own client — cannot both create it, because the first write moves
    * the state and the second is refused. Without the token the check is a
    * check-then-write, and the second silently replaces the first's text.

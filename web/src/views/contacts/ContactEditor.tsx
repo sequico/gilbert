@@ -162,7 +162,7 @@ export function ContactEditor({
      state so a book appears when it lands. */
   const mailAccounts = useMail((s) => s.mailAccounts);
   /*
-   * Whether this card may change the account it lives in (ADR 0018). Read from
+   * Whether this card may change the account it lives in (ADR 0016). Read from
    * the rule's own hook, so the picker redraws when the admin flag moves.
    *
    * A **new** card is not moving anything: it is filed into whichever book the
@@ -262,7 +262,7 @@ export function ContactEditor({
     /*
      * The directory is not a book the reader's session may write: it is served
      * through a route and written only by an administrator through the
-     * administration's own editor (ADR 0023). The sidebar withholds Edit for
+     * administration's own editor (ADR 0019). The sidebar withholds Edit for
      * it; this is the guard on the effect itself, so a card reached another way
      * cannot be saved into a real account under the sentinel's name.
      */

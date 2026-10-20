@@ -4,7 +4,7 @@ import { setCatalog } from "@/lib/i18n";
 import { stepStamp } from "@/lib/workorderStamp";
 
 /**
- * Who a settled step says settled it (ADR 0028).
+ * Who a settled step says settled it (ADR 0024).
  *
  * A step carries the last actor, and the agent is one of the actors but not a
  * person: the stamp must read as a sentence about the agent rather than showing

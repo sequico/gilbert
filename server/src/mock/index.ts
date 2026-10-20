@@ -1169,7 +1169,7 @@ let vacation: Obj = {
 };
 const sieveScripts: Obj[] = [];
 /**
- * System Sieve scripts (ADR 0008): the `x:SieveSystemScript` registry
+ * System Sieve scripts (ADR 0006): the `x:SieveSystemScript` registry
  * object, installation-wide rather than per-account — one list, not one per
  * principal, unlike `sieveScripts` above.
  */
@@ -1270,7 +1270,7 @@ addEmail({
   account: GROUP_ACCOUNT,
 });
 /*
- * A group's identities (ADR 0007): one per member of that group's roster, all
+ * A group's identities (ADR 0005): one per member of that group's roster, all
  * carrying the group's own address and each carrying that member's own display
  * name and signature — plus the group's own, which the demo starts with and
  * which the agent's mail is signed as.
@@ -1307,7 +1307,7 @@ const groupIdentities: Obj[] = [
     mayDelete: true,
   },
 ];
-/* The impersonation target's own identities (ADR 0007). An administrator edits
+/* The impersonation target's own identities (ADR 0005). An administrator edits
    a person's list from their own session, so the list has to be one the next
    `Identity/get` sees: a fresh literal per call would answer 200 and change
    nothing, which is the failure the per-account lists above exist to avoid. */
@@ -1702,7 +1702,7 @@ const addressBooks: Obj[] = [
 /* A book in the shared account, so "Shared with me" and addressing a message
    from somebody else's contacts can be exercised at all. Read-only, which is
    what a share usually is. The installation's directory is NOT here: it lives in
-   the agent account and is served by a route (ADR 0023). */
+   the agent account and is served by a route (ADR 0019). */
 const sharedAddressBooks: Obj[] = [
   {
     id: "ab9",
@@ -1835,7 +1835,7 @@ const groupCards: Obj[] = [
   },
 ];
 /*
- * The Master's own books and cards (ADR 0023): the administrator's route writes
+ * The Master's own books and cards (ADR 0019): the administrator's route writes
  * the Global contacts directory into this account, as the installation's agent,
  * and the read route serves it to every session from the same account. The
  * directory is therefore a book here, named by the shared constant, so the mock
@@ -2002,7 +2002,7 @@ if (REFUSED_USER)
 // the demo session below); `design@example.org` is the agent's own group, which
 // the demo is not a member of and still administers through the agent's grant;
 // `legal@example.org` is a group neither holds, for the surfaces that must
-// refuse (ADR 0005).
+// refuse (ADR 0004).
 principals.push(
   {
     id: "pr-team",
@@ -2139,7 +2139,7 @@ const groupFileNodes: Obj[] = [
     shareWith: {},
   },
   /*
-   * The group's own app folder, with one assignment in it (ADR 0007): the demo
+   * The group's own app folder, with one assignment in it (ADR 0005): the demo
    * user sends as `gi2`, the identity carrying their own display name, so the
    * demo's group mailbox offers their own sender rather than the group's. The
    * document is data like any other, and it is what the administration writes —
@@ -4090,13 +4090,13 @@ const handlers: Record<string, Handler> = {
     };
   },
   /**
-   * `x:SieveSystemScript` (ADR 0008): a global registry object, so unlike
+   * `x:SieveSystemScript` (ADR 0006): a global registry object, so unlike
    * every other `x:` handler here it does not read `who` at all — one list
    * for the whole mock installation. Content is not compiled for real; a
    * brace-balance check stands in for it, enough to exercise "a bad script
    * is refused with a structured error" without a Sieve compiler in the
    * mock. Stalwart's own `sysSieveSystemScript*` permission split (ADR
-   * 0008, "Authorization") is not modelled — `requireAdmin` alone gates the
+   * 0006, "Authorization") is not modelled — `requireAdmin` alone gates the
    * route this reaches.
    */
   "x:SieveSystemScript/get": genericGet(systemSieveScripts, "x:SieveSystemScript"),
@@ -4650,7 +4650,7 @@ const handlers: Record<string, Handler> = {
     // order), and the page never runs past the list. `total` -- the population
     // the filter matched -- is answered only when `calculateTotal` asks for it.
     // The chat transcript pages backwards from the end through this (older
-    // messages on scroll-up, ADR 0005).
+    // messages on scroll-up, ADR 0004).
     const total = list.length;
     const { position, limit } = queryPaging(a);
     const ids = list.map((n) => n.id);
@@ -4670,7 +4670,7 @@ const handlers: Record<string, Handler> = {
     // reports what changed (verified live 2026-09-07, see the Stalwart skill);
     // the mock answers the same way from its own change log. The log holds
     // creates, updates and destroys and all three are answered here: chat is
-    // append-only (ADR 0005), but the documents an account rewrites in place
+    // append-only (ADR 0004), but the documents an account rewrites in place
     // and removes again carry both, and a watcher told about creates alone
     // would never see either.
     //
@@ -4772,7 +4772,7 @@ const handlers: Record<string, Handler> = {
          * That refusal is not a detail a client may assume away: a folder drop
          * that creates only what is missing depends on it, and so does every
          * writer that replaces a file's content — the id it carries is the node
-         * to write the new bytes into (ADR 0013). Without it a second identical
+         * to write the new bytes into (ADR 0011). Without it a second identical
          * create looked like success here and would be refused on a real server.
          *
          * The same check runs on **update** (`onUpdate` below): a real 0.16
@@ -4839,7 +4839,7 @@ const handlers: Record<string, Handler> = {
        * every update look as old as the node it changed (`nodeStamp` in
        * `workorderAdmin.ts` reads `modified ?? created`).
        *
-       * ADR-0013 OWED: modified-on-update -- that a live 0.16 advances `modified`
+       * ADR-0011 OWED: modified-on-update -- that a live 0.16 advances `modified`
        * on an update, and not only on a create, is unverified. The read side's
        * `?? created` is what keeps either answer harmless.
        */
@@ -4961,7 +4961,7 @@ const knownPrincipal = (username: string) =>
  *
  * Group principals never authenticate, directly or as an impersonation
  * target — Stalwart has no credential for them. Members reach the group's own
- * account through their own session instead (ADR 0005); the mock reproduces
+ * account through their own session instead (ADR 0004); the mock reproduces
  * the refusal -- with a 401, as `unauthorized` sends -- so no surface can lean
  * on group impersonation. The client reads 401 and 403 alike
  * (`fetchUpstreamSession`); a live server refuses an unknown address with 401
@@ -5104,7 +5104,7 @@ const personalCapabilities = (): Obj => ({
  *
  * The mock knows three principals: the demo user, whose session also lists
  * the account somebody shared with them and the two group mailboxes (ADR
- * 0005); the agent principal, whose session lists the group
+ * 0004); the agent principal, whose session lists the group
  * accounts it was granted and nothing else of anybody's; and the target
  * principal of the impersonation flows (ADR 0001), whose session is a single
  * fresh personal account. Admin state is not a
@@ -5276,7 +5276,7 @@ function changeLog() {
 /** The Email changes, which is what a mail client reconciles from. */
 const emailChanges = changeLog();
 /**
- * The FileNode changes. Group chat (ADR 0005) rides this rail: a message is a
+ * The FileNode changes. Group chat (ADR 0004) rides this rail: a message is a
  * node created in the group account's `gilbert/chat` folder, and another
  * member's client re-syncs by asking what changed since the state it last saw
  * -- the same shape Email/changes gives the mail stores. An update counts as
@@ -5527,12 +5527,12 @@ export const server = createServer(async (req, res) => {
        * per-type state of one account. A mock that advanced both together made
        * every mark-read, every chat message and every document write look like
        * a change to the account set, which is what a client refreshes its whole
-       * session for (ADR 0015 reads the group list from it); a test built on
+       * session for (ADR 0013 reads the group list from it); a test built on
        * that signal was therefore calibrated against the wrong one. What a write
        * does move is announced just below, as the `StateChange` a reader acts
        * on.
        *
-       * ADR-0015 OWED: session-state-on-a-write -- what a live 0.16 reports here
+       * ADR-0013 OWED: session-state-on-a-write -- what a live 0.16 reports here
        * is unverified, and this mock has nothing that changes its session (its
        * groups and accounts are fixed), so the value it reports stays where it
        * was rather than guessing.
@@ -5698,7 +5698,7 @@ setInterval(() => {
 
 // Post demo chat messages from other members every 30 s per group, so the
 // chat panel's live rail has something to show in dev:mock and the group
-// switcher has traffic in both teams (ADR 0005). A group's `gilbert/chat`
+// switcher has traffic in both teams (ADR 0004). A group's `gilbert/chat`
 // folder existing means chat is provisioned -- the client's warm sync
 // creates it at sign-in for a session that holds the group.
 function postChatDemo(nodes: Obj[], accountId: string, senders: number) {

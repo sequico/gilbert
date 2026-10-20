@@ -107,7 +107,7 @@ export function directorySlice(
         }
         /*
          * A group is offered as one choice, and it expands when it is taken
-         * (ADR 0004). It has no address of its own, so nothing here adds one;
+         * (ADR 0003). It has no address of its own, so nothing here adds one;
          * what the row needs is a name, the account its members are in, and how
          * many there are.
          */

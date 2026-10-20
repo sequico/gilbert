@@ -325,7 +325,7 @@ export function cardsSlice(
       refuseDirectoryWrite(toAccountId);
       /*
        * Moving a card between accounts changes whose it is, so it is an
-       * installation administrator's (ADR 0018). The guard is here, on the
+       * installation administrator's (ADR 0016). The guard is here, on the
        * effect, rather than on the menu that offers it: a form that changes a
        * card's account reaches the same write, and a rule kept on the surface
        * that draws the entry is a rule a second surface walks around.

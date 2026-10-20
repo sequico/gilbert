@@ -1,5 +1,5 @@
 /**
- * The installation's single claim against the mock Stalwart (ADR 0036).
+ * The installation's single claim against the mock Stalwart (ADR 0032).
  *
  * One agent acts for an installation: what these tests pin is that a second
  * process is refused while a claim is live, that two processes racing for a

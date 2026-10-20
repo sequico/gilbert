@@ -12,7 +12,7 @@ import { askNewLabel, LabelRow, NewLabelButton } from "@/views/labels/LabelCatal
 import { DirectoryLoadError, DirectoryNotListed, useGroupDirectory } from "./directory";
 
 /**
- * The admin group-label surface (ADR 0005): the label catalog of a group
+ * The admin group-label surface (ADR 0004): the label catalog of a group
  * mailbox lives in the group's own Files, and it belongs to the group — members
  * apply it. The pen that reaches those files is the installation's agent's, so
  * this section is authored as the agent and an administrator needs no
@@ -34,7 +34,7 @@ export function GroupLabels() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   // The accounts this session may reach; a group the administrator is a
-  // member of appears here under its own address (ADR 0005).
+  // member of appears here under its own address (ADR 0004).
   const session = useSession((s) => s.session);
   const memberOf = (name: string): boolean =>
     Object.values(session?.accounts ?? {}).some(
@@ -64,7 +64,7 @@ export function GroupLabels() {
       const fetched = Array.isArray(res.labels) ? res.labels : [];
       /*
        * The reserved `G-` namespace is the product's own and never a catalog
-       * entry (ADR 0005). An entry a document written before the write door
+       * entry (ADR 0004). An entry a document written before the write door
        * refused it still holds is left out of the editable list, and out of the
        * next write, which drops it from the file.
        */

@@ -26,7 +26,7 @@
  * emptied folder from one the server refused — `null` where the reader
  * declined, which is not an outcome about the folder at all.
  *
- * Nothing here decides *whether* emptying is allowed: that is ADR 0015's rule,
+ * Nothing here decides *whether* emptying is allowed: that is ADR 0013's rule,
  * asked by the store before this is called, and it is why a group's menu never
  * reaches these dialogs.
  */

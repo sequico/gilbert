@@ -106,7 +106,7 @@ function checklistChoices(
     const repeat = section.repeat;
     if (!repeat) continue;
     // A section whose condition the chosen values do not meet does not
-    // materialise (ADR 0030), so its repeat names no items and none are
+    // materialise (ADR 0026), so its repeat names no items and none are
     // required — only a section that will appear needs at least one.
     if (
       section.condition &&
@@ -140,7 +140,7 @@ function checklistChoices(
  * Create a workorder: the root in the Master's account, a part in each named
  * group's.
  *
- * The checklist is an instance of a KB template in force (ADR 0024): the
+ * The checklist is an instance of a KB template in force (ADR 0020): the
  * revision bound is the one the template names at now, and a template with
  * none — never approved, or its first still pending — cannot be instantiated
  * at all. The root is written first, so a group part that cannot be written
@@ -228,7 +228,7 @@ export async function createWorkorder(
       stepPaths: applicableStepPaths(def, variants, items, target),
     });
 
-  // The parts are the groups the template **assigns sections to** (ADR 0030):
+  // The parts are the groups the template **assigns sections to** (ADR 0026):
   // the global checklist holds the unassigned sections and each assigned group's
   // part holds its own. Resolve every assigned group before writing anything, so
   // a group the Master does not hold refuses the whole request rather than a
@@ -395,7 +395,7 @@ function refuseIfTerminal(doc: WorkorderDoc): void {
  * the latch keeps it open for the rest of the workorder, so re-opening a
  * prerequisite never hides a section a group has already been given. The check
  * is made over every part the Master holds, because a prerequisite may live in
- * another part (ADR 0030). A workorder with no gate writes nothing.
+ * another part (ADR 0026). A workorder with no gate writes nothing.
  *
  * It reads through the request's own reach — the Master's session, its groups
  * and the resolved template — so the reconcile a write runs does not open a
@@ -416,7 +416,7 @@ async function reconcileGates(
    * The same gate the reader sees, decided through `gateOpen` so the latch
    * records exactly what `groupsFor` will serve: a prerequisite the resolver
    * never computed — excluded by the chosen values, or a part that is not here
-   * — is tolerated rather than waited on for ever (ADR 0030).
+   * — is tolerated rather than waited on for ever (ADR 0026).
    */
   const gates: WorkorderGates = {
     completion: new Map<string, boolean>(),
@@ -622,7 +622,7 @@ export async function checkStep(
 
 /**
  * Settle one step of a group's checklist, as the agent working that group
- * (ADR 0028, ADR 0031).
+ * (ADR 0024, ADR 0027).
  *
  * The same writer as the administration's check (`applyStep`), the same refusal
  * of a closed workorder and the same gate latch; what differs is who is calling:
@@ -810,7 +810,7 @@ export async function closeWorkorder(
  * One place, because two acts reach it: closing by hand, and being replaced by
  * the workorder that succeeds one. `replacedBy` is written only when the state
  * being written is `replaced`; every other write **preserves** it, which is what
- * the shape asks of a writer (ADR 0028) and what keeps a reopened workorder
+ * the shape asks of a writer (ADR 0024) and what keeps a reopened workorder
  * naming what had succeeded it.
  */
 async function setRootState(
@@ -940,7 +940,7 @@ async function undoSuccessor(
  * caller gave — a template, its variants and items, a name: what creation asks
  * for, because this *is* a creation — and the predecessor is then marked
  * `replaced` with `replacedBy` naming it. Nothing is copied from the one it
- * replaces (ADR 0028): the successor is a new workorder that a person chose.
+ * replaces (ADR 0024): the successor is a new workorder that a person chose.
  *
  * **Two writes in two accounts, and Stalwart offers no transaction across
  * them.** So the second failing does not leave a half-done act: the successor

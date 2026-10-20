@@ -7,7 +7,7 @@ import { AdminInstallation } from "../AdminInstallation";
 
 /**
  * The installation's own document as an administrator reads and publishes it
- * (ADR 0011): what the Master's account holds, what a boot would refuse, that a
+ * (ADR 0009): what the Master's account holds, what a boot would refuse, that a
  * publish says when it applies rather than reporting a save as though the
  * running process had changed, and that a refusal — a deployment that names no
  * Master included — is what the screen shows.
@@ -21,7 +21,7 @@ import { AdminInstallation } from "../AdminInstallation";
 const LOCATION = "gilbert/installation.json in account a1";
 const MASTER = "gilbert@example.com";
 const DOCUMENT = JSON.stringify({ branding: { appName: "Gilbert" } }, null, 2);
-/** The model the installation runs on (ADR 0031), as a document names it. */
+/** The model the installation runs on (ADR 0027), as a document names it. */
 
 /**
  * A document that names a model, in the shape the server's read hands back: the

@@ -1,5 +1,5 @@
 /**
- * The one place a run is addressed (ADR 0034).
+ * The one place a run is addressed (ADR 0030).
  *
  * A run is one document named `<id>.json` under `runs/` in the **group's own
  * account** — the group's `gilbert` app folder — so reading a group's history is
@@ -42,7 +42,7 @@ export function runPath(id: string): string {
  * A run this build cannot use.
  *
  * A run that is there but unreadable is a **defect the agent reports**, never a
- * shape it guesses at (ADR 0034): a document that is not the shape this build
+ * shape it guesses at (ADR 0030): a document that is not the shape this build
  * writes, or whose `id` is not the name it is filed under, is refused with its
  * path and the reason rather than read as an empty run — which would be a run
  * the agent then acts on as though it had no plan and no history. The code is

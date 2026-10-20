@@ -4,7 +4,7 @@ import { AGENT_LABEL } from "./shared/labels.js";
 import { freePort, jsonCall } from "./testkit.js";
 
 /**
- * The admin group-label catalog surface (ADR 0005), end to end against the
+ * The admin group-label catalog surface (ADR 0004), end to end against the
  * mock.
  *
  * The catalog is the agent's, so the surface reaches it **as the installation's

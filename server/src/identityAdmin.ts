@@ -1,5 +1,5 @@
 /**
- * The identities an administrator sets (ADR 0007).
+ * The identities an administrator sets (ADR 0005).
  *
  * Two doors, both of them JMAP, and neither of them a second credential:
  *
@@ -21,7 +21,7 @@
  * account's app folder, so the value an administrator sets is the value the
  * account's own Identities & signatures section shows and sends from.
  *
- * The lock (ADR 0007, ADR 0001) says which accounts have had their identity
+ * The lock (ADR 0005, ADR 0001) says which accounts have had their identity
  * taken over, and the product offers those accounts no edit at all. It is a
  * rule about this surface — an account that speaks JMAP directly can still
  * write its own identity — and it is recorded as a fact about that one
@@ -127,7 +127,7 @@ const groupNotGranted = groupNotGrantedRefuser(IdentityAdminError);
 const IDENTITY_LOCK_FILE = "identity-lock.json";
 
 /**
- * Whether this account is locked (ADR 0007, ADR 0001): its own lock file.
+ * Whether this account is locked (ADR 0005, ADR 0001): its own lock file.
  *
  * Two answers, because the caller already holds the account: `false` is the
  * file's own answer, its absence, or an account id that names nothing to read --
@@ -204,7 +204,7 @@ export async function setUserIdentityLock(
 }
 
 /* ------------------------------------------------------------------ */
-/* The member-to-identity assignment (ADR 0007)                        */
+/* The member-to-identity assignment (ADR 0005)                        */
 /* ------------------------------------------------------------------ */
 
 /** One member's assignment, or none: the reading a caller actually wants. */
@@ -891,7 +891,7 @@ export async function groupIdentity(
  * The member is an address — the one their account is known by in the group's
  * roster — and never a display name: the name is what a recipient reads in the
  * From line, and a binding kept in a name fails on any rename, any spelling and
- * any name nobody set (ADR 0007). The write records the assignment in
+ * any name nobody set (ADR 0005). The write records the assignment in
  * `identity-assignments.json`, in the same action, so the identity and the fact
  * that it is somebody's cannot disagree.
  *

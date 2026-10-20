@@ -1,5 +1,5 @@
 /**
- * The knowledge base (ADR 0024): the company tier, read and written as the
+ * The knowledge base (ADR 0020): the company tier, read and written as the
  * Master, and the group tier a member reaches.
  */
 
@@ -40,7 +40,7 @@ import {
 } from "./shared.js";
 
 export function registerKnowledgeRoutes(api: Hono<Env>): void {
-  // ---------- The knowledge base (ADR 0024) ----------
+  // ---------- The knowledge base (ADR 0020) ----------
 
   /** A refusal from the KB surfaces: the code and the sentence, or upstream's. */
   const knowledgeFailure = failureFor(KnowledgeAdminError);
@@ -145,7 +145,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * The company KB's tree, read as the Master (ADR 0024).
+   * The company KB's tree, read as the Master (ADR 0020).
    *
    * A reader is not a member of the Master's account, so the company tier is
    * served here rather than by a JMAP share; the same door every write uses
@@ -417,7 +417,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
        * midpoint, and the fractional gap runs out of precision after enough
        * drops into one slot; the client then sends every sibling's new place in
        * one request. Each is applied with its own compare-and-set, so the
-       * numbers stay independent (ADR 0024).
+       * numbers stay independent (ADR 0020).
        *
        * What a failure does **not** do is leave the rest as the client sent
        * them: this is a loop of writes, and one that throws stops the loop with

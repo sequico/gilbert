@@ -105,7 +105,7 @@ export const MessageView = memo(function MessageView({
   const accountId = useMail((s) => s.accountId)!;
   const signature = useSignature(e, accountId);
   /*
-   * ADR 0015: whether this message's delete may be taken here. Read from the
+   * ADR 0013: whether this message's delete may be taken here. Read from the
    * session's admin flag and the rule's own answer, exactly as the store's
    * guard does, so the entry and the guard cannot disagree.
    */
@@ -657,7 +657,7 @@ export const MessageView = memo(function MessageView({
           icon={<Trash2 size={16} />}
           label={translate("Delete this message")}
           /*
-           * ADR 0015: withdrawn where the rule would refuse it — a group's
+           * ADR 0013: withdrawn where the rule would refuse it — a group's
            * message that is already in Deleted Items or Junk Mail, which only
            * an administrator may end. The entry is not drawn as offered and
            * then refused after a confirmation, which is what the record asks
@@ -666,7 +666,7 @@ export const MessageView = memo(function MessageView({
           disabled={!deleteOffered}
           onClick={() => {
             const mail = useMail.getState();
-            /* The rule asks what deleting this message does (ADR 0015), so a
+            /* The rule asks what deleting this message does (ADR 0013), so a
                message sitting in Junk Mail is confirmed as the permanent
                delete it is — the same question the list's toolbar asks, in the
                same words, so one click from inside either folder cannot destroy

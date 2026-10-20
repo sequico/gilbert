@@ -507,7 +507,7 @@ export function writesSlice(
         return { ok: false, code: "not_final_folder" };
       }
       /*
-       * Then the group rule (ADR 0015), asked after the folder's own: a folder
+       * Then the group rule (ADR 0013), asked after the folder's own: a folder
        * that may not be emptied at all is the more specific answer, and it says
        * nothing about who is asking. A group's Deleted Items and Junk Mail are
        * real folders members fill and cannot empty.

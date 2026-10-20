@@ -162,7 +162,7 @@ test("Identity/get on the group returns the identities it holds, all on its own 
   assert.ok(i, "Identity/get should answer");
   const list = i[1].list as Array<{ id: string; name: string; email: string }>;
   /*
-   * A group holds one identity per member (ADR 0007) — the group's own address,
+   * A group holds one identity per member (ADR 0005) — the group's own address,
    * each carrying that member's own display name — so every address here is the
    * group's and no two names are the same. `Team` is the group's own, which is
    * what agent-sent mail is signed as; `Demo User` is the demo member's, which

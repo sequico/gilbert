@@ -1,6 +1,6 @@
 /**
- * The installation's agent, as the administration reads it (ADR 0031, 0034,
- * 0036, 0037).
+ * The installation's agent, as the administration reads it (ADR 0027, 0030,
+ * 0032, 0033).
  *
  * Three readers and three writers for the routes under `/api/admin/agent`,
  * `/api/admin/memory` and `/api/groups/<group>/runs`. The shapes are the
@@ -181,7 +181,7 @@ export async function correctFact(
  *
  * Accepting a proposal is the correction the surface already makes — the
  * proposal's words become the person's own correction, which is what puts them
- * in force (ADR 0037); dismissing is this, and it writes no sentence at all.
+ * in force (ADR 0033); dismissing is this, and it writes no sentence at all.
  */
 export async function dismissProposal(id: string): Promise<FactDoc> {
   const res = await apiFetch<{ fact: FactDoc }>(

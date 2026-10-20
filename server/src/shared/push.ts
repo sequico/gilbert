@@ -21,7 +21,7 @@
  * with core and mail alone. A name outside the enum fails the
  * `PushSubscription/set`, which leaves that account on the relay rather than
  * breaking anything, since the relay is the fallback. See
- * docs/adr/0009-the-push-subscription-covers-every-live-type.md.
+ * docs/adr/0007-the-push-subscription-covers-every-live-type.md.
  */
 /**
  * The state types that wake the agent: mail, and the app folder (chat, files,

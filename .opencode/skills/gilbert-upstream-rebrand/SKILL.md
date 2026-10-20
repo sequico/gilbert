@@ -142,7 +142,7 @@ the comment changes with it.
   copied the list from upstream's own draft, so `ApiKey` was never a decision
   here, only an inheritance. Two things settled it: upstream is the side that
   re-thought it, and no surface in Gilbert mints or shows an API key, so an
-  entry for it was reach nobody had asked for. It came off the list, ADR 0017's
+  entry for it was reach nobody had asked for. It came off the list, ADR 0015's
   sentence lost the name and gained the reason, and `adminGate.test.ts` now
   asserts the refusal. **This is the shape a collision takes when upstream is
   right**: the change is taken and the claim that named the old behaviour is
@@ -159,7 +159,7 @@ the comment changes with it.
   in the account's own document (ADR 0001). Reconcile by taking the *behaviour*
   into our file; never by landing their module beside ours.
 - **The push subscription: upstream's diagnosis won, our design was kept, and
-  the third thing was ours to fix.** ADR 0016 owns this surface. At the time of
+  the third thing was ours to fix.** ADR 0014 owns this surface. At the time of
   the merge it said `types: ["Email"]` and planned `["Email", "FileNode"]` so a
   group's chat would wake the device; upstream's `4054f82` subscribes to
   `EmailDelivery` instead, and that is a better answer to the question the type

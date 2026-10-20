@@ -12,7 +12,7 @@ npm workspaces: the root coordinates, the two packages hold the code.
 - `server/` — `@gilbert/server`, Node + Hono: `server/src/index.ts` serves the
   SPA and `/api/*`, assembled by `server/src/app.ts` and answered by the route
   groups under `server/src/routes/`; `server/src/agent/` is the agent's own tree,
-  whose design is ADR 0031–0037; `server/src/mock/` is the in-memory fake
+  whose design is ADR 0027–0033; `server/src/mock/` is the in-memory fake
   Stalwart; `server/src/shared/` is the tree both tiers read.
 - **One definition, two readers.** The client imports the server's shared tree
   as `@gilbert/shared/*`, aliased in
@@ -326,7 +326,7 @@ the image the pruner targets — and asserts the first against `engines.node` an
 the second against the published `IMAGE`, so a Node move or a rename is one
 edit. The workflows this repository owns are ours; upstream's CI is not taken.
 
-**CodeQL runs with the release, on GitHub only** (ADR 0027, owner decisions
+**CodeQL runs with the release, on GitHub only** (ADR 0023, owner decisions
 2026-09-27 and 2026-10-18): the analysis is `.github/workflows/codeql.yml`,
 called by `release.yml` as a pre-check — `cut` waits on it — and run weekly and
 on dispatch besides. It is not a per-push gate, and there is **no local
@@ -334,7 +334,7 @@ analysis**: no script, no bundled toolchain, no `CODEQL_CLI` lookup. A finding
 the hosted run prints is work to do in the same change, like any other finding a
 gate prints.
 **Static analysis and secret scanning run on every push and pull request, and
-once a night** (ADR 0026): `.github/workflows/ci-security.yml` runs Semgrep at
+once a night** (ADR 0022): `.github/workflows/ci-security.yml` runs Semgrep at
 ERROR level across the TypeScript, Node, security-audit and OWASP rule packs,
 and Gitleaks over the history through the official action pinned to a commit.
 Neither is in `check:ci` — Semgrep is a second toolchain and Gitleaks wants the

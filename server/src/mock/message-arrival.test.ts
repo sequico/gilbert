@@ -5,7 +5,7 @@ import { freePort, jmapCall, responseOf } from "../testkit.js";
 
 /**
  * What the mock records about how a message arrived, and the one reading of it
- * (ADR 0033).
+ * (ADR 0029).
  *
  * The agent's mail channel rests on the receiving server's own account of the
  * arrival, and that account has two shapes: its authentication result on a

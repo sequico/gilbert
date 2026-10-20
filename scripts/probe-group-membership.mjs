@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
 
- * The live probe of group membership over Stalwart's registry (ADR 0005).
+ * The live probe of group membership over Stalwart's registry (ADR 0004).
  *
  * The `@` picker beside a group's chat offers the group's members, and the
  * transcript greys a mention of somebody who is no longer one. The mock stands

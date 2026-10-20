@@ -2,7 +2,7 @@ import { AGENT_LABELS } from "@gilbert/shared/labels";
 import type { Label } from "@/store/settings";
 
 /**
- * The reserved labels a message carries (ADR 0005).
+ * The reserved labels a message carries (ADR 0004).
  *
  * The reserved `G-` namespace is the product's own, never a group's: a
  * message's processing state is named in code (`AGENT_LABELS`) and never

@@ -5,7 +5,7 @@ import { freePort } from "./testkit.js";
 /**
  * The "this is my device" box does not decide what a workorder looks like.
  *
- * That box (ADR 0017) bounds what a session may *administer* — administration is
+ * That box (ADR 0015) bounds what a session may *administer* — administration is
  * the installation's to offer, and a borrowed machine may be refused it. Reading
  * is not administering, and the rule the owner set is explicit: a **member** sees
  * the workorders their groups are competent for, their own groups' parts and the
@@ -107,7 +107,7 @@ test("a group's section is its own members', and absent for everyone else", asyn
    * `customs` is the assigned one. The demo user is in a3 and reads both; bob is
    * in nothing and reads the global one alone — never an empty part and never a
    * refusal, which is how a part a reader cannot reach has always been served
-   * (ADR 0028).
+   * (ADR 0024).
    */
   const member = await signIn("demo@example.com", "demo-password", false);
   const outsider = await signIn("bob@example.com", "bob-password", false);
@@ -163,7 +163,7 @@ test("whoever may see a part may check it, and the check carries their name", as
   /*
    * The owner's rule: a part's readers are its checkers. No role is asked for,
    * because administration is a rule about **templates** — only an
-   * administrator approves a checklist template (ADR 0024) — and about nothing
+   * administrator approves a checklist template (ADR 0020) — and about nothing
    * on this surface. What a checked step carries is the signature: `by`, taken
    * from the authenticated session, so the act is accountable in the record
    * rather than gated by a role.

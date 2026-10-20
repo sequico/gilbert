@@ -422,7 +422,7 @@ function EventForm({
   // `init()`) and never re-scoped to whichever calendar the form has selected.
   // Filing an event under a shared or group calendar is filing it under a
   // different account, and "you" attending it is that account's own address,
-  // not the reader's personal one -- the same rule ADR 0005 states for a
+  // not the reader's personal one -- the same rule ADR 0004 states for a
   // group's other documents. `session.accounts[id].name` already reads as a
   // group's own address (`groupNameOf`), so the same
   // field stands in here rather than fetching that account's own Identity

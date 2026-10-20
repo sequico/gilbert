@@ -1,5 +1,5 @@
 /**
- * The group classifier's one line, said once per state (ADR 0005).
+ * The group classifier's one line, said once per state (ADR 0004).
  *
  * The classifier probes each candidate on **every** pass — the groups are
  * resolved afresh every ten seconds (`agent/supervisor.ts`) — so an account the

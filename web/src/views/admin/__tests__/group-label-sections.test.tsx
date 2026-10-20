@@ -8,7 +8,7 @@ import { GroupLabels } from "../GroupLabels";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The two sections of the group-label surface (ADR 0005).
+ * The two sections of the group-label surface (ADR 0004).
  *
  * A group owns its label catalog, and the reserved `G-` namespace is the
  * product's own rather than the group's: the surface keeps them apart, and the

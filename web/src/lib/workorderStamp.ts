@@ -1,5 +1,5 @@
 /**
- * How a step's signature reads in a workorder (ADR 0028).
+ * How a step's signature reads in a workorder (ADR 0024).
  *
  * A step carries the last actor: a person's own address, or the agent, which is
  * not a person. The two read as two sentences, and this is the one place that

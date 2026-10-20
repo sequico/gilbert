@@ -1,5 +1,5 @@
 /**
- * The administrator door (ADR 0001, ADR 0017).
+ * The administrator door (ADR 0001, ADR 0015).
  *
  * Stalwart admin is the Gilbert admin, read freshly on every privileged call,
  * bounded by the installation's own switch and its own-device rule, and failing
@@ -27,7 +27,7 @@ import type { Env } from "./sessions.js";
  * admin marker is a plain 403.
  *
  * Two conditions on top of that marker bound every admin route as well as
- * the JMAP proxy (ADR 0017): the installation still offers administration
+ * the JMAP proxy (ADR 0015): the installation still offers administration
  * (`server.administration`), and this session was signed in on a device
  * marked as its owner's. An operator who turned administration off means it
  * of every door — this is the second one, and the version of the product that
@@ -36,7 +36,7 @@ import type { Env } from "./sessions.js";
  *
  * It bounds **writes**, and only writes: what a session may *read* is decided by
  * the rules of the surface it reads — a workorder's visibility is competence
- * (ADR 0028) — so neither condition here ever changes what a member or an
+ * (ADR 0024) — so neither condition here ever changes what a member or an
  * administrator sees.
  */
 export const adminAllows = (session: LiveSession) =>
@@ -115,7 +115,7 @@ export const resolveAdminState = async (session: LiveSession): Promise<boolean> 
 };
 
 /**
- * Why an administrative route is unavailable, as one refusal (ADR 0017). The
+ * Why an administrative route is unavailable, as one refusal (ADR 0015). The
  * two causes are told apart because they are fixed differently: one by the
  * operator, one by signing in again on your own device. `method` names what was
  * refused, where a request had a name to give.

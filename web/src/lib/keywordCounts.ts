@@ -14,7 +14,7 @@
  *
  * The reserved `G-` state is counted for a group's account and never for a
  * person's: a group's sidebar draws it as its own `System labels` section, and
- * a person's account has no agent and none of it (ADR 0031).
+ * a person's account has no agent and none of it (ADR 0027).
  *
  * **A count is taken over the row, not the message.** A conversation counted
  * once while its messages each counted once is not a detail: the number would

@@ -1,5 +1,5 @@
 /**
- * What changed in a group's own account (ADR 0035).
+ * What changed in a group's own account (ADR 0031).
  *
  * A rule watches the activity of the group's own account: the mail that arrived
  * or was sent, the pages and checklist templates written in its KB, the
@@ -21,7 +21,7 @@
  * Files are told apart by the folder a node sits in. `eventSourceOf` is the one
  * place that decides, and it reads the folder's own name rather than a second
  * spelling of the path. A rule's matrix also names **calendar**, whose change
- * log is not read yet: no event carries it (ADR 0035).
+ * log is not read yet: no event carries it (ADR 0031).
  */
 
 import { APP_FOLDER_NAME } from "../shared/appFolder.js";
@@ -30,7 +30,7 @@ import { KNOWLEDGE_FOLDER } from "../shared/knowledge.js";
 import { WORKORDER_FOLDER } from "../shared/workorder.js";
 
 /**
- * A surface of a group's own account that activity happens on (ADR 0031, 0035).
+ * A surface of a group's own account that activity happens on (ADR 0027, 0031).
  *
  * The five the records name: its `chat`, its `mail`, its `knowledge` base, its
  * `workorder`s and its `files`. A chat message, a KB page and a workorder are
@@ -44,7 +44,7 @@ export type AccountEventSource = "mail" | "files" | "chat" | "workorder" | "know
  * What happened to the object: it appeared, it changed, or it was removed.
  *
  * A create and a later update of the same node are one event, named `created`
- * (`events.ts`, ADR 0034): the reading folds the two changes of one address.
+ * (`events.ts`, ADR 0030): the reading folds the two changes of one address.
  */
 export type AccountEventChange = "created" | "updated" | "destroyed";
 

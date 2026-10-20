@@ -1,5 +1,5 @@
 /**
- * The one tool that changes the installation's memory (ADR 0037).
+ * The one tool that changes the installation's memory (ADR 0033).
  *
  * The write lands in the Master's own account, because one memory serves the
  * installation; the fact records the group it is about, which is what a
@@ -13,12 +13,12 @@ import { argsRecord, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 
 /**
- * One fact the agent records while it works (ADR 0037).
+ * One fact the agent records while it works (ADR 0033).
  *
  * The write lands in the **Master's** own account and not the group's: one
  * memory serves the installation, so what is learned while working one group's
  * change is known by the next call in any of them. Its class is the agent's own
- * (`reversible`, ADR 0032): a fact it wrote can be read back and removed, so
+ * (`reversible`, ADR 0028): a fact it wrote can be read back and removed, so
  * nothing here asks a person — and the one thing that is *not* the agent's to
  * undo, a **person's** fact, is refused by the store itself and never reached
  * through the class.
@@ -72,7 +72,7 @@ export const rememberFactTool = defineTool({
   run: async ({ ctx, accountId, run, memory }, { subject, fact, links, standing }) => {
     // The memory is the installation's, so the account it is **written to** is
     // the principal's own — the Master's — and never the group's the run lives in
-    // (ADR 0037). The account the fact is **about** is the group's, because that
+    // (ADR 0033). The account the fact is **about** is the group's, because that
     // is what a `standing` fact is filtered by when a call of a group is made.
     // What the fact is written against is the pass's own reading of the store,
     // handed to every step of the pass: reading it again here is what would walk
@@ -109,7 +109,7 @@ export const rememberFactTool = defineTool({
       memory,
     );
     // A write against a person's fact is a proposal, and the model is told what
-    // it is and what the person's sentence still is (ADR 0037).
+    // it is and what the person's sentence still is (ADR 0033).
     const proposal = written.proposal;
     return proposal?.run === run.id
       ? {

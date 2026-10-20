@@ -8,7 +8,7 @@ import { LabelsSettings } from "../LabelsSettings";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * A person's own label surface (ADR 0005).
+ * A person's own label surface (ADR 0004).
  *
  * The reserved `G-` labels name the agent's work in a group's account, and the
  * agent works in groups only — a person's account has none — so this surface is

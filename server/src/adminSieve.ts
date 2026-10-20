@@ -1,5 +1,5 @@
 /**
- * System Sieve scripts (ADR 0008): Stalwart's own trusted, server-wide
+ * System Sieve scripts (ADR 0006): Stalwart's own trusted, server-wide
  * filters, held as the `x:SieveSystemScript` JMAP registry object — not an
  * account's own script, which is `SieveScript` in `web/src/store/sieve.ts`.
  *

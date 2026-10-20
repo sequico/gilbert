@@ -14,7 +14,7 @@ import { flushMicrotasks as flush } from "@/test/testkit";
 /**
  * A group's mail announces from the same store change the reader's own does.
  *
- * The closed client is woken by the delivery (ADR 0016); a reader who keeps
+ * The closed client is woken by the delivery (ADR 0014); a reader who keeps
  * Gilbert open on a group must not go quiet. `applyAccountChanges` routes a
  * non-active account's change, refreshes its tree and announces what it
  * received -- and says nothing for a backlog the page never showed.

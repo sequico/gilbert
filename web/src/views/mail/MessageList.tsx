@@ -217,7 +217,7 @@ export function MessageList({
   const selCount = Object.keys(selected).length;
   const mailbox = mailboxId ? mailboxes[mailboxId] : undefined;
   /*
-   * What a delete does to the rows on screen, from the one rule (ADR 0015).
+   * What a delete does to the rows on screen, from the one rule (ADR 0013).
    * The toolbar's rows are the folder's, so the folder on screen is what it is
    * asked about, and the same answer names the button and the gesture: the two
    * used to disagree about Junk Mail, which destroys just as Deleted Items does.
@@ -226,7 +226,7 @@ export function MessageList({
   const listDeleteEffect = deleteEffectInFolder(mailboxId, finalFolders);
   const listDeleteIsFinal = listDeleteEffect === "final";
   /**
-   * ADR 0015: in a group, only an administrator *ends* a message. Filing one is
+   * ADR 0013: in a group, only an administrator *ends* a message. Filing one is
    * not ending it, so the entry stays offered wherever a delete would move —
    * which is what deleting from a group's Inbox does. Only the final case is
    * withdrawn, and it is withdrawn rather than refused afterwards.
@@ -1154,7 +1154,7 @@ interface RowProps {
   touch: boolean;
   role: string | null;
   /**
-   * The account's final folders, found once by the list (ADR 0015).
+   * The account's final folders, found once by the list (ADR 0013).
    *
    * Passed rather than looked up per row: it is a walk of the whole tree, and
    * a virtualised list mounts and unmounts rows constantly. One question per
@@ -1261,7 +1261,7 @@ export const Row = memo(function Row({
   // first. Held here, not in the gesture, so the unmount below can cancel it.
   const swipeTimer = useRef<number | null>(null);
   /*
-   * What this row's own delete would do, from the one rule (ADR 0015): the row
+   * What this row's own delete would do, from the one rule (ADR 0013): the row
    * is what knows which folders hold this message, so a message sitting in Junk
    * Mail is named as the permanent delete it is, whatever folder is on screen.
    */

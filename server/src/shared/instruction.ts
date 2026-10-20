@@ -1,5 +1,5 @@
 /**
- * A group's standing instruction, as a document (ADR 0035).
+ * A group's standing instruction, as a document (ADR 0031).
  *
  * One document per group account: `instruction.json` at the root of that
  * account's `gilbert` app folder, beside the label catalog — the two documents a

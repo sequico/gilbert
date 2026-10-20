@@ -10,7 +10,7 @@ import { flushMicrotasks as flush } from "@/test/testkit";
 /**
  * The live re-sync of an open conversation.
  *
- * ADR 0005's retirement path is an administrator clearing the group's chat
+ * ADR 0004's retirement path is an administrator clearing the group's chat
  * folders through Files; what arrives at a running session is FileNode
  * changes, in three lists. Only `created` was read, so a destroyed message
  * stayed on screen for ever, and a marker or a reply that named one fell into

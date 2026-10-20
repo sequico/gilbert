@@ -1,5 +1,5 @@
 /**
- * Identities (ADR 0007): the surfaces an administrator sets a principal's
+ * Identities (ADR 0005): the surfaces an administrator sets a principal's
  * identity through — a person's under User identities, a group's under Group
  * identities.
  *

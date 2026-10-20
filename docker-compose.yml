@@ -42,6 +42,6 @@ services:
       # Left unset, the server's own default stands (`.env.example` names it).
       SOURCE_URL: ${SOURCE_URL:-}
       # The operator's own statement: may the installation's model reach a model
-      # endpoint inside this network. Not the installation's to decide (ADR 0031).
+      # endpoint inside this network. Not the installation's to decide (ADR 0027).
       GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER: ${GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER:-}
 

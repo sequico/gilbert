@@ -410,19 +410,19 @@ function AuthedApp() {
         useFiles.getState().applyChanges(types);
       if (accountId === useSieve.getState().accountId)
         useSieve.getState().applyChanges(types);
-      // Chat is FileNode state on the group accounts (ADR 0005); the store
+      // Chat is FileNode state on the group accounts (ADR 0004); the store
       // ignores accounts it does not hold and events it does not need, so
       // every FileNode change can be offered to it.
       if (types.has("FileNode"))
         work.push(useChat.getState().applyChanges(accountId, signal));
-      // The knowledge base of a group rides the same FileNode rail (ADR 0024);
+      // The knowledge base of a group rides the same FileNode rail (ADR 0020);
       // the company tier is read when opened, so it is not pushed here. It arms
       // a coalescing window rather than performing the read, so it is not
       // awaited: like the workorder panel, it is deliberately not part of the
       // barrier the pass calls "everything on screen is fresh".
       if (types.has("FileNode")) void useKnowledge.getState().applyChanges(accountId);
       // A workorder's parts are app-folder documents in the reader's own groups
-      // (ADR 0028), and a check somebody else made is a write there: the store
+      // (ADR 0024), and a check somebody else made is a write there: the store
       // re-reads the list through the route, and answers only while its panel is
       // open and only for an account it follows, so every FileNode change can be
       // offered to it. It arms a coalescing window rather than performing the
@@ -655,7 +655,7 @@ function AuthedApp() {
   const languageVersion = useLanguageVersion();
   useEffect(() => {
     /*
-     * One entry per account the subscription covers (ADR 0016): the reader's
+     * One entry per account the subscription covers (ADR 0014): the reader's
      * own and every group mailbox, each with the Inbox and archive its
      * notification needs, its name, and -- where it has a chat -- the chat
      * folder and the newest instant the app has seen. The watermark is the

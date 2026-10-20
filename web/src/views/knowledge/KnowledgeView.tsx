@@ -14,7 +14,7 @@ import { tierLabel } from "./KnowledgeSidebar";
 
 /*
  * The checklist builder is a lazy chunk: authoring belongs to a template that
- * is open, never to the app's first paint (ADR 0030).
+ * is open, never to the app's first paint (ADR 0026).
  */
 const ChecklistSurface = lazyView(() => import("./ChecklistSurface"));
 
@@ -28,7 +28,7 @@ const KnowledgeEditor = lazyView(() =>
 );
 
 /**
- * The knowledge base's reading and editing pane (ADR 0024).
+ * The knowledge base's reading and editing pane (ADR 0020).
  *
  * The sidebar chooses the page and this shows it: the body read through
  * `KnowledgeEditor`, the title, tags and lifecycle state around it, and the
@@ -74,7 +74,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   /*
    * The workorders that instantiate this page, read only when the page **is** a
-   * checklist template. Each names the page it came from (ADR 0028), and the
+   * checklist template. Each names the page it came from (ADR 0024), and the
    * reverse — "what uses this template" — is the reference made visible from the
    * KB side.
    *
@@ -231,7 +231,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   const readerTags =
     article.effective?.tags ?? article.draft?.tags ?? article.summary.tags;
   // An article something was issued from is retired, not destroyed; one no
-  // approval ever touched is removed outright (ADR 0024). A folder whose own
+  // approval ever touched is removed outright (ADR 0020). A folder whose own
   // state is unapproved can still hold an approved sub-article, which the server
   // refuses to destroy — the control says so rather than inviting the click.
   const approvedDescendants = approvedBelow.has(article.summary.nodeId);
@@ -246,7 +246,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       ? edit.blocks
       : (article.effective?.blocks ?? article.draft?.blocks ?? []);
   // A checklist template's rules are its body; a page switched to one, or a
-  // template with no rules yet, edits from an empty definition (ADR 0030).
+  // template with no rules yet, edits from an empty definition (ADR 0026).
   const checklistBody =
     editing && edit
       ? (edit.checklist ?? emptyChecklist())
@@ -443,7 +443,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       <div className="files-scroll" style={{ marginTop: 20, padding: "0 16px" }}>
         {isTemplate ? (
           /* A checklist template is its rules, not prose: the builder authors
-             them and the surface renders them (ADR 0030). */
+             them and the surface renders them (ADR 0026). */
           <Suspense fallback={<Spinner size="lg" />}>
             <ChecklistSurface
               checklist={checklistBody}
@@ -528,7 +528,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
           {t("History")}
         </button>
         {/* Creating, renaming and deleting pages is an administrator's; a
-            member's write is the draft itself (ADR 0024). */}
+            member's write is the draft itself (ADR 0020). */}
         {activeTier?.canApprove && (
           <button className="btn btn-sm" onClick={() => void doRename()}>
             {t("Rename")}

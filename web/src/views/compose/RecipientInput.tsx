@@ -89,7 +89,7 @@ export function RecipientInput({
   const pick = (s: Suggestion) => {
     if (s.group) {
       /*
-       * A group is chosen as a whole and becomes the people in it (ADR 0004):
+       * A group is chosen as a whole and becomes the people in it (ADR 0003):
        * the members are the cards of the account the group lives in, one
        * address each, and anyone already addressed is not written twice. What
        * could not be resolved is counted and said -- a group that silently

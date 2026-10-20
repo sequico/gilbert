@@ -17,7 +17,7 @@ export interface Suggestion {
   contactId?: Id;
   photo?: string | null;
   /**
-   * A group of contacts, offered as one choice that expands (ADR 0004).
+   * A group of contacts, offered as one choice that expands (ADR 0003).
    *
    * `accountId` is where its members live -- a uid means nothing outside the
    * account that holds it -- and `members` is what the row says, so the reader
@@ -93,7 +93,7 @@ export interface ContactsState {
    * The account a card belongs to, null for the reader's own.
    *
    * A card of the installation's directory answers the sentinel account it is
-   * installed under (ADR 0023), never the reader's own: its writes go through
+   * installed under (ADR 0019), never the reader's own: its writes go through
    * the administration's route, so no caller may take that answer for a JMAP
    * account.
    */
@@ -132,7 +132,7 @@ export interface ContactsState {
   accountOfBook(bookId: Id): Id | null;
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
   /**
-   * The addresses behind a group, whichever surface asked (ADR 0004).
+   * The addresses behind a group, whichever surface asked (ADR 0003).
    *
    * `accountId` names the account the group lives in, which is also where its
    * members are; null or the reader's own means their own books. One

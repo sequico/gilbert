@@ -32,7 +32,7 @@ and the trailers disagree, the trailers are what is true.
   decided rather than inherited.
 - **Not taken, by decision**: upstream's own CI (this repository runs GitHub
   Actions), dependency bumps (its own Dependabot), upstream's docs and process
-  files, and the **Administration surface** — ADR 0014 makes administration a
+  files, and the **Administration surface** — ADR 0012 makes administration a
   door rather than a menu, so upstream's dashboard, tenants, roles and domains
   work is deliberately not the shape here. Refactors of upstream's internals
   are not taken either where they would collide with this tree's structure.
@@ -99,25 +99,25 @@ UX is left to read.
 | `2740129c` | in (adapted) | 78% | Keep only the app page as the app page (#396) |
 | `c1181849` | in (adapted) | 78% | Match Shift+letter shortcuts (Shift+I, Shift+U) (#399) |
 | `4c674604` | in (adapted) | 77% | Fetch the rest of a new build in the background (#394) |
-| `f1638b2f` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 95% | Offer administration only on a device marked as your own |
-| `7c0e278e` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 83% | Move Administration's section list into the folder pane |
-| `15b1838e` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 78% | Say every Administration refusal in the reader's language |
-| `ce5eb04c` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 78% | Show only the Enterprise notice on Tenants when the server is not Enterprise |
-| `5f70e5e8` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 76% | Say tenants are Enterprise only where the installation asks, as the demo will |
-| `2e2724c5` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 74% | Find Stalwart's administration instead of asking for it |
-| `627422d7` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 72% | Add Mailing lists to Administration |
-| `82e21715` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 72% | Add Administration, starting with accounts |
-| `e2a531b6` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 69% | Add Groups to Administration |
-| `0054b8a3` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 66% | Open Administration on a dashboard of what the role can read |
-| `4787e8bf` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 66% | Point from the dashboard to Stalwart's own administration |
-| `79afc334` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 66% | Record the groups run on the live server, and match its refusal shape |
-| `7e46ddeb` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 64% | Record the roles run on the live server, and drop the mock's made-up permission |
-| `1dafb4bc` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 63% | Add Domains to Administration |
-| `fd104a1f` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 61% | Add Tenants to Administration, and let an account be put in one |
-| `430fc267` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 56% | Filter accounts on @type, the name Stalwart uses |
-| `40df0f65` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 53% | Follow what the live server does with tenants and domains |
-| `a00d07b4` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 32% | Add Roles to Administration, with Stalwart's permissions in every language |
-| `d279fe8f` | admin surface — not taken (ADR 0014/0017: a door, not a menu) | 100% | Let an operator turn administration off |
+| `f1638b2f` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 95% | Offer administration only on a device marked as your own |
+| `7c0e278e` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 83% | Move Administration's section list into the folder pane |
+| `15b1838e` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 78% | Say every Administration refusal in the reader's language |
+| `ce5eb04c` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 78% | Show only the Enterprise notice on Tenants when the server is not Enterprise |
+| `5f70e5e8` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 76% | Say tenants are Enterprise only where the installation asks, as the demo will |
+| `2e2724c5` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 74% | Find Stalwart's administration instead of asking for it |
+| `627422d7` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 72% | Add Mailing lists to Administration |
+| `82e21715` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 72% | Add Administration, starting with accounts |
+| `e2a531b6` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 69% | Add Groups to Administration |
+| `0054b8a3` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 66% | Open Administration on a dashboard of what the role can read |
+| `4787e8bf` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 66% | Point from the dashboard to Stalwart's own administration |
+| `79afc334` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 66% | Record the groups run on the live server, and match its refusal shape |
+| `7e46ddeb` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 64% | Record the roles run on the live server, and drop the mock's made-up permission |
+| `1dafb4bc` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 63% | Add Domains to Administration |
+| `fd104a1f` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 61% | Add Tenants to Administration, and let an account be put in one |
+| `430fc267` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 56% | Filter accounts on @type, the name Stalwart uses |
+| `40df0f65` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 53% | Follow what the live server does with tenants and domains |
+| `a00d07b4` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 32% | Add Roles to Administration, with Stalwart's permissions in every language |
+| `d279fe8f` | admin surface — not taken (ADR 0012/0015: a door, not a menu) | 100% | Let an operator turn administration off |
 | `ce683f94` | CI / infra — not taken (GitHub Actions here) | 97% | Bring FEATURES and KNOWN-ISSUES up to 0.16.22 |
 | `d329b339` | CI / infra — not taken (GitHub Actions here) | 93% | Quoting follows the message's own image decision (#410) (#411) |
 | `28acad68` | CI / infra — not taken (GitHub Actions here) | 90% | Say 0.16.22 in the README, and what it changed for a client |

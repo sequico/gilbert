@@ -1,5 +1,5 @@
 /**
- * The workorder's durable format (ADR 0028) — one definition, both tiers.
+ * The workorder's durable format (ADR 0024) — one definition, both tiers.
  *
  * A workorder is one **uid** and everything about it is a document named
  * `<uid>.json` under `workorders/` in an account's `gilbert` app folder. The
@@ -10,7 +10,7 @@
  * the group's **part**: its checklist and its own references. The same uid names
  * every copy; the account decides which role a document has.
  *
- * A checklist is an **instance of a KB template** (ADR 0024): it stores the
+ * A checklist is an **instance of a KB template** (ADR 0020): it stores the
  * template's id and the revision it was bound to, the **values chosen** for the
  * template's variants, the **items chosen** for its repeated sections, and each
  * applicable step's **path**, state and last signature — never a copy of the
@@ -93,7 +93,7 @@ export function isStepComplete(state: WorkorderStepState): boolean {
  * asks. `done`, `skipped` and `not-applicable` all leave the step behind, so a
  * section whose steps are all settled opens its dependents. A `not-applicable`
  * step stays out of the progress fraction (`isStepComplete`) but must not hold
- * a dependent section shut for ever (ADR 0030).
+ * a dependent section shut for ever (ADR 0026).
  */
 export function isStepCompleteForGate(state: WorkorderStepState): boolean {
   return isStepComplete(state) || state === "not-applicable";
@@ -132,7 +132,7 @@ export interface WorkorderChecklist {
  *
  * The three objects a workorder files its work against — a folder, a file and a
  * KB article — and the three a run touches besides: a message, a chat node and
- * another workorder (ADR 0034). One shape and one vocabulary for both
+ * another workorder (ADR 0030). One shape and one vocabulary for both
  * documents, so a reference written by one reader means the same to the next.
  */
 const WORKORDER_REF_KINDS = [
@@ -173,7 +173,7 @@ export interface WorkorderDoc {
    * The sections whose **gate has opened**, by section key: the latch. Written
    * on the Master's root when a gated section's prerequisites first complete,
    * and never removed, so re-opening a prerequisite does not hide a section a
-   * group already reached (ADR 0030).
+   * group already reached (ADR 0026).
    */
   gates?: string[];
   refs: WorkorderRef[];
@@ -355,7 +355,7 @@ export function itemKeysOf(
  *
  * The one resolution a create, a read and the demo seed all share: the steps a
  * workorder stores are exactly the ones the template's rules name for the
- * chosen values, items and part (ADR 0030).
+ * chosen values, items and part (ADR 0026).
  */
 export function applicableStepPaths(
   def: KnowledgeChecklist,
@@ -400,7 +400,7 @@ interface WorkorderItemView {
 /**
  * The gate on a visible section: which sections it waited on. A gated section
  * is served only once its gate has opened, so this is shown beside the section
- * as a small **read-only** marker and never edited from the instance (ADR 0030).
+ * as a small **read-only** marker and never edited from the instance (ADR 0026).
  */
 export interface WorkorderGateView {
   /** The prerequisite section keys. */

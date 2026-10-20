@@ -359,7 +359,7 @@ export async function workChanges(
     /*
      * A document landing in a folder is one file of a drop, not a change to
      * answer on its own: it is queued against its folder and reported once the
-     * burst is over (ADR 0038). The reading already tells a folder from a
+     * burst is over (ADR 0034). The reading already tells a folder from a
      * document, so only documents reach here. A removal is not queued; it takes
      * its path out of a drop still waiting, so the report cannot name a file
      * that is no longer in the folder.
@@ -387,7 +387,7 @@ export async function workChanges(
       continue;
     /*
      * A message that answers a run's question continues that run and opens no
-     * run of its own (ADR 0033). The correlation is the record's — a reply to
+     * run of its own (ADR 0029). The correlation is the record's — a reply to
      * the question in chat, a mail in its thread — so it is asked before any
      * rule and on **whatever surface the answer arrived on**: a question asked
      * in chat by a rule that watches mail is answered in chat, and the answer
@@ -432,14 +432,14 @@ export async function workChanges(
       }
     }
     const candidates = rules.filter((rule) => ruleApplies(rule, event));
-    // A change no rule watches costs no model call and no step (ADR 0035).
+    // A change no rule watches costs no model call and no step (ADR 0031).
     if (!candidates.length) continue;
     const woke = wokeOf(event);
     /*
      * What the installation holds and the group wrote above the rule: the
      * installation's own line and the group's standing instruction reach the
      * decision turn too, because which rules apply is asked of the same agent
-     * (ADR 0035).
+     * (ADR 0031).
      */
     const detail = message
       ? {

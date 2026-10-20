@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 
 /**
- * Identities an administrator sets (ADR 0007): a person's through impersonation,
+ * Identities an administrator sets (ADR 0005): a person's through impersonation,
  * a group's as the installation's agent, and the lock that is a fact about that
  * one account, written into its own app folder (ADR 0001).
  *
@@ -16,7 +16,7 @@ import { freePort, jsonCallAs, loginWith } from "./testkit.js";
  *    granted on is refused by name rather than written anyway;
  *  - the lock changes what the product *offers* — a session that reads it says
  *    so, and no session is ended to make it so — and it does not change what
- *    the server *permits*, which is ADR 0007 stated as a test rather than as
+ *    the server *permits*, which is ADR 0005 stated as a test rather than as
  *    a sentence;
  *  - the lock is answered in three states and not two: an account whose file
  *    this session cannot reach says "unknown" rather than passing for free,
@@ -300,7 +300,7 @@ test("the lock reaches an open session, and ends none", async () => {
     "and the open session is what is told not to offer this account its Identities & signatures section",
   );
 
-  // ADR 0007, as a test: the lock is a rule about the surface. The account
+  // ADR 0005, as a test: the lock is a rule about the surface. The account
   // can still write its own identity, and the administrator still can, because
   // Stalwart has no per-field permission here and this feature does not pretend
   // to be one.
@@ -565,7 +565,7 @@ test("a group assignment write refuses a document it cannot read", async () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* The default sending identity (ADR 0007)                          */
+/* The default sending identity (ADR 0005)                          */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -722,7 +722,7 @@ test("the administration sets and clears the default the account's own section r
 
 test("an app-password session cannot set a default: the refusal is impersonation_denied", async () => {
   // The same limit the other impersonating surfaces have: Stalwart refuses an
-  // app-password session as an impersonator (ADR 0007), and the refusal
+  // app-password session as an impersonator (ADR 0005), and the refusal
   // keeps its own code instead of reading as a failed write.
   const created = await call("/api/account/app-passwords", adminCookie, {
     method: "POST",

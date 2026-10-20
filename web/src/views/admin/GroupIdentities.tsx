@@ -1,5 +1,5 @@
 /**
- * Group identities (ADR 0007), the second tab of **Identities**: what a
+ * Group identities (ADR 0005), the second tab of **Identities**: what a
  * group mailbox sends as, and who sends as which.
  *
  * Written **as the Master**, always, because Stalwart refuses to impersonate a
@@ -8,7 +8,7 @@
  * group, this surface says so and names the grant that is missing, rather than a
  * permission error that would read as a bug.
  *
- * A group's account holds **one identity per member** (ADR 0007): all carrying
+ * A group's account holds **one identity per member** (ADR 0005): all carrying
  * the group's own address, each carrying that member's own display name and
  * signature. So this surface is one row per member of the group's roster, and
  * **the binding is an assignment it writes** — not a display name compared on
@@ -78,7 +78,7 @@ function blankIdentity(name: string, email: string): Partial<Identity> {
 /**
  * The member's own display name: the name on the identity of their **own**
  * account that is theirs — the one rule for that, shared with the picker that
- * has to match it (`ownIdentity`, ADR 0007). Empty when their own account holds
+ * has to match it (`ownIdentity`, ADR 0005). Empty when their own account holds
  * no identity to read a name from.
  */
 function ownDisplayName(view: PersonIdentitiesView, address: string): string {
@@ -89,7 +89,7 @@ function ownDisplayName(view: PersonIdentitiesView, address: string): string {
 /**
  * Which identity each member of the roster is assigned, and what is left.
  *
- * The binding is a **record** (ADR 0007), not a display name compared on both
+ * The binding is a **record** (ADR 0005), not a display name compared on both
  * sides: `assignments` maps a member's address to the id of an identity of this
  * group, which the administration wrote in the same action that wrote the
  * identity. So a row's answer is read rather than inferred — a rename in the
@@ -125,7 +125,7 @@ function assignmentsOf(
 /**
  * One member of the roster, and the identity of this group assigned to them.
  *
- * Whether they have one is a **fact the administration recorded** (ADR 0007),
+ * Whether they have one is a **fact the administration recorded** (ADR 0005),
  * so the row answers from it rather than from a name compared on both sides:
  * assigned, and it says what they send as; not assigned, and it offers to
  * assign one. Nothing is read from the member's own account until that is

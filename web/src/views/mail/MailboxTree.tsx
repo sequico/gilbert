@@ -589,7 +589,7 @@ export function MailboxTree() {
          * accounts' sections.
          *
          * They belong to whoever is in the foreground, not to the reader
-         * alone: a group mailbox has a catalog of its own (ADR 0005), so
+         * alone: a group mailbox has a catalog of its own (ADR 0004), so
          * opening a group shows that group's labels here and nothing of
          * anybody else's. The reads follow the same rule — `useEffectiveLabels`
          * picks the catalog and `labelsForAccount` picks what is counted — so
@@ -652,7 +652,7 @@ export function MailboxTree() {
              * the shared vocabulary (`AGENT_LABELS`) and this section draws no
              * rename, delete or Manage control, so nothing here can change one.
              * A person's account has none of it — an agent runs in a group's
-             * account only (ADR 0031) — so the section is drawn for a group.
+             * account only (ADR 0027) — so the section is drawn for a group.
              * Each row is a filter like its siblings, and its count comes from
              * the same `labelCounts` read, which counts these keywords for a
              * group (`countedKeywords`).
@@ -1053,7 +1053,7 @@ function MailboxMenu({
     walk(m.id);
     return n;
   });
-  /** ADR 0015: what this menu may offer, by the one rule. */
+  /** ADR 0013: what this menu may offer, by the one rule. */
   const mayEnd = useMayDestroy();
   const rename = async () => {
     const name = await // The server's own name, never the localised one: this box writes
@@ -1074,7 +1074,7 @@ function MailboxMenu({
     if (!ok) return;
     try {
       /*
-       * ADR 0015: a refusal is not a deletion, so the confirmation here is not
+       * ADR 0013: a refusal is not a deletion, so the confirmation here is not
        * followed by a success message about a folder that still exists and a
        * navigation away from it. The guard's own sentence has already said why.
        */
@@ -1211,7 +1211,7 @@ function MailboxMenu({
         onClick={() => void remove()}
         danger
         /*
-         * ADR 0015: a folder holding mail is destroyed with it, so in a group
+         * ADR 0013: a folder holding mail is destroyed with it, so in a group
          * this is one of the three things an administrator alone may do. The
          * entry stays drawn and tells the truth about why it is not offered,
          * rather than disappearing for a reason nobody can look up.

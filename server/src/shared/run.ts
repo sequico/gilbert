@@ -1,5 +1,5 @@
 /**
- * The run's durable format (ADR 0034) — one definition, both tiers.
+ * The run's durable format (ADR 0030) — one definition, both tiers.
  *
  * A run is one document in the **group's own account**: `<id>.json` under
  * `runs/` in that account's `gilbert` app folder, addressed by
@@ -8,7 +8,7 @@
  * woke it, the plan — each step, what it waits on and how it left it, so a
  * reader of the record alone can say why a step ran and why one did not —
  * the objects it touched, what it waits for, where it asked a person and until
- * when, which facts of the installation's memory its calls carried (ADR 0037),
+ * when, which facts of the installation's memory its calls carried (ADR 0033),
  * every authorisation with the sentence it arrived in, the authority that
  * was given and the act it is for, the evidence behind what it claims, the
  * budget it has spent,
@@ -39,7 +39,7 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 export const RUN_VERSION = 5;
 
 /**
- * The most steps one run may take (ADR 0031).
+ * The most steps one run may take (ADR 0027).
  *
  * A ceiling of the loop's own, not a field of the run: a run measured against a
  * ceiling it carried itself is a run that could raise it. It is also the most
@@ -51,7 +51,7 @@ export const RUN_STEPS_MAX = 20;
 /**
  * The version before this one, which this build reads as well.
  *
- * `recalled` is the field this version added (ADR 0037), and a **known** older
+ * `recalled` is the field this version added (ADR 0033), and a **known** older
  * version is read with the field it does not carry defaulted — an installation
  * that ran the build before this one has runs on its accounts, and refusing them
  * would stop every pass before it worked a change, forever, with no surface to
@@ -67,20 +67,20 @@ const RUN_VERSION_WITHOUT_RECALLED = 4;
  *
  * "skipped" is the one that did not run: a step whose dependency ended in a way
  * no branch of the plan names is left unrun, and its record says which step and
- * which outcome left it (ADR 0034).
+ * which outcome left it (ADR 0030).
  */
 export type RunStepState = "open" | RunStepOutcome | "skipped";
 
 /** How a step ended: it worked, or it did not. A branch names one of these two. */
 type RunStepOutcome = "done" | "failed";
 
-/** The three ways a run ends (ADR 0034): done, a person is needed, or the budget is spent. */
+/** The three ways a run ends (ADR 0030): done, a person is needed, or the budget is spent. */
 type RunEnding = "done" | "blocked" | "out-of-budget" | "cancelled";
 
 /** A run's state: in flight, or one of the three endings. */
 export type RunState = "running" | RunEnding;
 
-/** The channel a sentence sits in (ADR 0033): the group's chat, or mail. */
+/** The channel a sentence sits in (ADR 0029): the group's chat, or mail. */
 type RunChannel = "chat" | "mail";
 
 /** The sentence an instruction or an authorisation arrived in, per its channel. */
@@ -91,16 +91,16 @@ export interface RunMessageRef {
 }
 
 /**
- * Which authority a person gave (ADR 0032): the word for something irreversible
+ * Which authority a person gave (ADR 0028): the word for something irreversible
  * or destructive (class 2), the word that sends outward — or the rule that
  * declared it sends (class 3) — or the administrator's override of the written
  * policy (class 4). The class the agent decides alone, and the intent, which is
- * approved where ADR 0024 puts it, are not authorisations.
+ * approved where ADR 0020 puts it, are not authorisations.
  */
 export type RunAuthority = "destructive" | "outward" | "override";
 
 /**
- * What started a run (ADR 0031, 0035): a rule the group wrote in advance, or an
+ * What started a run (ADR 0027, 0031): a rule the group wrote in advance, or an
  * instruction from a person. Exactly one of the two is named.
  */
 interface RunStart {
@@ -117,11 +117,11 @@ interface RunStart {
    * are the loop's, composed from the event's own surface, change and address.
    * A rule together with the change it names is also what the loop reads a
    * change once by: a run already naming that pair is the change being worked or
-   * the answer it already has, never a reason for a second run (ADR 0035).
+   * the answer it already has, never a reason for a second run (ADR 0031).
    */
   woke: string | null;
   /**
-   * The files a batched drop brought, when the run answers one (ADR 0038).
+   * The files a batched drop brought, when the run answers one (ADR 0034).
    *
    * The run is told the names it is answering, not only the folder: the change
    * turn saw the whole drop, and the run that works it must not have to list the
@@ -129,8 +129,8 @@ interface RunStart {
    */
   batch?: readonly string[];
   /**
-   * Whether the rule that started this run declared that it sends (ADR 0032,
-   * 0035). A group wrote that rule, and its instruction says what to send: the
+   * Whether the rule that started this run declared that it sends (ADR 0028,
+   * 0031). A group wrote that rule, and its instruction says what to send: the
    * declaration is the authority an outward act asks for, and it is false or
    * absent for a run an instruction started.
    */
@@ -146,7 +146,7 @@ interface RunStart {
    */
   wakeFrom?: string | null;
   /**
-   * The surface matrix the rule carried when the run opened (ADR 0035): what it
+   * The surface matrix the rule carried when the run opened (ADR 0031): what it
    * may write on, and what woke it. A run written before the matrix carries
    * none, and may write where it did before.
    */
@@ -155,7 +155,7 @@ interface RunStart {
 
 /**
  * What a step waits on: the step of the same plan it follows, and the outcome it
- * needs that step to have ended with (ADR 0034).
+ * needs that step to have ended with (ADR 0030).
  *
  * A step with no `needs` is ready as soon as the run reaches it. One that names
  * a step is ready once that step has ended with its `when`, and is left unrun
@@ -179,7 +179,7 @@ export interface RunStep {
   needs: RunStepNeeds | null;
 }
 
-/** What a run waits for, where it asked, and until when (ADR 0033, 0034). */
+/** What a run waits for, where it asked, and until when (ADR 0029, 0030). */
 export interface RunWait {
   /** What it waits for, in words. */
   what: string;
@@ -190,10 +190,10 @@ export interface RunWait {
 }
 
 /**
- * The act an authority is given for (ADR 0032), read from what the act reaches
+ * The act an authority is given for (ADR 0028), read from what the act reaches
  * and what it carries.
  *
- * The bound ADR 0032 draws: "an instruction that asks for a send authorises
+ * The bound ADR 0028 draws: "an instruction that asks for a send authorises
  * **that send and no other**". A class is not an act — a run that carried one
  * outward authority would otherwise send to anybody, once, and the record could
  * not tell one send from the next. So the authority a person gave names the act
@@ -207,7 +207,7 @@ export interface RunAuthorityAct {
 }
 
 /**
- * One authorisation, with the sentence it arrived in (ADR 0032, 0033).
+ * One authorisation, with the sentence it arrived in (ADR 0028, 0029).
  *
  * `authority` is what a reader audits by: a class-3 send and a class-4 override
  * are told apart by this field and never by reading `what` for prose. `act` is
@@ -217,7 +217,7 @@ export interface RunAuthorityAct {
 export interface RunAuthorisation {
   /** What was authorised, in the words it was read in. */
   what: string;
-  /** Which authority of ADR 0032 was given. */
+  /** Which authority of ADR 0028 was given. */
   authority: RunAuthority;
   /** The act the authority is for. */
   act: RunAuthorityAct;
@@ -228,7 +228,7 @@ export interface RunAuthorisation {
   from: RunMessageRef;
 }
 
-/** One thing a claim of the run rests on (ADR 0032, 0034). */
+/** One thing a claim of the run rests on (ADR 0028, 0030). */
 interface RunEvidence {
   /** The step the support belongs to, "" when it stands for the run itself. */
   claim: string;
@@ -236,7 +236,7 @@ interface RunEvidence {
   source: string;
 }
 
-/** One answer to this run that was not the sender's own word (ADR 0033). */
+/** One answer to this run that was not the sender's own word (ADR 0029). */
 export interface RunAnswerRefusal {
   /** When the answer arrived, as the message carries it. */
   at: string;
@@ -249,7 +249,7 @@ export interface RunAnswerRefusal {
 }
 
 /**
- * What the run has spent (ADR 0031): the tally of its budget, and only the
+ * What the run has spent (ADR 0027): the tally of its budget, and only the
  * tally.
  *
  * The budget is steps, time and model calls. The **ceiling** is not here: it is
@@ -296,7 +296,7 @@ interface RunEnd {
  * null — an ending on a run that is still running is a contradiction rather
  * than a value. A wait lives on a running run and on a run that ended **blocked
  * on a person**: that one keeps the question it left, and the sentence it asked
- * it in, so the run and the answer can be recognised as each other (ADR 0033).
+ * it in, so the run and the answer can be recognised as each other (ADR 0029).
  */
 export interface RunDoc {
   /** The schema version; `RUN_VERSION` today. */
@@ -309,14 +309,14 @@ export interface RunDoc {
   plan: RunStep[];
   /**
    * What the run touched, so a person can undo by hand what can be undone
-   * (ADR 0034). The objects themselves are Stalwart's; what is written here is
+   * (ADR 0030). The objects themselves are Stalwart's; what is written here is
    * a reference to one, never a copy of it.
    */
   touched: WorkorderRef[];
   /** The live wait, or null when the run is not waiting. */
   waiting: RunWait | null;
   /**
-   * What the memory gave the calls of this run (ADR 0037): the ids of the facts
+   * What the memory gave the calls of this run (ADR 0033): the ids of the facts
    * it recalled, each addressed under `memory/` in the **Master's** own account.
    *
    * A reference and never a copy — the sentence lives in the sheet, so a
@@ -327,7 +327,7 @@ export interface RunDoc {
   authorisations: RunAuthorisation[];
   evidence: RunEvidence[];
   /**
-   * Answers this run's question that were not the sender's own word (ADR 0033).
+   * Answers this run's question that were not the sender's own word (ADR 0029).
    *
    * A refusal is recorded here rather than silently dropped: the person wrote
    * an answer, and a surface can say why it did not continue the run — the code
@@ -335,7 +335,7 @@ export interface RunDoc {
    * was. The list keeps the last few; a run is the record, not a mailbox.
    */
   answerRefusals?: RunAnswerRefusal[];
-  /** What the run has spent so far (ADR 0031). */
+  /** What the run has spent so far (ADR 0027). */
   spent: RunSpent;
   state: RunState;
   /** The ending, or null while the run is running. */
@@ -493,7 +493,7 @@ function planIsOrdered(plan: readonly RunStep[]): boolean {
 }
 
 /**
- * Whether a value is one of the run's waits (ADR 0033, 0034).
+ * Whether a value is one of the run's waits (ADR 0029, 0030).
  *
  * The one reader of a wait's shape, so a caller that has just been handed
  * something — the result of the tool that asked a person — asks whether it is a
@@ -589,7 +589,7 @@ function isRunState(x: unknown): x is RunState {
  *
  * Strict JSON, an object at the top, then every declared field checked. The
  * **first** field that is wrong is named and nothing is returned: an unreadable
- * run is a defect the agent reports, never a shape it guesses at (ADR 0034).
+ * run is a defect the agent reports, never a shape it guesses at (ADR 0030).
  * A key this build does not know is ignored — a field a later build added, or a
  * retired one, decides nothing here and does not refuse a run that is otherwise
  * whole — and the parsed run carries only the fields above, so the next write
@@ -792,7 +792,7 @@ export function recordStep(
 }
 
 /**
- * Append the step the model chose after seeing a result (ADR 0031).
+ * Append the step the model chose after seeing a result (ADR 0027).
  *
  * The plan grows as the run goes: the model chooses the tools and the order,
  * acts, looks at the result and chooses again, so a step it decides on is
@@ -800,7 +800,7 @@ export function recordStep(
  * when the run is written, and none of them is known before it acts.
  *
  * `needs` is what the step waits on: a step of the plan the model named before
- * it, so the value refers to a step already appended or to none (ADR 0034).
+ * it, so the value refers to a step already appended or to none (ADR 0030).
  */
 export function appendStep(
   run: RunDoc,
@@ -823,7 +823,7 @@ export function appendStep(
 }
 
 /**
- * Record an object the run touched (ADR 0034).
+ * Record an object the run touched (ADR 0030).
  *
  * The list a person reads to undo by hand what can be undone, and the one
  * transition that writes it: an act the run cannot name is an act nobody can
@@ -838,7 +838,7 @@ export function touchObject(run: RunDoc, ref: WorkorderRef): RunDoc {
 }
 
 /**
- * Record the facts a call carried from the installation's memory (ADR 0037).
+ * Record the facts a call carried from the installation's memory (ADR 0033).
  *
  * One list and never a second: a fact recalled by a later call of the same run
  * is already on it, so the record says which facts the run reasoned from
@@ -864,7 +864,7 @@ export function recordRecall(run: RunDoc, ids: readonly string[]): RunDoc {
  * One wait replaces the previous one: a run waits in one place at a time, and
  * the date it carries is what the agent re-arms a process from. That date is
  * optional, because a person's answer arrives when they write it: a wait with
- * no deadline is a question left in the conversation (ADR 0033), and the
+ * no deadline is a question left in the conversation (ADR 0029), and the
  * sentence it was asked in is what the answer arrives through.
  */
 export function waitUntil(run: RunDoc, wait: RunWait): RunDoc {
@@ -886,7 +886,7 @@ export function takeAuthorisation(run: RunDoc, authorisation: RunAuthorisation):
   return { ...run, authorisations: [...run.authorisations, authorisation] };
 }
 
-/** Record what one of the run's claims rests on (ADR 0032, 0034). */
+/** Record what one of the run's claims rests on (ADR 0028, 0030). */
 export function recordEvidence(run: RunDoc, evidence: RunEvidence): RunDoc {
   mustBeRunning(run);
   if (!isEvidence(evidence)) throw new Error(`the run "${run.id}" cannot rest on that.`);
@@ -894,7 +894,7 @@ export function recordEvidence(run: RunDoc, evidence: RunEvidence): RunDoc {
 }
 
 /**
- * Record an answer to this run that was not its sender's own word (ADR 0033).
+ * Record an answer to this run that was not its sender's own word (ADR 0029).
  *
  * A run blocked on a person may be written to (its state is `blocked`, not an
  * ending), and the same answer read twice — a pass that died before the cursor
@@ -913,12 +913,12 @@ export function recordAnswerRefusal(run: RunDoc, refusal: RunAnswerRefusal): Run
 }
 
 /**
- * Add to the run's tally of what it has spent (ADR 0031).
+ * Add to the run's tally of what it has spent (ADR 0027).
  *
  * The one place the tally moves: the caller says which of the three counters a
  * turn touched — the step it took, the model call it made, the milliseconds it
  * cost — and the run carries the sum. What the sum is measured against is the
- * rule's ceiling, not the run's (ADR 0035).
+ * rule's ceiling, not the run's (ADR 0031).
  */
 export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
   mustBeRunning(run);
@@ -945,14 +945,14 @@ export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
 }
 
 /**
- * End the run: how, when and why (ADR 0034).
+ * End the run: how, when and why (ADR 0030).
  *
  * The ending is written down — so a run that stops says which of the three ways
  * it stopped, and why — and the wait is dropped, because a run that has stopped
  * is not waiting for anything. A run that ends **blocked on a person** is the
  * one exception: it keeps the question it left, and the sentence it asked it
  * in, so the answer that arrives in the conversation can be recognised as
- * addressed to it (ADR 0033).
+ * addressed to it (ADR 0029).
  */
 export function finishRun(run: RunDoc, ending: RunEnding, end: RunEnd): RunDoc {
   mustBeRunning(run);
@@ -976,7 +976,7 @@ export function finishRun(run: RunDoc, ending: RunEnding, end: RunEnd): RunDoc {
  * arrived in and carrying what the person said as what it answered, and the run
  * is running again with no wait on it. A record the model is shown whole is what
  * lets a run picked up by the next holder continue from the document rather than
- * from a process's memory (ADR 0034).
+ * from a process's memory (ADR 0030).
  *
  * The answer must be the run's **own** question: a run asks in one sentence and
  * only that sentence's answer continues it, which is what keeps two runs that

@@ -16,7 +16,7 @@ import { fakeJmapServer } from "@/test/jmapServer";
  * after the copy exists, and that a refused destroy keeps the source on screen.
  *
  * Every case here is an installation administrator's, because a move between
- * accounts changes whose the card is (ADR 0018) — so the session says so, and
+ * accounts changes whose the card is (ADR 0016) — so the session says so, and
  * what a refusal does is asserted in `contact-move-admin.test.ts` rather than
  * twice.
  */

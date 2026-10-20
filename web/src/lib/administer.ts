@@ -2,7 +2,7 @@ import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import type { JmapSession } from "@/jmap/types";
 
 /**
- * Whether this session may administer (ADR 0017): the Stalwart admin marker
+ * Whether this session may administer (ADR 0015): the Stalwart admin marker
  * *and* the door's own condition — an installation that still offers
  * administration, on a device this person marked as their own.
  *

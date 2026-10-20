@@ -423,7 +423,7 @@ const WEBPUSH_CAP = "urn:ietf:params:jmap:webpush-vapid";
  * the app re-registers the device; how many of those wake-ups a real server
  * sends is the debt this rests on.
  *
- * ADR-0016 OWED: verification-background-answer
+ * ADR-0014 OWED: verification-background-answer
  */
 async function verifyPushSubscription(data) {
   const id = typeof data.pushSubscriptionId === "string" ? data.pushSubscriptionId : "";
@@ -703,7 +703,7 @@ async function notifyMail(accountId, account, email, strings) {
  * which is the chat section's business and nobody else's. Any other name is read
  * rather than a whitelist of the two the bitmap is asked for, because which name
  * a degraded delivery wears is exactly what a live server has not been asked yet
- * (`ADR-0016 OWED: degraded-statechange-type`); a read that finds nothing says
+ * (`ADR-0014 OWED: degraded-statechange-type`); a read that finds nothing says
  * nothing, so reading too widely costs requests, not noise.
  *
  * Where the account is one the briefing describes with an Inbox, the message is
@@ -797,7 +797,7 @@ const CHAT_READ = 10;
  * A real JMAP server pages `FileNode/query` by `position` and reports `total`,
  * so the newest page starts at `total - CHAT_READ`; the mock answers the same
  * shape. Asking for the total first is what lets a folder longer than the page
- * be read from its end rather than its start. This is ADR 0016's unverified
+ * be read from its end rather than its start. This is ADR 0014's unverified
  * half: what a live 0.16 answers here is the probe `chat-wake-read` still
  * owes.
  */

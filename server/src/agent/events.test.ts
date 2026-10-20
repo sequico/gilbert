@@ -1,5 +1,5 @@
 /**
- * What a group's account changed, read against the mock Stalwart (ADR 0035).
+ * What a group's account changed, read against the mock Stalwart (ADR 0031).
  *
  * Three facts the design rests on are pinned here: a read describes the mail,
  * the nodes and the workorder writes an account made — a write to a workorder is

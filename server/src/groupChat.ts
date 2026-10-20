@@ -1,5 +1,5 @@
 /**
- * A group's chat, read and written by this tier (ADR 0005).
+ * A group's chat, read and written by this tier (ADR 0004).
  *
  * A chat message is one JSON document per node in the group account's own
  * `gilbert/chat` folder, and its shape, its validator and the ordering of the
@@ -191,7 +191,7 @@ export async function findChatMessages(
  *
  * The chat folders are made on the way (`ensureFolderPath`), so the first thing
  * the agent says in a group that has never spoken creates them, and the id the
- * write answers with is what a reply is addressed to (`replyTo`, ADR 0033) and
+ * write answers with is what a reply is addressed to (`replyTo`, ADR 0029) and
  * what a run waits on when the message is a question.
  */
 export async function postChatMessage(

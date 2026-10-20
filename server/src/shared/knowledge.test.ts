@@ -33,7 +33,7 @@ import {
 } from "./knowledge.js";
 
 /**
- * The knowledge base's one definition (ADR 0024).
+ * The knowledge base's one definition (ADR 0020).
  *
  * These pin the mechanisms a reader and a writer depend on: the folder-name
  * rule that makes a title a Files name, the lifecycle arithmetic that decides
@@ -524,7 +524,7 @@ test("a page with blocks alone is not a checklist template", () => {
   assert.equal(
     isChecklistTemplate(draft),
     false,
-    "checklist-looking blocks alone do not make a template (ADR 0030)",
+    "checklist-looking blocks alone do not make a template (ADR 0026)",
   );
   assert.equal(draft.checklist, null);
 });
@@ -547,7 +547,7 @@ test("an empty checklist is valid rules with no steps", () => {
 
 test("a section's gate is bounded, validated and carried into the resolution", () => {
   /*
-   * The gate (ADR 0030): a section names up to three prerequisite sections; the
+   * The gate (ADR 0026): a section names up to three prerequisite sections; the
    * validator refuses a fourth, and `resolveChecklist` carries the keys so the
    * workorder side can decide whether the section shows. Fails if the bound or
    * the carry is removed.

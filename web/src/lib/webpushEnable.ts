@@ -175,7 +175,7 @@ async function registerThisBrowser(key: string, force = false): Promise<void> {
 
   /*
    * Every account the subscription serves: the reader's own and every group
-   * mailbox, each with the Inbox its filter names (ADR 0016). A reader in at
+   * mailbox, each with the Inbox its filter names (ADR 0014). A reader in at
    * least one group is also woken for chat: `FileNode` is what a chat message
    * changes, and the worker reads it back.
    */

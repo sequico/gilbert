@@ -1258,7 +1258,7 @@ test("a tab follows an account its own credential does not cover, and is handed 
   const restore = stubUpstream();
   const capture = captureToken();
   try {
-    /* The installation's own account (ADR 0028): the caller's session is not a
+    /* The installation's own account (ADR 0024): the caller's session is not a
        member of it, so Stalwart never delivers its change to the caller's own
        subscription. The follow creates the installation's subscription with the
        credential it is given, and hands the tab the StateChange as it arrived. */

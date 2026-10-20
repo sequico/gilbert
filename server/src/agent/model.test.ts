@@ -1,6 +1,6 @@
 /**
  * The model client and the decision turn, against a stub OpenAI-compatible
- * endpoint (ADR 0031).
+ * endpoint (ADR 0027).
  *
  * What is asserted here is the contract a turn's answer is read against: the
  * zero-retention opt-out on every request, a JSON answer shape and a ceiling on
@@ -142,7 +142,7 @@ function answerWith(value: unknown): void {
 
 /**
  * The installation's model, as its own document states it: the document is
- * where the choice lives (ADR 0011), and `modelAccess` is the one place it is
+ * where the choice lives (ADR 0009), and `modelAccess` is the one place it is
  * read.
  */
 const installation = parseInstallationDocumentDetailed(
@@ -443,7 +443,7 @@ test("more than one rule may cover a change, and the turn answers with every one
   // Two rules on the same surface. The turn hands both to the model and takes
   // the ones it names — every one that fits, without a fault and without
   // choosing between them: a change two rules cover is both of the group's
-  // decisions, neither set aside for the other (ADR 0035).
+  // decisions, neither set aside for the other (ADR 0031).
   const second: RuleDoc = ruleOf(
     "container-filing",
     ["mail"],
@@ -579,7 +579,7 @@ test("an installation that has chosen no model has no agent", () => {
   assert.equal(
     modelAccess(none.doc, true),
     null,
-    "there is no default provider nobody chose: an installation with no model has no agent (ADR 0031)",
+    "there is no default provider nobody chose: an installation with no model has no agent (ADR 0027)",
   );
   // Absence is refused in the same shape a provider the operator has not
   // allowed is refused in: a code, so a surface says it to a person instead of
@@ -1106,7 +1106,7 @@ test("an administrator's answer may carry an override, and nobody else's does", 
 
 test("a person's answer is read for the act it authorises, and never for an override", async () => {
   /*
-   * The sentence that answers a run can be the word a class asks for (ADR 0032),
+   * The sentence that answers a run can be the word a class asks for (ADR 0028),
    * so what it authorises is read — and the reading is bounded here: an act that
    * names what it reaches, a class a person's answer can give, and no override
    * unless the loop has told it the sender is an installation administrator (the

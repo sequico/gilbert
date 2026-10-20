@@ -368,7 +368,7 @@ export function ThreadView({
   const anyStarred = anyCarries(messages, STARRED_KEYWORD);
   const inJunk = Boolean(mailboxId && mailboxes[mailboxId]?.role === "junk");
   /*
-   * ADR 0015: the toolbar says which delete it is — a thread open out of
+   * ADR 0013: the toolbar says which delete it is — a thread open out of
    * Deleted Items or Junk Mail is destroying rather than filing — and it is
    * not offered at all in a group, where only an administrator ends mail.
    */

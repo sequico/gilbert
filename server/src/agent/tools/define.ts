@@ -1,5 +1,5 @@
 /**
- * What a tool is, once (ADR 0031, ADR 0032).
+ * What a tool is, once (ADR 0027, ADR 0028).
  *
  * The catalogue's own machinery: the authority class a tool exercises, the
  * refusal a tool answers with, the shape every tool is defined through, the call
@@ -23,7 +23,7 @@ import type { ImageReader } from "./content.js";
 export type { ImageReader };
 
 /**
- * The authority class a tool exercises (ADR 0032).
+ * The authority class a tool exercises (ADR 0028).
  *
  * The five classes, named by what each one needs before the agent may act:
  * `reversible` is the agent's own decision; `destructive` (a message, a folder
@@ -73,16 +73,16 @@ export interface AnyTool {
   /** Whether the tool can change anything. The reading half's are all false. */
   readonly writes: boolean;
   /**
-   * The surface of the group's account a write touches (ADR 0035), or absent
+   * The surface of the group's account a write touches (ADR 0031), or absent
    * for the agent's own bookkeeping (its memory).
    */
   readonly surface?: SurfaceName;
-  /** Whether one call leaves the run waiting on a person (ADR 0033, 0034). */
+  /** Whether one call leaves the run waiting on a person (ADR 0029, 0030). */
   readonly waits: boolean;
-  /** What a call to it spends of the run's budget (ADR 0031). */
+  /** What a call to it spends of the run's budget (ADR 0027). */
   readonly spend: Partial<RunSpent>;
   /**
-   * The act this call is, read from the arguments the model gave (ADR 0032).
+   * The act this call is, read from the arguments the model gave (ADR 0028).
    *
    * A class is not an act: an authority a person gave names one act and no
    * other, so a tool whose class needs one answers here what its act reaches and
@@ -112,11 +112,11 @@ interface ToolSpec<Args> {
   description: string;
   authority: ToolAuthority;
   writes: boolean;
-  /** The surface of the group's account a write touches (ADR 0035). */
+  /** The surface of the group's account a write touches (ADR 0031). */
   surface?: SurfaceName;
   /**
    * Whether one call leaves the run waiting on a person. A run holds one wait
-   * (ADR 0034), so a plan may carry one such call and no more.
+   * (ADR 0030), so a plan may carry one such call and no more.
    */
   waits?: boolean;
   spend?: Partial<RunSpent>;
@@ -164,13 +164,13 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
 /** What a tool call is given: the session it acts as, and the run it works. */
 export interface ToolCall {
   ctx: Ctx;
-  /** The account the run belongs to — the group's own (ADR 0035). */
+  /** The account the run belongs to — the group's own (ADR 0031). */
   accountId: string;
   /** The run the call is a step of, which is what its authority is read from. */
   run: RunDoc;
   /**
    * The installation's model's eyes, for the one read a function cannot make
-   * (ADR 0031): an image is transcribed by the model, and a caller without this
+   * (ADR 0027): an image is transcribed by the model, and a caller without this
    * gets the answer that says so rather than a guess at the picture.
    *
    * A function rather than the model's own access, because a catalogue that
@@ -179,7 +179,7 @@ export interface ToolCall {
    */
   readImage?: ImageReader;
   /**
-   * The installation's memory as the caller's pass read it (ADR 0037).
+   * The installation's memory as the caller's pass read it (ADR 0033).
    *
    * The store is read **once per pass** (`agent/loop.ts`) and the one reading is
    * handed to every step of it, so the write `memory.remember` makes is against
@@ -200,7 +200,7 @@ const AUTHORITY_NEEDED: Record<ToolAuthority, RunAuthority | "alone" | "never"> 
   intent: "never",
 };
 
-/** What a tool's class needs before a run may take it (ADR 0032). */
+/** What a tool's class needs before a run may take it (ADR 0028). */
 function authorityNeeded(authority: ToolAuthority): RunAuthority | "alone" | "never" {
   return AUTHORITY_NEEDED[authority];
 }
@@ -212,7 +212,7 @@ function authorityNeeded(authority: ToolAuthority): RunAuthority | "alone" | "ne
  * The guard is here and nowhere else: `reversible` is the agent's own decision
  * and asks nobody; the three that need one are answered by the run's recorded
  * authorisations, each naming the authority a person gave **and the act it is
- * for** — an authorisation answers for that act and no other (ADR 0032), so a
+ * for** — an authorisation answers for that act and no other (ADR 0028), so a
  * send a person authorised does not authorise the next one; and `intent` is
  * never answered at all, because which policy is right is not a thing a run can
  * be authorised to decide.
@@ -225,7 +225,7 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
   if (!act) return false;
   /*
    * A rule that declares that it sends is the authority an outward act asks for
-   * (ADR 0032, 0035) — for the correspondent whose change woke it. The group
+   * (ADR 0028, 0031) — for the correspondent whose change woke it. The group
    * wrote the rule and its instruction says what to send, so the declaration
    * reaches the thread that caused it; another address is a decision the run
    * may ask a person for, never one it grants itself.
@@ -244,7 +244,7 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
 
 /**
  * The mode the run's rule gives one surface, or null when the run predates the
- * matrix (ADR 0035).
+ * matrix (ADR 0031).
  *
  * A run opened before a rule carried surfaces may write where it did before: the
  * guard does not narrow it retroactively, and the run's own view says it stands

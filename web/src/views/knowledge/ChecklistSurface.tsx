@@ -1,5 +1,5 @@
 /**
- * The checklist template surface (ADR 0030).
+ * The checklist template surface (ADR 0026).
  *
  * A checklist template is a **process**, not a form: **variants** a workorder
  * picks once, and ordered **sections** of **steps**, each carrying an optional
@@ -13,7 +13,7 @@
  * controls and the stored rules, so a template is exactly what the author sees.
  *
  * The module is a lazy chunk: authoring is loaded when a template opens, never
- * with the app's first paint (ADR 0030).
+ * with the app's first paint (ADR 0026).
  */
 import { ChevronDown, ChevronUp, Filter, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
@@ -196,7 +196,7 @@ function ConditionField({
 /**
  * Whether `from` (transitively) requires `target`. A section that already
  * depends on this one cannot be made its prerequisite, so a cycle is never
- * offered in the editor (ADR 0030).
+ * offered in the editor (ADR 0026).
  */
 function dependsOn(
   sections: KnowledgeSection[],
@@ -217,7 +217,7 @@ function dependsOn(
 
 /**
  * A section's **gate**: up to `MAX_SECTION_REQUIRES` other sections that must
- * have been completed once before this one shows (ADR 0030). The prerequisite
+ * have been completed once before this one shows (ADR 0026). The prerequisite
  * may be any other section of the template — the global checklist or another
  * group's — because the gate resolves over the whole workorder. A section that
  * already depends on this one is not offered, so a cycle cannot be written; and

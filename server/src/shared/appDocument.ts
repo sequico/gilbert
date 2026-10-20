@@ -7,7 +7,7 @@
  * (`web/src/lib/appFolder.ts`), the server through `uploadJsonBlob` and the
  * writers built on it (`server/src/appFolder.ts`). Each tier also reads what the
  * other wrote — the settings document a browser saves is read by the
- * administration (ADR 0007) — so "the document" has to mean one
+ * administration (ADR 0005) — so "the document" has to mean one
  * sequence of bytes rather than two spellings that happen to parse alike. Two
  * spellings would make the same value look like a change to anything comparing
  * blobs, and leave neither tier able to say what a document looks like.

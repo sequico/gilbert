@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
- * The Global contacts directory (ADR 0023), as an administrator writes it.
+ * The Global contacts directory (ADR 0019), as an administrator writes it.
  *
  * The directory is written as the Master: the book is found or made, and the
  * card is created, checked against the book and destroyed.
@@ -119,7 +119,7 @@ test("clearing an organisation or a note on an update erases it", async () => {
 
 test("every account reads the directory through the route", async () => {
   /*
-   * ADR 0023's read path: the directory is owned by the Master, so no session
+   * ADR 0019's read path: the directory is owned by the Master, so no session
    * reaches its book — a member (here the signed-in administrator, whose
    * session does not hold the agent's account) reads it through
    * `GET /api/global-contacts`. A route that read the caller's own account

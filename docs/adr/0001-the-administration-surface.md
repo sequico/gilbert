@@ -31,7 +31,7 @@ session at sign-in, so a demotion in Stalwart lands on the next privileged
 call of an already open session. The client only ever receives `isAdmin:
 boolean` on the session's `gilbert` extension; that flag shows or hides the
 admin entry point **and decides the one action of this client's own that asks
-about it** — whether a group's mail may be ended (ADR 0015). It is still not a
+about it** — whether a group's mail may be ended (ADR 0013). It is still not a
 door: the server is the door and the client is cosmetic in the sense that
 matters, because a forged flag is refused by the mail server exactly as a forged
 admin surface is today, whose every call fails.
@@ -76,7 +76,7 @@ save.
   writes the policy into every one's app folder by impersonation, the
   publishing administrator's own account included. One account's refusal —
   no impersonation grant, an unreachable session, no Files account — does not
-  stop the rest; what a publish answers with is the job ADR 0010 defines — one
+  stop the rest; what a publish answers with is the job ADR 0008 defines — one
   document naming the population it measured itself against, the accounts the
   policy reached and the ones it did not, each with a code. A
   reader's own policy is read from their own account: `GET
@@ -94,7 +94,7 @@ save.
 
 - **Identity lock** (`identity-lock.json`): present means the account's
   identity is locked, missing means it is not — set or released through the
-  same impersonation door (ADR 0007). A session's own
+  same impersonation door (ADR 0005). A session's own
   `gilbert.identityLocked` is read from the signed-in account's own file at
   sign-in; reading your own account needs no impersonation.
 
@@ -157,4 +157,4 @@ an administrator.
 - `server/src/config.ts` — the environment bootstrap policy
 - `server/src/groupAccess.ts` — the installation's own session onto a group's
   documents
-- ADR 0007 — identity administration
+- ADR 0005 — identity administration

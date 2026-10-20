@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort, jsonCallAs } from "./testkit.js";
 
 /**
- * An installation that offers no administration at all (ADR 0017).
+ * An installation that offers no administration at all (ADR 0015).
  *
  * This is the operator's switch, and the point of it is that it holds against
  * the browser rather than against the drawing of a menu: `/api/jmap` forwards

@@ -247,7 +247,7 @@ describe("a close whose final save fails", () => {
 });
 
 /**
- * The one destroy a member still takes in a group (ADR 0015).
+ * The one destroy a member still takes in a group (ADR 0013).
  *
  * The rule closes the three entry points that end **the group's mail**; a draft
  * is the reader's own unsent message in their own name, and discarding it is the

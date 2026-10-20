@@ -10,7 +10,7 @@ import { RecipientPicker } from "../RecipientPicker";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * A group in the two places a recipient is chosen (ADR 0004).
+ * A group in the two places a recipient is chosen (ADR 0003).
  *
  * Autocomplete answers "finish this name" and the picker answers "who is
  * there?", and a group has to be visible to both: it is a row of its own,

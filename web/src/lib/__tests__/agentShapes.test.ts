@@ -3,7 +3,7 @@ import { INSTRUCTION_VERSION } from "@gilbert/shared/instruction";
 import { expect, it } from "vitest";
 
 /**
- * The agent's document shapes, as a surface writes them (ADR 0035).
+ * The agent's document shapes, as a surface writes them (ADR 0031).
  *
  * A group's rules and its standing instruction are the group's own documents, so
  * the client writes them with the group's session — and it writes them in the

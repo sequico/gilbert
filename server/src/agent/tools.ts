@@ -1,5 +1,5 @@
 /**
- * The agent's tools, read from the group's own account (ADR 0031).
+ * The agent's tools, read from the group's own account (ADR 0027).
  *
  * A tool is a **task over one object Stalwart offers**, not a step of the
  * protocol: one that finds messages by the mail client's own search grammar,
@@ -12,8 +12,8 @@
  * **description** (the product's interface to the model, written as prose a
  * person's agent should reach for), its **arguments** (validated before the
  * executor runs, never inside it), the **authority class it exercises** (ADR
- * 0032), the **act** that class is about when the class asks a person, and what
- * it **spends** of the run's budget (ADR 0031) — which the loop applies with
+ * 0028), the **act** that class is about when the class asks a person, and what
+ * it **spends** of the run's budget (ADR 0027) — which the loop applies with
  * `spendRun`, and which for a read is nothing.
  *
  * **The reading half cannot change anything.** Reading before acting is what
@@ -24,11 +24,11 @@
  * applies it with `waitUntil` — the run document is the loop's to write, exactly
  * as the tally is.
  *
- * Every tool acts in the account its run lives in — the group's own (ADR 0035)
+ * Every tool acts in the account its run lives in — the group's own (ADR 0031)
  * — and reads it through the same doors the surfaces use, so the agent sees the
  * same documents a person does. The one that does not is `memory.remember`,
  * which records a fact into the **installation's** own store in the Master's
- * account rather than into any group's (ADR 0037): the memory is one for the
+ * account rather than into any group's (ADR 0033): the memory is one for the
  * whole installation, which is what makes what one group learned worth knowing
  * in the next. The fact still records the **group it is about** — the run's own
  * account — because that is what its `standing` mark is filtered by.
@@ -103,7 +103,7 @@ export { defineTool, isGroupAddress, mayRun, readMessageForAnswer };
  * Every tool this build has: the half that reads, the half that changes the
  * group's own account, and the acts a person answers for.
  *
- * Each tool declares its authority class (ADR 0032): `reversible` is the
+ * Each tool declares its authority class (ADR 0028): `reversible` is the
  * agent's own decision; `destructive` and `outward` are answered by a person's
  * recorded word for that act (or, for an outward act, by a rule that sends, to
  * the correspondent whose change woke it); `intent` is never answered by
@@ -208,8 +208,8 @@ export async function runTool(
   const { tool, args } = validatedTool(catalogue, name, raw);
   /*
    * A write on a surface the run's rule keeps off is refused before the class
-   * is asked: the rule says *where* this run may act (ADR 0035), the class says
-   * whether the act needs a person's word (ADR 0032). Reading is free — a
+   * is asked: the rule says *where* this run may act (ADR 0031), the class says
+   * whether the act needs a person's word (ADR 0028). Reading is free — a
    * reading is proof, not an act.
    */
   if (tool.writes && tool.surface && surfaceModeOf(call.run, tool.surface) === "off")

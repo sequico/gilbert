@@ -1,5 +1,5 @@
 /**
- * The admin System Sieve API, as the client calls it (ADR 0008).
+ * The admin System Sieve API, as the client calls it (ADR 0006).
  *
  * One function per route in `server/src/app.ts`'s "System Sieve scripts"
  * section, which writes `x:SieveSystemScript` as the signed-in

@@ -4,7 +4,7 @@ import { freePort, jsonCall } from "./testkit.js";
 
 /**
  * The agent's administration surface behind the same door every other one is
- * behind (ADR 0001, ADR 0017): the claim and the runs and the memory are the
+ * behind (ADR 0001, ADR 0015): the claim and the runs and the memory are the
  * installation's own records, and a session without the Stalwart admin marker
  * reaches none of them — **including the write**, which is the one a surface must
  * not leave open. Separate file on purpose — the mock reads `MOCK_ADMIN` at

@@ -4,7 +4,7 @@ import type { Ctx } from "./appFolder.js";
 import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
- * The knowledge base's Master-owned door (ADR 0024), end to end.
+ * The knowledge base's Master-owned door (ADR 0020), end to end.
  *
  * The company KB is created at boot as the Master and read through the route;
  * every write goes through the route, which acts as the Master and gates
@@ -243,7 +243,7 @@ test("an article nothing can find is a 404, and a delete removes it", async () =
 
 test("an article that was approved is retired, not destroyed", async () => {
   /*
-   * Traceability (ADR 0024): an article something was issued from is never
+   * Traceability (ADR 0020): an article something was issued from is never
    * removed — it is retired, kept with its revisions, and hidden from the tree
    * until a listing asks for retired articles.
    */
@@ -296,7 +296,7 @@ test("an article that was never approved is destroyed outright", async () => {
 
 test("the company tree and article are read through the route, not a share", async () => {
   /*
-   * ADR 0024 reads the company tier through these two routes as the Master,
+   * ADR 0020 reads the company tier through these two routes as the Master,
    * because a `shareWith` cannot name every account (the live probe's 10-share
    * cap). A boot that answered the location but not the tree would leave the
    * surface with nothing to draw, so both are pinned here.
@@ -424,7 +424,7 @@ const processDef = {
 
 test("a page created with a checklist definition is a checklist template", async () => {
   /*
-   * A template is told from an ordinary page by its rules (ADR 0030): a create
+   * A template is told from an ordinary page by its rules (ADR 0026): a create
    * that carries a checklist definition is flagged `template: "checklist"` from
    * its first moment, before any save, so the workorder picker offers it, and
    * the body is derived from the definition rather than authored as blocks.

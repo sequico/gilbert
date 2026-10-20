@@ -1,5 +1,5 @@
 /**
- * The Global contacts directory (ADR 0023): written as an administrator, read
+ * The Global contacts directory (ADR 0019): written as an administrator, read
  * by every session.
  *
  * One directory, owned by the Master and reached through the same door a
@@ -27,7 +27,7 @@ import { readJson, requireAdmin, requireSession } from "./shared.js";
 
 export function registerContactRoutes(api: Hono<Env>): void {
   /**
-   * The Global contacts directory (ADR 0023), written and read as the Master.
+   * The Global contacts directory (ADR 0019), written and read as the Master.
    *
    * The directory is the installation's, owned by the Master and reached by
    * every account through the read route below, so the caller's own session
@@ -89,7 +89,7 @@ export function registerContactRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * Global contacts (ADR 0023), read by every session.
+   * Global contacts (ADR 0019), read by every session.
    *
    * The directory is the Master's, so the reader's own session holds nothing of
    * it; the route reads it as the Master and answers any authenticated session,

@@ -90,7 +90,7 @@ of it is:
    in `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD`.
 
 The server signs in as it at boot: that account's own `gilbert` app folder holds
-the installation's document (ADR 0011), so the environment names the Master and
+the installation's document (ADR 0009), so the environment names the Master and
 the document carries the rest. **The agent is part of that process** — there is
 nothing to start, no second service and no command to remember: the server starts
 it at boot and it stays idle, saying so in the log, until the installation has
@@ -263,7 +263,7 @@ sign-in reads the new policy (ADR 0001). One account's refusal — no impersonat
 grant, an unreachable session, an account with no Files to hold it — does not
 stop the rest.
 
-**The publish is a job with an id** (ADR 0010). One id is minted before the first
+**The publish is a job with an id** (ADR 0008). One id is minted before the first
 copy goes out, and every copy written carries it as `published: { id, at }`
 beside the policy, so any account an administrator opens says which publish
 reached it. The job itself is one document, `gilbert/publish-job.json` in the

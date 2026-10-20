@@ -38,7 +38,7 @@ interface SessionState {
    */
   forcedPasswordChange: boolean;
   /**
-   * ADR 0007: an administrator set this account's identity, so the person is
+   * ADR 0005: an administrator set this account's identity, so the person is
    * offered no Identity & signatures section. It is a rule about the surface —
    * a client that speaks JMAP directly can still write the account's own
    * identity — and reading it here is what decides which sections are shown.

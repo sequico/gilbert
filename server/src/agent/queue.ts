@@ -1,5 +1,5 @@
 /**
- * The file drops a burst leaves, held until the burst is over (ADR 0038).
+ * The file drops a burst leaves, held until the burst is over (ADR 0034).
  *
  * A person saving a mail's attachments to Files writes one node per file, and a
  * loading-doc pack is seven of them over half an hour. Read one event at a time
@@ -16,7 +16,7 @@
  * between passes resumes the same drop rather than forgetting it.
  *
  * One account's passes are serial in one process (the installation holds one
- * claim, ADR 0036), so the document is written plainly: a conditional write
+ * claim, ADR 0032), so the document is written plainly: a conditional write
  * would need the account's FileNode state on every file, and there is no second
  * writer to lose a race against.
  */

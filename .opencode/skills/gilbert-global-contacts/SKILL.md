@@ -7,11 +7,11 @@ metadata:
 
 # Gilbert — Global contacts
 
-ADR 0023 decides the directory; this file is how the tree keeps it. **Read the
+ADR 0019 decides the directory; this file is how the tree keeps it. **Read the
 record before changing the feature** — a sentence here that disagrees with it is
 a bug in one of the two.
 
-## The directory (ADR 0023) — the invariants
+## The directory (ADR 0019) — the invariants
 
 1. One address book in the **Master's account**, **created by the installation
    at boot** (`ensureGlobalContacts`), not by hand.

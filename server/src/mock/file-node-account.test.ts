@@ -6,7 +6,7 @@ import { freePort, jmapCall, type MethodCall, responseOf } from "../testkit.js";
  * A node belongs to one account.
  *
  * The installation's memory is one store in the **Master's** account (ADR
- * 0037) while the runs that recall it live in each group's own — two accounts of
+ * 0033) while the runs that recall it live in each group's own — two accounts of
  * the same session — and the app folder is per account like everything else.
  * What makes "they are not the same tree" true is the server scoping a node to
  * the account it was created in, never a client that happens not to ask: a node

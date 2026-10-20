@@ -20,7 +20,7 @@ interface Row {
   email: string;
   book: string;
   /**
-   * A group, picked as one row and expanded when it is chosen (ADR 0004):
+   * A group, picked as one row and expanded when it is chosen (ADR 0003):
    * its members are the cards of the account it lives in.
    */
   group?: { accountId: string; cardId: string; members: number };
@@ -107,7 +107,7 @@ export function RecipientPicker({
       /*
        * A group has no address, so it would never appear among the rows
        * above: it is offered as itself, and says how many people choosing it
-       * will add (ADR 0004).
+       * will add (ADR 0003).
        */
       if (card.kind === "group")
         out.push({
@@ -176,7 +176,7 @@ export function RecipientPicker({
   const send = (field: Field) => {
     /*
      * A group is expanded here, by the one resolution every surface uses
-     * (ADR 0004): one address per member, the ones with no address left out.
+     * (ADR 0003): one address per member, the ones with no address left out.
      * Somebody ticked twice -- by name and again inside a group -- is written
      * once.
      */

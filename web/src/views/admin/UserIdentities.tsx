@@ -1,5 +1,5 @@
 /**
- * User identities (ADR 0007), the first tab of **Identities**: what
+ * User identities (ADR 0005), the first tab of **Identities**: what
  * an administrator sets on a person's account, through the same form the
  * person's own settings use.
  *
@@ -175,7 +175,7 @@ export function UserIdentities() {
   }
 
   /**
-   * Write the lock, from this page, with no sign-in in between (ADR 0007).
+   * Write the lock, from this page, with no sign-in in between (ADR 0005).
    *
    * The lock lives in the installation's policy document, and what makes it
    * visible here is this session re-reading its own record: the surface in front

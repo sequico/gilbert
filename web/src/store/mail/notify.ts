@@ -80,7 +80,7 @@ export async function notifyNewMail(created: Id[], get: () => MailState) {
 /**
  * Announce the mail a group mailbox received, while a tab is open.
  *
- * The closed client is woken by the same delivery (ADR 0016); a reader who
+ * The closed client is woken by the same delivery (ADR 0014); a reader who
  * keeps Gilbert open on a group must not go quiet. `notifyNewMail` is the
  * reader's own account and this is its group sibling: the same two switches and
  * the same suppression, with a title that names the group as well as the

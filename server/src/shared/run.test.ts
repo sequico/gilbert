@@ -1,5 +1,5 @@
 /**
- * The run's shape and its transitions (ADR 0034) — no server, no I/O.
+ * The run's shape and its transitions (ADR 0030) — no server, no I/O.
  *
  * What a transition does is the whole of what is pinned here: a run ends in one
  * of three ways and says which, a step's outcome is recorded where it belongs,
@@ -597,7 +597,7 @@ test("a run this build cannot read is reported, with what was wrong", () => {
       JSON.stringify({
         ...whole,
         // An authority the document does not bind to an act is the class-only
-        // authority ADR 0032 refuses: it would authorise every act of its class.
+        // authority ADR 0028 refuses: it would authorise every act of its class.
         authorisations: [
           { what: "send", authority: "outward", by: "s", at: AT, from: ASKED },
         ],

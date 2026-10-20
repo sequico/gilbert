@@ -5,7 +5,7 @@ import { freePort, jsonCall } from "./testkit.js";
 
 /**
  * The administration surface of the installation's agent, end to end against the
- * mock (ADR 0031, 0034, 0036, 0037): where the agent is, the runs a group has
+ * mock (ADR 0027, 0030, 0032, 0033): where the agent is, the runs a group has
  * worked, and the facts an administrator reads, corrects and removes.
  *
  * The three documents live in three accounts and the door reaches all of them as
@@ -26,7 +26,7 @@ import { freePort, jsonCall } from "./testkit.js";
  *   Master's own account, with the correcting person stamped on it, and the
  *   agent's own write refused against it afterwards (answer the route `ok`
  *   without writing and the store still holds the old sentence);
- * - **a lapsed claim is no claim**, because the instant ADR 0036 gives it means
+ * - **a lapsed claim is no claim**, because the instant ADR 0032 gives it means
  *   one thing.
  */
 
@@ -126,7 +126,7 @@ test("the claim is answered while it is believed, and not once it has lapsed", a
   );
 
   // The same document, read after its instant: the holder is not believed any
-  // more (ADR 0036), so a surface must not show an agent that is not working.
+  // more (ADR 0032), so a surface must not show an agent that is not working.
   const lapsed = await takeClaim(
     master,
     HOLDER,
@@ -216,7 +216,7 @@ test("a rule name that is not a file name is refused as the caller's, not upstre
 
 test("the runs a group worked are drawn as the record carries them", async () => {
   /*
-   * A plan with an order and a branch (ADR 0034): the second step waits on the
+   * A plan with an order and a branch (ADR 0030): the second step waits on the
    * first, one per outcome. The surface can only draw a dependency and a branch
    * if they are on the surface, so this is what the listing answers.
    */
@@ -438,7 +438,7 @@ test("the memory is read, corrected and removed through the administration door"
 
   /*
    * And what the correction is for: the agent's own write does not overwrite it.
-   * It is written beside the person's sentence as a **proposal** (ADR 0037), the
+   * It is written beside the person's sentence as a **proposal** (ADR 0033), the
    * surface shows both, and a person dismisses it through the door — which leaves
    * the sheet exactly as the person's word left it.
    */

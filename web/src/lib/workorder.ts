@@ -1,12 +1,12 @@
 /**
- * The workorder surface, client half (ADR 0028).
+ * The workorder surface, client half (ADR 0024).
  *
  * The durable format — the document shape, its validators, the pure helpers
  * and the wire views — is one definition in `@gilbert/shared/workorder`, read
  * by both tiers. This module re-exports it, so `@/lib/workorder` is the one
  * import a surface needs, and adds the route calls the panel makes.
  *
- * The whole surface is **route-only** (ADR 0028): the Master does every read
+ * The whole surface is **route-only** (ADR 0024): the Master does every read
  * and every write, and the server route decides what the caller may see and act
  * on — from the template's assignment of its sections against the caller's own
  * group membership, so a workorder carrying a global section is every signed-in

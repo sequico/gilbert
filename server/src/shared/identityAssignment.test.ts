@@ -10,7 +10,7 @@ import {
 } from "./identityAssignment.js";
 
 /**
- * What a member sends as in a group (ADR 0007), and what a saved document may
+ * What a member sends as in a group (ADR 0005), and what a saved document may
  * say.
  *
  * A group's account holds one identity per member, and the fact that binds a

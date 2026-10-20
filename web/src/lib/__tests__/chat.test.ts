@@ -15,7 +15,7 @@ import {
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 
 /*
- * Group chat helpers (ADR 0005): ordering, the unread kind rule, marker
+ * Group chat helpers (ADR 0004): ordering, the unread kind rule, marker
  * naming, document validation and the working-group classifier. Pure logic —
  * the JMAP paths against the mock are covered by the server suite.
  */
@@ -148,7 +148,7 @@ describe("participantsOf — the mentionable set", () => {
   });
 });
 
-describe("mentionablesOf — the offerable set (ADR 0005)", () => {
+describe("mentionablesOf — the offerable set (ADR 0004)", () => {
   const posted = ["gone@example.org", "here@example.org", "me@example.org"];
 
   it("offers the transcript when no roster could be read", () => {

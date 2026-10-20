@@ -43,7 +43,7 @@ test("a user without the admin marker signs in with isAdmin false", async () => 
 });
 
 test("a non-admin cannot create a page or a folder in the knowledge base", async () => {
-  // Creating the tree is an administrator's (ADR 0024): a member writes the
+  // Creating the tree is an administrator's (ADR 0020): a member writes the
   // draft of a page that exists, and nothing else.
   const page = await call("/api/knowledge/create", {
     method: "POST",
@@ -60,7 +60,7 @@ test("a non-admin cannot create a page or a folder in the knowledge base", async
 test("a non-admin cannot write the company knowledge base through the shared save", async () => {
   // Saving the draft of a page that exists is a member's for a group's base,
   // but the company's is an administration's: the one shared save route gates
-  // that tier on the same door as every other admin route (ADR 0024).
+  // that tier on the same door as every other admin route (ADR 0020).
   const res = await call("/api/knowledge/save", {
     method: "POST",
     body: JSON.stringify({

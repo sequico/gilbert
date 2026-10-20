@@ -1,5 +1,5 @@
 /**
- * Which identity a member sends as in a group (ADR 0007) — one definition,
+ * Which identity a member sends as in a group (ADR 0005) — one definition,
  * both tiers.
  *
  * A group's account holds one identity per member, and the administration

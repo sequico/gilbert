@@ -23,7 +23,7 @@ export function groupAccountIds(): Set<string> {
 }
 
 /**
- * Arm the calendar reminders (ADR 0016).
+ * Arm the calendar reminders (ADR 0014).
  *
  * An event that carries a reminder is announced when it falls due, on every
  * channel a running client has: the system notification, and an in-app notice.

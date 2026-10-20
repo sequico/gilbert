@@ -1,5 +1,5 @@
 /**
- * The agent's tools (ADR 0031) — the shape, the guard, and both halves.
+ * The agent's tools (ADR 0027) — the shape, the guard, and both halves.
  *
  * Six properties are pinned here, and each of them is a mechanism rather than a
  * run of the code: a tool's arguments are validated **before** its executor
@@ -111,7 +111,7 @@ function callTool<T>(name: string, raw: unknown): Promise<T> {
 /** Call a tool the agent may write with: the whole catalogue, and this run. */
 async function writeTool<T>(name: string, raw: unknown): Promise<T> {
   // The memory as a pass would hand it over: read once, and handed to the step
-  // (ADR 0037), so the one write that reaches it is against this reading.
+  // (ADR 0033), so the one write that reaches it is against this reading.
   return (await runTool(
     TOOLS,
     {
@@ -235,7 +235,7 @@ test("a tool that writes cannot be reached through the reading half", async () =
 
 test("a write on a surface the rule keeps off is refused, and a read is not", async () => {
   /*
-   * The matrix says where a run may act (ADR 0035). Files are off for this
+   * The matrix says where a run may act (ADR 0031). Files are off for this
    * run: a write is refused before the class is asked, while reading Files
    * stays free — a reading is proof, not an act.
    */
@@ -516,7 +516,7 @@ test("a tool refuses arguments it cannot use, and asks the server nothing", asyn
 
 test("a rule that declares it sends is the authority an outward act asks for", () => {
   /*
-   * ADR 0032's class 3, carried by a rule (ADR 0035): the group wrote the rule,
+   * ADR 0028's class 3, carried by a rule (ADR 0031): the group wrote the rule,
    * its instruction says what to send, and the declaration travels on the run
    * that rule opened. It answers the correspondent whose change woke it and no
    * other address, so the declaration is not a licence to compose a recipient.
@@ -1334,7 +1334,7 @@ test("the writing tools change the group's own account", async () => {
   assert.equal(
     saidBack.message.from,
     ctx.username,
-    "the agent writes as itself (ADR 0033)",
+    "the agent writes as itself (ADR 0029)",
   );
 
   const question = "@sam@example.com is the delivery confirmed?";
@@ -1350,7 +1350,7 @@ test("the writing tools change the group's own account", async () => {
       asked: { channel: "chat", id: asked.id },
       until: null,
     },
-    "a question is a run waiting on a person, with no date (ADR 0034)",
+    "a question is a run waiting on a person, with no date (ADR 0030)",
   );
   const askedBack = await writeTool<{ message: { text: string } }>("chat.read", {
     id: asked.id,
@@ -1422,7 +1422,7 @@ test("a link to a subject the memory has no fact about does not lose the fact", 
 });
 
 test("the memory tool records a fact where the installation keeps them", async () => {
-  // The one tool that writes outside the group's account (ADR 0037): the fact
+  // The one tool that writes outside the group's account (ADR 0033): the fact
   // lands in the Master's own memory, and the whole store reads it back.
   const recorded = await writeTool<{ id: string; subject: string }>("memory.remember", {
     subject: "Bologna Express",
@@ -1443,7 +1443,7 @@ test("the memory tool records a fact where the installation keeps them", async (
   assert.equal(
     parsed.fact.group,
     accountId,
-    "and the group it is about: the account the run lives in (ADR 0037)",
+    "and the group it is about: the account the run lives in (ADR 0033)",
   );
   assert.ok(
     (await listFacts(ctx, accountId)).facts.some((fact) => fact.id === recorded.id),
@@ -1508,7 +1508,7 @@ test("the memory tool records a fact where the installation keeps them", async (
   await assert.rejects(
     // A subject shorter than a few characters is one nearly every change
     // carries, so the catalogue refuses it where the write is asked for
-    // (`subjectProblem`, ADR 0037).
+    // (`subjectProblem`, ADR 0033).
     () => writeTool("memory.remember", { subject: "id", fact: "some sentence" }),
     /"subject" must be at least 3 characters/,
   );
@@ -1530,7 +1530,7 @@ test("the memory tool records a fact where the installation keeps them", async (
 
 test("a message outward is refused until a person's words license exactly it", async () => {
   /*
-   * The act that reaches somebody (ADR 0032, class 3). The guard asks for a word
+   * The act that reaches somebody (ADR 0028, class 3). The guard asks for a word
    * bound to the act — the address and the words — and a word for one message
    * reaches no other, which is what `mail.send`'s `act` declares.
    */
@@ -1594,7 +1594,7 @@ test("an attachment of a message is read inside, by the same reader as a documen
    * The document that matters usually arrives attached: a purchase order, a
    * price list. Nothing is downloaded to disk and nothing is asked of the
    * browser — the blob is read through the same format readers a file in Files
-   * goes through (ADR 0031).
+   * goes through (ADR 0027).
    */
   const XLSX = (await import("@e965/xlsx")) as unknown as {
     utils: {
@@ -1659,7 +1659,7 @@ test("an attachment of a message is read inside, by the same reader as a documen
 
 test("a picture is read by the model's eyes when the caller has them, and says so when it has not", async () => {
   /*
-   * A scan or a photograph has no text a reader can take (ADR 0031): the model
+   * A scan or a photograph has no text a reader can take (ADR 0027): the model
    * transcribes it, and only a caller holding the model's eyes can ask. That is
    * the two halves pinned here — the answer when the eyes are there, and the
    * honest refusal when they are not, never the bytes.
@@ -1776,7 +1776,7 @@ test("a picture in a format the model does not take is refused without a call", 
 test("a reply is drafted into the group's Drafts, addressed and threaded, and nothing is sent", async () => {
   /*
    * Drafting is the one mail write this catalogue takes without a person's word
-   * (ADR 0032, `reversible`): it puts a message where somebody reads it and
+   * (ADR 0028, `reversible`): it puts a message where somebody reads it and
    * sends nothing. Both halves are pinned here — the draft is in the account's
    * Drafts, marked `$draft`, addressed to the sender and carrying the thread,
    * and the submission methods were never called.
@@ -1927,7 +1927,7 @@ test("the agent settles a step of its group's workorder and signs it as the agen
    * A step the agent settles goes through the same writer a person's check does
    * (`applyStep` in `workorderAdmin.ts`), so the same terminal refusal and the
    * same gate latch apply; what is different is the signature, which says the
-   * agent did it and not a person (ADR 0028).
+   * agent did it and not a person (ADR 0024).
    */
   const at = new Date().toISOString();
   const uid = "wo-settle";
@@ -1989,7 +1989,7 @@ test("the agent proposes a page's change into its draft, and nothing is in force
   /*
    * A proposal is the draft: the page's own documents keep their tags and
    * checklist, the words the model wrote become the body, and approval — a
-   * person's, ADR 0024 — is what would put anything in force.
+   * person's, ADR 0020 — is what would put anything in force.
    */
   const title = "Our intake";
   const before = "When a booking arrives, answer within a day.";

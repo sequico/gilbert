@@ -1,4 +1,4 @@
-// The container healthcheck (ADR 0011). Its own file so the probe is not a
+// The container healthcheck (ADR 0009). Its own file so the probe is not a
 // shell-quoted one-liner in a Dockerfile: the image's `HEALTHCHECK` runs it
 // against the app's own health route. It reads the running prefix the same way
 // the rest of the app does -- `normalizeBasePath`, the one definition of what

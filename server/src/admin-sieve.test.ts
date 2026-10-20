@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort, jsonCall } from "./testkit.js";
 
 /**
- * System Sieve scripts (ADR 0008): create, list, read, update, activate and
+ * System Sieve scripts (ADR 0006): create, list, read, update, activate and
  * delete a `x:SieveSystemScript` through `/api/admin/sieve/system*`, plus the
  * refusals that are this feature's own mechanism rather than a shared one —
  * a script that fails to compile, two active scripts sharing a

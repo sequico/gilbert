@@ -10,7 +10,7 @@ import {
 } from "./documentText.js";
 
 /**
- * The text a document holds (ADR 0031).
+ * The text a document holds (ADR 0027).
  *
  * Every format is exercised on a document **built here**, not on a fixture
  * somebody committed: a workbook and an ODS through the spreadsheet reader that

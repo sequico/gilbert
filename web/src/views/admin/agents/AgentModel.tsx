@@ -14,7 +14,7 @@ import { type KeyDraft, withModelKey } from "@/views/admin/installation/modelDoc
  * The model, as fields that write `agent.provider` into the installation's
  * document.
  *
- * The document is the one home (ADR 0031) and the Installation page edits the
+ * The document is the one home (ADR 0027) and the Installation page edits the
  * whole of it; this section is the same text seen through the two fields an
  * administrator chooses, and the key — write-only, held here and stated only as
  * the publish is sent.

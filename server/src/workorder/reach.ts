@@ -2,7 +2,7 @@
  * The Master's account, the caller's own session, and what a caller may see.
  *
  * The Master does every read and every write; the caller's group membership
- * decides, per request, which parts of a workorder they reach (ADR 0017).
+ * decides, per request, which parts of a workorder they reach (ADR 0015).
  */
 
 import { administrator, openMasterAccount } from "../adminSession.js";
@@ -52,13 +52,13 @@ export interface WorkorderReach {
   admin: boolean;
   /** Every group the Master holds, by name, with the account each answers as. */
   masterGroups: Map<string, string>;
-  /** Every group the caller's own session reaches, by name (ADR 0005, live). */
+  /** Every group the caller's own session reaches, by name (ADR 0004, live). */
   callerGroups: Map<string, string>;
   /** The groups the caller is a member of: the parts they may check. */
   own: Set<string>;
   /**
    * Those same groups by account id. A workorder's competence is read from the
-   * template's assignments (ADR 0030), which name accounts, so the two are
+   * template's assignments (ADR 0026), which name accounts, so the two are
    * compared on the account id rather than on the name.
    */
   ownAccounts: Set<string>;
@@ -117,11 +117,11 @@ export async function workorderReach(session: LiveSession): Promise<WorkorderRea
  * Whether a caller may see a workorder at all.
  *
  * Any workorder in the registry is an administrator's to see. For everybody
- * else the template's assignment of its sections decides it (ADR 0030), and the
+ * else the template's assignment of its sections decides it (ADR 0026), and the
  * two halves of that answer are two different questions: a section assigned to
  * **no** group is global and makes the workorder **every user's**, while a
  * workorder whose sections are all assigned is its groups' alone, reached by
- * their members. A member does not reach the Master's registry (ADR 0028).
+ * their members. A member does not reach the Master's registry (ADR 0024).
  *
  * Either answer is read from the template, not from the accident of whether a
  * group's part document can be read right now: a part whose document is gone is
@@ -159,7 +159,7 @@ export async function maySee(
   if (def) {
     /*
      * A section assigned to no group is the workorder's own, and a workorder
-     * carrying one is **everybody's to see** (ADR 0028): the global section is
+     * carrying one is **everybody's to see** (ADR 0024): the global section is
      * the part of the process the whole installation shares, so seeing which
      * workorders are running is not a fact a group can own. Competence answers
      * only for a workorder that is entirely groups'.
@@ -169,7 +169,7 @@ export async function maySee(
   }
   /*
    * A template whose rules cannot be read falls back to what the documents
-   * themselves say (ADR 0028). The root **is** the global checklist — creation
+   * themselves say (ADR 0024). The root **is** the global checklist — creation
    * instantiates the unassigned sections' steps there and each assigned group's
    * in its part — so a root carrying steps is a workorder with a global section,
    * and answers as one. A root carrying none leaves the question to the part a

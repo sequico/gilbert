@@ -1,5 +1,5 @@
 /**
- * A group's prose, written through the administration's door (ADR 0035).
+ * A group's prose, written through the administration's door (ADR 0031).
  *
  * A group's standing instruction and its rules are decided by an installation
  * administrator (owner decision 2026-10-18), so this tier does not write the

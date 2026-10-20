@@ -134,7 +134,7 @@ export async function tierAccount(
 /**
  * The scope is a fact about the owning account, not a parameter: the company KB
  * is the session's own personal account, a group's is a non-personal one the
- * Master holds (ADR 0024's two tiers). `readArticle` therefore derives it the
+ * Master holds (ADR 0020's two tiers). `readArticle` therefore derives it the
  * same way `groupKnowledgeAccount` finds the group.
  */
 export function scopeOfAccount(ctx: Ctx, accountId: string): KnowledgeScope {

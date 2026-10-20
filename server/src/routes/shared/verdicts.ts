@@ -1,7 +1,7 @@
 /**
  * Verdicts about a session, and the door that acts on one.
  *
- * The forced-password-change directive (ADR 0001), the identity lock (ADR 0007)
+ * The forced-password-change directive (ADR 0001), the identity lock (ADR 0005)
  * and the middleware that stops a data request while either holds: each verdict
  * is a short-TTL cache over a document read, keyed by user, so the door does not
  * pay for a read on every request.
@@ -114,7 +114,7 @@ export async function sessionForcedState(
 }
 
 /* ------------------------------------------------------------------ */
-/* The identity lock (ADR 0007, ADR 0001)                           */
+/* The identity lock (ADR 0005, ADR 0001)                           */
 /* ------------------------------------------------------------------ */
 
 /**

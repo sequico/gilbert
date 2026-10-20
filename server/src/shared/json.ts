@@ -39,7 +39,7 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
  * Whether a value is an instant this build can order a document by.
  *
  * The one check for the dates a stored document carries — a run's, a fact's,
- * the installation's claim (ADR 0036) — so "a date" in one document means what
+ * the installation's claim (ADR 0032) — so "a date" in one document means what
  * it means in the next. It lives with the other predicates a document is read
  * through rather than in the run's own module: three documents ask it and none
  * of them owns it.

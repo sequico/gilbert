@@ -8,7 +8,7 @@ import type {
 import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
- * A group's identities, and the roster they belong to (ADR 0007).
+ * A group's identities, and the roster they belong to (ADR 0005).
  *
  * A group mailbox holds **one identity per member**: the group's own address,
  * each member's own display name and signature. The administration writes them
@@ -86,7 +86,7 @@ test("the demo's group holds an identity for the demo user, and assigns it to th
    * The demo environment, and the state it puts a reader in: a group whose
    * demo member has an identity of their own there, assigned to them. That is
    * what makes the composer in that mailbox offer a personal sender — the
-   * assignment, and not a display name that happens to match (ADR 0007).
+   * assignment, and not a display name that happens to match (ADR 0005).
    *
    * A group with no assignment is a working state too: the member sends as the
    * group's own identity, which is what the agent sends as. What this pins is
@@ -161,7 +161,7 @@ test("a group answers its identities, its roster and who is assigned which", asy
 
 test("the composer's question is answered as the member, and only the member's own part", async () => {
   /*
-   * `GET /identities/assignment` is what the composer asks (ADR 0007): the
+   * `GET /identities/assignment` is what the composer asks (ADR 0005): the
    * identity assigned to **the person signed in**. The group's own identity —
    * what they send as when nothing is assigned — is not answered here: it is
    * step 2 of the cascade, one rule both tiers import
@@ -539,7 +539,7 @@ test("a write that lands between the state and the list is not overwritten", asy
 
 test("a member's own sender can be deleted, and the group's own identity cannot", async () => {
   /*
-   * The trash on a member's row (ADR 0007): the identity they were assigned is
+   * The trash on a member's row (ADR 0005): the identity they were assigned is
    * removed and the assignment with it, so they fall back to the group's own
    * identity — what a member with no identity of their own sends as. The
    * group's own is refused by name, because everybody falls back to it.

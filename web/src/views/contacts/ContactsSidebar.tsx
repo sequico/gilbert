@@ -138,7 +138,7 @@ export function ContactsSidebar() {
   const groups = groupMailboxAccounts(mailAccounts);
   const groupIds = new Set(groups.map((g) => g.accountId));
   /*
-   * The installation's directory (ADR 0023): one book, read by everyone and
+   * The installation's directory (ADR 0019): one book, read by everyone and
    * never "added". It leads the Contacts list rather than sitting in "Shared
    * with me", because it is not somebody's share — it is the installation's —
    * and it is shown whether or not a member subscribed to it.
@@ -274,7 +274,7 @@ export function ContactsSidebar() {
       <div className="nav-section">
         <span>{t("Contacts")}</span>
       </div>
-      {/* The installation's directory (ADR 0023): one book, read by everyone,
+      {/* The installation's directory (ADR 0019): one book, read by everyone,
           shown whether or not a member subscribed to it. */}
       {globalBooks.map(({ accountId, book }) => (
         <div
@@ -285,7 +285,7 @@ export function ContactsSidebar() {
         >
           <Globe size={17} />
           <span className="grow truncate">{book.name}</span>
-          {/* Only an administrator writes the directory (ADR 0023), and from
+          {/* Only an administrator writes the directory (ADR 0019), and from
               inside Contacts: everybody else reads the same book. */}
           {isAdmin && (
             <button

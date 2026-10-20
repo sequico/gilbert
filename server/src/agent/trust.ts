@@ -1,7 +1,7 @@
 /**
- * Whether a received message is a person's word (ADR 0033).
+ * Whether a received message is a person's word (ADR 0029).
  *
- * ADR 0033 runs the conversation in the group's chat and in mail, in words. Mail
+ * ADR 0029 runs the conversation in the group's chat and in mail, in words. Mail
  * is the channel that reaches a person away from the product, and it is also the
  * channel anybody can write into, so the record does not trust a message for what
  * the message says about itself: a sentence is a person's word only when **the
@@ -26,7 +26,7 @@
  * - Mail another server handed over is **not read as anybody's word yet**. The
  *   verdict it carries is only worth what the authserv-id on it is worth — the
  *   name of the server that wrote it — and what a live Stalwart writes there is
- *   the probe owed (ADR 0033). Until it is answered, an arriving message is
+ *   the probe owed (ADR 0029). Until it is answered, an arriving message is
  *   refused rather than believed: the conversation the product needs is with
  *   people who hold this installation's accounts, and their own mail comes back
  *   as a submission.
@@ -40,7 +40,7 @@
  * (`tools/mail.ts`) hands every received message to `personWord` and carries its
  * `word` answer, and the loop's `mailAnsweredBy` refuses an answer whose word is
  * false. The correlation — which run the message answers — is the channel's own
- * (`In-Reply-To`/`References` against the wait's `asked`, ADR 0033, 0034) and
+ * (`In-Reply-To`/`References` against the wait's `asked`, ADR 0029, 0030) and
  * stays the loop's; this module decides only whether the message is anybody's
  * word at all.
  *
@@ -61,7 +61,7 @@
  *
  * **The shapes are owed a probe.** What a live Stalwart 0.16 writes is unverified
  * from inside this repository, on all three points the reading rests on (ADR
- * 0033, the debt marked at the end of this file). The mock writes what the
+ * 0029, the debt marked at the end of this file). The mock writes what the
  * reading assumes of it and `server/src/mock/message-arrival.test.ts`
  * pins the two together.
  */
@@ -71,7 +71,7 @@ import { sameAddress } from "../shared/address.js";
 /** The property the hops a message made are read from, topmost first. */
 const HOPS = "header:Received:asText:all";
 
-/** The property the agent's own sends are marked with (ADR 0033). */
+/** The property the agent's own sends are marked with (ADR 0029). */
 const RUN_MARK = "header:X-Gilbert-Run:asText";
 
 /**
@@ -89,7 +89,7 @@ export interface ReceivedMessage {
 }
 
 /**
- * Why a message may not be read as a person's word (ADR 0033).
+ * Why a message may not be read as a person's word (ADR 0029).
  *
  * One code per thing the reader would be told, because the sentences differ: a
  * message nobody vouched for, a sender the installation does not know, and the
@@ -133,7 +133,7 @@ type Arrival =
  *
  * `own` is the address the agent acts as — the address of the account its
  * session signed in as, which is what its own mail carries when it does not write
- * as the group's identity (ADR 0007). `known` is what the installation knows:
+ * as the group's identity (ADR 0005). `known` is what the installation knows:
  * `from` must name one of those addresses.
  *
  * The order is the record's, and it fails closed at every step. The agent's own
@@ -249,7 +249,7 @@ function submitterOf(hop: string): string | null {
 }
 
 /*
- * ADR-0033 OWED: arrival-record-shape -- what a live Stalwart 0.16 writes
+ * ADR-0029 OWED: arrival-record-shape -- what a live Stalwart 0.16 writes
  * is unverified from inside this repository, on the two points this reading
  * rests on: what the first hop line records for a message one of the
  * installation's accounts submitted — the submission marker, and **whether it

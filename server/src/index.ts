@@ -39,7 +39,7 @@ async function main() {
    */
   assertServable(config);
   /*
-   * Global contacts (ADR 0023): the installation's directory exists because the
+   * Global contacts (ADR 0019): the installation's directory exists because the
    * installation needs it, not because an administrator made it. Created once,
    * as the Master, before anything is served, so the section is there for every
    * reader on the first load (read through the route, not a share). A failure is
@@ -57,7 +57,7 @@ async function main() {
     console.warn("[gilbert] Global contacts could not be prepared:", errorMessage(err));
   });
   /*
-   * The company knowledge base (ADR 0024): the Master-owned folder exists
+   * The company knowledge base (ADR 0020): the Master-owned folder exists
    * because the installation needs it, not because somebody created it, and is
    * read through the route (a `shareWith` cannot reach every account). Created
    * once, as the Master, before anything is served. A failure is logged and
@@ -78,7 +78,7 @@ async function main() {
     );
   });
   /*
-   * The workorder registry (ADR 0028): the Master's `workorders/` folder and
+   * The workorder registry (ADR 0024): the Master's `workorders/` folder and
    * its `closed/` child exist because the installation needs them, not because
    * somebody created them. Created once, as the Master, before anything is
    * served. A failure is logged and does not stop the process: a registry that
@@ -109,12 +109,12 @@ async function main() {
     },
   );
   /*
-   * The installation's agent (ADR 0031): part of this process, started here with
+   * The installation's agent (ADR 0027): part of this process, started here with
    * the installation this boot just read, so launching Gilbert is what makes it
    * exist — nothing for an operator to start or remember. It asks the loop for a
    * pass every `AGENT_PASS_INTERVAL_MS` (ten seconds) and claims the
    * installation, which is what keeps a second copy of this process (a rolling
-   * restart, an operator's mistake) out of the same runs (ADR 0036).
+   * restart, an operator's mistake) out of the same runs (ADR 0032).
    *
    * Nothing about the Master's groups is decided here: each pass asks which
    * accounts it works (`supervisor.ts`'s `resolveGroupAccounts`), so a group the

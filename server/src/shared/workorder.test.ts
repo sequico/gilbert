@@ -16,7 +16,7 @@ import {
 } from "./workorder.js";
 
 /**
- * The workorder's one definition (ADR 0028).
+ * The workorder's one definition (ADR 0024).
  *
  * The shape, its validators and the pure helpers a document is built and read
  * through: a checklist bound to a KB template revision, the step states and
@@ -147,7 +147,7 @@ test("the folder names and the file name are the contract's", () => {
 
 test("a root carries the opened gates, and a malformed one is refused", () => {
   /*
-   * The gate's latch lives on the root (ADR 0030): section keys whose gate has
+   * The gate's latch lives on the root (ADR 0026): section keys whose gate has
    * opened. The builder writes them and the validator bounds them, so a reader
    * trusts what it did not write. Fails if the field or its validator is removed.
    */

@@ -1,9 +1,9 @@
 /**
- * The group chat's durable format (ADR 0005) — one definition, both tiers.
+ * The group chat's durable format (ADR 0004) — one definition, both tiers.
  *
  * A chat message is a JSON document in the group account's own JMAP Files:
  * `gilbert/chat` holds one node per message, `gilbert/chat-state` holds one
- * read marker per member (ADR 0005; the folder layout is the group-ownership
+ * read marker per member (ADR 0004; the folder layout is the group-ownership
  * law). The web client reads and writes those documents, so the shape, the
  * validators and the pure text helpers live here rather than beside it — what
  * needs the browser's JMAP client stays in the client's own half
@@ -18,7 +18,7 @@ import { isRecord } from "./json.js";
 export const CHAT_FOLDER = "chat";
 export const CHAT_STATE_FOLDER = "chat-state";
 
-/** Messages are plain text; the bound keeps the documents small (ADR 0005). */
+/** Messages are plain text; the bound keeps the documents small (ADR 0004). */
 export const CHAT_MAX_TEXT = 4000;
 
 /** How many messages one transcript page holds (scroll-up paging). */
@@ -68,7 +68,7 @@ interface ChatMessageDoc {
   /** When the sender's client sent it (display only; ordering is the node's). */
   at: string;
   text: string;
-  /** The message this one answers, when it is a quote reply (ADR 0005). */
+  /** The message this one answers, when it is a quote reply (ADR 0004). */
   replyTo?: string;
   /** Principals the message mentions; optional so old documents stay valid. */
   mentions?: ChatMention[];
@@ -145,7 +145,7 @@ export function messageFileName(): string {
 
 /**
  * The addresses a reader may mention: everyone who has posted in the
- * transcript, plus the reader. Membership is the grant (ADR 0005) and
+ * transcript, plus the reader. Membership is the grant (ADR 0004) and
  * Stalwart exposes no member list over JMAP, so the transcript is the one
  * source the client can see; a member becomes mentionable the moment they
  * post, and the live FileNode rail makes that visible without a refresh.
@@ -167,7 +167,7 @@ export function participantsOf(
  * The transcript is everybody who has ever posted, and it keeps their
  * messages — so on its own it offers somebody who no longer has a session on
  * the group, and withholds a member who has never written. A roster in hand
- * answers both: it is the group's own list (ADR 0005, read for the
+ * answers both: it is the group's own list (ADR 0004, read for the
  * installation as the Master), and it replaces the transcript as the
  * source rather than filtering it. `null` is a roster nobody could read, and
  * the answer is then the transcript as it stands rather than a refusal to

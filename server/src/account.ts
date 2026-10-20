@@ -332,7 +332,7 @@ export async function disableOtp(
  *
  * The separation is for a document whose key the client's schema does not own.
  * A key it does own lives inside `settings.json` on purpose — the default
- * sending identity is one (`defaultIdentityByAccount`, ADR 0007) — because
+ * sending identity is one (`defaultIdentityByAccount`, ADR 0005) — because
  * the client writes its own copy of the whole document back, that key included,
  * whereas a key it does not know would be gone with the next save.
  *
@@ -416,7 +416,7 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Group label catalog (ADR 0005)                                     */
+/* Group label catalog (ADR 0004)                                     */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -431,7 +431,7 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
  * returned as they were found: a keyword nobody can render is a label nobody
  * sees. An entry in the reserved `G-` namespace is dropped for the same reason
  * it is refused on the way in: the namespace is the product's own and never a
- * catalog entry (ADR 0005), so no reader — the admin surface or the agent's own
+ * catalog entry (ADR 0004), so no reader — the admin surface or the agent's own
  * `mail.label` — ever sees one, and the next write leaves it out.
  */
 type GroupLabelsRead =
@@ -464,7 +464,7 @@ export async function readGroupLabels(
   } catch {
     // The node is there and its bytes would not read: that is an unreadable
     // catalog, not an absent one, and a writer that took it for absent would
-    // overwrite somebody's labels (ADR 0005).
+    // overwrite somebody's labels (ADR 0004).
     return { state: "unreadable" };
   }
 }
@@ -475,7 +475,7 @@ export async function readGroupLabels(
  * The one door every write to this file goes through, and it refuses the
  * reserved `G-` namespace here rather than trusting a caller: the namespace is
  * the product's own, so a group's catalog can only ever hold its human labels
- * (ADR 0005). `mail.label` refuses the namespace before it reaches this too;
+ * (ADR 0004). `mail.label` refuses the namespace before it reaches this too;
  * this is what makes the claim true of every caller.
  */
 export async function writeGroupLabels(
@@ -493,7 +493,7 @@ export async function writeGroupLabels(
     const keyword = (label as { keyword?: unknown } | null)?.keyword;
     if (typeof keyword === "string" && isAgentLabel(keyword))
       throw new AccountError(
-        `A label whose keyword begins with "${G_LABEL_PREFIX}" is the product's own (ADR 0005) and cannot go in a group's catalog.`,
+        `A label whose keyword begins with "${G_LABEL_PREFIX}" is the product's own (ADR 0004) and cannot go in a group's catalog.`,
         400,
         "bad_request",
       );

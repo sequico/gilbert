@@ -61,7 +61,7 @@ export function FactCard({
             )}
           </p>
         )}
-        {/* What the agent concluded against the person's word (ADR 0037): a
+        {/* What the agent concluded against the person's word (ADR 0033): a
             proposal beside it, which a person accepts — making those words their
             own correction — or dismisses, leaving the sheet as it was. */}
         {fact.proposal && (

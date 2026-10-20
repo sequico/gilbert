@@ -4,7 +4,7 @@ import { useSession } from "../session";
 import type { MailGet } from "./types";
 
 /**
- * The delete rule's inputs, read at the moment an action is taken (ADR 0015).
+ * The delete rule's inputs, read at the moment an action is taken (ADR 0013).
  *
  * Read here rather than handed in because the store is where the action
  * happens and the account on screen is the store's own; the session is asked

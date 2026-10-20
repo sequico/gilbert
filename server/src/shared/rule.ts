@@ -1,5 +1,5 @@
 /**
- * Where a group's rules live, and what a rule's name may be (ADR 0035).
+ * Where a group's rules live, and what a rule's name may be (ADR 0031).
  *
  * A rule is one document named `<id>.json` under `rules/` in the **group's own
  * account** — the group's `gilbert` app folder. The address is here because both
@@ -17,7 +17,7 @@ export const RULES_DIR = "rules";
  * A rule this build cannot use.
  *
  * A rule that is there but unreadable is a **defect the agent reports**, never a
- * shape it guesses at (ADR 0035): a document that is not the shape this build
+ * shape it guesses at (ADR 0031): a document that is not the shape this build
  * writes, or whose `id` is not the name it is filed under, is refused with its
  * path and the reason rather than read as a rule with nothing in it — which
  * would be a rule the agent then carries out as though it said nothing. The code

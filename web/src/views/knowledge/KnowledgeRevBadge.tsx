@@ -1,7 +1,7 @@
 import { t } from "@/lib/i18n";
 
 /**
- * The in-force revision's own number, read-only (ADR 0024).
+ * The in-force revision's own number, read-only (ADR 0020).
  *
  * An article's title is editable; the revision number is not — it is minted at
  * approval and auto-incremented. The tree and the editor show it the same way,

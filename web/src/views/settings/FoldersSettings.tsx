@@ -76,7 +76,7 @@ export function FoldersSettings() {
     [mailboxes],
   );
   const quotas = useMail((s) => s.quotas);
-  /** ADR 0015: this surface edits the reader's own tree, so the rule is asked once here. */
+  /** ADR 0013: this surface edits the reader's own tree, so the rule is asked once here. */
   const mayDestroyHere = useMayDestroy();
   const q = accountQuota(quotas);
   /*
@@ -271,7 +271,7 @@ export function FoldersSettings() {
                     className="icon-btn sm danger"
                     title={t("Delete")}
                     /*
-                     * ADR 0015: deleting a folder holding mail destroys that
+                     * ADR 0013: deleting a folder holding mail destroys that
                      * mail with it, so in a group the entry is not offered. A
                      * folder that holds nothing still goes, which is what the
                      * count in the rule decides.

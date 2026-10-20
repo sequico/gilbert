@@ -620,7 +620,7 @@ export function attachRelay(
  * Have a tab follow an account its own credential does not cover.
  *
  * The step an administrator checks on the installation's checklist is written
- * in the Master's account (ADR 0028), and no member is a member of it, so
+ * in the Master's account (ADR 0024), and no member is a member of it, so
  * Stalwart never delivers that change to a member's own subscription -- this
  * fan-out is the only thing that can reach them. One subscription is kept for
  * that account, created with the credential the installation already holds

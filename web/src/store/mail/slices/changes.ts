@@ -186,7 +186,7 @@ export function changesSlice(
       }
       if (types.has("Identity")) {
         /*
-         * Both lists are "on screen" in the ADR 0012 sense while Settings is
+         * Both lists are "on screen" in the ADR 0010 sense while Settings is
          * open: the account being browsed, and the reader's own, which is every
          * group block under it. A change to either is a change to what is shown.
          */
@@ -211,7 +211,7 @@ export function changesSlice(
        * A mailbox changed while the reader is elsewhere -- a group box under
        * their own, or their own while they are inside a group. Refresh its folder
        * tree so the sidebar's counts stay honest, and announce what it received
-       * so a visible Gilbert is not the quiet one (ADR 0016).
+       * so a visible Gilbert is not the quiet one (ADR 0014).
        */
       void get().refreshAccountTree(accountId);
       // `notifyGroupMail` reads the message to announce; an aborted pass leaves

@@ -17,7 +17,7 @@ it can verify. `git push --no-verify` bypasses it deliberately and never
 by accident. `.github/workflows/ci.yml` runs the same script and adds only a
 Docker smoke build, which a local gate cannot assume; because `release.yml`
 calls `ci.yml` as its pre-check, the check that prepares a release is the check
-a push met, not a weaker second list (ADR 0025).
+a push met, not a weaker second list (ADR 0021).
 
 Two checks the pipeline does not carry, on purpose:
 
@@ -26,7 +26,7 @@ Two checks the pipeline does not carry, on purpose:
   release, not a push that changed nothing.
 - **CodeQL runs on GitHub only**, in `.github/workflows/codeql.yml`, called by
   the Release workflow so nothing is cut on an unclean analysis: there is no
-  local analysis and no local toolchain (ADR 0027).
+  local analysis and no local toolchain (ADR 0023).
 
 ## Committing and pushing
 

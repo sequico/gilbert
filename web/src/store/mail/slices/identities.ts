@@ -45,7 +45,7 @@ export function identitiesSlice(
    *
    * `identities` is one *view* of `identitiesByAccount`, and this is what makes
    * it one: the account on screen, narrowed where the account on screen is a
-   * group mailbox. ADR 0007 gives a group's account one identity per member,
+   * group mailbox. ADR 0005 gives a group's account one identity per member,
    * and a member sends as the identity the administration **assigned** them —
    * else as the group's own, which is what the agent sends as too, so nobody is
    * left without a sender and no member ever sends under another's name.
@@ -174,7 +174,7 @@ export function identitiesSlice(
       await get().loadIdentitiesFor(accountId);
       /*
        * A group mailbox has one more thing to know before its view is right: the
-       * identity the administration assigned the reader (ADR 0007). Read beside
+       * identity the administration assigned the reader (ADR 0005). Read beside
        * the list rather than after it, and a failure is not fatal -- the view
        * falls back to the group's own identity, which is what an unassigned
        * member sends as anyway.
@@ -189,7 +189,7 @@ export function identitiesSlice(
     },
 
     /**
-     * Which identity this group mailbox has assigned to the reader (ADR 0007).
+     * Which identity this group mailbox has assigned to the reader (ADR 0005).
      *
      * `null` is an answer -- nothing is assigned, so the view sends as the
      * group's own identity -- and a failed read leaves the entry absent, which is
@@ -253,7 +253,7 @@ export function identitiesSlice(
     },
 
     setDefaultIdentity(id) {
-      // ADR 0007: the default a person sets is the one their own account sends
+      // ADR 0005: the default a person sets is the one their own account sends
       // with, not the preference of the mailbox they happened to be reading.
       const accountId = ownIdentityAccountId(useSession.getState().session);
       if (!accountId) return;
@@ -322,7 +322,7 @@ export function identitiesSlice(
       if (state.accountId) wanted.add(state.accountId);
       /*
        * The assignments too, and dropped rather than kept: the administration
-       * writes them through its own routes (ADR 0007), so the session that asked
+       * writes them through its own routes (ADR 0005), so the session that asked
        * for the write is the one thing that never hears of it — and a stale
        * assignment is a draft that goes out as the group instead of as the person
        * the administrator just assigned.

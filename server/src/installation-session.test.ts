@@ -3,7 +3,7 @@ import { after, test } from "node:test";
 import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 
 /**
- * The installation's own account, on the session (ADR 0028).
+ * The installation's own account, on the session (ADR 0024).
  *
  * The global checklist and the registry live in the Master's own account, and
  * no member's session is a member of it, so the id is on no list a session

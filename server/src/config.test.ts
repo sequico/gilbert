@@ -229,7 +229,7 @@ test("adopting a configuration with no app secret at all is refused", () => {
  * The model the installation chose, and the switch it may not choose.
  *
  * The document's `agent` section is where the installation's one model lives
- * (ADR 0011, 0031): an installation that has chosen none has no agent. What the
+ * (ADR 0009, 0027): an installation that has chosen none has no agent. What the
  * document may **not** decide is whether that model may sit inside the
  * deployment's own network — that is a security decision the deployment makes,
  * so it is read from the environment and never from the document. The document

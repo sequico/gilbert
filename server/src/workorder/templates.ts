@@ -1,5 +1,5 @@
 /**
- * The checklist template a workorder's revision names (ADR 0030).
+ * The checklist template a workorder's revision names (ADR 0026).
  *
  * A checklist stores the template's id and revision and never a copy of the
  * controlled text, so the rules are resolved from the KB revision here.
@@ -19,7 +19,7 @@ import {
 import type { WorkorderTemplateRef } from "../shared/workorder.js";
 import type { WorkorderReach } from "./reach.js";
 
-/** A template revision's rules and title as the KB serves them (ADR 0030). */
+/** A template revision's rules and title as the KB serves them (ADR 0026). */
 export interface TemplateDef {
   checklist: KnowledgeChecklist | null;
   title: string | null;
@@ -33,7 +33,7 @@ export interface TemplateDef {
  * and by the gate reconcile a write runs after it; on one request that is the
  * same bytes asked for several times, so the promise is kept on the reach and
  * returned to whoever asks next. The key is the bound reference — the account,
- * the article and the revision it names (ADR 0028) — so two workorders bound to
+ * the article and the revision it names (ADR 0024) — so two workorders bound to
  * two revisions never share an answer.
  */
 export function templateDef(
@@ -87,7 +87,7 @@ async function resolveArticleFolder(
 }
 
 /**
- * The template revision's **rules** and title, read from the KB (ADR 0030).
+ * The template revision's **rules** and title, read from the KB (ADR 0026).
  *
  * A checklist stores the template's id and revision and never a copy of the
  * controlled text, so every label and every branch is resolved from the

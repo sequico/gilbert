@@ -11,7 +11,7 @@ import { flushTwice as flush, identity } from "@/test/testkit";
  * showing.
  *
  * The administration writes identities through its own routes, and the server
- * makes the write by impersonating the account (ADR 0007) — so nothing in the
+ * makes the write by impersonating the account (ADR 0005) — so nothing in the
  * session that asked for it learns that the account changed. `useMail` holds
  * the list it read at sign-in, `IdentitiesSettings` is built on that list, and
  * the composer's From picker is built on it too: without the write saying so,

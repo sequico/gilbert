@@ -1,5 +1,5 @@
 /**
- * The tool over the installation's Global contacts (ADR 0023).
+ * The tool over the installation's Global contacts (ADR 0019).
  *
  * One directory, owned by the Master and readable by every account: it is how
  * the agent learns who an address belongs to before it writes to somebody, and

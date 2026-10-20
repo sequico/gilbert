@@ -152,7 +152,7 @@ export function ContactsView({ id }: { id?: string }) {
   } | null>(null);
   const menu = useMenu();
   /*
-   * Whether this reader may move a card between accounts at all (ADR 0018).
+   * Whether this reader may move a card between accounts at all (ADR 0016).
    * Read through the rule's own hook, so the answer re-renders when the admin
    * flag moves rather than being read once when the view mounted.
    */
@@ -886,9 +886,9 @@ export function ContactsView({ id }: { id?: string }) {
                        * than what is in it: a right-click offers it, and the move
                        * dialog asks the destination. Nothing is drawn on a row
                        * that has nowhere to go, so the menu is opened only where
-                       * the reader may move one (ADR 0018). The directory is
+                       * the reader may move one (ADR 0016). The directory is
                        * read through a route rather than held in an account, so
-                       * it has nowhere to go and is left out (ADR 0023).
+                       * it has nowhere to go and is left out (ADR 0019).
                        */
                       onContextMenu={
                         mayMove && cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID
@@ -1072,7 +1072,7 @@ export function ContactsView({ id }: { id?: string }) {
 /**
  * Where a contact is moved to: a book, in one of the accounts the reader
  * reaches, and a question only an administrator's session is asked at all
- * (ADR 0018).
+ * (ADR 0016).
  *
  * Grouped by the account that owns the book, because that is what the move
  * changes -- a book named "Team" in two groups is two destinations, and the
@@ -1231,7 +1231,7 @@ function ContactDetail({
   /*
    * A group's members live where the group does: a uid means nothing outside
    * the account holding the card, so the cards to look through are that
-   * account's -- the reader's own books, or the group's (ADR 0004).
+   * account's -- the reader's own books, or the group's (ADR 0003).
    */
   const groupAccount = accountId ?? contacts.accountId;
   const members =
@@ -1522,7 +1522,7 @@ function ContactDetail({
               className="btn btn-sm mt-8"
               onClick={() =>
                 // The same resolution the composer uses, so the addresses that
-                // land in a draft are the ones a group stands for (ADR 0004).
+                // land in a draft are the ones a group stands for (ADR 0003).
                 useCompose
                   .getState()
                   .open({ to: contacts.expandGroup(c, groupAccount).addresses })

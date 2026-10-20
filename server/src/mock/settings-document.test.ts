@@ -3,7 +3,7 @@ import { after, test } from "node:test";
 import { freePort } from "../testkit.js";
 
 /**
- * The mock serves the account's own settings document (ADR 0007): a
+ * The mock serves the account's own settings document (ADR 0005): a
  * `settings.json` inside the account's `gilbert` app folder, written whole and
  * read back whole.
  *

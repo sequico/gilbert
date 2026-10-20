@@ -4,7 +4,7 @@ import type { PublishJob, PublishOutcome } from "./app.js";
 import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 
 /**
- * The installation-wide policy document (ADR 0001, ADR 0001, ADR 0001):
+ * The installation-wide policy document (ADR 0001, ADR 0008, ADR 0015):
  * only admins read or publish it; an invalid document is refused; a valid
  * publish writes into every individual account the directory lists — the
  * publisher's own account included — and each account's own authenticated

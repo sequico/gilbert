@@ -14,7 +14,7 @@ import { foldLine } from "./contentLines";
  * directory. One predicate, asked by the store and the surfaces, so the two
  * cannot disagree about which book is the directory.
  *
- * The **id** is the marker, not the name (ADR 0023): the directory is served
+ * The **id** is the marker, not the name (ADR 0019): the directory is served
  * through a route and installed under a sentinel id, so a group-owned or
  * colleague-shared book a member happens to name "Global contacts" is their
  * own book and stays visible. Rights are deliberately not part of it: an
@@ -169,7 +169,7 @@ export function contactEmails(c: ContactCard): EmailAddress[] {
 }
 
 /**
- * The addresses a group stands for (ADR 0004).
+ * The addresses a group stands for (ADR 0003).
  *
  * A group is a name for a set of people who are already cards: `members`
  * names them by `uid`, and a uid means nothing outside the account that holds

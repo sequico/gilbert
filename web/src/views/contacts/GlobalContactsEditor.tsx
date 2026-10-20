@@ -30,7 +30,7 @@ function toInput(card: ContactCard): GlobalContactInput {
 }
 
 /**
- * The administrator's editor for the installation's Global contacts (ADR 0023).
+ * The administrator's editor for the installation's Global contacts (ADR 0019).
  *
  * The directory is read-only for everybody else, and this is the one place it
  * is written: from inside Contacts, by an administrator, through the server

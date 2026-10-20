@@ -1,5 +1,5 @@
 /**
- * The one Sieve-editing widget (ADR 0008): CodeMirror 6 plus
+ * The one Sieve-editing widget (ADR 0006): CodeMirror 6 plus
  * `@codemirror/legacy-modes`' `mode/sieve` grammar, the MIT-licensed
  * tokenizer CodeMirror has shipped for years, ported into a `StreamLanguage`
  * rather than rewritten here. Both the personal "Scripts (advanced)" editor

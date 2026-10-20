@@ -1,5 +1,5 @@
 /**
- * Where a run goes when it is no longer the working set (ADR 0034).
+ * Where a run goes when it is no longer the working set (ADR 0030).
  *
  * `runs/` is what every pass lists and what the surface draws; keeping every run
  * a group ever worked there makes the cheap pass grow with the group's history.

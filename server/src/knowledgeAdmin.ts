@@ -1,5 +1,5 @@
 /**
- * The knowledge base's Master-owned write door (ADR 0024).
+ * The knowledge base's Master-owned write door (ADR 0020).
  *
  * The KB is a tree of articles under `gilbert/knowledge` in an account's own
  * app folder: the company's in the Master's account, a group's in the group's.

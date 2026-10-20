@@ -5,9 +5,9 @@
  * opens onto a session that holds a grant on it: a member's own session
  * (`memberReach`, `memberGroupAccess`), or the installation's, signed in with
  * the deployment's own credential or impersonated from the signed-in
- * administrator's session (`resolveGroupAccess`, ADR 0007). `impersonateAs` is
+ * administrator's session (`resolveGroupAccess`, ADR 0005). `impersonateAs` is
  * the one door onto another account, and `groupAccountsDetailed` the one
- * classifier for which accounts are groups (ADR 0005). No fleet, automations
+ * classifier for which accounts are groups (ADR 0004). No fleet, automations
  * or agent registry live here.
  */
 
@@ -133,7 +133,7 @@ type GroupAccessResult = GroupAccess | GroupAccessDenied;
 async function installationGroupReach(admin: LiveSession): Promise<{
   ctx: Ctx;
   accounts: Map<string, string>;
-  /** The candidates the mail server would not answer about (ADR 0005). */
+  /** The candidates the mail server would not answer about (ADR 0004). */
   unreadable: string[];
 }> {
   const address = masterAddress();
@@ -186,7 +186,7 @@ export async function resolveGroupAccess(
 interface MemberReach {
   ctx: Ctx;
   groups: Map<string, string>;
-  /** The candidates the mail server would not answer about (ADR 0005). */
+  /** The candidates the mail server would not answer about (ADR 0004). */
   unreadable: string[];
 }
 
@@ -194,7 +194,7 @@ interface MemberReach {
  * The groups a member's own session reaches, as **one** live read.
  *
  * Forced live, not the ordinary cached read: this is a membership check
- * (ADR 0005 — "a member who leaves loses access", stated as immediate), and the
+ * (ADR 0004 — "a member who leaves loses access", stated as immediate), and the
  * cache this session's other calls otherwise share can be up to five minutes
  * old. A cached answer would let a member removed from the group in Stalwart's
  * own directory keep reading its documents for up to that long after the grant
@@ -336,7 +336,7 @@ const unreadableAccounts = new Set<string>();
  * Three answers rather than two, because the third is not a fact about the
  * account: "this is not a group" and "I could not reach the server" are
  * different sentences, and a surface that showed the first for the second would
- * be telling a person to fix a grant that was never the problem (ADR 0005).
+ * be telling a person to fix a grant that was never the problem (ADR 0004).
  * Writes stay closed on the third answer — nothing is written into an account
  * nobody could prove is a mailbox — while a read names it.
  */
@@ -352,7 +352,7 @@ async function probeMailStore(
     return boxes.length > 0 ? "mailbox" : "share";
   } catch (err) {
     // The reason is said out loud rather than swallowed, so an operator is not
-    // left reading a broken probe as a group that is not granted (ADR 0005) —
+    // left reading a broken probe as a group that is not granted (ADR 0004) —
     // once, while the answer is this one.
     if (!unreadableAccounts.has(accountId)) {
       unreadableAccounts.add(accountId);
@@ -489,7 +489,7 @@ async function readGroupMembers(
     return [...new Set(addresses)].sort();
   } catch {
     // A membership read nobody may make, or a directory that did not answer:
-    // the surface falls back to the transcript either way (ADR 0005).
+    // the surface falls back to the transcript either way (ADR 0004).
     return null;
   }
 }
