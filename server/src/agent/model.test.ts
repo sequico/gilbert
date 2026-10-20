@@ -555,6 +555,69 @@ test("the standing prose reaches the system turn unfenced, and a rule's own inst
   );
 });
 
+/**
+ * The rule's surface matrix is what refuses a write at the door (ADR 0031), so
+ * the turn is told it in advance: a model that has to learn it from a refused
+ * step has spent a step and a call on a lesson one line teaches.
+ */
+test("the surfaces a run's rule keeps off are said, and nothing off says nothing", async () => {
+  const surfaces = {
+    chat: "watch" as const,
+    mail: "watch" as const,
+    files: "ondemand" as const,
+    knowledge: "off" as const,
+    workorder: "off" as const,
+    calendar: "off" as const,
+  };
+
+  seen = [];
+  answerWith({ done: "nothing to do" });
+  await chooseStep(
+    TOOLS,
+    { model, allowPrivateProvider: true },
+    {
+      ...stepQuestion(),
+      surfaces,
+    },
+  );
+  assert.match(
+    SYSTEM(0),
+    /keeps knowledge, workorder, calendar off: a step that writes one of them is refused/,
+    "what is off is named, in the editor's order",
+  );
+  assert.ok(!SYSTEM(0).includes("keeps chat off"), "and what is watched is not");
+
+  seen = [];
+  answers = [];
+  answerWith({ done: "nothing to do" });
+  await chooseStep(
+    TOOLS,
+    { model, allowPrivateProvider: true },
+    {
+      ...stepQuestion(),
+      surfaces: {
+        ...surfaces,
+        knowledge: "watch",
+        workorder: "watch",
+        calendar: "watch",
+      },
+    },
+  );
+  assert.ok(
+    !SYSTEM(0).includes("is refused, so do not propose one"),
+    "a matrix with nothing off adds no line",
+  );
+
+  seen = [];
+  answers = [];
+  answerWith({ done: "nothing to do" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
+  assert.ok(
+    !SYSTEM(0).includes("is refused, so do not propose one"),
+    "and a run whose record carries no matrix is told nothing it cannot know",
+  );
+});
+
 test("a change no rule watches is decided without a call, and without a bill", async () => {
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },

@@ -72,6 +72,8 @@ import type {
   RunStepNeeds,
 } from "../shared/run.js";
 import { RUN_STEPS_MAX } from "../shared/run.js";
+import type { SurfaceMatrix } from "../shared/surfaces.js";
+import { SURFACES } from "../shared/surfaces.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { clipped, dataBlock, stepData, textOf, turnData } from "./prompt.js";
 import { type ProseLevel, proseForModel } from "./prose.js";
@@ -1303,6 +1305,12 @@ export interface StepQuestion {
   openQuestions?: readonly string[];
   /** The files a batched drop brought, when the run answers one (ADR 0034). */
   batch?: readonly string[];
+  /**
+   * The run's own surface matrix (ADR 0031): where it may act, and where a
+   * write is refused before the class is even asked. Told in advance, because
+   * a turn that learns it from a refusal spends a step and a call on the lesson.
+   */
+  surfaces?: SurfaceMatrix;
 }
 
 /**
@@ -1443,6 +1451,23 @@ export function parseStepAnswerDetailed(
 }
 
 /**
+ * Where the run may not act, as its own turn is told it.
+ *
+ * A surface the rule keeps `off` refuses a write at the door (`runTool`), and a
+ * turn that only learns it from that refusal has spent a step and a call on the
+ * lesson. One line says it in advance. A matrix with nothing off — and a run
+ * whose record carries no matrix — adds nothing, so the prompt is what it was.
+ */
+export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
+  if (!surfaces) return [];
+  const off = SURFACES.filter((surface) => surfaces[surface] === "off");
+  if (!off.length) return [];
+  return [
+    `This run's rule keeps ${off.join(", ")} off: a step that writes one of them is refused, so do not propose one.`,
+  ];
+}
+
+/**
  * One choosing turn: given the run so far, the plan of steps to make or the
  * end of the work.
  *
@@ -1483,6 +1508,7 @@ export async function chooseStep(
         `- ${tool.name}(${tool.keys.join(", ") || "no arguments"}): ${tool.description}`,
     ),
     "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
+    ...surfaceLines(question.surfaces),
     ...heads,
   ]
     .filter(Boolean)

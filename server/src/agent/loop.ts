@@ -1174,6 +1174,7 @@ export class AgentLoop {
         memory: selection,
         ...(openQuestions?.length ? { openQuestions } : {}),
         ...(current.startedBy.batch?.length ? { batch: current.startedBy.batch } : {}),
+        ...(current.startedBy.surfaces ? { surfaces: current.startedBy.surfaces } : {}),
         authorisations: current.authorisations,
       };
       // Counted before the call: a provider that times out was paid for, and a
