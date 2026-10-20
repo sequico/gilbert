@@ -638,7 +638,6 @@ export const catalog: Catalog = {
     "How the group wants its agent to work, on every call it makes.":
       "Як група хоче, щоб працював її агент, під час кожного виклику.",
     "No rules yet.": "Правил ще немає.",
-    Watches: "Спостерігає",
     "What should happen": "Що має статися",
     "May send": "Може надсилати",
     "Rule name": "Назва правила",

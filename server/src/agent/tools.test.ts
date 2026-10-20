@@ -233,6 +233,46 @@ test("a tool that writes cannot be reached through the reading half", async () =
   assert.equal(calls.length, 0, "and nothing ran");
 });
 
+test("a write on a surface the rule keeps off is refused, and a read is not", async () => {
+  /*
+   * The matrix says where a run may act (ADR 0035). Files are off for this
+   * run: a write is refused before the class is asked, while reading Files
+   * stays free — a reading is proof, not an act.
+   */
+  const off = startRun({
+    id: "r-off",
+    startedBy: {
+      rule: "intake",
+      instruction: null,
+      woke: "mail created: m-1",
+      surfaces: {
+        chat: "watch",
+        mail: "watch",
+        files: "off",
+        knowledge: "off",
+        workorder: "off",
+        calendar: "off",
+      },
+    },
+  });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: off }, "files.write", {
+        path: "Documents/off.md",
+        text: "x",
+      }),
+    (err: unknown) => (err as { code?: string }).code === "surface_off",
+    "the rule keeps Files off, so the write is refused",
+  );
+  const listed = (await runTool(
+    READING_TOOLS,
+    { ctx, accountId, run: off },
+    "files.list",
+    {},
+  )) as { nodes: unknown[] };
+  assert.ok(Array.isArray(listed.nodes), "reading an off surface stays free");
+});
+
 test("the guard asks the authority class the tool declares", async () => {
   const calls: number[] = [];
   const outward = countingTool({

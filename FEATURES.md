@@ -196,13 +196,23 @@ the sheet as it was — and the next pass reads it with no restart.
 ## A group's engagement is a rule in prose
 
 **A group's engagement is a rule in prose** (ADR 0035): one document in the
-group's own account, under `rules/`, that names the surfaces of that account it
-watches — its **chat**, its **mail**, its **KB**, its **workorders** and its
-**Files** — and says in prose what should happen when that activity is met. The
-shape, its parser and the one test of what a rule watches are
-`server/src/agent/rule.ts`, and where a rule lives is `server/src/agent/rules.ts`.
-A rule carries **no list of permitted actions** — what bounds the agent is the
-authority classes (ADR 0032) — and it may **declare that it sends**, which is the
+group's own account, under `rules/`, that gives each of the account's surfaces a
+**mode** — **off**, **watch** or **on demand** — and says in prose what should
+happen when the rule is woken. The surfaces are its **chat**, its **mail**, its
+**KB**, its **workorders**, its **Files** and its **calendar**; chat is always
+**watch**, because the conversation is where the group calls the agent and where
+its report is written. **watch** wakes the rule and lets the run it opens write
+that surface; **on demand** never wakes it but lets a run already open — from
+chat, from mail, from another watched surface — write it; **off** neither wakes
+nor writes (reading stays free). The matrix says *where* a run may act, never
+*what*: the authority classes (ADR 0032) still bound every act, and a write on a
+surface the rule keeps off is refused (`surface_off`). The run carries the matrix
+its rule had when it opened, so an edit does not move a run in flight; a v1 rule
+is read as the matrix it means (watched surfaces `watch`, the rest `ondemand`)
+and is written as v2 on the next save. The shape, its parser and the matrix's
+matcher are `server/src/agent/rule.ts`, the modes are
+`server/src/shared/surfaces.ts`, and where a rule lives is
+`server/src/agent/rules.ts`. A rule may **declare that it sends**, which is the
 one power it carries of its own. The agent's prose has three
 levels, outermost first: the **installation's own line**, the **group's standing
 instruction** and the **rule's own instruction**, and one builder,
@@ -212,9 +222,9 @@ from the boot; the second is `instruction.json` in the group's own account
 (`server/src/agent/instruction.ts`), read once per pass so an edit is in force at
 the next one; the third is re-read for each turn of the run it started. A level
 that says nothing contributes nothing. **An installation administrator decides**
-the group's two documents, from **the rules launcher** in the top bar: the group
-is chosen, the standing instruction is one field, and a rule is its name, the
-surfaces it watches, its prose and whether it may send. The launcher is offered
+the group's two documents, from **Administration → AI Agents → Prose**: the group
+is chosen, the standing instruction is one field, and a rule is its name, its
+matrix, its prose and whether it may send. The launcher is offered
 only to an administrator, and the write goes through the administration's own
 route (`/api/admin/groups/<name>/prose`), which writes as the Master behind
 `requireAdmin` — the decision is a boundary and not a hidden button (owner

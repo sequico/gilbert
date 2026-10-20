@@ -84,6 +84,7 @@ export const proposePage = defineTool({
     "and checklist stay as they are.",
   authority: "reversible",
   writes: true,
+  surface: "knowledge",
   spend: { steps: 1 },
   keys: ["text", "title"],
   parse: (raw: unknown) => {

@@ -67,6 +67,10 @@ import {
  *
  * 212 -> 214: the cached and uncached token tiles (`AgentOverview.tsx`).
  *
+ * 225 -> 231: the rules matrix (ADR 0035): "Surfaces", the three modes
+ * ("Off", "Watch", "On demand"), "Chat is always watched", and the sentence
+ * that explains the three (`views/admin/agents/GroupRules.tsx`).
+ *
  * 224 -> 225: the Work panel's "Steps taken", the steps a run spent — "Steps"
  * stays for the checklist, so the rename adds a source string
  * (`views/admin/agents/AgentOverview.tsx`).
@@ -89,7 +93,7 @@ import {
  * 214 -> 216: a run row's unreadable label and its steps/calls summary
  * (`views/admin/agents/GroupRuns.tsx`).
  */
-const MISSING_MAX = 225;
+const MISSING_MAX = 231;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

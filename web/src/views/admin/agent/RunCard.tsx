@@ -104,6 +104,14 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] })
           {formatFullDate(ended?.at) || t("Running")}
         </span>
       </div>
+      {startedBy.surfaces && (
+        <p className="hint">
+          {t("Surfaces")}:{" "}
+          {Object.entries(startedBy.surfaces)
+            .map(([surface, mode]) => `${surface} ${mode}`)
+            .join(" · ")}
+        </p>
+      )}
       {plan.length > 0 && (
         <ol className="run-plan">
           {plan.map((step, index) => (

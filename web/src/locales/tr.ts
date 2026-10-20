@@ -1296,7 +1296,6 @@ export const catalog: Catalog = {
     "How the group wants its agent to work, on every call it makes.":
       "Grubun ajanının her çağrıda nasıl çalışmasını istediği.",
     "No rules yet.": "Henüz kural yok.",
-    Watches: "İzler",
     "What should happen": "Ne olmalı",
     "May send": "Gönderebilir",
     Running: "Çalışıyor",

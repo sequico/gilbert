@@ -28,6 +28,7 @@
 
 import { errorDetail } from "./errors.js";
 import { isInstant, isRecord } from "./json.js";
+import { isSurfaceMatrix, type SurfaceMatrix } from "./surfaces.js";
 import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 
 /**
@@ -144,6 +145,12 @@ interface RunStart {
    * nothing outward without a person's own licence.
    */
   wakeFrom?: string | null;
+  /**
+   * The surface matrix the rule carried when the run opened (ADR 0035): what it
+   * may write on, and what woke it. A run written before the matrix carries
+   * none, and may write where it did before.
+   */
+  surfaces?: SurfaceMatrix;
 }
 
 /**
@@ -437,6 +444,8 @@ function isStart(x: unknown): x is RunStart {
   }
   const wakeFrom = (x as { wakeFrom?: unknown }).wakeFrom;
   if (wakeFrom !== undefined && wakeFrom !== null && typeof wakeFrom !== "string")
+    return false;
+  if ("surfaces" in x && !isSurfaceMatrix((x as { surfaces?: unknown }).surfaces))
     return false;
   // One of the two, and never both: a run that was started twice is not a run.
   if ((rule === null) === (instruction === null)) return false;

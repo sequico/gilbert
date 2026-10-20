@@ -210,6 +210,7 @@ export const writeDocument = defineTool({
     "refused: nothing a person filed is replaced by a write.",
   authority: "reversible",
   writes: true,
+  surface: "files",
   spend: { steps: 1 },
   keys: ["path", "text"],
   parse: (raw: unknown) => {
@@ -246,6 +247,7 @@ export const overwriteDocument = defineTool({
     "document: a person's word for it names the document, and licenses that one.",
   authority: "destructive",
   writes: true,
+  surface: "files",
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
   keys: ["path", "text"],
@@ -281,6 +283,7 @@ export const deleteDocument = defineTool({
     "emptied. The act is the node: a person's word for it names what is removed.",
   authority: "destructive",
   writes: true,
+  surface: "files",
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
   keys: ["path"],
@@ -311,6 +314,7 @@ export const createFileFolder = defineTool({
     "`gilbert` app folder is not a destination.",
   authority: "reversible",
   writes: true,
+  surface: "files",
   spend: { steps: 1 },
   keys: ["path"],
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
@@ -329,6 +333,7 @@ export const moveFile = defineTool({
     "folder into its own subtree is refused.",
   authority: "reversible",
   writes: true,
+  surface: "files",
   spend: { steps: 1 },
   keys: ["folder", "path"],
   parse: (raw: unknown) => {
@@ -362,6 +367,7 @@ export const renameFile = defineTool({
     "folder already carries is refused rather than taken.",
   authority: "reversible",
   writes: true,
+  surface: "files",
   spend: { steps: 1 },
   keys: ["name", "path"],
   parse: (raw: unknown) => {

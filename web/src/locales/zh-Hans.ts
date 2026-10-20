@@ -629,7 +629,6 @@ export const catalog: Catalog = {
     "How the group wants its agent to work, on every call it makes.":
       "群组希望其代理在每次调用时如何工作。",
     "No rules yet.": "还没有规则。",
-    Watches: "监视",
     "What should happen": "应该发生什么",
     "May send": "可以发送",
     "Rule name": "规则名称",

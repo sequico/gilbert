@@ -885,6 +885,9 @@ export class AgentLoop {
         // The whole drop this run answers, so its plan reads the names instead
         // of listing the folder again (ADR 0038).
         ...(event.also?.length ? { batch: [...event.also] } : {}),
+        // The matrix the rule carries at this instant (ADR 0035): the run says
+        // where it may act, and a later edit of the rule does not move it.
+        surfaces: { ...rule.surfaces },
       },
     });
     await createRun(this.ctx, accountId, run);

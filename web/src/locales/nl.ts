@@ -637,7 +637,6 @@ export const catalog: Catalog = {
     "How the group wants its agent to work, on every call it makes.":
       "Hoe de groep wil dat zijn agent werkt, bij elke aanroep die hij doet.",
     "No rules yet.": "Nog geen regels.",
-    Watches: "Let op",
     "What should happen": "Wat er moet gebeuren",
     "May send": "Mag verzenden",
     "Rule name": "Naam van de regel",

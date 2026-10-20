@@ -278,21 +278,31 @@ function freshCalls(): void {
   onCall = null;
 }
 
+/** A surface list a test asks a rule to watch. */
+type WatchList = Array<keyof RuleDoc["surfaces"]>;
+
 /** A rule this build writes, watching one surface, removed with its test. */
-async function putRule(
-  id: string,
-  watches: RuleDoc["watches"] = ["mail"],
-): Promise<void> {
+async function putRule(id: string, watches: WatchList = ["mail"]): Promise<void> {
   await createRule(ctx, accountId, rule(id, watches));
   written.push(id);
 }
 
-/** A rule this build writes, watching one surface. */
-function rule(id: string, watches: RuleDoc["watches"] = ["mail"]): RuleDoc {
+/** A rule this build writes, watching the surfaces named and on demand elsewhere. */
+function rule(id: string, watches: WatchList = ["mail"]): RuleDoc {
+  const surfaces: RuleDoc["surfaces"] = {
+    chat: "watch",
+    mail: "ondemand",
+    files: "ondemand",
+    knowledge: "ondemand",
+    workorder: "ondemand",
+    calendar: "ondemand",
+  };
+  for (const surface of watches) surfaces[surface] = "watch";
+  surfaces.chat = "watch";
   return {
     v: RULE_VERSION,
     id,
-    watches,
+    surfaces,
     instruction: "Answer the shipper within the day.",
     sends: false,
   };
@@ -364,6 +374,11 @@ test("a change a rule watches opens a run, and the record shows every step of it
     run.startedBy.woke,
     `mail created: ${message}`,
     "the run says which change woke the rule",
+  );
+  assert.equal(
+    run.startedBy.surfaces?.mail,
+    "watch",
+    "and carries the matrix the rule had at that instant (ADR 0035)",
   );
   assert.equal(run.state, "done", "the model said the work was done");
   assert.equal(run.ended?.why, "the shipper's message is filed", "in its own words");

@@ -57,6 +57,7 @@ import {
   defineTool,
   type ImageReader,
   mayRun,
+  surfaceModeOf,
   type ToolCall,
   ToolError,
 } from "./tools/define.js";
@@ -205,6 +206,18 @@ export async function runTool(
   opts: { failSoft?: boolean } = {},
 ): Promise<unknown> {
   const { tool, args } = validatedTool(catalogue, name, raw);
+  /*
+   * A write on a surface the run's rule keeps off is refused before the class
+   * is asked: the rule says *where* this run may act (ADR 0035), the class says
+   * whether the act needs a person's word (ADR 0032). Reading is free — a
+   * reading is proof, not an act.
+   */
+  if (tool.writes && tool.surface && surfaceModeOf(call.run, tool.surface) === "off")
+    throw new ToolError(
+      "surface_off",
+      `"${tool.name}" writes ${tool.surface}, and this run's rule keeps ${tool.surface} off.`,
+      403,
+    );
   if (!mayRun(tool, call.run, args))
     throw new ToolError(
       "needs_authority",

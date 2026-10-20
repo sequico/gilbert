@@ -5,7 +5,9 @@ Status: Accepted
 Implementation: Built. The claim is `server/src/agent/claim.ts` — its document,
 its take, its renew and its release — over the app folder's own compare-and-set
 (`writeAppFile` with `ifInState`, `server/src/appFolder.ts`), which the mock
-enforces (`server/src/mock/compare-and-set.test.ts`).
+enforces (`server/src/mock/compare-and-set.test.ts`). A holder names host and
+pid, and a holder this host can see is gone is taken at once (`holderMaybeAlive`);
+a holder on another host, or a pid the machine has reused, waits the TTL.
 
 ## Context
 
@@ -45,9 +47,11 @@ as.
   a deadline for the work: it is the window in which the installation has an
   agent, written as a date the next process can read.
 - **A holder renews it while it works**, and a claim that is not renewed lapses
-  into the next process's hands. That is what makes a restart need no attention:
-  a process that dies without releasing leaves a claim that expires, and a stale
-  claim costs one TTL of waiting — never a document deleted by hand.
+  into the next process's hands. A holder is `hostname#pid`: when that host is
+  this one and the process is gone, the claim is taken at once — a restart, even
+  a SIGKILL during an update, does not wait the TTL. A holder on another host
+  cannot be checked from here, and a PID the machine has reused reads as alive;
+  those wait the TTL. No document is ever deleted by hand.
 - **A release takes nobody's claim but its own**, and is itself conditional on
   the state the claim was read at, so a release cannot remove a claim a peer has
   just taken over.
@@ -63,11 +67,12 @@ as.
 - Two copies of the agent cannot both work the installation: the second is
   refused while the first is believed, and the exclusion is durable because the
   document is.
-- A dead holder is neither an incident nor a manual step: the claim lapses and
-  the next start takes it. The cost of a crash is bounded by the TTL.
+- A dead holder is neither an incident nor a manual step: on this host the next
+  start takes the claim at once; on another host, when the claim lapses. The
+  cost of a crash is the next start, or one TTL when the host cannot be asked.
 - The TTL is the one number that decides both halves — how often a working
-  holder must renew, and how long a dead one's claim delays the next start — and
-  it is one constant rather than a policy an installation chooses.
+  holder must renew, and how long a dead holder on another host delays the next
+  start — and it is one constant rather than a policy an installation chooses.
 - The check costs one read per pass: no coordinator, no coordination traffic,
   and nothing on the writable filesystem a container under `IMMUTABLE=1` does
   not have.

@@ -2,11 +2,22 @@
 
 Status: Accepted
 
-Implementation: Built.
-`server/src/agent/rule.ts` — their shape, their parser and the one test of what a
-rule watches — and `server/src/agent/rules.ts` is where they live, under `rules/`
-in the group's own account (ADR 0005), read, created, listed and replaced under
-the account's own compare-and-set. The builder of the prose the agent carries is
+Implementation: Partly built.
+`server/src/agent/rule.ts` — the shape, the parser and the test of what wakes a
+rule — and `server/src/agent/rules.ts` is where they live, under `rules/` in the
+group's own account (ADR 0005), read, created, listed and replaced under the
+account's own compare-and-set. The surfaces and their three modes are one
+definition, `server/src/shared/surfaces.ts`, read by the parser, the
+Administration editor and the guard. A run carries the matrix its rule had when
+it opened (`startedBy.surfaces`, `server/src/shared/run.ts`), every writing tool
+names the surface it touches (`ToolSpec.surface`,
+`server/src/agent/tools/define.ts`), and the guard refuses a write on a surface
+the run keeps `off` with the code `surface_off` (`runTool`,
+`server/src/agent/tools.ts`), before the authority class is asked. A v1 rule is
+read as the matrix it means and is written as v2 on the next save. The calendar
+**surface** is in the matrix and its writes are enforced; the calendar **change
+log** that would wake a rule on it is not built, so a calendar `watch` does not
+wake anything yet — that source is owed. The builder of the prose the agent carries is
 `server/src/agent/prose.ts`, in the record's own order. A run records
 the rule or the instruction that started it (`server/src/shared/run.ts`,
 `RunStart`), the tools a rule's instruction is carried out with are
@@ -24,8 +35,9 @@ are `server/src/shared/instruction.ts` and whose reader is
 `server/src/agent/instruction.ts`, read once per pass so an edit is in force at
 the next one; the rule's own instruction is re-read for each turn of its run. An
 **installation administrator** decides both documents, from the rules launcher in
-the top bar (`web/src/views/agent/RulesDialog.tsx`), through the administration's
-own route (`/api/admin/groups/<name>/prose`, `server/src/routes/agent.ts`), which
+Administration → AI Agents → Prose
+(`web/src/views/admin/agents/GroupRules.tsx`), through the administration's own
+route (`/api/admin/groups/<name>/prose`, `server/src/routes/agent.ts`), which
 writes as the Master behind `requireAdmin` — the boundary is the door, not a
 hidden button (owner decision 2026-10-18). Each document is validated by the
 server's parser before it is filed, and every write carries the account state the
@@ -49,15 +61,35 @@ reads it.
 ## Decision
 
 **One rule is one document, in the group's own account**, and it says two things:
-**what it watches** — the activity of that account across the five surfaces the
-agent works on (ADR 0031): its **chat**, its **mail** in and out, its **KB** (a
-page written, a checklist template changed), its **workorders** (a step settled,
-a workorder opened or closed), and its Files — and **in prose, what should
-happen** when that activity is met.
+**a surface matrix** — one mode for each of the group's six surfaces the agent
+works on (ADR 0031): its **chat**, its **mail** in and out, its **KB** (a page
+written, a checklist template changed), its **workorders** (a step settled, a
+workorder opened or closed), its **Files**, and its **calendar** — and **in
+prose, what should happen** when the rule is woken.
 
-- The prose is the instruction. Nothing about a rule is compiled, and a rule
-  carries **no list of permitted actions**: what bounds the agent is the
-  authority classes (ADR 0032), not the rule.
+- **Three modes.** `watch`: the surface wakes the rule, and the run that wake
+  opens may write it. `ondemand`: the surface never wakes the rule; a run already
+  open — from chat, from mail, from another watched surface — may write it.
+  `off`: no wake and no write; reading stays free, because a reading is proof and
+  not an act. There is deliberately no "wake but do not write": a rule that is
+  woken acts, and one that may act on a surface it does not watch is called on
+  demand.
+- **Chat is always `watch`.** The conversation is where the group calls the agent
+  and where its report is written; the matrix's type and its parser refuse a
+  document with chat off, and the editor does not offer it.
+- **The matrix is the rule's, and the run carries it.** A run records the matrix
+  its rule had when it opened, so an edit of the rule does not move the
+  permissions of a run already in flight; a run written before the matrix may
+  write where it did before.
+- **The matrix is enforced on writes, never on reads.** The guard refuses a write
+  on a surface the run keeps `off` (code `surface_off`); a reading of that
+  surface is still allowed, because it is evidence and not an act.
+- **A mode is a scope, not an authority class.** The classes (ADR 0032) still
+  decide whether an act needs a person's word, and `sends` is still the outward
+  power. The matrix says *where* a run may act, never *what* it may do there.
+- The prose is the instruction. Nothing about a rule is compiled, and the matrix
+  is not a list of actions: what bounds an act is the authority classes (ADR
+  0032), not the rule.
 - **A rule may declare that it sends.** That is the one power a rule carries of
   its own (ADR 0032 class 3), and it is written in the rule itself, where its
   owner reads it.
@@ -91,5 +123,14 @@ happen** when that activity is met.
 - Prose that does not say what it means is the failure mode, not a missing
   feature: a rule whose instruction is vague makes the agent vague, and that is
   visible to whoever owns it.
-- There is no per-rule capability to administer, and no place in the product
-  where an administrator grants a permission per pattern of work.
+- The matrix is a scope an administrator administers, not a permission: it says
+  where a run may act, while the authority classes keep deciding what needs a
+  person's word. A rule migrated from v1 keeps the reach it had (`ondemand` on
+  the surfaces it did not watch), so the administrator reviews it; a surface set
+  `off` refuses a write even with a person's word until the rule is edited.
+- A group that wants its files reported sets Files to `watch`; one that wants
+  silence leaves it `ondemand`, and the agent still fixes files when a chat or
+  mail run calls on them. Chat `watch` means every rule hears the conversation:
+  a group with one rule reads one decision per message.
+- The calendar row governs writes now; waking on calendar changes waits on the
+  source the implementation line names as owed.

@@ -304,33 +304,39 @@ is, not what a user sees.
   a document this build cannot read is said rather than guessed at
   (`server/src/routes/agent.ts`, `web/src/views/admin/AdminAgent.tsx`).
 - **0035 — A group's engagement is a rule in prose.** One rule is one
-  document in the group's own account, saying **what it watches** — the account's
-  activity across the five surfaces, its chat, its mail, its KB, its workorders
-  and its Files — and **in prose what should happen**; nothing is compiled, and a
-  rule carries **no list of permitted actions**. A rule may **declare that it
-  sends**, written in the rule itself. The agent's prose has three
-  levels, outermost first: the installation's line, the group's standing
-  instruction, the rule's own — one builder for every caller, and the loop carries
-  the rule's own instruction alone. A member reads the
-  rules, and an **installation administrator** changes them and the standing
-  instruction through the administration's route. **Built** — the rule documents
-  are `server/src/agent/rule.ts`, addressed by `server/src/agent/rules.ts`, and the
-  three levels are built by `server/src/agent/prose.ts`; a run records the rule or
-  the instruction that started it (`server/src/shared/run.ts`), and the loop that
-  matches an event against the rules and gives every rule that fits it its own run
-  is `server/src/agent/loop.ts`,
-  started by the server's own boot (`server/src/agent/supervisor.ts`).
+  document in the group's own account, giving **each surface a mode** — the
+  account's chat, mail, KB, workorders, Files and calendar — and saying **in
+  prose what should happen** when the rule is woken. `watch` wakes the rule and
+  lets the run it opens write the surface; `ondemand` never wakes it but lets an
+  open run write it; `off` neither wakes nor writes, and reading stays free.
+  Chat is always `watch`. The matrix is the rule's and the run carries it; the
+  guard refuses a write on an `off` surface (`surface_off`) and the authority
+  classes (ADR 0032) still bound what an act may be. A v1 rule is read as the
+  matrix it means (watched surfaces `watch`, the rest `ondemand`). The calendar
+  surface is in the matrix; the change log that would wake a rule on it is owed.
+  A rule may **declare that it sends**. The agent's prose has three levels,
+  outermost first: the installation's line, the group's standing instruction,
+  the rule's own; a member reads the rules, and an **installation
+  administrator** changes them and the standing instruction through the
+  administration's route. **Partly built** — the rule documents are
+  `server/src/agent/rule.ts`, the modes `server/src/shared/surfaces.ts`,
+  addressed by `server/src/agent/rules.ts`, and the three levels are built by
+  `server/src/agent/prose.ts`; a run records the rule and its matrix
+  (`server/src/shared/run.ts`), and the loop that matches an event against the
+  rules and gives every rule that fits it its own run is
+  `server/src/agent/loop.ts`, started by the server's own boot
+  (`server/src/agent/supervisor.ts`).
 - **0036 — One agent per installation, held by a claim.** One
   `agent-claim.json` in the app folder of the account the agent signs in as — the
   Master's, one per installation and no per-group lease — taken by the
   compare-and-set JMAP offers and renewed while the holder works. It carries who
   holds it and when it stops being believed, and that instant means one thing:
   until it, the holder is believed; after it, the claim is free. A claim that is
-  not renewed therefore lapses into the next process's hands, so a restart costs
-  one TTL of waiting and never a document deleted by hand; a release takes
-  nobody's claim but its own; and a claim document that cannot be read is no
-  claim at all, so a damaged one cannot leave the installation with no agent.
-  **Built** (`server/src/agent/claim.ts`).
+  not renewed therefore lapses into the next process's hands; on this host a
+  holder whose process is gone is taken at once, while another host waits the
+  TTL. A release takes nobody's claim but its own; and a claim document that
+  cannot be read is no claim at all, so a damaged one cannot leave the
+  installation with no agent. **Built** (`server/src/agent/claim.ts`).
 - **0037 — The agent's memory is a graph, and it recalls it on every call.** The agent **always** has memory: a graph of small facts with a
   provenance, in the **Master's own account**, in a **second store** beside the
   knowledge base — one memory for the installation, so a group reasons with what

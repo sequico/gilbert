@@ -16,6 +16,7 @@ import type {
   RunDoc,
   RunSpent,
 } from "../../shared/run.js";
+import type { SurfaceMode, SurfaceName } from "../../shared/surfaces.js";
 import type { MemoryStore } from "../memory.js";
 import type { ImageReader } from "./content.js";
 
@@ -71,6 +72,11 @@ export interface AnyTool {
   readonly authority: ToolAuthority;
   /** Whether the tool can change anything. The reading half's are all false. */
   readonly writes: boolean;
+  /**
+   * The surface of the group's account a write touches (ADR 0035), or absent
+   * for the agent's own bookkeeping (its memory).
+   */
+  readonly surface?: SurfaceName;
   /** Whether one call leaves the run waiting on a person (ADR 0033, 0034). */
   readonly waits: boolean;
   /** What a call to it spends of the run's budget (ADR 0031). */
@@ -106,6 +112,8 @@ interface ToolSpec<Args> {
   description: string;
   authority: ToolAuthority;
   writes: boolean;
+  /** The surface of the group's account a write touches (ADR 0035). */
+  surface?: SurfaceName;
   /**
    * Whether one call leaves the run waiting on a person. A run holds one wait
    * (ADR 0034), so a plan may carry one such call and no more.
@@ -127,6 +135,7 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     description: spec.description,
     authority: spec.authority,
     writes: spec.writes,
+    surface: spec.surface,
     waits: spec.waits === true,
     spend: spec.spend ?? {},
     act: spec.act ? (args) => spec.act!(args as Args) : () => null,
@@ -231,4 +240,16 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
       one.act.target === act.target &&
       one.act.content === act.content,
   );
+}
+
+/**
+ * The mode the run's rule gives one surface, or null when the run predates the
+ * matrix (ADR 0035).
+ *
+ * A run opened before a rule carried surfaces may write where it did before: the
+ * guard does not narrow it retroactively, and the run's own view says it stands
+ * before the matrix.
+ */
+export function surfaceModeOf(run: RunDoc, surface: SurfaceName): SurfaceMode | null {
+  return run.startedBy.surfaces?.[surface] ?? null;
 }

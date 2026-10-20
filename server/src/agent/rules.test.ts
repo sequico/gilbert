@@ -60,7 +60,14 @@ function ruleOf(id: string, parts: Partial<RuleDoc> = {}): RuleDoc {
   return {
     v: RULE_VERSION,
     id,
-    watches: ["mail", "chat"],
+    surfaces: {
+      chat: "watch",
+      mail: "watch",
+      files: "ondemand",
+      knowledge: "ondemand",
+      workorder: "ondemand",
+      calendar: "ondemand",
+    },
     instruction: "A shipper's message is answered within the day.",
     sends: false,
     ...parts,
@@ -141,7 +148,7 @@ test("an unreadable rule is reported, never guessed at", async () => {
   });
   await assert.rejects(
     () => readRule(ctx, accountId, "other"),
-    /"watches" must be a non-empty list/,
+    /"surfaces" must give every surface a mode/,
     "a rule whose shape is wrong is refused with the reason",
   );
   await assert.rejects(() => listRules(ctx, accountId), /The rule at rules\/other\.json/);
@@ -150,7 +157,14 @@ test("an unreadable rule is reported, never guessed at", async () => {
   await writeAppFileAt(ctx, accountId, "rules/doc.json", {
     v: RULE_VERSION,
     id: "somebody-elses-name",
-    watches: ["mail"],
+    surfaces: {
+      chat: "watch",
+      mail: "watch",
+      files: "ondemand",
+      knowledge: "ondemand",
+      workorder: "ondemand",
+      calendar: "ondemand",
+    },
     instruction: "x",
     sends: false,
   });

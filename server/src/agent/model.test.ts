@@ -199,14 +199,27 @@ beforeEach(() => {
   answerDelayMs = 0;
 });
 
+/** A rule whose matrix watches `watch` and leaves the other surfaces on demand. */
+function ruleOf(
+  id: string,
+  watch: Array<keyof RuleDoc["surfaces"]> = ["mail"],
+  instruction = "A shipper's message is answered within the day.",
+): RuleDoc {
+  const surfaces: RuleDoc["surfaces"] = {
+    chat: "watch",
+    mail: "ondemand",
+    files: "ondemand",
+    knowledge: "ondemand",
+    workorder: "ondemand",
+    calendar: "ondemand",
+  };
+  for (const surface of watch) surfaces[surface] = "watch";
+  surfaces.chat = "watch";
+  return { v: RULE_VERSION, id, surfaces, instruction, sends: false };
+}
+
 /** The group's rule, and the change in its account that wakes it. */
-const shipperRule: RuleDoc = {
-  v: RULE_VERSION,
-  id: "shipper-answer",
-  watches: ["mail"],
-  instruction: "A shipper's message is answered within the day.",
-  sends: false,
-};
+const shipperRule: RuleDoc = ruleOf("shipper-answer", ["mail"]);
 const mailEvent = { source: "mail", change: "created", where: "m-1" } as const;
 
 const prose = {
@@ -431,13 +444,11 @@ test("more than one rule may cover a change, and the turn answers with every one
   // the ones it names — every one that fits, without a fault and without
   // choosing between them: a change two rules cover is both of the group's
   // decisions, neither set aside for the other (ADR 0035).
-  const second: RuleDoc = {
-    v: RULE_VERSION,
-    id: "container-filing",
-    watches: ["mail"],
-    instruction: "A container document is filed with its booking.",
-    sends: false,
-  };
+  const second: RuleDoc = ruleOf(
+    "container-filing",
+    ["mail"],
+    "A container document is filed with its booking.",
+  );
   answerWith({
     rules: ["shipper-answer", "container-filing"],
     facts: { shipper: "Maersk" },
@@ -1210,13 +1221,11 @@ test("an answer fenced as JSON is still the answer", async () => {
 });
 
 test("a chat decision written in prose is the reply it is", async () => {
-  const chatRule: RuleDoc = {
-    v: RULE_VERSION,
-    id: "chat-answer",
-    watches: ["chat"],
-    instruction: "Answer the group in its own conversation.",
-    sends: false,
-  };
+  const chatRule: RuleDoc = ruleOf(
+    "chat-answer",
+    ["chat"],
+    "Answer the group in its own conversation.",
+  );
   answers.push("Filed in TEMU5974430; seal reads 005073.");
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
@@ -1262,13 +1271,11 @@ test("the choosing turn lists each tool's own argument names", async () => {
 test("a provider's leaked tool markup is not prose the agent says", async () => {
   // A reasoning model sometimes emits its tool-call tokens as text; those are
   // not words the group should read in its conversation.
-  const chatRule: RuleDoc = {
-    v: RULE_VERSION,
-    id: "chat-answer",
-    watches: ["chat"],
-    instruction: "Answer the group in its own conversation.",
-    sends: false,
-  };
+  const chatRule: RuleDoc = ruleOf(
+    "chat-answer",
+    ["chat"],
+    "Answer the group in its own conversation.",
+  );
   answers.push('<｜｜DSML｜｜invoke name="mail.find">cargo</｜｜DSML｜｜invoke>');
   await assert.rejects(
     () =>

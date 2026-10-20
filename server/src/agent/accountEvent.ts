@@ -17,10 +17,11 @@
  * for every surface a rule can watch.
  *
  * `source` is the group's own vocabulary rather than the protocol's: the five
- * surfaces ADR 0035 lists are answered as five, and the three of them that live
- * in Files are told apart by the folder a node sits in. `eventSourceOf` is the
- * one place that decides, and it reads the folder's own name rather than a
- * second spelling of the path.
+ * **event** surfaces are answered as five, and the three of them that live in
+ * Files are told apart by the folder a node sits in. `eventSourceOf` is the one
+ * place that decides, and it reads the folder's own name rather than a second
+ * spelling of the path. A rule's matrix also names **calendar**, whose change
+ * log is not read yet: no event carries it (ADR 0035).
  */
 
 import { APP_FOLDER_NAME } from "../shared/appFolder.js";

@@ -183,6 +183,7 @@ export const sayInChat = defineTool({
     "answered is chat.ask.",
   authority: "reversible",
   writes: true,
+  surface: "chat",
   spend: { steps: 1 },
   keys: ["replyTo", "text"],
   parse: (raw: unknown) => {
@@ -209,6 +210,7 @@ export const askInChat = defineTool({
     "decide; a report nobody has to answer is chat.say.",
   authority: "reversible",
   writes: true,
+  surface: "chat",
   waits: true,
   spend: { steps: 1 },
   keys: ["text"],

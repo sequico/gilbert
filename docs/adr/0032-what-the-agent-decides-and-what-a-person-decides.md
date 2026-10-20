@@ -70,6 +70,10 @@ Two standing behaviours, whichever class is at hand:
 - **What the agent asserts is its own.** A step it settles records the agent as
   its signer with the evidence beside it, never a person's name on a thing that
   person did not do.
+- **Where a run may act is its rule's matrix** (ADR 0035), and the guard refuses
+  a write on a surface the rule keeps `off` before the class is asked. That is a
+  scope, not a sixth class: a person's word cannot widen a surface the rule keeps
+  off, and a surface the rule allows does not replace the word a class requires.
 
 ## Consequences
 

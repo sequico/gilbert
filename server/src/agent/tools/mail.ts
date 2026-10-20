@@ -301,6 +301,7 @@ export const fileMessage = defineTool({
     "destination: mail.trash is that act, and a person licenses it.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["folder", "id"],
   parse: (raw: unknown) => {
@@ -326,6 +327,7 @@ export const trashMessage = defineTool({
     "for it names the message, and licenses that one.",
   authority: "destructive",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["id"],
@@ -342,6 +344,7 @@ export const untrashMessage = defineTool({
     "not in Deleted Items is left where it is.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
@@ -358,6 +361,7 @@ export const setKeyword = defineTool({
     "which is how you mark a message you have processed.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["id", "keyword", "on"],
   parse: (raw: unknown) => {
@@ -606,6 +610,7 @@ export const draftReply = defineTool({
     `lands in the conversation, and "${DRAFT_KEYWORD}" until somebody sends it.`,
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["id", "text"],
   parse: (raw: unknown) => {
@@ -754,6 +759,7 @@ export const editDraft = defineTool({
     "agent wrote is replaced: a person's draft is refused, never rewritten.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["cc", "id", "subject", "text", "to"],
   parse: (raw: unknown) => {
@@ -981,6 +987,7 @@ export const sendOutward = defineTool({
     "one message reaches no other.",
   authority: "outward",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   act: (raw: unknown) => {
     const one = isRecord(raw) ? raw : {};
@@ -1022,6 +1029,7 @@ export const askByMail = defineTool({
     "the person works by mail; chat.ask asks in the group's conversation.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   waits: true,
   spend: { steps: 1 },
   keys: ["subject", "text", "to"],
@@ -1066,6 +1074,7 @@ export const defineLabel = defineTool({
     "colour; mail.keyword puts one on a message.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["color", "keyword", "name"],
   parse: (raw: unknown) => {
@@ -1108,6 +1117,7 @@ export const renameMailFolder = defineTool({
     "server keeps them by role.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["name", "to"],
   parse: (raw: unknown) => {
@@ -1144,6 +1154,7 @@ export const deleteMailFolder = defineTool({
     "not removed. The act is the folder: a person's word for it names the folder.",
   authority: "destructive",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   act: (args: { name: string }) => ({ target: args.name, content: null }),
   keys: ["name"],
@@ -1188,6 +1199,7 @@ export const createMailFolder = defineTool({
     "the answer rather than an error.",
   authority: "reversible",
   writes: true,
+  surface: "mail",
   spend: { steps: 1 },
   keys: ["name", "parent"],
   parse: (raw: unknown) => {

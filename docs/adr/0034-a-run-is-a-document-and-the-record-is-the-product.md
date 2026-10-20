@@ -43,9 +43,10 @@ a run.
 **A run is a document in the group's account**, and it is the whole of the
 agent's durable state.
 
-- It carries which rule or which instruction started it, the plan (the steps the
-  model chose, or the rule declared, and what each of them waits on), the outcome
-  of each one, what it is waiting
+- It carries which rule or which instruction started it, the surface matrix that
+  rule had when the run opened (ADR 0035), the plan (the steps the model chose,
+  or the rule declared, and what each of them waits on), the outcome of each one,
+  what it is waiting
   for — and until when, when there is a date — every authorisation with the
   message it arrived in and the authority given, the evidence behind every claim,
   and the budget it has spent.

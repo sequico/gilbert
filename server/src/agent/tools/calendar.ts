@@ -209,6 +209,7 @@ export const createEvent = defineTool({
     "hour. No invitation is sent.",
   authority: "reversible",
   writes: true,
+  surface: "calendar",
   spend: { steps: 1 },
   keys: ["calendar", "description", "duration", "start", "timeZone", "title"],
   parse: (raw: unknown) => {
@@ -282,6 +283,7 @@ export const updateEvent = defineTool({
     "on its own. The act is the event: a person's word for it names the event.",
   authority: "destructive",
   writes: true,
+  surface: "calendar",
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["description", "duration", "id", "start", "timeZone", "title"],
@@ -327,6 +329,7 @@ export const deleteEvent = defineTool({
     "act is the event: a person's word for it names the event.",
   authority: "destructive",
   writes: true,
+  surface: "calendar",
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["id"],

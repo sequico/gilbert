@@ -8,7 +8,13 @@
  * its name: renaming is a new rule and a deleted one, not a document moved under
  * a name the agent may already be carrying.
  */
-import { RULE_SURFACES, RULE_VERSION, type RuleDoc } from "@gilbert/agent/rule";
+import {
+  RULE_SURFACES,
+  RULE_VERSION,
+  type RuleDoc,
+  type RuleSurfaces,
+  type SurfaceMode,
+} from "@gilbert/agent/rule";
 import { errorMessage } from "@gilbert/shared/errors";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/jmap/client";
@@ -22,13 +28,34 @@ import {
 import { t } from "@/lib/i18n";
 import { confirmDialog } from "@/ui/dialog";
 
-/** The name each surface goes by, in the order a rule's list keeps. */
+/** The name each surface goes by, in the order a rule's matrix keeps. */
 const SURFACE_LABEL: Record<(typeof RULE_SURFACES)[number], string> = {
   chat: "Chat",
   mail: "Mail",
   knowledge: "KB",
   workorder: "Workorders",
   files: "Files",
+  calendar: "Calendar",
+};
+
+/** The three modes, and the sentence each stands for (ADR 0035). */
+const MODES: readonly SurfaceMode[] = ["off", "watch", "ondemand"];
+
+/** The word a mode goes by, translated where it is drawn. */
+function modeLabel(mode: SurfaceMode): string {
+  if (mode === "off") return t("Off");
+  if (mode === "watch") return t("Watch");
+  return t("On demand");
+}
+
+/** The matrix a new rule starts from: mail and chat wake it, files are on demand. */
+const NEW_RULE_SURFACES: RuleSurfaces = {
+  chat: "watch",
+  mail: "watch",
+  files: "ondemand",
+  knowledge: "off",
+  workorder: "off",
+  calendar: "off",
 };
 
 export function GroupRules({ group }: { group: string }) {
@@ -174,7 +201,7 @@ export function GroupRules({ group }: { group: string }) {
                   initial={{
                     v: RULE_VERSION,
                     id: "",
-                    watches: ["mail"],
+                    surfaces: { ...NEW_RULE_SURFACES },
                     instruction: "",
                     sends: false,
                   }}
@@ -228,7 +255,7 @@ function RuleEditor({
 }) {
   const existing = Boolean(onDelete);
   const [id, setId] = useState(initial.id);
-  const [watches, setWatches] = useState(initial.watches);
+  const [surfaces, setSurfaces] = useState<RuleSurfaces>(initial.surfaces);
   const [instruction, setInstruction] = useState(initial.instruction);
   const [sends, setSends] = useState(initial.sends);
   /*
@@ -241,10 +268,12 @@ function RuleEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const toggle = (surface: (typeof RULE_SURFACES)[number]) =>
-    setWatches((list) =>
-      list.includes(surface) ? list.filter((s) => s !== surface) : [...list, surface],
-    );
+  const setMode = (
+    surface: Exclude<(typeof RULE_SURFACES)[number], "chat">,
+    mode: SurfaceMode,
+  ) => {
+    setSurfaces((held) => ({ ...held, [surface]: mode }));
+  };
 
   const act = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -277,20 +306,32 @@ function RuleEditor({
         </div>
       )}
       <div className="field" style={{ marginTop: 8 }}>
-        <label>{t("Watches")}</label>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <label>{t("Surfaces")}</label>
+        <p className="hint">
+          {t(
+            "Watch wakes the rule; On demand acts only when a run is already open; Off is none of its business.",
+          )}
+        </p>
+        <div style={{ display: "grid", gap: 6 }}>
           {RULE_SURFACES.map((surface) => (
-            <label
-              key={surface}
-              style={{ display: "flex", gap: 4, alignItems: "center" }}
-            >
-              <input
-                type="checkbox"
-                checked={watches.includes(surface)}
-                onChange={() => toggle(surface)}
-              />
-              {t(SURFACE_LABEL[surface])}
-            </label>
+            <div key={surface} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ minWidth: 90 }}>{t(SURFACE_LABEL[surface])}</span>
+              {surface === "chat" ? (
+                <span className="hint">{t("Chat is always watched")}</span>
+              ) : (
+                <select
+                  value={surfaces[surface]}
+                  aria-label={t(SURFACE_LABEL[surface])}
+                  onChange={(e) => setMode(surface, e.target.value as SurfaceMode)}
+                >
+                  {MODES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {modeLabel(mode)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -327,7 +368,7 @@ function RuleEditor({
                 {
                   v: RULE_VERSION,
                   id: ruleId,
-                  watches: RULE_SURFACES.filter((s) => watches.includes(s)),
+                  surfaces,
                   instruction,
                   sends,
                 },

@@ -55,6 +55,7 @@ export const settleStep = defineTool({
     "person. The step is named by its path, as workorder.read answers it.",
   authority: "reversible",
   writes: true,
+  surface: "workorder",
   spend: { steps: 1 },
   keys: ["note", "path", "state", "uid"],
   parse: (raw: unknown) => {
