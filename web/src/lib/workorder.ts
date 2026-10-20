@@ -22,7 +22,6 @@ import {
   type WorkorderCheckInput,
   type WorkorderCreateInput,
   type WorkorderListEntry,
-  type WorkorderRefChange,
   type WorkorderState,
   type WorkorderSummary,
 } from "@gilbert/shared/workorder";
@@ -137,18 +136,6 @@ export async function closeWorkorder(
   const res = await apiFetch<{ ok: true; workorder: WorkorderSummary }>(
     "/api/workorders/close",
     { method: "POST", body: JSON.stringify({ uid, state }) },
-  );
-  return res.workorder;
-}
-
-/** Add or remove one reference of a workorder. */
-export async function editWorkorderRefs(
-  uid: string,
-  change: WorkorderRefChange,
-): Promise<WorkorderSummary> {
-  const res = await apiFetch<{ ok: true; workorder: WorkorderSummary }>(
-    "/api/workorders/ref",
-    { method: "POST", body: JSON.stringify({ uid, change }) },
   );
   return res.workorder;
 }

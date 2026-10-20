@@ -29,14 +29,12 @@ import {
   checkWorkorderStep,
   closeWorkorder,
   createWorkorder,
-  editWorkorderRefs,
   readWorkorder as fetchWorkorder,
   listEntryOf,
   listWorkorders,
   replaceWorkorder,
   type WorkorderCreateInput,
   type WorkorderListEntry,
-  type WorkorderRef,
   type WorkorderScope,
   type WorkorderState,
   type WorkorderStepState,
@@ -115,8 +113,6 @@ interface WorkorderStore {
    * just retired would read as nothing having happened.
    */
   replace(uid: string, input: WorkorderCreateInput): Promise<boolean>;
-  addRef(uid: string, ref: WorkorderRef): Promise<boolean>;
-  removeRef(uid: string, ref: WorkorderRef): Promise<boolean>;
   reset(): void;
 }
 
@@ -155,6 +151,25 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
    * the guard is here rather than left to how rarely a read used to be asked for.
    */
   let loadEpoch = 0;
+  /*
+   * The accounts this surface follows, derived from the list it holds.
+   *
+   * The rail carries every change of an account — a group's chat and knowledge
+   * base beside its workorder parts — so a frame has to be recognised cheaply.
+   * The list is replaced by every read, so its identity is the invalidation: a
+   * burst asks the same set it asked a moment ago, and the set is rebuilt once
+   * per read.
+   */
+  let followed: { of: readonly WorkorderListEntry[]; accounts: Set<string> } | null =
+    null;
+  function followedAccounts(workorders: readonly WorkorderListEntry[]): Set<string> {
+    if (followed?.of === workorders) return followed.accounts;
+    const accounts = new Set<string>();
+    for (const one of workorders)
+      for (const part of one.parts) if (part.accountId) accounts.add(part.accountId);
+    followed = { of: workorders, accounts };
+    return accounts;
+  }
 
   /**
    * Put a summary the route echoed back into the list, replacing by uid.
@@ -276,6 +291,16 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
             workorders.push(w);
         return { workorders, loaded: true, loading: false };
       });
+      /*
+       * The list is not the open checklist. A colleague's check arrives as a
+       * change of the account, the rail's answer is this read, and a panel left
+       * on the detail it read once would show two people two different states
+       * of one checklist. The read is asked again for the workorder on screen;
+       * a detail read already in flight is replaced by the newer answer, as one
+       * open replaces another.
+       */
+      const open = get().openUid;
+      if (open && get().panelOpen) void loadDetail(open);
       if (pendingReload) {
         pendingReload = false;
         void get().load();
@@ -305,9 +330,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
      */
     applyChanges(accountId) {
       if (!accountId || !get().panelOpen) return;
-      const held = get().workorders.some((w) =>
-        w.parts.some((part) => part.accountId === accountId),
-      );
+      const held = followedAccounts(get().workorders).has(accountId);
       const mine = groupMailboxAccounts(useMail.getState().mailAccounts).some(
         (group) => group.accountId === accountId,
       );
@@ -395,29 +418,10 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
       }
     },
 
-    async addRef(uid, ref) {
-      try {
-        put(await editWorkorderRefs(uid, { add: ref }));
-        return true;
-      } catch (err) {
-        set({ error: errorMessage(err) });
-        return false;
-      }
-    },
-
-    async removeRef(uid, ref) {
-      try {
-        put(await editWorkorderRefs(uid, { remove: ref }));
-        return true;
-      } catch (err) {
-        set({ error: errorMessage(err) });
-        return false;
-      }
-    },
-
     reset() {
       mutatedAt.clear();
       pendingReload = false;
+      followed = null;
       if (changeWindow !== undefined) {
         clearTimeout(changeWindow);
         changeWindow = undefined;
@@ -448,4 +452,11 @@ export function openWorkorder(s: WorkorderStore): WorkorderSummary | null {
 useSession.subscribe((s, prev) => {
   if (s.status !== prev.status && s.status !== "authenticated")
     useWorkorders.getState().reset();
+  /*
+   * A signed-in session reads the list the launcher's badge counts, without
+   * waiting for the panel to be opened once: a running workorder is exactly the
+   * thing that has to be visible from outside the surface.
+   */
+  if (s.status === "authenticated" && prev.status !== "authenticated")
+    void useWorkorders.getState().load();
 });
