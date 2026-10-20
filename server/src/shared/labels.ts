@@ -78,8 +78,6 @@ export interface LabelCatalog {
 export const AGENT_LABEL = {
   needAttention: "G-needattention",
   processed: "G-processed",
-  awaiting: "G-awaiting",
-  rejected: "G-rejected",
 } as const;
 
 /**
@@ -98,12 +96,6 @@ export const AGENT_LABELS: ReadonlyArray<LabelCatalogEntry> = [
     color: "#b91c1c",
   },
   { keyword: AGENT_LABEL.processed, name: "Gilbert: processed", color: "#15803d" },
-  {
-    keyword: AGENT_LABEL.awaiting,
-    name: "Gilbert: awaiting approval",
-    color: "#b45309",
-  },
-  { keyword: AGENT_LABEL.rejected, name: "Gilbert: rejected", color: "#475569" },
 ];
 
 /**

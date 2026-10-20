@@ -26,8 +26,6 @@ test("the reserved vocabulary is the one the agent marks a message with", () => 
     [
       [AGENT_LABEL.needAttention, "Gilbert: needs attention"],
       [AGENT_LABEL.processed, "Gilbert: processed"],
-      [AGENT_LABEL.awaiting, "Gilbert: awaiting approval"],
-      [AGENT_LABEL.rejected, "Gilbert: rejected"],
     ],
   );
   for (const label of AGENT_LABELS)
