@@ -19,14 +19,11 @@ Docker smoke build, which a local gate cannot assume; because `release.yml`
 calls `ci.yml` as its pre-check, the check that prepares a release is the check
 a push met, not a weaker second list (ADR 0021).
 
-Two checks the pipeline does not carry, on purpose:
+One check the pipeline does not carry, on purpose:
 
 - **`npm run audit`** (`npm audit --omit=dev`) is network-bound and
   advisory-driven, so it runs in the release pre-check: a new advisory refuses a
   release, not a push that changed nothing.
-- **CodeQL runs on GitHub only**, in `.github/workflows/codeql.yml`, called by
-  the Release workflow so nothing is cut on an unclean analysis: there is no
-  local analysis and no local toolchain (ADR 0023).
 
 ## Committing and pushing
 
@@ -48,8 +45,7 @@ What the run does, in order:
 1. **Decide** whether a release is due. A release with no commits in it is worse
    than no release, so a run with nothing new since the last release, or whose
    tag already exists, stops with a written reason and cuts nothing.
-2. **Pre-check.** The full `ci.yml` gate, the dependency audit, and the CodeQL
-   analysis (`codeql.yml`).
+2. **Pre-check.** The full `ci.yml` gate and the dependency audit.
 3. **Cut.** A GitHub release is created at the verified commit, with notes
    generated from the commits since the previous release. Those notes are the
    changelog; there is no `CHANGELOG.md` to keep in step.

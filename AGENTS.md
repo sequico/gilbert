@@ -326,13 +326,6 @@ the image the pruner targets — and asserts the first against `engines.node` an
 the second against the published `IMAGE`, so a Node move or a rename is one
 edit. The workflows this repository owns are ours; upstream's CI is not taken.
 
-**CodeQL runs with the release, on GitHub only** (ADR 0023, owner decisions
-2026-09-27 and 2026-10-18): the analysis is `.github/workflows/codeql.yml`,
-called by `release.yml` as a pre-check — `cut` waits on it — and run weekly and
-on dispatch besides. It is not a per-push gate, and there is **no local
-analysis**: no script, no bundled toolchain, no `CODEQL_CLI` lookup. A finding
-the hosted run prints is work to do in the same change, like any other finding a
-gate prints.
 **Static analysis and secret scanning run on every push and pull request, and
 once a night** (ADR 0022): `.github/workflows/ci-security.yml` runs Semgrep at
 ERROR level across the TypeScript, Node, security-audit and OWASP rule packs,

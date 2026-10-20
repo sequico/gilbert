@@ -10,7 +10,6 @@
   <br>
   <a href="https://github.com/sequico/gilbert/actions/workflows/ci.yml"><img alt="CI: typecheck, Biome, the check scripts, i18n, the tests and the build" src="https://github.com/sequico/gilbert/actions/workflows/ci.yml/badge.svg"></a>
   <a href="docs/releasing.md"><img alt="Releases are cut by hand and gated by the same check" src="https://img.shields.io/badge/release-manual-1f6feb?style=flat-square"></a>
-  <a href="https://github.com/sequico/gilbert/actions/workflows/codeql.yml"><img alt="CodeQL, run with the release and on demand" src="https://img.shields.io/badge/code_scanning-CodeQL-1f6feb?style=flat-square"></a>
   <a href="CONTRIBUTING.md"><img alt="Every contributed commit is signed off (DCO)" src="https://img.shields.io/badge/commits-DCO--signed-2dd4bf?style=flat-square"></a>
   <a href="https://github.com/sponsors/sequico"><img alt="Sponsor Gilbert on GitHub" src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?style=flat-square"></a>
 </p>

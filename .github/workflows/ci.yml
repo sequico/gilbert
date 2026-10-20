@@ -5,7 +5,7 @@ on:
   # more -- per-push verification is the local fast gate (npm run prepush, the
   # same `check:ci` this job runs, enforced by the pre-push hook) plus the
   # security workflow (ci-security.yml); see AGENTS.md. This workflow stays the
-  # release pre-check, and codeql.yml is the release's other one.
+  # release pre-check.
   #
   # One pull_request exception: Dependabot's branches never pass through the
   # local pre-push hook, so its PRs get the check automatically. The job-level
