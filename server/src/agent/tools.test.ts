@@ -1977,11 +1977,16 @@ test("the agent settles a step of its group's workorder and signs it as the agen
     "the document says who last wrote it",
   );
 
-  // A step that is not there is refused rather than invented.
+  // A step that is not there is refused rather than invented, and the refusal
+  // names the paths the checklist does hold: the corrected path is in the
+  // answer, so the next step is a settle rather than a read.
   await assert.rejects(
     () => writeTool("workorder.settle", { uid, path: "intake.unknown", state: "done" }),
-    /no step "intake.unknown"/,
-    "a path the checklist does not hold is a refusal",
+    (err: unknown) =>
+      err instanceof Error &&
+      err.message.includes('no step "intake.unknown"') &&
+      err.message.includes("intake.confirm"),
+    "a path the checklist does not hold is a refusal that names the steps it has",
   );
 });
 
@@ -2104,6 +2109,90 @@ test("the agent finds the workorders its account holds a part of, and reads one 
  * title, the page under `Policies` answers no page at all — the folder is the
  * page's own identity.
  */
+/**
+ * A step's path is its identity and its label is the words a reader sees; the
+ * words live in the template's revision, never in the part. An agent handed only
+ * `intake.confirm` reasons about a path; one handed "Confirm the booking" knows
+ * what it is settling — and the path is still there for the call.
+ */
+test("a workorder's steps carry the template's words beside their paths", async () => {
+  const { buildRevision, buildState } = await import("../shared/knowledge.js");
+  const at = new Date().toISOString();
+  const templateId = "template-labels";
+  const revision = "rev-labels";
+  const checklist = {
+    variants: [],
+    sections: [
+      {
+        key: "intake",
+        label: "Intake",
+        steps: [{ key: "confirm", label: "Confirm the booking" }],
+      },
+    ],
+  };
+  const draft = buildDraft({
+    id: templateId,
+    title: "Intake template",
+    tags: [],
+    blocks: [],
+    text: "",
+    checklist,
+    by: "a@example.com",
+    at,
+  });
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `knowledge/Intake template/state.json`,
+    buildState({
+      id: templateId,
+      title: "Intake template",
+      tags: [],
+      by: "a@example.com",
+      at,
+      created: draft.created,
+    }),
+  );
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `knowledge/Intake template/revisions/${revision}.json`,
+    buildRevision(draft, {
+      revision,
+      rev: 1,
+      approvedBy: "a@example.com",
+      approvedAt: at,
+      effectiveAt: at,
+      supersedes: null,
+    }),
+  );
+
+  const uid = "wo-labels";
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `workorders/${uid}.json`,
+    buildWorkorderDoc({
+      uid,
+      by: "a@example.com",
+      at,
+      checklist: buildChecklist({
+        template: { accountId, id: templateId, revision },
+        variants: {},
+        items: {},
+        stepPaths: ["intake.confirm"],
+      }),
+    }),
+  );
+
+  const read = await callTool<{ steps: Array<{ path: string; label: string }> }>(
+    "workorder.read",
+    { uid },
+  );
+  const step = read.steps.find((one) => one.path === "intake.confirm");
+  assert.equal(step?.label, "Confirm the booking", "the words come from the template");
+});
+
 test("a page inside a topic folder is read by the folder the listing answers", async () => {
   const title = "Returns";
   const body = "A return is booked against its original order.";

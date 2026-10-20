@@ -16,14 +16,18 @@ import {
 import { AGENT_SIGNATURE } from "../../shared/agent.js";
 import { FOLDER_PROPS } from "../../shared/appFolder.js";
 import { mapLimit, READ_CONCURRENCY } from "../../shared/concurrency.js";
+import { resolveChecklist } from "../../shared/knowledge.js";
 import {
   isWorkorderDoc,
   isWorkorderStepState,
+  itemKeysOf,
   stepOf,
+  type WorkorderChecklist,
   WORKORDER_FOLDER,
   workorderClosedPath,
   workorderFileName,
 } from "../../shared/workorder.js";
+import { templateDef } from "../../workorder/templates.js";
 import { settleStepAsAgent, WorkorderAdminError } from "../../workorderAdmin.js";
 import { argsRecord, countArg, notFound, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
@@ -114,13 +118,45 @@ export const listWorkorders = defineTool({
   },
 });
 
+/**
+ * The controlled label of every step, by path, from the template this part is
+ * bound to.
+ *
+ * A part stores paths and states and never the words — the controlled text lives
+ * in the template's revision (ADR 0026) — so a model handed only `loading[CONT-1].seal`
+ * reasons about a string it cannot read. A template that cannot be read leaves
+ * the map empty and the caller falls back to the path, which is still the step's
+ * identity.
+ */
+async function stepLabels(
+  ctx: Ctx,
+  accountId: string,
+  checklist: WorkorderChecklist,
+): Promise<Map<string, string>> {
+  const labels = new Map<string, string>();
+  // A reader of its own: this read is one workorder, and the caches live as long
+  // as the answer it composes.
+  const reader = { ctx, defs: new Map(), articleFolders: new Map() };
+  const def = (await templateDef(reader, checklist.template)).checklist;
+  if (!def) return labels;
+  for (const section of resolveChecklist(
+    def,
+    checklist.variants,
+    itemKeysOf(checklist.items),
+    accountId,
+  ))
+    for (const item of section.items)
+      for (const step of item.steps) labels.set(step.path, step.label);
+  return labels;
+}
+
 export const readWorkorder = defineTool({
   name: "workorder.read",
   description:
     "Read one workorder this account holds a part of, by its uid: its name, its " +
-    "state, the checklist steps with who signed each of them, and the objects it " +
-    "references. The name, the state and the closed record are the " +
-    "installation's, read beside the part this account holds.",
+    "state, the checklist steps with their words and who signed each of them, " +
+    "and the objects it references. The name, the state and the closed record " +
+    "are the installation's, read beside the part this account holds.",
   authority: "reversible",
   writes: false,
   keys: ["uid"],
@@ -137,11 +173,16 @@ export const readWorkorder = defineTool({
      */
     const root = await masterRootOf(ctx, filesAccountId(ctx), uid);
     const whole = isWorkorderDoc(root) ? root : null;
+    const labels = await stepLabels(ctx, accountId, raw.checklist);
     return {
       uid: raw.uid,
       name: whole?.name ?? raw.name ?? null,
       state: whole?.state ?? raw.state ?? null,
-      steps: raw.checklist.steps,
+      steps: raw.checklist.steps.map((step) => ({
+        ...step,
+        // The words the reader sees, beside the path the calls take.
+        label: labels.get(step.path) ?? step.path,
+      })),
       refs: whole?.refs ?? raw.refs,
       updated: whole?.updated ?? raw.updated,
     };

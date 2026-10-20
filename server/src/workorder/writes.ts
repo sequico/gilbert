@@ -53,6 +53,7 @@ import {
   type WorkorderRef,
   type WorkorderRefChange,
   type WorkorderState,
+  type WorkorderStep,
   type WorkorderStepState,
   type WorkorderSummary,
   type WorkorderTemplateRef,
@@ -329,7 +330,7 @@ async function applyStep(input: {
       if (!stepOf(found.doc.checklist, path))
         throw new WorkorderAdminError(
           "step_not_found",
-          `That workorder has no step "${path}".`,
+          `That workorder has no step "${path}". The steps it holds are: ${nearbySteps(found.doc.checklist.steps, path).join(", ") || "(none)"}.`,
           404,
         );
       return {
@@ -386,6 +387,24 @@ function refuseIfTerminal(doc: WorkorderDoc): void {
       "That workorder is closed, so its checklist no longer changes.",
       409,
     );
+}
+
+/**
+ * A few of the paths a wrong one probably meant.
+ *
+ * A step's path is the identity a caller has to reproduce exactly, and it is
+ * made of a section key, an item key and a step key — so the section the caller
+ * named is the best guess, then what is still open. Naming them in the refusal
+ * is what turns a wrong path into a corrected one instead of a read-and-guess
+ * round: the model reads its own path back, corrected, in the same step.
+ */
+function nearbySteps(steps: readonly WorkorderStep[], path: string): string[] {
+  const at = path.lastIndexOf(".");
+  const section = at > 0 ? path.slice(0, at) : path;
+  const sameSection = steps.filter((step) => step.path.startsWith(`${section}.`));
+  const open = steps.filter((step) => step.state === "open");
+  const from = sameSection.length ? sameSection : open.length ? open : steps;
+  return from.slice(0, 5).map((step) => step.path);
 }
 
 /**

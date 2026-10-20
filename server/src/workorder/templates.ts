@@ -17,7 +17,23 @@ import {
   STATE_FILE,
 } from "../shared/knowledge.js";
 import type { WorkorderTemplateRef } from "../shared/workorder.js";
-import type { WorkorderReach } from "./reach.js";
+
+/**
+ * What resolving a template's rules needs: the context, and the two caches one
+ * request keeps.
+ *
+ * Narrower than the whole reach on purpose — finding an article and reading a
+ * revision depend on the context and the caches and on nothing else, so a
+ * surface that only names a template (the agent's read of one workorder) reads
+ * it without building a reach, which costs a probe pass over every group.
+ */
+export interface TemplateReader {
+  ctx: Ctx;
+  /** One template revision's rules per request, resolved once (see `templateDef`). */
+  defs: Map<string, Promise<TemplateDef>>;
+  /** One template article's folder path per request, by account and article id. */
+  articleFolders: Map<string, Promise<string | null>>;
+}
 
 /** A template revision's rules and title as the KB serves them (ADR 0026). */
 export interface TemplateDef {
@@ -31,20 +47,20 @@ export interface TemplateDef {
  *
  * The same revision is read by the view a read composes (every visible part)
  * and by the gate reconcile a write runs after it; on one request that is the
- * same bytes asked for several times, so the promise is kept on the reach and
+ * same bytes asked for several times, so the promise is kept on the reader and
  * returned to whoever asks next. The key is the bound reference — the account,
  * the article and the revision it names (ADR 0024) — so two workorders bound to
  * two revisions never share an answer.
  */
 export function templateDef(
-  reach: WorkorderReach,
+  reader: TemplateReader,
   template: WorkorderTemplateRef,
 ): Promise<TemplateDef> {
   const key = `${template.accountId}:${template.id}:${template.revision}`;
-  const cached = reach.defs.get(key);
+  const cached = reader.defs.get(key);
   if (cached) return cached;
-  const resolved = readTemplateDef(reach, template);
-  reach.defs.set(key, resolved);
+  const resolved = readTemplateDef(reader, template);
+  reader.defs.set(key, resolved);
   return resolved;
 }
 
@@ -56,14 +72,14 @@ export function templateDef(
  * revisions of one template walk the tree once and read two revisions.
  */
 function articleFolderOf(
-  reach: WorkorderReach,
+  reader: TemplateReader,
   template: WorkorderTemplateRef,
 ): Promise<string | null> {
   const key = `${template.accountId}:${template.id}`;
-  const cached = reach.articleFolders.get(key);
+  const cached = reader.articleFolders.get(key);
   if (cached) return cached;
-  const resolved = resolveArticleFolder(reach.ctx, template);
-  reach.articleFolders.set(key, resolved);
+  const resolved = resolveArticleFolder(reader.ctx, template);
+  reader.articleFolders.set(key, resolved);
   return resolved;
 }
 
@@ -96,14 +112,14 @@ async function resolveArticleFolder(
  * finding, not a surface taken down.
  */
 async function readTemplateDef(
-  reach: WorkorderReach,
+  reader: TemplateReader,
   template: WorkorderTemplateRef,
 ): Promise<TemplateDef> {
-  const ctx = reach.ctx;
+  const ctx = reader.ctx;
   let title: string | null = null;
   let rev: number | null = null;
   try {
-    const folder = await articleFolderOf(reach, template);
+    const folder = await articleFolderOf(reader, template);
     if (!folder) return { checklist: null, title, rev };
     const state = await readAppJsonAt(
       ctx,
