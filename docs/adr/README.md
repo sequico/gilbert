@@ -384,4 +384,12 @@ is, not what a user sees.
   where the agent serves the group, answered by a member route with the matrix;
   at most ten items, because a bulk write is one step each in a twenty-step
   plan. **Not built.**
+- **0036 — A workorder anchors the mail and the files that belong to it.** A
+  workorder declares the keys the world uses for it (`tags`), and mail and files
+  point at it with refs rather than at a folder name. A deterministic binder in
+  the pass the supervisor already makes files a matched message's attachments
+  into the workorder's folder and writes the refs, idempotently, and a key that
+  resolves to nothing is recorded and left to the group's rule in prose. The
+  folder is a container, not an identity: a facet layout may nest it, and a
+  replaced workorder carries its tags to its successor. **Not built.**
 
