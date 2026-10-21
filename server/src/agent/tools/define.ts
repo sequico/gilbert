@@ -122,6 +122,16 @@ export interface AnyTool {
 export interface ArgSpec {
   /** The kind of value: text, a whole number, a boolean, a list, or one of a set. */
   type: "text" | "number" | "boolean" | "list" | "one of";
+  /**
+   * What the value *is*, when the name alone would not say it.
+   *
+   * `id` is an argument of message reads, mailbox reads, file reads and chat
+   * reads alike, and a live run sent a mailbox id to `mail.read` because the
+   * schema said "text" and nothing more. This line is rendered beside the
+   * argument in both turns' catalogue and in the provider's `description`, so
+   * the same word cannot mean four things to the one filling it in.
+   */
+  about?: string;
   /** The least a `number` may be. */
   min?: number;
   /** The most characters a `text` may be (and each entry of a `list`). */

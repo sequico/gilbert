@@ -1000,10 +1000,7 @@ export async function decideEvent(
     'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
     "The tools you may read with:",
-    ...READING_TOOLS.map(
-      (tool) =>
-        `- ${tool.name}(${tool.keys.join(", ") || "no arguments"}): ${tool.description}`,
-    ),
+    ...READING_TOOLS.map(toolLine),
     "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
     ...heads,
   ]
@@ -1352,7 +1349,23 @@ export interface StepCall {
  * beside them: it grants no authority and names no capability, because what may
  * be done is the authority classes (ADR 0028) and never the model's.
  */
-type StepChoice = { kind: "plan"; calls: StepCall[] } | { kind: "done"; why: string };
+type StepChoice =
+  | {
+      kind: "plan";
+      calls: StepCall[];
+      /**
+       * Calls the catalogue refused, kept so the run records them.
+       *
+       * A name the catalogue does not hold, or arguments a tool cannot use,
+       * refuses **that call** — not the plan around it: a live run lost a
+       * four-call answer to one invented name, and the same wrong name then came
+       * back for want of anything telling the model what the catalogue holds.
+       * The refused call travels here, the loop writes it as a failed step, and
+       * the rest of the answer runs.
+       */
+      refused?: Array<{ name: string; args: unknown; problem: string }>;
+    }
+  | { kind: "done"; why: string };
 
 /**
  * What one choosing turn is given: the change, the plan so far, and the prose.
@@ -1570,15 +1583,22 @@ export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
  * nobody described cannot reach this function.
  */
 function argSchema(spec: ArgSpec): Record<string, unknown> {
+  /*
+   * The bound in words, beside the machine-readable one: a provider may ignore
+   * `maxLength` — one did, and the run paid a refusal for a `fact` five times
+   * over its limit — and a description is what a model actually reads.
+   */
+  const described = spec.about ? { description: spec.about } : {};
   switch (spec.type) {
     case "number":
       return {
         type: "integer",
+        ...described,
         ...(spec.min === undefined ? {} : { minimum: spec.min }),
         ...(spec.max === undefined ? {} : { maximum: spec.max }),
       };
     case "boolean":
-      return { type: "boolean" };
+      return { type: "boolean", ...described };
     case "list":
       return {
         type: "array",
@@ -1586,18 +1606,57 @@ function argSchema(spec: ArgSpec): Record<string, unknown> {
           type: "string",
           ...(spec.max === undefined ? {} : { maxLength: spec.max }),
         },
+        ...described,
       };
     case "one of":
       return {
         type: "string",
+        ...described,
         ...(spec.values?.length ? { enum: [...spec.values] } : {}),
       };
     case "text":
       return {
         type: "string",
+        ...described,
         ...(spec.max === undefined ? {} : { maxLength: spec.max }),
       };
   }
+}
+
+/**
+ * One argument as a phrase: its name, its kind, and the bound it is held to.
+ *
+ * The catalogue line both turns read. It exists because the schema alone is not
+ * what a model follows: a live run was sent `maxLength: 400` and answered with a
+ * `fact` five times longer, and one invented name refused a whole five-call plan.
+ * The same `ArgSpec` writes this line and the provider's schema, so the two
+ * cannot say different things.
+ */
+function argPhrase(key: string, spec: ArgSpec): string {
+  const bound =
+    spec.min !== undefined && spec.max !== undefined
+      ? ` ${spec.min}–${spec.max}`
+      : spec.min !== undefined
+        ? ` ≥${spec.min}`
+        : spec.max !== undefined
+          ? ` ≤${spec.max}`
+          : "";
+  const kind =
+    spec.type === "one of" ? `one of ${(spec.values ?? []).join("|")}` : spec.type;
+  return `${key}: ${kind}${bound}${spec.about ? ` (${spec.about})` : ""}`;
+}
+
+/** A tool as its catalogue line without the prose: name and arguments. */
+export function toolSignature(tool: AnyTool): string {
+  const args = tool.keys.length
+    ? tool.keys.map((key) => argPhrase(key, tool.args[key] as ArgSpec)).join(", ")
+    : "no arguments";
+  return `- ${tool.name}(${args})`;
+}
+
+/** A tool as its catalogue line with the prose: name, arguments, and what for. */
+export function toolLine(tool: AnyTool): string {
+  return `${toolSignature(tool)}: ${tool.description}`;
 }
 
 /** One tool as an OpenAI-compatible completion takes it (ADR 0027). */
@@ -1693,23 +1752,31 @@ export async function chooseStep(
   const heads = proseForModel(question.prose);
   const tools = catalogueTools(catalogue);
   /*
-   * The catalogue reaches the model **once**: as the tools this call carries.
-   * It used to travel twice — the same names, descriptions, arguments and bounds
-   * as prose in the system turn *and* as the tools — and the choosing turn is the
-   * one call every step of every run makes: the duplicate was the largest part of
-   * the prompt on a busy installation, paid again on every call. The prose list
-   * and its notation are gone with it; the definitions are the catalogue.
+   * The catalogue reaches the turn **twice, and on purpose**: as the provider's
+   * own `tools`, and as one line per tool stating its name, its arguments and the
+   * bound each is held to.
+   *
+   * It used to travel once — the definitions only — to save the repetition on
+   * every step of every run. A live installation paid for that saving: the turn
+   * answered from memory, invented `mail.search` and `mail.threads`, put a
+   * mailbox id where a message id goes, and one invented name refused the whole
+   * plan (260 refused steps over 94 runs, 55%). The lines are the **signature**
+   * only — no description, which the definitions already carry — so what is
+   * duplicated is what the model demonstrably does not read from the schema.
    */
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group, working one run in that group's own account.",
-    'Take the run\'s steps with the tools you are given: call one, several, or the same one twice in one answer, and each step is shown to you before you are asked again. When the work of this run is finished, answer {"done": "<what is finished>"} and nothing else. A plan written out as {"calls": [{"name": "<tool>", "arguments": {...}}, ...]} is read the same way, and a call whose arguments are not what the tool states is refused whole — there is no second spelling and no repair.',
+    'Take the run\'s steps with the tools you are given: call one, several, or the same one twice in one answer, and each step is shown to you before you are asked again. When the work of this run is finished, answer {"done": "<what is finished>"} and nothing else. A plan written out as {"calls": [{"name": "<tool>", "arguments": {...}}, ...]} is read the same way, and a call whose arguments are not what the tool states is refused — only that call; the rest of the plan runs.',
     "Decide what this change needs and ask for it in one answer, as a small plan: name a tool and its arguments for each step — one tool, several, or the same tool twice. The steps whose dependencies have ended are carried out together, and each is shown to you before you are asked again.",
     'A plan that branches is written in the shape above: a step that has to follow another gives itself an "id" and waits on it — {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
-    'A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run\'s record says which step and which outcome left it. A call made through the tools is taken in the order you give it, and its arguments are exactly the tool\'s own: an "id" or a "needs" typed into a tool call is an argument the tool does not take, and the answer is refused whole.',
+    'A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run\'s record says which step and which outcome left it. A call made through the tools is taken in the order you give it, and its arguments are exactly the tool\'s own: an "id" or a "needs" typed into a tool call is an argument the tool does not take, and the call is refused.',
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
-    "The tools you may take a step with are the tool definitions this call carries: each states the tool's name, what it is for, and the exact arguments and bounds it takes. An argument name a tool does not state is refused whole — there is no second spelling.",
+    "The tools, with the exact arguments and bounds each takes — a name or an argument not written here does not exist:",
+    ...catalogue.map(toolSignature),
+    "Each tool's definition in this call says what it is for; the list above says how it is called. An argument name a tool does not state is refused, and so is a value outside the bound written beside it.",
+    "When the work needs a person's decision, ask them: chat.ask posts the question in the group's conversation and parks the run until they answer.",
     ...surfaceLines(question.surfaces),
     ...heads,
   ]
@@ -1772,22 +1839,29 @@ export async function chooseStep(
         `An answer may take at most ${RUN_STEPS_MAX} steps, and this one asks for ${parsed.choice.calls.length}.`,
       );
     /*
-     * Every call is put to the catalogue's own door before any of them runs: a
-     * name the catalogue does not hold, or arguments its tool cannot use, is the
-     * whole answer's refusal (ADR 0027), never a plan with the bad step quietly
-     * left out. The arguments are validated again where the call runs (`runTool`
-     * does it too), and one definition of that lives in `tools.ts`.
+     * Every call is put to the catalogue's own door before any of them runs, and
+     * the answer keeps the calls that pass. A name the catalogue does not hold,
+     * or arguments the tool cannot use, refuses **that call**: the plan's other
+     * steps still run, and the refusal is recorded as a failed step the model
+     * reads before it chooses again. Refusing the whole answer — which is what
+     * this did, and what ADR 0027 said — cost a live installation four good calls
+     * for one invented name, and the model came back with the same name because
+     * nothing told it what the catalogue holds.
      */
     let asking = 0;
+    const kept: StepCall[] = [];
+    const refused: Array<{ name: string; args: unknown; problem: string }> = [];
     for (const call of parsed.choice.calls) {
       try {
         const { tool } = validatedTool(catalogue, call.name, call.args);
         if (tool.waits) asking += 1;
+        kept.push(call);
       } catch (err) {
-        throw new ModelError(
-          "model_answer_malformed",
-          `One of the calls in the answer cannot be made: ${errorMessage(err)}`,
-        );
+        refused.push({
+          name: call.name,
+          args: call.args,
+          problem: nearestTool(catalogue, call.name, errorMessage(err)),
+        });
       }
     }
     // A run holds one wait (ADR 0030): a plan with two questions in it would
@@ -1797,6 +1871,37 @@ export async function chooseStep(
         "model_answer_malformed",
         "An answer may ask one question: a run waits on one person at a time. Ask the first, and the second after it is answered.",
       );
+    // Nothing in the answer could be made: that is a refusal of the answer, and
+    // the model is told what the catalogue actually holds rather than nothing.
+    if (!kept.length)
+      throw new ModelError(
+        "model_answer_malformed",
+        refused.map((one) => `${one.name}: ${one.problem}`).join(" "),
+      );
+    return { kind: "plan", calls: kept, ...(refused.length ? { refused } : {}) };
   }
   return parsed.choice;
+}
+
+/**
+ * A refusal that names a tool the catalogue actually holds.
+ *
+ * A model that invented `mail.search` was told "There is no tool named
+ * mail.search" and sent the same name again: nothing told it what the mail tools
+ * *are* called. When the refused name shares a surface with tools the catalogue
+ * holds, their names are added to the sentence, so the next turn has the answer
+ * in front of it instead of another guess.
+ */
+function nearestTool(
+  catalogue: readonly AnyTool[],
+  name: string,
+  problem: string,
+): string {
+  const surface = name.split(".")[0] ?? "";
+  if (!surface) return problem;
+  const same = catalogue
+    .filter((tool) => tool.name.startsWith(`${surface}.`))
+    .map((tool) => tool.name);
+  if (!same.length) return problem;
+  return `${problem} The ${surface} tools are: ${same.join(", ")}.`;
 }

@@ -1572,6 +1572,8 @@ export class AgentLoop {
       selection.map((fact) => fact.id),
     );
     let previous: string | null = null;
+    /** The refusal the model answered with last turn, to stop a repeated one. */
+    let lastRefusal: string | null = null;
     /*
      * A refusal is not an ending: an answer the parser cannot read, an answer
      * that asks for more steps than the run has left, and a call the account
@@ -1649,6 +1651,32 @@ export class AgentLoop {
           completionTokens: meter.completionTokens,
           cachedPromptTokens: meter.cachedTokens,
         });
+        /*
+         * The same unmakeable answer, twice: the model is not reading the
+         * refusal, and asking a third time spends the budget of a run that cannot
+         * progress. The run ends saying what it kept answering, rather than
+         * "out of budget" as though time were the reason.
+         */
+        const refusal = errorMessage(err);
+        if (refusal === lastRefusal) {
+          current = this.withStep(
+            current,
+            "the model's answer",
+            `refused: ${refusal}`,
+            false,
+          );
+          return await this.endRun(
+            accountId,
+            current,
+            "out-of-budget",
+            {
+              at: new Date().toISOString(),
+              why: `the model answered twice with a plan that cannot be made (${refusal}), so the run stopped.`,
+            },
+            token,
+          );
+        }
+        lastRefusal = refusal;
         current = this.withStep(
           current,
           "the model's answer",
@@ -1702,6 +1730,21 @@ export class AgentLoop {
         continue;
       }
 
+      /*
+       * The calls the catalogue refused are written as failed steps before the
+       * plan runs: the model's next turn reads its own mistake beside the valid
+       * calls that did run, which is the repair it never got when the whole
+       * answer was thrown away. A refusal spends the step it cost (ADR 0030).
+       */
+      for (const refused of choice.refused ?? []) {
+        current = this.withStep(
+          current,
+          `${refused.name} ${boundedText(refused.args)}`,
+          `refused: ${refused.problem}`,
+          false,
+        );
+      }
+
       const batch = choice.calls.map((call) => `${call.name} ${boundedText(call.args)}`);
       // What the model asked for, dependencies and all: the same answer twice is
       // the stall below, whether or not its steps are ordered. The comparison
@@ -1752,12 +1795,36 @@ export class AgentLoop {
        * record rather than guessed at (ADR 0030).
        */
       const base = current.plan.length;
-      for (const call of choice.calls)
+      /*
+       * Two calls with the same tool and the same arguments in **one answer** are
+       * one act: the guard further down catches a repeat across turns, and a live
+       * run spent seven identical `files.list` calls inside a single plan because
+       * nothing looked at the answer itself. The second one is recorded as
+       * skipped, so the model reads that it was already made — unless a later
+       * step of the same answer waits on it, in which case it stays and the wave
+       * guard decides.
+       */
+      const firstOf = new Map<string, number>();
+      const waitedOn = new Set(
+        choice.calls
+          .map((call) => call.needs?.step)
+          .filter((one): one is number => typeof one === "number"),
+      );
+      for (const [at, call] of choice.calls.entries()) {
+        const key = `${call.name}\u0000${JSON.stringify(call.args ?? null)}`;
+        const seenAt = firstOf.get(key);
         current = appendStep(
           current,
           `${call.name} ${boundedText(call.args)}`,
           shiftNeeds(call.needs, base),
         );
+        if (seenAt !== undefined && !waitedOn.has(at))
+          current = recordStep(current, current.plan.length - 1, {
+            state: "skipped",
+            outcome: `the same call is step ${seenAt + 1} of this answer: it is made there, not twice.`,
+          });
+        else if (seenAt === undefined) firstOf.set(key, at);
+      }
       /*
        * The document is written **before** the answer is acted on: what the run
        * is about to do is on the record while it is still to do (ADR 0030). The
