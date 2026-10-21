@@ -2156,9 +2156,13 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "これを引き継いだワークオーダー",
     "Load earlier messages": "以前のメッセージを読み込む",
     "Runs in flight": "進行中の実行",
+    "Stop all": "すべて停止",
+    "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
+      "最後のパスは {when} でした: {changes} 件の変更、{runs} 件の実行、{due} 件の期限、{ms} ミリ秒。",
+    "It could not cover: {gaps}": "対応できなかったもの: {gaps}",
+    "Last run ended: {ending} ({id}).": "最後の実行の終了: {ending} ({id})。",
     "{left} still moving; one press closes at most {max} runs.":
       "残り {left} 件が進行中です。1 回で最大 {max} 件まで停止します。",
-    "Waiting on a person": "担当者の回答待ち",
     "Nobody holds the agent.": "エージェントを保持しているプロセスはありません。",
   },
   plurals: {

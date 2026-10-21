@@ -2089,9 +2089,13 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "接替此工单的工单",
     "Load earlier messages": "加载更早的消息",
     "Runs in flight": "进行中的运行",
+    "Stop all": "全部停止",
+    "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
+      "上一次运行在 {when}：{changes} 项更改、{runs} 次执行、{due} 项到期，用时 {ms} 毫秒。",
+    "It could not cover: {gaps}": "未能覆盖：{gaps}",
+    "Last run ended: {ending} ({id}).": "上一次运行结束：{ending}（{id}）。",
     "{left} still moving; one press closes at most {max} runs.":
       "还有 {left} 个正在运行：一次最多可关闭 {max} 个。",
-    "Waiting on a person": "等待人员回复",
     "Nobody holds the agent.": "没有进程持有代理。",
   },
   plurals: {

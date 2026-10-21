@@ -2160,9 +2160,13 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "De werkorder die deze heeft opgevolgd",
     "Load earlier messages": "Eerdere berichten laden",
     "Runs in flight": "Lopende uitvoeringen",
+    "Stop all": "Alles stoppen",
+    "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
+      "De laatste doorgang was op {when}: {changes} wijzigingen, {runs} uitvoeringen en {due} vervallen, in {ms} ms.",
+    "It could not cover: {gaps}": "Niet gedekt: {gaps}",
+    "Last run ended: {ending} ({id}).": "Laatste uitvoering eindigde: {ending} ({id}).",
     "{left} still moving; one press closes at most {max} runs.":
       "{left} nog in beweging: één druk sluit hoogstens {max} uitvoeringen.",
-    "Waiting on a person": "Wacht op een persoon",
     "Nobody holds the agent.": "Niemand houdt de agent.",
   },
   plurals: {

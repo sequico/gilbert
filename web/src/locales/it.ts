@@ -3127,10 +3127,14 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "Il workorder che ha sostituito questo",
     "Load earlier messages": "Carica messaggi precedenti",
     "Runs in flight": "Esecuzioni in corso",
+    "Stop all": "Ferma tutto",
+    "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
+      "L'ultima passata è stata il {when}: {changes} modifiche, {runs} esecuzioni e {due} in scadenza, in {ms} ms.",
+    "It could not cover: {gaps}": "Non ha potuto coprire: {gaps}",
+    "Last run ended: {ending} ({id}).": "Ultima esecuzione conclusa: {ending} ({id}).",
 
     "{left} still moving; one press closes at most {max} runs.":
       "{left} ancora in corso: una pressione ne chiude al massimo {max}.",
-    "Waiting on a person": "In attesa di una persona",
     "Nobody holds the agent.": "Nessuno detiene l’agente.",
   },
   plurals: {

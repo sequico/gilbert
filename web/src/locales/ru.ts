@@ -2155,9 +2155,13 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "Workorder, ставший преемником",
     "Load earlier messages": "Загрузить более ранние сообщения",
     "Runs in flight": "Выполняемые запуски",
+    "Stop all": "Остановить всё",
+    "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
+      "Последний проход был {when}: изменений — {changes}, запусков — {runs}, к сроку — {due}, за {ms} мс.",
+    "It could not cover: {gaps}": "Не удалось охватить: {gaps}",
+    "Last run ended: {ending} ({id}).": "Последний запуск завершился: {ending} ({id}).",
     "{left} still moving; one press closes at most {max} runs.":
       "Ещё {left} выполняются: одно нажатие закрывает не более {max} запусков.",
-    "Waiting on a person": "Ожидание ответа человека",
     "Nobody holds the agent.": "Агента не удерживает никто.",
   },
   plurals: {

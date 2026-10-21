@@ -2079,9 +2079,13 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "Bunun yerine geçen iş emri",
     "Load earlier messages": "Önceki iletileri yükle",
     "Runs in flight": "Sürmekte olan çalışmalar",
+    "Stop all": "Tümünü durdur",
+    "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
+      "Son geçiş {when} tarihindeydi: {changes} değişiklik, {runs} çalışma ve {due} vadesi gelen, {ms} ms içinde.",
+    "It could not cover: {gaps}": "Kapsayamadığı: {gaps}",
+    "Last run ended: {ending} ({id}).": "Son çalışma bitti: {ending} ({id}).",
     "{left} still moving; one press closes at most {max} runs.":
       "{left} hâlâ sürüyor: bir basış en fazla {max} çalışmayı kapatır.",
-    "Waiting on a person": "Bir kişi bekleniyor",
     "Nobody holds the agent.": "Aracıyı tutan yok.",
   },
   plurals: {
