@@ -58,7 +58,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { after, afterEach, before, beforeEach, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
 import { freePort, waitForPort } from "../testkit.js";
-import type { AgentLoopOptions } from "./loop.js";
+import { type AgentLoopOptions, DONE_CHECKED } from "./loop.js";
 import type { RuleDoc } from "./rule.js";
 
 const MOCK_PORT = await freePort();
@@ -418,6 +418,17 @@ async function runOf(ruleId: string) {
   const found = records.find((record) => record.run.startedBy.rule === ruleId);
   assert.ok(found, `a run started by "${ruleId}" should be in the account`);
   return found.run;
+}
+
+/**
+ * The plan's steps without the line the `done` check writes.
+ *
+ * A `done` that follows a refused step is refused once, and that check is on the
+ * record like every other exchange (ADR 0030); a test about the work counts the
+ * work, so it leaves the check out.
+ */
+function stepsOf(run: { plan: Array<{ what: string; state: string }> }) {
+  return run.plan.filter((step) => step.what !== DONE_CHECKED);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1017,9 +1028,8 @@ test("the same rule and the same change continue one run rather than open a seco
   );
   assert.equal(runs.length, 1, "the account holds the one run for that change");
   assert.equal(runs[0]?.run.id, "already-open", "and it is the one already there");
-  assert.equal(
-    runs[0]?.run.plan.length,
-    1,
+  assert.ok(
+    runs[0]?.run.plan.some((step) => step.what === "chat.say the first half"),
     "which kept the plan it had rather than being replaced by a fresh run",
   );
   assert.equal(
@@ -1202,6 +1212,9 @@ test("an act the run carries no authority for is refused, and the refusal is on 
 
   answerWith({ rules: [id], facts: {} });
   answerWith({ calls: [{ name: "mail.remove", arguments: { id: "m-1" } }] });
+  answerWith({ done: "I could not destroy it, so I left it" });
+  // The `done` a refused step earns is refused once, and the model is asked to
+  // say it again now that it has been told (ADR 0030): the second one is accepted.
   answerWith({ done: "I could not destroy it, so I left it" });
   await deliver("do not destroy me");
 
@@ -1942,6 +1955,9 @@ test("a run whose wait has come due is picked up again, from its document", asyn
 
   const agent = loop();
   answerWith({ done: "the window has passed, so it is over" });
+  // The step the document left open could not be taken, so the first `done` is
+  // refused once and asked again; the second is the run's own word.
+  answerWith({ done: "the window has passed, so it is over" });
   const summary = await agent.start();
 
   assert.equal(summary.due, 1, "the overdue run is picked up on the first pass");
@@ -2001,6 +2017,9 @@ test("a question whose deadline has come sends the run on without the answer", a
     ],
   });
   answerWith({ done: "carried on without the answer" });
+  // The unanswered question leaves a step that could not be taken, so this `done`
+  // is refused once and said again.
+  answerWith({ done: "carried on without the answer" });
   const summary = await agent.pass(new Date(Date.parse(deadline) + 60_000));
 
   assert.equal(summary.due, 1, "the overdue question is due");
@@ -2058,8 +2077,8 @@ test("the steps of one answer that are ready run together, not one after another
     description: "a call that is in flight for a moment, so two can overlap",
     authority: "reversible",
     writes: false,
-    args: {},
-    parse: () => ({}),
+    args: { n: { type: "number" } },
+    parse: (raw: unknown) => raw as { n: number },
     run: async () => {
       inFlight.now += 1;
       inFlight.most = Math.max(inFlight.most, inFlight.now);
@@ -2076,8 +2095,8 @@ test("the steps of one answer that are ready run together, not one after another
       ? { rules: [id], facts: {} }
       : {
           calls: [
-            { name: "probe.hold", arguments: {} },
-            { name: "probe.hold", arguments: {} },
+            { name: "probe.hold", arguments: { n: 1 } },
+            { name: "probe.hold", arguments: { n: 2 } },
           ],
         };
   await deliver("a change that wants two calls at once");
@@ -2156,12 +2175,15 @@ test("a refused call in a wave leaves its siblings' steps on the record", async 
     ],
   });
   answerWith({ done: "left it where it is" });
+  // The refused call leaves a step that could not be taken, so the first `done`
+  // is refused once and said again.
+  answerWith({ done: "left it where it is" });
   await deliver("do not destroy me");
   await agent.pass();
 
   assert.deepEqual(ran, [], "the act the run carries no authority for did not run");
   const run = await runOf(id);
-  assert.equal(run.plan.length, 2, "both calls of the answer are on the record");
+  assert.equal(stepsOf(run).length, 2, "both calls of the answer are on the record");
   assert.equal(run.plan[0]?.state, "failed", "the refused call is a failed step");
   assert.match(
     run.plan[0]?.outcome ?? "",
@@ -2274,6 +2296,9 @@ test("a step that waits on an earlier one runs the branch that step's outcome na
     ],
   });
   answerWith({ done: "the other branch was taken" });
+  // The branch's first step was refused, so this `done` is refused once and said
+  // again, as on the other side of the branch.
+  answerWith({ done: "the other branch was taken" });
   const refused = await deliver("a change whose first step is refused");
   await agent.pass();
 
@@ -2289,7 +2314,7 @@ test("a step that waits on an earlier one runs the branch that step's outcome na
 
   const tookDone = of(landed);
   assert.deepEqual(
-    tookDone.plan.map((step) => step.state),
+    stepsOf(tookDone).map((step) => step.state),
     ["done", "done", "skipped"],
     "the first step landed, so that branch ran and the other was left unrun",
   );
@@ -2306,7 +2331,7 @@ test("a step that waits on an earlier one runs the branch that step's outcome na
 
   const tookFailed = of(refused);
   assert.deepEqual(
-    tookFailed.plan.map((step) => step.state),
+    stepsOf(tookFailed).map((step) => step.state),
     ["failed", "skipped", "done"],
     "with the first step refused, the other branch is the one that ran",
   );
@@ -2357,12 +2382,15 @@ test("a step whose dependency was left unrun is left unrun too, and the record s
     ],
   });
   answerWith({ done: "nothing of the plan could be taken" });
+  // The plan's first step was refused, so this `done` is refused once and said
+  // again.
+  answerWith({ done: "nothing of the plan could be taken" });
   await deliver("do not destroy me");
   await agent.pass();
 
   const run = await runOf(id);
   assert.deepEqual(
-    run.plan.map((step) => step.state),
+    stepsOf(run).map((step) => step.state),
     ["failed", "skipped", "skipped"],
     "the refused act leaves the step that waited on it, and the one after that, unrun",
   );
@@ -2395,12 +2423,15 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
     ],
   });
   answerWith({ done: "the plan was refused, so nothing was done" });
+  // The refused answer leaves a failed step, so the first `done` is refused once
+  // and said again.
+  answerWith({ done: "the plan was refused, so nothing was done" });
   await deliver("a change whose plan cannot be read");
   await agent.pass();
 
   const run = await runOf(id);
   assert.equal(
-    run.plan.length,
+    stepsOf(run).length,
     1,
     "the refused answer left a step of its own, not a plan",
   );
@@ -2473,17 +2504,23 @@ test("a malformed answer costs a step and is asked again, not the run", async ()
   answerWith(stuck);
   answerWith(stuck);
   answerWith({ done: "the model recovered and finished" });
+  // Two refused steps stand, so the first `done` is refused once and said again.
+  answerWith({ done: "the model recovered and finished" });
   await deliver("a change the model fumbles twice");
   await agent.pass();
 
   const run = await runOf(id);
   assert.equal(run.state, "done", "two refusals are not an ending");
   assert.equal(
-    run.plan.filter((step) => step.state === "failed").length,
+    stepsOf(run).filter((step) => step.state === "failed").length,
     2,
     "both refusals are on the record",
   );
-  assert.equal(run.spent.steps, 2, "and each one spent a step of the budget");
+  assert.equal(
+    run.spent.steps,
+    3,
+    "each refusal, and the check the `done` after them earned, spent a step of the budget",
+  );
   assert.equal(run.ended?.why, "the model recovered and finished");
 });
 

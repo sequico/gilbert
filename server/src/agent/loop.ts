@@ -207,7 +207,7 @@ const TOOL_WAVE_MAX = 4;
  * claims the work is done writes it, and the run's card draws it like any other
  * step.
  */
-const DONE_CHECKED = "the work, checked against the plan's refusals";
+export const DONE_CHECKED = "the work, checked against the plan's refusals";
 
 /**
  * How close to lapsing the claim is renewed.
@@ -1582,8 +1582,6 @@ export class AgentLoop {
       selection.map((fact) => fact.id),
     );
     let previous: string | null = null;
-    /** The refusal the model answered with last turn, to stop a repeated one. */
-    let lastRefusal: string | null = null;
     /*
      * A refusal is not an ending: an answer the parser cannot read, an answer
      * that asks for more steps than the run has left, and a call the account
@@ -1672,31 +1670,11 @@ export class AgentLoop {
           cachedPromptTokens: meter.cachedTokens,
         });
         /*
-         * The same unmakeable answer, twice: the model is not reading the
-         * refusal, and asking a third time spends the budget of a run that cannot
-         * progress. The run ends saying what it kept answering, rather than
-         * "out of budget" as though time were the reason.
+         * A refusal is a step that ended, and it spends a step of the budget: the
+         * run stops on the budget it declares, never on a count of refusals the
+         * record cannot show (ADR 0030). The refusal itself is written below,
+         * before the next turn is asked.
          */
-        const refusal = errorMessage(err);
-        if (refusal === lastRefusal) {
-          current = this.withStep(
-            current,
-            "the model's answer",
-            `refused: ${refusal}`,
-            false,
-          );
-          return await this.endRun(
-            accountId,
-            current,
-            "out-of-budget",
-            {
-              at: new Date().toISOString(),
-              why: `the model answered twice with a plan that cannot be made (${refusal}), so the run stopped.`,
-            },
-            token,
-          );
-        }
-        lastRefusal = refusal;
         current = this.withStep(
           current,
           "the model's answer",
