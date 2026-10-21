@@ -35,7 +35,7 @@ import { listRules } from "./rules.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
 import { takeOwnCalendarChange } from "./tools/calendar.js";
 import type { ImageReader } from "./tools/content.js";
-import { readMessageForAnswer, sendMail, takeOwnMailChange } from "./tools/mail.js";
+import { readMessageForAnswer, sendMail } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
 export interface ChangesDeps {
@@ -324,12 +324,11 @@ export async function workChanges(
    */
   let held: RunRecord[] | null = records ? [...records] : null;
   /*
-   * The agent's own mail — a send in Sent, a draft in Drafts, a message it filed
-   * or marked — is not activity a rule should answer, and it is known without
-   * reading the message: the server reports every write to a message as a change
-   * of that message, so the filing a run just made would wake the rule again and
-   * the agent would answer one mail twice. Removing it here is also what lets a
-   * pass whose only new mail is its own pay no rule listing at all.
+   * The agent's own calendar events are not activity to answer: a calendar
+   * change is handed over like any other, and a rule woken by the agent's own
+   * write would open a run whose write wakes it again. Its mail never reaches
+   * this list — an event is an arrival in the Inbox, which its own sends and
+   * drafts never are — and its own documents are left out by the reading.
    *
    * The drops whose burst is over are changes of this pass too: one event per
    * folder, carrying the files that landed there while it was open (`queue.ts`).
@@ -349,10 +348,8 @@ export async function workChanges(
     ...due.map(dropEvent),
     ...read.events.filter(
       (event) =>
-        // The agent's own writes are not activity to answer (its sent mail, and
-        // its own calendar events): a rule that wakes on them opens a run whose
-        // write wakes it again.
-        !(event.source === "mail" && takeOwnMailChange(event.where)) &&
+        // The agent's own calendar events are not activity to answer: a rule
+        // that wakes on them opens a run whose write wakes it again.
         !(event.source === "calendar" && takeOwnCalendarChange(event.where)),
     ),
   ];

@@ -201,13 +201,16 @@ happen when the rule is woken. The surfaces are its **chat**, its **mail**, its
 **KB**, its **workorders**, its **Files** and its **calendar**; chat is always
 **watch**, because the conversation is where the group calls the agent and where
 its report is written. **watch** wakes the rule and lets the run it opens write
-that surface; **on demand** never wakes it but lets a run already open — from
-chat, from mail, from another watched surface — write it; **off** neither wakes
-nor writes (reading stays free). The matrix says *where* a run may act, never
-*what*: the authority classes (ADR 0028) still bound every act, and a write on a
-surface the rule keeps off is refused (`surface_off`). The run carries the matrix
-its rule had when it opened, so an edit does not move a run in flight; a v1 rule
-is read as the matrix it means (watched surfaces `watch`, the rest `ondemand`)
+that surface; on **mail** that means a message that **arrived in the Inbox** —
+reading, marking, filing or removing a message wakes nothing, and neither does a
+draft the group saved or a message it sent; **on demand** never wakes it but lets
+a run already open — from chat, from mail, from another watched surface — write
+it; **off** neither wakes nor writes (reading stays free). The matrix says
+*where* a run may act, never *what*: the authority classes (ADR 0028) still bound
+every act, and a write on a surface the rule keeps off is refused
+(`surface_off`). The run carries the matrix its rule had when it opened, so an
+edit does not move a run in flight; a v1 rule is read as the matrix it means
+(watched surfaces `watch`, the rest `ondemand`)
 and is written as v2 on the next save. The shape, its parser and the matrix's
 matcher are `server/src/agent/rule.ts`, the modes are
 `server/src/shared/surfaces.ts`, and where a rule lives is

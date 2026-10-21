@@ -3,7 +3,8 @@
  *
  * Three facts the design rests on are pinned here: a read describes the mail,
  * the nodes and the workorder writes an account made — a write to a workorder is
- * an event like any other — and a change is reported **once**, because the
+ * an event like any other, and among mail changes only an **arrival** is one — and
+ * a change is reported **once**, because the
  * cursor is the server's own state token and the next read resumes after it. The
  * second is the whole reason the cursor exists: a rule that fired twice on one
  * arrival would answer one message twice. The third is what a removal is: a
@@ -209,6 +210,75 @@ test("a create and the update that writes its bytes are one event", async () => 
       },
     ],
     "the create and the update that followed it are one event, named created",
+  );
+});
+
+test("a message is an event once it arrived; reading, filing and removing it are not", async () => {
+  const first = await anchorEvents(ctx, accountId);
+  const message = await deliver("a delivery");
+  const arrived = await readAccountEvents(ctx, accountId, first);
+  assert.deepEqual(
+    arrived.events.filter((event) => event.source === "mail"),
+    [{ source: "mail", change: "created", where: message }],
+    "the delivery is the one mail event",
+  );
+
+  // A person opens it and files it: both are changes of the same message, and
+  // neither is mail that arrived.
+  await clientOf(ctx).call(
+    "Email/set",
+    {
+      accountId,
+      update: {
+        [message]: {
+          "keywords/$seen": true,
+          "mailboxIds/archive": true,
+          "mailboxIds/inbox": null,
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const after = await readAccountEvents(ctx, accountId, arrived.cursor);
+  assert.deepEqual(
+    after.events.filter((event) => event.source === "mail"),
+    [],
+    "the read and the filing wake nothing",
+  );
+
+  // Removed from the account: a removal is not an arrival either.
+  await clientOf(ctx).call("Email/set", { accountId, destroy: [message] }, [
+    CAPABILITIES.mail,
+  ]);
+  assert.deepEqual(
+    (await readAccountEvents(ctx, accountId, after.cursor)).events.filter(
+      (event) => event.source === "mail",
+    ),
+    [],
+    "removing a message wakes nothing",
+  );
+});
+
+test("a draft, a send and a message filed straight into a folder are not arrivals", async () => {
+  const anchor = await anchorEvents(ctx, accountId);
+  await clientOf(ctx).call(
+    "Email/set",
+    {
+      accountId,
+      create: {
+        d: { subject: "a draft", mailboxIds: { drafts: true } },
+        s: { subject: "a send", mailboxIds: { sent: true } },
+        f: { subject: "filed by a filter", mailboxIds: { work: true } },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  assert.deepEqual(
+    (await readAccountEvents(ctx, accountId, anchor)).events.filter(
+      (event) => event.source === "mail",
+    ),
+    [],
+    "only a message in the Inbox arrived",
   );
 });
 

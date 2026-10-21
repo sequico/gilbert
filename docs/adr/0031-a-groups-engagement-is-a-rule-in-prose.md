@@ -22,7 +22,11 @@ request), an event written in the group's account is reported on the `calendar`
 surface named by its own id — which is what `calendar.read` takes — and the
 agent's own create, change and removal leave a mark the reading takes
 (`tools/calendar.ts`, `takeOwnCalendarChange`) so a rule never wakes on its own
-write. The builder of the prose the agent carries is
+write. The mail surface wakes on an **arrival** and on nothing else: the reading
+names a mail event for a created message that is in the account's Inbox and for
+no other mail change (`arrivalsOf`, `server/src/agent/events.ts`), so a message
+that was read, marked, filed or removed wakes no rule, and neither does a draft
+the group saved or a message it sent. The builder of the prose the agent carries is
 `server/src/agent/prose.ts`, in the record's own order. A run records
 the rule or the instruction that started it (`server/src/shared/run.ts`,
 `RunStart`), the tools a rule's instruction is carried out with are
@@ -67,10 +71,10 @@ reads it.
 
 **One rule is one document, in the group's own account**, and it says two things:
 **a surface matrix** — one mode for each of the group's six surfaces the agent
-works on (ADR 0027): its **chat**, its **mail** in and out, its **KB** (a page
-written, a checklist template changed), its **workorders** (a step settled, a
-workorder opened or closed), its **Files**, and its **calendar** — and **in
-prose, what should happen** when the rule is woken.
+works on (ADR 0027): its **chat**, its **mail** (what arrives in its Inbox),
+its **KB** (a page written, a checklist template changed), its **workorders** (a
+step settled, a workorder opened or closed), its **Files**, and its **calendar** —
+and **in prose, what should happen** when the rule is woken.
 
 - **Three modes.** `watch`: the surface wakes the rule, and the run that wake
   opens may write it. `ondemand`: the surface never wakes the rule; a run already
@@ -99,6 +103,15 @@ prose, what should happen** when the rule is woken.
   run just made would answer the same mail a second time. The reading sets those
   changes aside, once — a person's later change to the same message is activity
   again.
+- **Mail wakes a rule on an arrival, and on nothing else.** The mail server
+  reports every change of a message — read, flagged, filed, removed — as a change
+  of that message, and a rule woken by them would work the group's own handling
+  of its mail rather than mail it was asked to answer. So a mail event is a
+  message that was **created and is in the account's Inbox**: reading, marking,
+  filing and removing wake nothing, and neither does a draft a member saved or a
+  message the group sent, which are creates in Drafts and Sent Items. A message a
+  server-side filter files straight into a folder is not an arrival either
+  (`server/src/agent/events.ts`, `arrivalsOf`).
 - The prose is the instruction. Nothing about a rule is compiled, and the matrix
   is not a list of actions: what bounds an act is the authority classes (ADR
   0028), not the rule.

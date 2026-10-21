@@ -4,10 +4,19 @@
  *
  * The installation holds a push subscription (ADR 0014), and a `StateChange`
  * names an account whose data moved. This is the reading that turns that
- * notification into the group's own vocabulary: mail that arrived or was sent,
- * and the nodes written in its Files — chat messages, workorders and everything
- * else among them — each handed back as a reference (`./accountEvent`), never as
- * the object itself.
+ * notification into the group's own vocabulary: mail that arrived, and the
+ * nodes written in its Files — chat messages, workorders and everything else
+ * among them — each handed back as a reference (`./accountEvent`), never as the
+ * object itself.
+ *
+ * **Mail is an event on arrival, and on nothing else.** `Email/changes` reports
+ * every property a message changed as a change of that message — read, flagged,
+ * filed, removed — and none of that is activity a group asked its agent to
+ * answer: a rule woken by it would work the group's own reading of its mail. The
+ * reading therefore names a mail event only for a message that was created and
+ * is in the account's **Inbox**, which is the folder mail arrives in. A draft a
+ * member saved, a message the group sent and a message a server-side filter
+ * filed straight into a folder are creates too, and none of them is an arrival.
  *
  * **Where the reading stands is the server's own state token, not a clock.**
  * JMAP answers `/changes` from a `sinceState` and hands back the state that
@@ -60,6 +69,7 @@ import {
   type FileNodeLike,
 } from "../appFolder.js";
 import { JmapError, type JmapResult } from "../jmap.js";
+import { cachedMail } from "../mailCache.js";
 import {
   APP_FOLDER_NAME,
   FILENODE_CHANGES,
@@ -69,6 +79,8 @@ import {
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
+import { isRecord } from "../shared/json.js";
+import { mailboxesOf } from "../shared/mailboxes.js";
 import { RULES_DIR } from "../shared/rule.js";
 import { clientOf } from "../util.js";
 import {
@@ -279,6 +291,63 @@ function isAgentPath(path: string): boolean {
   );
 }
 
+/** The role of the folder mail arrives in: the one a delivery lands in. */
+const ARRIVAL_ROLE = "inbox";
+
+/**
+ * The messages among `ids` that arrived, rather than being written by the
+ * account's own hand or filed out of sight.
+ *
+ * JMAP reports a create without saying where the message landed, and a saved
+ * draft, a message the group sent and a message a server-side filter filed
+ * straight into a folder are all creates. An arrival is a message that is **in
+ * the Inbox**, so that is the one question this asks: one `Email/get` for the
+ * page's new messages, and the folder tree remembered for the unit of work
+ * (`mailCache.ts`).
+ *
+ * shortcut: an account whose folder tree names no inbox — no delivery lands
+ * anywhere — falls back to every created message, which is the reading before
+ * this rule. Upgrade when Stalwart serves an account whose arrival folder is not
+ * the one with the inbox role.
+ */
+async function arrivalsOf(
+  ctx: Ctx,
+  accountId: string,
+  ids: readonly string[],
+): Promise<string[]> {
+  if (!ids.length) return [];
+  const client = clientOf(ctx);
+  const inbox = await cachedMail(ctx, accountId, "arrival-folders", async () => {
+    const folders = await mailboxesOf(client, accountId);
+    return new Set(
+      folders
+        .filter((folder) => folder.role === ARRIVAL_ROLE)
+        .map((folder) => String(folder.id)),
+    );
+  });
+  if (!inbox.size) return [...ids];
+  const arrived: string[] = [];
+  for (let at = 0; at < ids.length; at += client.maxObjectsInGet) {
+    const answer = await client.call<{
+      list?: Array<{ id?: unknown; mailboxIds?: unknown }>;
+    }>(
+      "Email/get",
+      {
+        accountId,
+        ids: ids.slice(at, at + client.maxObjectsInGet),
+        properties: ["mailboxIds"],
+      },
+      [CAPABILITIES.mail],
+    );
+    for (const message of answer.list ?? []) {
+      if (typeof message.id !== "string" || !isRecord(message.mailboxIds)) continue;
+      if (Object.keys(message.mailboxIds).some((folder) => inbox.has(folder)))
+        arrived.push(message.id);
+    }
+  }
+  return arrived;
+}
+
 export async function readAccountEvents(
   ctx: Ctx,
   accountId: string,
@@ -340,9 +409,15 @@ export async function readAccountEvents(
       new Map([...paths].map(([id, named]) => [id, named.path] as const)),
     );
 
+    /*
+     * Mail wakes a rule on an arrival and on nothing else (ADR 0031): a message
+     * that was created and is in the account's Inbox. The reads, the marks, the
+     * filings and the removals the log also reports are not activity anybody
+     * asked the agent to answer.
+     */
+    for (const id of await arrivalsOf(ctx, accountId, page.mail.created))
+      events.push({ source: "mail", change: "created", where: id });
     for (const change of ["created", "updated", "destroyed"] as const) {
-      for (const id of page.mail[change])
-        events.push({ source: "mail", change, where: id });
       /*
        * A calendar event names itself by its id: it is not a node, has no path,
        * and `calendar.read` takes exactly that id. A removal is reported the same

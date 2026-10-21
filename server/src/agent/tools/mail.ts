@@ -289,7 +289,6 @@ async function moveMessage(
     );
     const refused = res.notUpdated?.[id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
-    rememberOwnMail(id);
     return { id, folder: target.name };
   }
 }
@@ -404,7 +403,6 @@ export const setKeyword = defineTool({
     );
     const refused = res.notUpdated?.[id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
-    rememberOwnMail(id);
     return { id, keyword, on };
   },
 });
@@ -569,36 +567,6 @@ function messageTextOf(message: Record<string, unknown>): string {
   return typeof message.preview === "string" ? message.preview : "";
 }
 
-/**
- * The messages this process wrote or changed — a send, a draft, a filing, a
- * mark — so a change reading can tell the agent's own mail from activity a rule
- * should answer. Every write to a message comes back from the server as a change
- * of that message, and a rule woken by it would answer the same mail twice. The
- * ids are the ones the server minted; the set is bounded because it is a
- * speed-up, never a store.
- */
-const OWN_MAILS_KEPT = 500;
-const ownMails = new Set<string>();
-
-function rememberOwnMail(id: string): void {
-  if (ownMails.has(id)) return;
-  ownMails.add(id);
-  if (ownMails.size > OWN_MAILS_KEPT) {
-    const oldest = ownMails.values().next().value;
-    if (oldest !== undefined) ownMails.delete(oldest);
-  }
-}
-
-/**
- * Whether the next change of this message is the agent's own write, taking the
- * mark with it: one write is one change, so the reading that follows it is the
- * only one it explains — a person's later change to the same message (moving it
- * back into the inbox, say) is activity again.
- */
-export function takeOwnMailChange(id: string): boolean {
-  return ownMails.delete(id);
-}
-
 /** Whether an address is one this group itself sends as. */
 export async function isGroupAddress(
   ctx: Ctx,
@@ -736,7 +704,6 @@ export const draftReply = defineTool({
         "The draft was not created, and the server said nothing about why.",
         409,
       );
-    rememberOwnMail(draft);
     return {
       id: draft,
       to: to.map((one) => one.email),
@@ -901,7 +868,6 @@ export const editDraft = defineTool({
         `The new draft is ${draft}, and the draft it replaces could not be removed (${refusalOf(kept)}); both are in Drafts.`,
         409,
       );
-    rememberOwnMail(draft);
     return { id: draft, replaced: id, to: nextTo.map((one) => one.email) };
   },
 });
@@ -954,7 +920,6 @@ export async function sendMail(
       "The message was not written, and the server said nothing about why.",
       409,
     );
-  rememberOwnMail(emailId);
   const submitted = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
     "EmailSubmission/set",
     {

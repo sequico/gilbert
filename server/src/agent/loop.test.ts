@@ -617,13 +617,13 @@ test("two changes of one address open one run, not two", async () => {
   assert.equal(runs.length, 1, "and only one run for it is in the account");
 });
 
-test("the agent's own mark on a message is not activity a rule answers", async (t) => {
+test("no mark on a message is activity a rule answers, its own or a person's", async (t) => {
   /*
-   * The live failure this pins (20 Oct 2026): a run filed a message and marked
-   * it G-processed, the server reported those writes as changes of that same
-   * message, and the next pass opened a second run over the mail it had just
-   * handled and reported it again in the group's chat — one message, two
-   * answers.
+   * A run files a message and marks it G-processed, and the server reports those
+   * writes as changes of that same message. A change of a message is not an
+   * event — only an arrival is (ADR 0031) — so the next pass opens no second run
+   * over the mail the run has just handled, and a person's later mark wakes
+   * nothing either: one message, one answer.
    *
    * The account this file's other tests work is the shared mailbox the mock
    * keeps empty of mail, so this one works the demo's group (`a3`): a message
@@ -674,15 +674,15 @@ test("the agent's own mark on a message is not activity a rule answers", async (
   );
   assert.equal(runs.length, 1, "one message, one run");
 
-  // The mark the reading took is spent on the agent's own write, not on the
-  // message: a person's later change to it is activity again.
+  // A person's later mark on the same message is a change of that message, not
+  // an arrival: reading, marking and filing wake no rule at all (ADR 0031).
   await clientOf(ctx).call(
     "Email/set",
     { accountId: group, update: { [message]: { "keywords/$flagged": true } } },
     [CAPABILITIES.mail],
   );
   const third = await agent.pass();
-  assert.equal(third.runs, 1, "a person's change to it still wakes the rule");
+  assert.equal(third.runs, 0, "a person's mark on it wakes nothing either");
 });
 
 test("every rule that fits one change opens its own run", async () => {

@@ -1,10 +1,10 @@
 /**
  * What changed in a group's own account (ADR 0031).
  *
- * A rule watches the activity of the group's own account: the mail that arrived
- * or was sent, the pages and checklist templates written in its KB, the
- * messages posted in its chat, the writes to its own workorders, and everything
- * else written in its Files. This module names that description once, beside
+ * A rule watches the activity of the group's own account: the mail that arrived,
+ * the pages and checklist templates written in its KB, the messages posted in its
+ * chat, the writes to its own workorders, and everything else written in its
+ * Files. This module names that description once, beside
  * the reader that fills it (`events.ts`), so the events the agent reads out of
  * the server and what a rule says it watches are the same vocabulary — a shape
  * declared a second time would drift from the first the day one of them gains a
@@ -53,6 +53,11 @@ export type AccountEventSource =
  *
  * A create and a later update of the same node are one event, named `created`
  * (`events.ts`, ADR 0030): the reading folds the two changes of one address.
+ *
+ * Mail is the one surface that only ever answers `created`: a rule watching mail
+ * is woken by a message that **arrived** — created and in the Inbox — so reading,
+ * marking, filing and removing a message are not events at all (`events.ts`,
+ * ADR 0031).
  */
 export type AccountEventChange = "created" | "updated" | "destroyed";
 
