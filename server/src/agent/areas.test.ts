@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { TOOLS } from "./tools.js";
 import {
   AREA_NAMES,
   areaOf,
+  areasOfSurfaces,
+  catalogueFor,
   CONTEXT_TOOL_PREFIXES,
   declaredAreas,
   isAreaTool,
@@ -11,6 +12,7 @@ import {
   selectAreas,
   TRANSVERSAL_AREAS,
 } from "./areas.js";
+import { TOOLS } from "./tools.js";
 
 /**
  * The areas a run's catalogue is made of (ADR 0038).
@@ -86,4 +88,31 @@ test("an area nobody has is refused with the list of the ones there are", () => 
   assert.match(refused.problem ?? "", /"invoices"/);
   assert.match(refused.problem ?? "", /mail, files, calendar/);
   assert.deepEqual(refused.areas, ["mail"], "and the known ones are kept");
+});
+
+test("the matrix names the areas a group works, and forgets the ones turned off", () => {
+  assert.deepEqual(
+    [...areasOfSurfaces({ chat: "watch", mail: "watch", calendar: "off" })].sort(),
+    ["chat", "knowledge", "mail", "memory"],
+  );
+  assert.deepEqual(
+    [...areasOfSurfaces({ chat: "watch", workorder: "ondemand" })].sort(),
+    ["chat", "knowledge", "memory", "workorders"],
+  );
+});
+
+test("the selection narrows what a run may change, never what it may read", () => {
+  const catalogue = [
+    { name: "mail.search", writes: false },
+    { name: "mail.send", writes: true },
+    { name: "calendar.schedule", writes: true },
+    { name: "run.read" },
+  ];
+  const picked = catalogueFor(catalogue, ["mail", "chat", "knowledge", "memory"]);
+  assert.deepEqual(
+    picked.map((tool) => tool.name),
+    ["mail.search", "mail.send", "run.read"],
+    "reading stays free; a write outside the areas is not offered",
+  );
+  assert.equal(catalogueFor(catalogue, null), catalogue, "no matrix, nothing to select");
 });

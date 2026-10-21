@@ -13,6 +13,8 @@
  * forty-five names to use four.
  */
 
+import type { SurfaceMatrix } from "../shared/surfaces.js";
+
 /** The areas the agent works in. */
 export const AREA_NAMES = [
   "mail",
@@ -127,4 +129,44 @@ export function selectAreas(
 ): readonly AreaName[] {
   const held = new Set<AreaName>([change, ...declared, ...TRANSVERSAL_AREAS]);
   return AREA_NAMES.filter((area) => held.has(area));
+}
+
+/**
+ * The areas a group's surface matrix names, leaving out the ones it turned off.
+ *
+ * The matrix says where a group works (`chat`, `mail`, `files`, `knowledge`,
+ * `workorder`, `calendar`); this says which tools that amounts to. Chat is always
+ * there: the conversation is the interface whatever the matrix says.
+ */
+export function areasOfSurfaces(
+  surfaces: SurfaceMatrix | undefined,
+): readonly AreaName[] {
+  const held = new Set<AreaName>(TRANSVERSAL_AREAS);
+  for (const [surface, mode] of Object.entries(surfaces ?? {})) {
+    if (mode === "off") continue;
+    if (surface === "workorder") held.add("workorders");
+    else if ((AREA_NAMES as readonly string[]).includes(surface))
+      held.add(surface as AreaName);
+  }
+  return AREA_NAMES.filter((area) => held.has(area));
+}
+
+/**
+ * The catalogue one turn reads: the selected areas' writing tools, every area's
+ * reading tools, and the harness's own (`run.read`), which is never a group's
+ * business but is always available.
+ *
+ * Reading is free (`surfaces.ts`: a reading is proof, not an act), so the selection
+ * narrows **what a run may change**, never what it may look at. A run whose group
+ * declares no surface matrix has nothing to select from and is handed the whole
+ * catalogue — the arrangement every run had before the areas existed.
+ */
+export function catalogueFor<T extends { name: string; writes?: boolean }>(
+  catalogue: readonly T[],
+  areas: readonly AreaName[] | null,
+): readonly T[] {
+  if (areas === null) return catalogue;
+  return catalogue.filter(
+    (tool) => !tool.writes || !isAreaTool(tool.name) || areas.includes(areaOf(tool.name)),
+  );
 }
