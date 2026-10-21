@@ -1,7 +1,8 @@
 # Plan — ADR 0038 in the tree
 
-Status: **in progress, on branch `agents-reloaded`**. The server carries the new
-shape; the client still draws the old one. Each block lands green and on its own.
+Status: **in progress, on branch `agents-reloaded`**. The server and the client
+carry the new shape; the eval set and the job-shaped catalogue are still owed.
+Each block lands green and on its own.
 
 The gate is the project's own (`npm run check:ci`) at every push, and the measure
 is the eval set of ADR 0038 — tasks taken from the runs that failed, judged on
@@ -25,23 +26,25 @@ whether the work is accepted and what it cost in calls and refusals.
    group's when its area is declared or its surface is `watch`; a run is keyed by
    its change, and a group with no instruction gets a notice in its conversation.
    `prose.ts` carries two levels, not three.
-
-## Next
-
-4. **The client.** `GroupRules.tsx` and `agentProse.ts` go; Administration shows
-   one instruction with its areas; the run card speaks of areas and changes, not
-   rules. The strings move in the eleven catalogues, or `i18n:check` fails.
-5. **The documents.** `FEATURES.md` and `README.md` lose what the tree no longer
-   does (rules, the poll, the 45-tool catalogue). `docs/adr/0038` goes
-   `Accepted` when the owner accepts it.
+4. **The old documents are cleared once.** `agent/legacy.ts` removes `rules/`
+   and `agent/rules.json` from an account, writes `agent/reset-0038.json` so it
+   happens once, and touches nothing else — the instruction, the runs, the
+   cursors and the memory are the group's present. The loop calls it per account
+   before anything reads the account (owner decision 2026-10-22: agents-reloaded
+   starts from scratch, no residue).
+5. **The client says the new words.** `GroupRules.tsx` and the rules calls are
+   gone; `GroupInstruction.tsx` shows the prose and a checkbox per area, under
+   Administration → AI Agents → Instruction. The `@gilbert/agent` alias the
+   browser no longer needs is removed from both configs, and the six stale i18n
+   keys are out of the eleven catalogues.
+6. **The documents follow the tree.** `FEATURES.md` and `README.md` describe one
+   instruction, the areas, the run keyed by its change and the one-off clear.
 
 ## Owed, and named so it is not forgotten
 
-- The **migration**: an installation with `rules/*.json` has docs the tree no
-  longer reads. They are inert, and the instruction a group writes now is what
-  counts; a reader that folds them into the instruction is owed before a release
-  that ships this to an installation that has them.
 - The **eval set** (ADR 0038): the 15–20 tasks taken from the 171 measured runs
   are not written yet, so no block above has a score.
 - The **judge on `done`** and the `refused` ending (ADR 0038, 0030): the record
   can carry `refused`; nothing writes it yet.
+- The **job-shaped catalogue** (ADR 0038): the tools are still the endpoint
+  catalogue under area prefixes; the eight job-shaped tools are not written.

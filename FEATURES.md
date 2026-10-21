@@ -64,7 +64,7 @@ feature, which is why the mock reproduces the per-account shape.
 Gilbert is a product built on Stalwart rather than a mail client with extras
 bolted on. The **group** is the unit everything else is built around: a group
 mailbox is an account of its own, and what it owns — its chat, its label catalog,
-its calendars and files, the rules it works by — lives in that account and
+its calendars and files, the instruction it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
 **Chat** is one conversation per group. **Agents** run inside the server's own
 process (ADR 0027–0033 below): the loop that works a run is there,
@@ -82,27 +82,24 @@ else a member does to move mail around still works.
 
 > **The agent runs inside the server.** The loop that works a run is
 > `server/src/agent/loop.ts`: a pass claims the installation, re-arms the waits
-> it finds, reads each account's changes, asks the decision turn which rule
-> applies, and works a run from the model's own step-by-step choices with the
-> budget, the authority guard and the record. The accounts it works are the
-> groups the Master holds, and it asks the mail server for them on **every
-> pass** — so a group the Master is added to in Stalwart's directory is worked by
-> the next pass and one the Master leaves stops being worked, with nothing to
-> restart. The supervisor that asks it for a pass is
+> it finds, reads each account's changes, and works a run from the model's own
+> step-by-step choices with the budget, the authority guard and the record. The
+> accounts it works are the groups the Master holds, and it asks the mail server
+> for them on **every pass** — so a group the Master is added to in Stalwart's
+> directory is worked by the next pass and one the Master leaves stops being
+> worked, with nothing to restart. The supervisor that asks it for a pass is
 > `server/src/agent/supervisor.ts`, started by the server's own boot
 > (`server/src/index.ts`) with the installation it has just read, and it asks
 > again on a pushed change, and every ten seconds as the floor without a working
 > stream, thirty with one — an installation
 > that has chosen no model, or a Master who works no group, leaves it idle with
 > a line in the console instead (said once, when the state begins). The agent's decisions are
-> [ADR 0027](docs/adr/0027-the-agents-tools-are-described-and-composable.md) (a
-> described catalogue of tools), [0028](docs/adr/0028-what-the-agent-decides-and-what-a-person-decides.md)
+> [ADR 0038](docs/adr/0038-the-agent-is-areas-jobs-and-a-persons-yes.md) (the
+> agent is areas, jobs and a person's yes), [0028](docs/adr/0028-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
 > [0029](docs/adr/0029-the-conversation-runs-in-chat-and-mail.md) (one
 > conversation in chat and mail), [0030](docs/adr/0030-a-run-is-a-document-and-the-record-is-the-product.md)
 > (a run is a document, and the record is the product),
-> [0031](docs/adr/0031-a-groups-engagement-is-a-rule-in-prose.md) (a group's
-> engagement is a rule in prose),
 > [0032](docs/adr/0032-one-agent-per-installation-held-by-a-claim.md) (one claim
 > holds the installation's single agent) and
 > [0033](docs/adr/0033-the-agents-memory-is-a-graph-it-recalls.md) (the agent's
@@ -136,7 +133,7 @@ people's.
 | --- | --- | --- | --- |
 | 1 | Reversible, inside the group's account | filing a message, a keyword, a label, a folder, writing, moving or renaming a file, creating an event in the group's own calendar, a draft, a workorder step, a KB proposal, a fact, a question | **The agent** |
 | 2 | Irreversible or destructive | destroying a message, a folder or a page, emptying a folder, deleting or overwriting a document, changing or removing a calendar event | **A person, always** |
-| 3 | Outward | anything that reaches somebody outside the mandate, `mail.send` above all | **A person's word for exactly that message**, or a rule that declares in its own text that it sends |
+| 3 | Outward | anything that reaches somebody outside the mandate, `mail.send` above all | **A person's word for exactly that message**, or an instruction that declares in its own text that it sends |
 | 4 | Beyond the policy | an act the written policy forbids | **Only an installation administrator**, proved by the directory and never by the sentence |
 | 5 | The intent | which policy is right, what a workorder should carry, whether a KB change is accepted | **Never the agent**: it proposes, a person approves |
 
@@ -148,7 +145,7 @@ evidence beside it, never a person's name on a thing that person did not do.
 ## The run is the record
 
 **A run is one document in the group's account** and the whole of the agent's
-durable state: which rule or instruction started it and which change woke it, the
+durable state: the change that woke it, the
 plan the model chose — each step, what it waits on and the outcome of each one,
 so the record alone says why a step ran and why one did not — what it touched,
 what it waits for and the sentence it asked in,
@@ -206,49 +203,55 @@ afterwards is a **proposal** kept beside the person's sentence — a person acce
 it, which makes those words their own correction, or dismisses it, which leaves
 the sheet as it was — and the next pass reads it with no restart.
 
-## A group's engagement is a rule in prose
+## A group has one instruction, and the areas it works
 
-**A group's engagement is a rule in prose** (ADR 0031): one document in the
-group's own account, under `rules/`, that gives each of the account's surfaces a
-**mode** — **off**, **watch** or **on demand** — and says in prose what should
-happen when the rule is woken. The surfaces are its **chat**, its **mail**, its
-**KB**, its **workorders**, its **Files** and its **calendar**; chat is always
-**watch**, because the conversation is where the group calls the agent and where
-its report is written. **watch** wakes the rule and lets the run it opens write
-that surface; on **mail** that means a message that **arrived in the Inbox** —
-reading, marking, filing or removing a message wakes nothing, and neither does a
-draft the group saved or a message it sent; **on demand** never wakes it but lets
-a run already open — from chat, from mail, from another watched surface — write
-it; **off** neither wakes nor writes (reading stays free). The matrix says
+**A group has one instruction** (ADR 0038): one document in the group's own
+account, `instruction.json`, that says **in prose** how the group wants its agent
+to work and **which areas** that work is in. The areas are the agent's own
+modules — **mail**, **files**, **calendar**, **contacts**, **knowledge**,
+**workorders**, **chat**, **memory** — and they are the whole of what a run may
+**change**: a run's catalogue of tools is the areas its instruction declares plus
+chat, knowledge and memory, which every run has. **Reading is free**; a write
+needs its area. An instruction may declare at most **three** areas, which is what
+keeps a turn's catalogue small.
+
+A change in the group's account wakes the instruction when its area is declared
+or when the instruction's surface matrix wakes it; one change opens **one** run,
+and a run the account already holds for that change is the answer it already has.
+The matrix — one mode per surface, **off**, **watch** or **on demand** — says
 *where* a run may act, never *what*: the authority classes (ADR 0028) still bound
-every act, and a write on a surface the rule keeps off is refused
-(`surface_off`). The run carries the matrix its rule had when it opened, so an
-edit does not move a run in flight; a v1 rule is read as the matrix it means
-(watched surfaces `watch`, the rest `ondemand`)
-and is written as v2 on the next save. The shape, its parser and the matrix's
-matcher are `server/src/agent/rule.ts`, the modes are
-`server/src/shared/surfaces.ts`, and where a rule lives is
-`server/src/agent/rules.ts`. A rule may **declare that it sends**, which is the
-one power it carries of its own. The agent's prose has three
-levels, outermost first: the **installation's own line**, the **group's standing
-instruction** and the **rule's own instruction**, and one builder,
-`server/src/agent/prose.ts`, produces that order for every caller. The first is
-`agent.instruction` in the installation's own document, carried into every call
-from the boot; the second is `instruction.json` in the group's own account
-(`server/src/agent/instruction.ts`), read once per pass so an edit is in force at
-the next one; the third is re-read for each turn of the run it started. A level
-that says nothing contributes nothing. **An installation administrator decides**
-the group's two documents, from **Administration → AI Agents → Prose**: the group
-is chosen, the standing instruction is one field, and a rule is its name, its
-matrix, its prose and whether it may send. The launcher is offered
-only to an administrator, and the write goes through the administration's own
-route (`/api/admin/groups/<name>/prose`), which writes as the Master behind
+every act, and a write on a surface the instruction keeps off is refused
+(`surface_off`). Chat is always `watch`, because the conversation is where the
+group calls the agent and where its report is written. The run carries the matrix
+its instruction had when it opened, so an edit does not move a run in flight. An
+instruction written before the areas existed is still read, with no area declared
+and nothing but the conversation on.
+
+The shape and its parser are `server/src/shared/instruction.ts`, the areas are
+`server/src/shared/areas.ts` (the vocabulary both tiers read) and
+`server/src/agent/areas.ts` (which tool is in which area, and the selection); what
+reads the document is `server/src/agent/instruction.ts`. A group's instruction may
+**declare that it sends**, which is the one power it carries of its own. The
+agent's prose has two levels, outermost first: the **installation's own line** and
+the **group's instruction**, and one builder, `server/src/agent/prose.ts`,
+produces that order for every caller. The first is `agent.instruction` in the
+installation's own document, carried into every call from the boot; the second is
+read once per pass so an edit is in force at the next one. A level that says
+nothing contributes nothing. **An installation administrator decides** the group's
+instruction, from **Administration → AI Agents → Instruction**: the group is
+chosen, the prose is one field and the areas a list of checkboxes. The launcher is
+offered only to an administrator, and the write goes through the administration's
+own route (`/api/admin/groups/<name>/prose`), which writes as the Master behind
 `requireAdmin` — the decision is a boundary and not a hidden button (owner
-decision 2026-10-18). Each document is validated by the server's parser before it
+decision 2026-10-18). The document is validated by the server's parser before it
 is filed, and every write carries the account state the read answered, so a write
 that lost a race is refused rather than overwriting another administrator's edit.
 The installation's own line is a field beside its model in Administration →
 Installation, and it is read at every pass.
+
+The documents the old shape left behind — `rules/` and `agent/rules.json` — are
+removed once per account by `server/src/agent/legacy.ts`, which leaves a marker
+(`agent/reset-0038.json`) to say it was done.
 
 ## One model, two turns
 
@@ -262,9 +265,9 @@ completion with the zero-retention opt-out on every request, refuses a provider
 whose address is not public unless the **operator** has said the installation's
 model may sit inside the deployment's own network
 (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries both turns: the **decision
-turn** — given one change in a group's own account and the rules that watch it,
-which rules apply and what the facts are, looking the group's own state up first
-with the **reading tools** when it needs to — and the **choosing turn**, which is
+turn** — given one change in a group's own account, what the change is about,
+looking the group's own state up first with the **reading tools** when it needs
+to — and the **choosing turn**, which is
 handed the catalogue as the catalogue describes itself — the provider's own
 `tools`, each rendered from the tool's own argument specs, once per call and never
 repeated as prose — and
@@ -327,7 +330,7 @@ guard licenses exactly that act and no other. An **override** (class 4) is an
 installation administrator's, and it is proved by the **directory**: before the
 answer is read, the agent presents the sender's account to the server and reads
 whether it is a Stalwart administrator, so an administrator's own words may grant
-one and nobody else's. A rule the group wrote may **declare that it sends**, and
+one and nobody else's. An instruction may **declare that it sends**, and
 that declaration is the authority of its own outward acts. **The same conversation
 runs by mail**: `mail.ask` sends the question from the group's own identity to a
 principal with access to the group and parks the run on that message, and the
@@ -351,13 +354,13 @@ whole catalogue is exercised against the mock Stalwart.
 
 ## The loop
 
-**The loop that works a run is `server/src/agent/loop.ts`** (ADR 0027–0032): one
+**The loop that works a run is `server/src/agent/loop.ts`** (ADR 0027–0038): one
 pass takes the installation's claim, works the runs whose wait has come due,
-reads each account's changes and puts each one to the decision turn. A change no
-rule watches costs no model call and no step; every rule that fits the change
-opens or continues **its own** run naming the change that woke it — two rules a
-group wrote over one activity are two runs, and the same rule over the same
-change is one — and the choosing turn works each — **a plan of one or more
+reads each account's changes and puts each one to the decision turn. A change the
+group's instruction does not name costs no model call and no step; a change it
+does name opens or continues **the one** run for that change — the account's
+record of it is the answer it already has — and the choosing turn works it — **a
+plan of one or more
 steps, the ones whose dependencies have ended made together**, each its own step
 with its own outcome and its own spend, until the model says done, a step parks
 the run on a person's answer, or the run's **budget** (steps, model calls and
@@ -386,7 +389,7 @@ listing the folder again. The queue is a document in the group's own app folder,
 so a restart
 resumes the same drop, and the instant the drop opened is part of the run's key,
 so a later drop in the same folder is a run of its own. A folder that appears is
-not a document and a removal whose path is unknown wakes no rule. A question is
+not a document and a removal whose path is unknown wakes nothing. A question is
 asked once: the plan turn is shown the questions the group already has open, and
 `chat.ask` answers with the open question's message instead of posting a second
 copy. A page's transcription is remembered by the content of its bytes, so the
@@ -425,7 +428,7 @@ late also writes one line to the journal. **Nothing on that page
 starts or stops the agent**: it is part of
 the server, and the boot starts it. Each group's **runs** are drawn as the record
 carries them, since the record is the product (ADR 0030): the change that woke
-the run, the rule or the instruction that answered, every step with what it waited
+the run, the instruction that answered, every step with what it waited
 on — *after step 1 if it ended Worked* — the branch that was not taken, what each
 step answered, what the run spent, what it recalled — each fact resolved to its
 subject and sentence — and where it parked and why. A run written by
@@ -527,7 +530,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   Installation section rather than repeated as a second set of fields. A group's
   **runs** are read from that group's own account as the installation (never as
   the administrator, who need not be a member) and drawn as the record carries
-  them — the change, the rule, the plan with each step's dependency, the branch
+  them — the change, the instruction, the plan with each step's dependency, the branch
   taken, every outcome, the spend, and where it parked — with a document this
   build cannot read **said** rather than dropped or drawn blank. The installation's
   **memory** is read from the Master's own account and corrected or removed

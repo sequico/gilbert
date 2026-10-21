@@ -35,7 +35,8 @@ and remembers facts — and stops wherever a person is answerable. The loop is p
 of `gilbertserver`: the server starts it with itself and reads the Master's
 groups on every pass, so a group added in Stalwart is worked without a restart.
 
-Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail,
+Everything Gilbert keeps — mail, files, the knowledge base, the group's
+instruction, audit trail,
 the sessions themselves — is a document in your own [Stalwart](https://stalw.art)
 mail server, under the account it belongs to. There is no Gilbert database: no
 index, no cache tier, nothing durable on a disk, nothing to back up twice, and a
@@ -105,7 +106,7 @@ agent's:
   removing a calendar event. The product's preference is that nothing disappears.
 - **A person's own words** licence anything outward, and a word for one message
   reaches no other: a send names the address and the words, and the guard
-  compares the act exactly. A rule a group wrote may declare in its own text that
+  compares the act exactly. An instruction may declare in its own text that
   it sends, where its owner reads it.
 - **An installation administrator, and only one**, overrides the written policy
   — proved by the directory, never by the sentence — and the trace carries the
@@ -117,8 +118,8 @@ agent's:
 ## A receipt for every run
 
 Every run is one document in the group's own account, under `runs/`, where every
-member can read it: the change that woke it, the rule or instruction that
-answered, the plan with what each step waited on, the branch that was not taken,
+member can read it: the change that woke it, the instruction that answered, the
+plan with what each step waited on, the branch that was not taken,
 what each step answered, every authorisation with the words it arrived in, what
 it recalled, what it spent and where it parked. The plan and what each step is
 about to do are written **before** the act. A run ends done, waiting on a person,
