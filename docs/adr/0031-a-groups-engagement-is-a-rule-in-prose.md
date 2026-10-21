@@ -141,7 +141,13 @@ and **in prose, what should happen** when the rule is woken.
   member write the file, so the door is what makes the decision administrative.
 - **An instruction from a person is a plan, not a rule** (ADR 0027, ADR 0029):
   a rule is what a group decided in advance, and a sentence in the chat or in
-  the mail is what it decided now.
+  the mail is what it decided now. **A mention is that sentence's address**: a
+  message in the conversation that names the agent opens the runs of the rules
+  that watch the conversation even when the decision turn names none of them, and
+  a mention no rule covers is answered with that fact rather than left in
+  silence. The decision turn still chooses among every other change — a rule's
+  matrix is where it may act, and the address is what makes a **person's** word a
+  request to this agent and not activity it watches.
 
 ## Consequences
 

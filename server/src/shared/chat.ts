@@ -259,6 +259,29 @@ export function mentionsName(text: string, address: string): boolean {
 }
 
 /**
+ * Whether a message in the conversation is addressed to the agent itself.
+ *
+ * Two spellings of one address: the stored mention a client writes, and the
+ * name typed out by hand, which leaves no mark. One question, asked here, so the
+ * always-on path (a mention is answered even when no rule names it) and the
+ * switched-off path (a mention is what the notice answers) cannot disagree about
+ * what a mention is.
+ */
+export function addressesAgent(
+  message: {
+    text: string;
+    mentions?: ReadonlyArray<{ id: string }> | undefined;
+  },
+  self: string,
+): boolean {
+  if (!self) return false;
+  if (mentionsName(message.text, self)) return true;
+  return (
+    message.mentions?.some((one) => one.id.toLowerCase() === self.toLowerCase()) ?? false
+  );
+}
+
+/**
  * A regex matching a mention in either form, for **drawing** a message.
  *
  * The client writes a mention as the full address; the agent writes the local

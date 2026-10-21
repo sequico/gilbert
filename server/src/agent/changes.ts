@@ -11,7 +11,7 @@
 import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
-import { mentionsName } from "../shared/chat.js";
+import { addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
@@ -179,6 +179,16 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
 const OFF_NOTICE = "AI agents are turned off.";
 
 /**
+ * What a person is told when their mention of the agent reaches no rule at all.
+ *
+ * A group with no rule watching the conversation is a group whose agent is not
+ * asked to speak there; the person still addressed it, and silence is not an
+ * answer to a question somebody typed.
+ */
+const NO_RULE_NOTICE =
+  "This group has no rule for the conversation, so your message has woken nothing. An administrator can write one in Administration → Agent → Rules.";
+
+/**
  * A pass with the agent off: nothing is decided, nothing is modelled, and the
  * one thing that happens is an answer to the people who wrote.
  *
@@ -213,15 +223,9 @@ export async function offPath(
         /*
          * A mention is either the stored mark or the words themselves: a person
          * typing `@gilbert` by hand leaves no mark, and the loose form is what
-         * the conversation reads (`mentionsName`).
+         * the conversation reads (`addressesAgent`).
          */
-        if (
-          !mentionsName(message.text, deps.self) &&
-          !message.mentions?.some(
-            (one) => one.id.toLowerCase() === deps.self.toLowerCase(),
-          )
-        )
-          continue;
+        if (!addressesAgent(message, deps.self)) continue;
         await postChatMessage(deps.ctx, accountId, deps.self, OFF_NOTICE, {
           replyTo: message.id,
         });
@@ -464,8 +468,25 @@ export async function workChanges(
       }
     }
     const candidates = rules.filter((rule) => ruleApplies(rule, event));
-    // A change no rule watches costs no model call and no step (ADR 0031).
-    if (!candidates.length) continue;
+    /*
+     * A change no rule watches costs no model call and no step (ADR 0031) — but a
+     * person addressing the agent in the conversation is not such a change. The
+     * address is the mention, so a message that names the agent is answered even
+     * when the group's rules say nothing about the conversation: silence was the
+     * live ending (a mention produced no run and no word, and nothing said why),
+     * and a person who typed a question is owed an answer or a reason.
+     */
+    if (!candidates.length) {
+      if (
+        event.source === "chat" &&
+        message &&
+        addressesAgent(message, deps.ctx.username)
+      )
+        await postChatMessage(deps.ctx, accountId, deps.ctx.username, NO_RULE_NOTICE, {
+          ...(message.id ? { replyTo: message.id } : {}),
+        });
+      continue;
+    }
     const woke = wokeOf(event);
     /*
      * What the installation holds and the group wrote above the rule: the
@@ -528,12 +549,25 @@ export async function workChanges(
     }
     if (decision.kind !== "decision") continue;
     /*
+     * Which rules this change opens. A person addressing the agent in the
+     * conversation is answered even when the decision turn names no rule: the
+     * mention is the address, and the rules that watch the conversation are the
+     * ones it reaches (ADR 0029). The decision turn still chooses among every
+     * other change, and its facts — empty when it named nothing — are what the
+     * runs are told.
+     */
+    const chosen = decision.rules.length
+      ? decision.rules
+      : message && addressesAgent(message, deps.ctx.username)
+        ? candidates.map((rule) => rule.id)
+        : [];
+    /*
      * The runs by (rule, change) for this event, grown once and rebuilt only
      * after a named rule changes a run's state: a decision naming three rules
      * used to rebuild the whole map three times.
      */
     let byStart: Map<string, RunDoc> | null = null;
-    for (const named of decision.rules) {
+    for (const named of chosen) {
       const rule = rules.find((candidate) => candidate.id === named);
       if (!rule) continue;
       const key = startKey(named, woke);

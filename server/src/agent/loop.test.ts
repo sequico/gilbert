@@ -40,6 +40,8 @@
  *   loses nothing to.
  * - a restart resumes from the cursor the last process left, so a change that
  *   arrived while the agent was down is still worked.
+ * - a mention opens the rules that watch the conversation even when the decision
+ *   names none, and a mention no rule covers is answered rather than ignored.
  * - a fact one run learned is handed to the next change's call, and the run's
  *   record names what it recalled — while a change the memory holds nothing
  *   about is worked exactly as it was before the memory existed;
@@ -838,6 +840,58 @@ test("a restart resumes from the cursor the last process left", async () => {
     "the change that arrived while the process was down is worked after it restarts",
   );
   assert.equal(run.state, "done");
+});
+
+test("a mention opens a run even when the decision names no rule", async () => {
+  /*
+   * A person addressing the agent in the conversation is answered even when the
+   * decision turn names no rule: the mention is the address, and the rules that
+   * watch the conversation are the ones it reaches (ADR 0029). The live ending it
+   * replaces was a mention that opened no run and said nothing.
+   */
+  const id = "intake-mentioned";
+  await putRule(id, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  onCall = (system) =>
+    isDecision(system) ? { rules: [], facts: {} } : { done: "answered the mention" };
+  await postChatMessage(
+    ctx,
+    accountId,
+    "sam@example.org",
+    "@gilbert what is the status?",
+  );
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.match(
+    run.startedBy.woke ?? "",
+    /^chat created: /,
+    "the message is what woke it",
+  );
+  assert.equal(run.state, "done", "and the rule that watches the conversation worked it");
+  assert.equal(
+    (await findChatMessages(ctx, accountId, "Done: answered the mention", 5)).length,
+    1,
+    "and the person hears the ending",
+  );
+});
+
+test("a mention no rule covers is answered rather than left in silence", async () => {
+  /*
+   * A group whose rules say nothing about the conversation has no agent there —
+   * but the person still addressed it, and silence is not an answer to a question
+   * somebody typed.
+   */
+  const agent = loop();
+  await agent.start();
+  await postChatMessage(ctx, accountId, "sam@example.org", "@gilbert anybody there?");
+  await agent.pass();
+
+  const said = await findChatMessages(ctx, accountId, "no rule for the conversation", 5);
+  assert.equal(said.length, 1, "the person is told why nothing happened");
+  assert.ok(said[0]?.replyTo, "in the thread they wrote in");
 });
 
 test("every rule that fits one change opens its own run", async () => {

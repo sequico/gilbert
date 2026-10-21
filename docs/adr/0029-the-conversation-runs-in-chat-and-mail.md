@@ -71,7 +71,10 @@ where the sentence sits.
   ping-pong.
 - **The correlation is the channel's own.** In mail, the thread
   (`In-Reply-To`/`References`); in chat, a `replyTo` on the node (ADR 0004),
-  because a chat is a flat list and two runs may be waiting in it at once.
+  because a chat is a flat list and two runs may be waiting in it at once. A
+  question asked in the conversation therefore **says so**: the message carries
+  the one line that tells the person a reply is what answers it, because a live
+  question sat unanswered for hours beside a person who had no way of knowing.
 - **A run waits where it asked and reports where it asked**: a question put in
   mail is answered in mail, and the answer's own message id goes into the trace
   (ADR 0030).

@@ -129,6 +129,16 @@ export const findChat = defineTool({
 });
 
 /**
+ * The line a question carries so a person knows what answering it takes.
+ *
+ * A question is correlated with its answer by the **reply** (`shared/chat.ts`),
+ * not by the next message in the channel — a live question sat unanswered for
+ * hours beside a person who had no way of knowing that a reply was what it
+ * took, and they wrote a new request instead.
+ */
+const ANSWER_WITH_A_REPLY = "Reply to this message to answer it.";
+
+/**
  * The text of a chat message, bounded where the document is.
  *
  * `CHAT_MAX_TEXT` is the chat's own ceiling (ADR 0004): a message longer than it
@@ -233,9 +243,15 @@ export const askInChat = defineTool({
     );
     if (held?.run.waiting?.asked)
       return { id: held.run.waiting.asked.id, alreadyAsked: true };
-    const id = await postChatMessage(ctx, accountId, ctx.username, text, {
-      ...(await mentionsOf(ctx, accountId, text)),
-    });
+    const id = await postChatMessage(
+      ctx,
+      accountId,
+      ctx.username,
+      `${text}\n\n${ANSWER_WITH_A_REPLY}`,
+      {
+        ...(await mentionsOf(ctx, accountId, text)),
+      },
+    );
     /*
      * What the run waits for is a person's answer, and that wait carries **no
      * date**: the run is picked up when the answer arrives in the conversation,
