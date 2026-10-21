@@ -326,7 +326,10 @@ that declaration is the authority of its own outward acts. **The same conversati
 runs by mail**: `mail.ask` sends the question from the group's own identity to a
 principal with access to the group and parks the run on that message, and the
 reply that names it in its thread continues the run — mail's own correlation,
-read by the loop. `mail.send` is the act that reaches somebody **outside**: it is
+read by the loop. **A question carries a deadline** (72 hours, ADR 0029): the
+answer is still the conversation's own event, and the deadline is what a run does
+about a person who never answers — it goes on without it, with a step on the
+record saying what did not come, so nothing waits for ever. `mail.send` is the act that reaches somebody **outside**: it is
 class `outward`, and it is refused until a person's own words license exactly that
 message — the address and the words — because a word for one send reaches no
 other. Every tool declares the **authority class** it

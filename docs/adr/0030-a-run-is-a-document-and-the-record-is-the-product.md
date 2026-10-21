@@ -86,8 +86,12 @@ agent's durable state.
   each outcome, and takes the branch that outcome names, and a step no branch
   reaches is left unrun with its record saying which step and which outcome left
   it.
-- **A wait is a date in the run** — or no date at all, when what it waits for is
-  a person — not a timer in a process. On boot the agent re-arms the waits it
+- **A wait is a date in the run** — the instant an appointment or a window comes
+  due, and the **deadline a question to a person carries** — not a timer in a
+  process. A question is answered as the conversation's own event, but its
+  deadline is what covers the person who never answers: when it comes due the run
+  goes on without the answer, with a step that says what did not come, rather than
+  waiting for ever. On boot the agent re-arms the waits it
   finds, so a restart in the middle of a run loses nothing and a container that
   dies is not an incident.
 - **A run ends in one of four ways** — the work is done, it is blocked on a

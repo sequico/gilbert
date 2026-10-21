@@ -27,7 +27,7 @@ import {
   type LabelCatalogEntry,
 } from "../../shared/labels.js";
 import { mailboxesOf as accountMailboxes } from "../../shared/mailboxes.js";
-import type { RunWait } from "../../shared/run.js";
+import { QUESTION_TTL_MS, type RunWait } from "../../shared/run.js";
 import {
   buildFilter,
   parseQuery,
@@ -1035,7 +1035,7 @@ export const askByMail = defineTool({
     const wait: RunWait = {
       what: text,
       asked: { channel: "mail", id: sent.id },
-      until: null,
+      until: new Date(Date.now() + QUESTION_TTL_MS).toISOString(),
     };
     return { id: sent.id, to: address, subject, wait };
   },

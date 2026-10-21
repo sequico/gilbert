@@ -8,13 +8,15 @@
  * is not an incident; a holder that takes the installation over re-arms the same
  * waits from the same documents (ADR 0032).
  *
- * A wait with **no** date is a question left for a person (ADR 0029, 0030): it
- * is never armed, because the answer arrives in the group's own account as an
- * event (`events.ts`) rather than at an instant this process can compute. So is
- * a run that has ended, including one that ended blocked on a person and keeps
- * the question it left — a date on a stopped run is not a wait, and firing it
- * would start a run whose end nobody re-opened. Which of the two a run is is the
- * document's own answer (`waitDueAt`), never derived a second time here.
+ * A **question left for a person carries its deadline** (ADR 0029): it is armed
+ * exactly like any other date, and when it fires the run goes on without the
+ * answer with a step that says so. A question written by a build before that
+ * carries no date at all; it is never armed, because the answer arrives in the
+ * group's own account as an event (`events.ts`) rather than at an instant this
+ * process can compute. A run that has ended is never armed either — a date kept
+ * beside an ending is not a wait, and firing it would start a run whose end
+ * nobody re-opened. Which of these a run is is the document's own answer
+ * (`waitDueAt`), never derived a second time here.
  *
  * Firing says one thing: this run's date has come. The caller re-reads the run
  * and decides what that means, because the document may have moved in the hours

@@ -75,6 +75,12 @@ where the sentence sits.
   question asked in the conversation therefore **says so**: the message carries
   the one line that tells the person a reply is what answers it, because a live
   question sat unanswered for hours beside a person who had no way of knowing.
+- **A question has a deadline** — 72 hours from the ask, in the run's own wait
+  (`QUESTION_TTL_MS`, `shared/run.ts`), never a timer in a process. The answer is
+  still the conversation's own event; the deadline is what a run does about a
+  person who never answers: it goes on without the answer, with a step on the
+  record saying what did not come, so no run waits for ever and no question sits
+  on a list for months.
 - **A run waits where it asked and reports where it asked**: a question put in
   mail is answered in mail, and the answer's own message id goes into the trace
   (ADR 0030).

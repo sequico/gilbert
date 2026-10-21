@@ -37,7 +37,7 @@
  * - **the plan is on the run before the first act of the answer runs**, and each
  *   outcome on the same document after it;
  * - a run whose wait has come due is picked up again, which is what a restart
- *   loses nothing to.
+ *   loses nothing to; a question's own deadline is one of those dates.
  * - a restart resumes from the cursor the last process left, so a change that
  *   arrived while the agent was down is still worked.
  * - a mention opens the rules that watch the conversation even when the decision
@@ -82,7 +82,9 @@ const {
 } = await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
-const { finishRun, startRun, spendRun, waitUntil } = await import("../shared/run.js");
+const { finishRun, QUESTION_TTL_MS, startRun, spendRun, waitUntil } = await import(
+  "../shared/run.js"
+);
 const { parseInstallationDocumentDetailed } = await import("../shared/installation.js");
 
 import type { InstallationModel } from "../shared/installation.js";
@@ -1943,6 +1945,62 @@ test("a run whose wait has come due is picked up again, from its document", asyn
     isDecision(seen[0]?.system ?? ""),
     false,
     "a run that exists is not re-decided: the choosing turn is asked directly",
+  );
+});
+
+test("a question whose deadline has come sends the run on without the answer", async () => {
+  /*
+   * A run parked on a person is due when its question's deadline arrives — the
+   * wait's own date (ADR 0029, 0030) — and the work goes on with a step that says
+   * what did not come, instead of waiting for ever.
+   */
+  const asked = new Date(Date.now() - QUESTION_TTL_MS - 60_000);
+  const deadline = new Date(asked.getTime() + QUESTION_TTL_MS).toISOString();
+  await createRun(
+    ctx,
+    accountId,
+    finishRun(
+      waitUntil(
+        startRun({
+          id: "overdue-question",
+          startedBy: {
+            rule: "overdue",
+            instruction: null,
+            woke: "a question nobody answered",
+          },
+        }),
+        {
+          what: "shall I delete the duplicate?",
+          asked: { channel: "chat", id: "fjt" },
+          until: deadline,
+        },
+      ),
+      "blocked",
+      { at: asked.toISOString(), why: "waiting on a person: a duplicate" },
+    ),
+  );
+
+  const agent = loop();
+  answerWith({
+    calls: [
+      {
+        name: "chat.say",
+        arguments: { text: "nothing was deleted; the file is as it was" },
+      },
+    ],
+  });
+  answerWith({ done: "carried on without the answer" });
+  const summary = await agent.pass(new Date(Date.parse(deadline) + 60_000));
+
+  assert.equal(summary.due, 1, "the overdue question is due");
+  const record = await readRun(ctx, accountId, "overdue-question");
+  assert.equal(record?.run.state, "done", "and the run went on to its ending");
+  assert.equal(record?.run.waiting, null, "the question is no longer waited on");
+  assert.ok(
+    record?.run.plan.some((step) =>
+      /nobody answered it within the deadline/.test(step.outcome),
+    ),
+    "the record says the answer never came",
   );
 });
 

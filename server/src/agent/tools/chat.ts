@@ -10,7 +10,7 @@ import type { Ctx } from "../../appFolder.js";
 import { groupMembers } from "../../groupAccess.js";
 import { findChatMessages, postChatMessage, readChatMessageBy } from "../../groupChat.js";
 import { CHAT_MAX_TEXT, type ChatMention, mentionsByName } from "../../shared/chat.js";
-import type { RunWait } from "../../shared/run.js";
+import { QUESTION_TTL_MS, type RunWait } from "../../shared/run.js";
 import { listRunsForWorking } from "../runs.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
@@ -253,16 +253,18 @@ export const askInChat = defineTool({
       },
     );
     /*
-     * What the run waits for is a person's answer, and that wait carries **no
-     * date**: the run is picked up when the answer arrives in the conversation,
-     * never by a clock (ADR 0029, 0030). The answer goes into the run's own
-     * document by the loop (`waitUntil`) — the run is the loop's to write, as
-     * its tally is — and `asked` is the message the answer will reply to.
+     * What the run waits for is a person's answer, and that wait carries the
+     * **deadline** a question has (ADR 0029, 0030): when it comes due the run goes
+     * on without the answer, with a step that says so, rather than waiting for
+     * ever. The answer still arrives as an event in the conversation, never by the
+     * clock; the date is what happens if it never comes. The answer goes into the
+     * run's own document by the loop (`waitUntil`) — the run is the loop's to
+     * write, as its tally is — and `asked` is the message the answer will reply to.
      */
     const wait: RunWait = {
       what: text,
       asked: { channel: "chat", id },
-      until: null,
+      until: new Date(Date.now() + QUESTION_TTL_MS).toISOString(),
     };
     return { id, wait };
   },

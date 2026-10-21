@@ -88,6 +88,7 @@ import {
 import { isRecord } from "../shared/json.js";
 import { recallFacts } from "../shared/memory.js";
 import {
+  answerOverdue,
   appendStep,
   finishRun,
   isRunDue,
@@ -813,7 +814,17 @@ export class AgentLoop {
     for (const id of runs) {
       const index = at.get(id);
       const record = index === undefined ? null : records[index];
-      if (record?.run.state !== "running") continue;
+      if (!record) continue;
+      /*
+       * A run waiting on a person is picked up only when the question's deadline
+       * has come (ADR 0029, 0030): the work then goes on without the answer, with
+       * a step that says what did not come, rather than waiting for ever.
+       */
+      let due = record.run;
+      if (due.state === "blocked") {
+        if (!isRunDue(due, now)) continue;
+        due = answerOverdue(due, now.toISOString());
+      } else if (due.state !== "running") continue;
       summary.due += 1;
       /*
        * A run nothing waits on is the crash path: it has no date, so the clock
@@ -821,10 +832,10 @@ export class AgentLoop {
        * failure from paying for a model call every ten seconds; the first
        * attempt after a restart is immediate.
        */
-      const key = `${accountId}\u0000${record.run.id}`;
-      const stuck = record.run.waiting === null;
+      const key = `${accountId}\u0000${due.id}`;
+      const stuck = due.waiting === null;
       if (stuck) this.stuckUntil.set(key, now.getTime() + STUCK_RETRY_MS);
-      const worked = await this.workRun(accountId, record.run, undefined, record.state);
+      const worked = await this.workRun(accountId, due, undefined, record.state);
       const stillStuck = worked?.state === "running" && worked.waiting === null;
       if (!stillStuck) this.stuckUntil.delete(key);
       // The archive and the change batch see the document as this pass left it.

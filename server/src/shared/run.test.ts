@@ -8,8 +8,9 @@
  * which facts of the installation's memory it recalled, and what it
  * spent are written by a transition each, an authorisation carries the sentence
  * it arrived in, the authority that was given and the act it is for, and the
- * wait is a date in the
- * document — or no date at all, when what it waits for is a person. The
+ * wait is a date in the document — an instant the run waits for, or the deadline
+ * a question to a person carries, whose coming due sends the run on without the
+ * answer. The
  * parser's half is the other side of the same contract: a run this build did not
  * write is reported rather than read as an empty one, and a field it does not
  * know does not refuse a run that is otherwise whole.
@@ -18,10 +19,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  answerOverdue,
   appendStep,
   finishRun,
   isRunDue,
   parseRunDocumentDetailed,
+  QUESTION_TTL_MS,
   RUN_VERSION,
   recordEvidence,
   recordRecall,
@@ -423,23 +426,65 @@ test("a wait is a date on the run, and the run is due when it passes", () => {
   assert.equal(isRunDue(ended, new Date("2026-10-17T00:00:00.000Z")), false);
 });
 
-test("the run answers when its wait is due, and a dateless or stopped wait has no date", () => {
+test("the run answers when its wait is due, and a stopped wait has no date", () => {
   const run = startRun({ id: "r13", startedBy: START });
   assert.equal(waitDueAt(run), null, "a run that is not waiting has no date");
   assert.equal(
     waitDueAt(waitUntil(run, QUESTION)),
     null,
-    "a wait on a person is a question, not an instant",
+    "a question with no deadline is not an instant",
   );
 
   const dated = waitUntil(run, { what: "the booking window", asked: ASKED, until: AT });
   assert.equal(waitDueAt(dated), AT, "a dated wait answers its own instant");
 
-  // A date kept beside an ending is not a wait: the run has stopped, and firing
-  // it would start a run whose end nobody re-opened.
-  const stopped = finishRun(dated, "blocked", { at: AT, why: "a person must decide" });
-  assert.equal(stopped.waiting?.until, AT, "the blocked run keeps the question it left");
+  // A date kept beside a stop is not a wait: the run has ended, and firing it
+  // would start a run whose end nobody re-opened.
+  const stopped = finishRun(dated, "cancelled", { at: AT, why: "a person stopped it" });
   assert.equal(waitDueAt(stopped), null, "and its date is no longer a wait");
+});
+
+test("a question carries a deadline, and coming due sends the run on without the answer", () => {
+  /*
+   * The one case nothing else covers: a person who never answers. The question's
+   * deadline is the run's own date (ADR 0029, 0030), so the alarm the agent arms
+   * from the document is what comes due — and the work goes on without the
+   * answer, with a step that says what did not come, instead of waiting for ever.
+   */
+  const run = startRun({ id: "r14", startedBy: START });
+  const deadline = new Date(Date.parse(AT) + QUESTION_TTL_MS).toISOString();
+  const blocked = finishRun(waitUntil(run, { ...QUESTION, until: deadline }), "blocked", {
+    at: AT,
+    why: "the answer has to come from a person",
+  });
+  assert.equal(
+    isRunDue(blocked, new Date(Date.parse(deadline) - 1)),
+    false,
+    "before the deadline the run is still waiting on the person",
+  );
+  assert.equal(
+    isRunDue(blocked, new Date(deadline)),
+    true,
+    "and at the deadline it is the run's own date",
+  );
+
+  const resumed = answerOverdue(blocked, deadline);
+  assert.equal(resumed.state, "running", "the work goes on without the answer");
+  assert.equal(resumed.waiting, null, "the question is no longer the run's to wait on");
+  assert.equal(resumed.ended, null, "a running run carries no ending");
+  assert.equal(resumed.spent.steps, blocked.spent.steps + 1, "the step it took is spent");
+  assert.equal(resumed.plan.at(-1)?.state, "failed", "and the record says it failed");
+  assert.match(
+    resumed.plan.at(-1)?.outcome ?? "",
+    /nobody answered it within the deadline/,
+  );
+
+  assert.throws(() => answerOverdue(run, deadline), /not waiting on an answer/);
+  assert.throws(
+    () => answerOverdue(blocked, "not an instant"),
+    /not an instant/,
+    "an overdue question names the instant it came due",
+  );
 });
 
 test("a run blocked on a person keeps the question it left, and where it asked", () => {

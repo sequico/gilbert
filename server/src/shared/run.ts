@@ -12,10 +12,10 @@
  * every authorisation with the sentence it arrived in, the authority that
  * was given and the act it is for, the evidence behind what it claims, the
  * budget it has spent,
- * and the state it is in. A **wait is a date in this document** (or no date at
- * all, when what it waits for is a person's answer), not a timer in a process,
- * so the agent re-arms the waits it finds when it starts and a container that
- * dies mid-run loses nothing.
+ * and the state it is in. A **wait is a date in this document** — a dated wait for
+ * an instant, and the deadline a question to a person carries (ADR 0029, 0030) —
+ * not a timer in a process, so the agent re-arms the waits it finds when it
+ * starts and a container that dies mid-run loses nothing.
  *
  * This module is the shape, its parser and the pure transitions over it: no
  * I/O, so what a transition does is answerable in a test without a server, and
@@ -1030,18 +1030,58 @@ export function takeAnswer(
 }
 
 /**
+ * How long a question asked in the conversation waits for its answer.
+ *
+ * A question carries a deadline (ADR 0029, 0030): 72 hours is long enough for a
+ * person to come back to a question asked on a Friday and short enough that a run
+ * does not wait for ever. The ask tools state it
+ * (`agent/tools/chat.ts`, `agent/tools/mail.ts`), and the run's own wait carries
+ * it — never a timer in a process, so a restart keeps the deadline.
+ */
+export const QUESTION_TTL_MS = 72 * 60 * 60_000;
+
+/**
+ * The question a run left has gone unanswered past its deadline, and the work
+ * goes on without the answer.
+ *
+ * The one case nothing else covers is a person who never answers. The run is not
+ * ended for it — the work may still be possible — so it goes back to running
+ * with a step that says what did not come, and the model decides with that on the
+ * record. The wait is dropped with it, or the same deadline would fire again.
+ */
+export function answerOverdue(run: RunDoc, at: string): RunDoc {
+  const waiting = run.waiting;
+  if (run.state !== "blocked" || !waiting?.until)
+    throw new Error(
+      `the run "${run.id}" is not waiting on an answer with a deadline (${run.state}).`,
+    );
+  requireInstant("an overdue question needs the instant it came due", at);
+  const ask = waiting.asked;
+  const resumed: RunDoc = { ...run, state: "running", waiting: null, ended: null };
+  const grown = appendStep(
+    resumed,
+    `the answer to the question asked in ${ask.channel} ${ask.id}`,
+  );
+  const recorded = recordStep(grown, grown.plan.length - 1, {
+    state: "failed",
+    outcome: `nobody answered it within the deadline (${waiting.until}), so the work goes on without the answer.`,
+  });
+  return spendRun(recorded, { steps: 1 });
+}
+
+/**
  * The instant the run's wait comes due, or null when it has none.
  *
  * The run's own answer to "is it waiting, and until when", and the one place it
- * is given: a run that is not running is not waiting whatever its document
- * keeps beside an ending, and a run that is running and waiting on a person
- * carries no date. Both readers of the answer ask it here — the process that
- * arms the waits (`agent/timers.ts`) and the question of whether one has come
- * due (`isRunDue`) — so the two cannot drift apart on a dateless or an ended
- * run.
+ * is given: a run that is running or **blocked on a person with a deadline** is
+ * waiting, and a dated wait beside any other ending is not — a date on a stopped
+ * run is not a wait, and firing it would start a run whose end nobody re-opened.
+ * Both readers of the answer ask it here — the process that arms the waits
+ * (`agent/timers.ts`) and the question of whether one has come due (`isRunDue`) —
+ * so the two cannot drift apart on a dateless or an ended run.
  */
 export function waitDueAt(run: RunDoc): string | null {
-  if (run.state !== "running") return null;
+  if (run.state !== "running" && run.state !== "blocked") return null;
   return run.waiting?.until ?? null;
 }
 
