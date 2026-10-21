@@ -8,7 +8,10 @@ folder, and the switched-off pass's own `gilbert/notices.json` — and
 `server/src/agent/loop.ts`, which restores both on the first pass of a claim it
 has just taken (`restoreCursor`, `restoreNotice`), writes each after a batch that
 moved that reading (`saveCursor`, `saveNotice`), and says an unreadable one in the
-pass's gaps without writing over it. The write hands back the state it produced
+pass's gaps without writing over it. **Its timing is reconciliation, not a clock**
+(ADR 0043): the stream says there is a change and the cursor says from where to
+read it; a pass on an interval exists only when the stream is down. The write
+hands back the state it produced
 and the cursor takes it, so a quiet account writes nothing, and it verifies the
 claim immediately before landing; `events.ts` counts both documents as the
 agent's own, so writing one wakes no rule.
