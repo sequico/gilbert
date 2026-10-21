@@ -129,7 +129,7 @@ import {
   workChanges,
 } from "./changes.js";
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
-import { CURSOR_FILE, NOTICE_CURSOR_FILE, readCursor, writeCursor } from "./cursors.js";
+import { NOTICE_CURSOR_FILE, readCursor, writeCursor } from "./cursors.js";
 import type { AccountEvents, EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
 import { forgetMemoryStores, listFacts, type MemoryStore } from "./memory.js";

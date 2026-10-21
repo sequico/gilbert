@@ -67,7 +67,6 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { masterAddress } from "../config.js";
-import { errorMessage } from "../shared/errors.js";
 import {
   GroupAccessError,
   memberGroupAccess,
@@ -89,7 +88,7 @@ import {
   metricsOf,
   type RunMetrics,
 } from "../shared/agentMetrics.js";
-import { isStateMismatch } from "../shared/errors.js";
+import { errorMessage, isStateMismatch } from "../shared/errors.js";
 import {
   INSTRUCTION_FILE,
   INSTRUCTION_VERSION,
