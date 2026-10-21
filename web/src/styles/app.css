@@ -1856,7 +1856,10 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 /* The alphabet headers are section dividers, not painted bands: the list's own
    surface, a hairline under, and the letter in the small caps the rest of the
    app uses for a section. */
-.contact-letter { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--border); padding: 4px 14px; font-size: .72em; font-weight: 650; color: var(--fg-muted); letter-spacing: .08em; text-transform: uppercase; z-index: 1; }
+/* The alphabet headers are section dividers: the surface they sit on (the main
+   pane, `--bg-elev`) plus a hairline, the letter in the small caps the rest of
+   the app uses for a section — not a painted band across the list. */
+.contact-letter { position: sticky; top: 0; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 4px 14px; font-size: .72em; font-weight: 650; color: var(--fg-muted); letter-spacing: .08em; text-transform: uppercase; z-index: 1; }
 .contact-detail { overflow-y: auto; padding: 28px 32px 64px; }
 .contact-hero { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
 .contact-hero h1 { margin: 0; font-size: 1.6em; font-weight: 650; }
@@ -2522,7 +2525,11 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 /* Shown whenever a row is ticked: the bar counts the selection and holds its
    actions, and the menu it opens is the same set the row menu offers for a
    whole selection. */
-.selection-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin: 0 12px 4px; border-radius: var(--radius); background: var(--accent-soft); color: var(--accent-soft-fg); }
+.selection-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin: 0 12px 4px; border-radius: var(--radius); }
+/* The tint belongs to a selection: an accent strip over "0 items" shouted a
+   state that was not there. The bar itself never moves, so the listing does
+   not either. */
+.selection-bar.has-selection { background: var(--accent-soft); color: var(--accent-soft-fg); }
 .selection-bar .grow { font-weight: 600; }
 .files-table tbody tr.drop-target > td { background: var(--accent-soft); }
 .files-table tbody tr.drop-target > td:first-child { box-shadow: inset 2px 0 0 var(--accent); }

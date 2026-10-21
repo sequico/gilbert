@@ -614,9 +614,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             </span>
           ))}
         </div>
-        <button className="btn btn-sm" onClick={() => inputRef.current?.click()}>
-          <Upload size={16} /> {t("Upload")}
-        </button>
+        {/* The file picker stays: the section's Upload (the shell's primary
+            action, in the sidebar) is what opens it. No second Upload button
+            here — one action, one control. */}
         <input
           ref={inputRef}
           type="file"
@@ -713,7 +713,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
        * stays and only its contents change: with nothing ticked it says how many
        * items the folder holds, and the actions appear the moment one is ticked.
        */}
-      <div className="selection-bar">
+      <div className={`selection-bar ${sel.length ? "has-selection" : ""}`}>
         <span className="grow">
           {sel.length
             ? plural(sel.length, {
