@@ -100,7 +100,13 @@ export async function listChildrenWithState(
   accountId: Id,
   parentId: Id | null,
   properties: string[],
-  opts: { position?: number; limit?: number; scope?: "level" | "account" } = {},
+  opts: {
+    position?: number;
+    limit?: number;
+    scope?: "level" | "account";
+    /** Ask the server to count the level, for a caller that wants the number. */
+    total?: boolean;
+  } = {},
 ): Promise<{
   list: FileNode[];
   state: string;
@@ -118,6 +124,7 @@ export async function listChildrenWithState(
       limit: opts.limit ?? 1000,
       maxObjectsInGet: client.maxObjectsInGet,
       properties,
+      calculateTotal: opts.total,
     }),
   );
   const [g] = res.get("g") ?? [];

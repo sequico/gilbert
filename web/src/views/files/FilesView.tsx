@@ -35,7 +35,7 @@ import { plural, t } from "@/lib/i18n";
 import { type FilesSortKey, loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
 import { rangeIds } from "@/lib/listSelection";
 import { previewKind } from "@/lib/preview";
-import { useFiles } from "@/store/files";
+import { countChildren, useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
 import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import type { PreviewFile } from "@/ui/filepreview";
@@ -59,6 +59,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   /** The selection's own menu, opened from the bar that counts it. */
   const selMenu = useMenu();
   const [menuNode, setMenuNode] = useState<FileNode | null>(null);
+  /*
+   * How many elements each folder row holds, by folder id: the Size column shows
+   * the count where a file shows its bytes, and a folder is counted once per
+   * account in this session rather than on every repaint.
+   */
+  const [folderCounts, setFolderCounts] = useState<Record<Id, number>>({});
   const [moveNodes, setMoveNodes] = useState<FileNode[] | null>(null);
   /** The two folders being merged, and the dialog that asks which name stays. */
   const [mergeNodes, setMergeNodes] = useState<FileNode[] | null>(null);
@@ -213,6 +219,37 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         .catch((err) => toast.error(errorMessage(err)));
     }
   }, [parentId, files.available]);
+
+  /*
+   * Count the folders on screen, one query each: the server answers the total,
+   * so a folder is never downloaded to be counted. A count that fails leaves
+   * the cell empty rather than showing a number nobody measured, and the next
+   * listing tries again.
+   */
+  useEffect(() => {
+    if (!files.available || !files.accountId) return;
+    let cancelled = false;
+    const level = files.children[parentId ?? "root"] ?? [];
+    for (const id of level) {
+      if (files.nodes[id]?.nodeType !== "directory") continue;
+      if (folderCounts[id] !== undefined) continue;
+      void countChildren(files.accountId, id)
+        .then((count) => {
+          if (!cancelled) setFolderCounts((c) => ({ ...c, [id]: count }));
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    files.available,
+    files.accountId,
+    files.children,
+    files.nodes,
+    parentId,
+    folderCounts,
+  ]);
 
   if (!files.available)
     return (
@@ -872,7 +909,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     </div>
                   </td>
                   <td className="hide-mobile muted">
-                    {n.nodeType === "directory" ? "—" : formatSize(n.size)}
+                    {n.nodeType === "directory"
+                      ? (folderCounts[n.id] ?? "")
+                      : formatSize(n.size)}
                   </td>
                   <td className="hide-mobile muted">
                     {formatListDate(n.modified ?? n.created)}

@@ -30,8 +30,13 @@ export const useFiles = create<FilesState>((set, get) => ({
   ...dragSlice(set, get),
 }));
 
-export { emptyForAccount, LEVEL_LIMIT, readChildren, withoutAppFolder } from "./shared";
-
+export {
+  countChildren,
+  emptyForAccount,
+  LEVEL_LIMIT,
+  readChildren,
+  withoutAppFolder,
+} from "./shared";
 useSession.subscribe((s) => {
   if (s.status !== "authenticated")
     useFiles.setState({ accountId: null, nodes: {}, children: {}, listingShown: null });

@@ -489,6 +489,22 @@ export async function readChildren(
 }
 
 /**
+ * How many elements a folder holds, one level down: the files and the folders
+ * directly inside it, nothing further.
+ *
+ * The server counts the level, so this asks for one id and reads the total
+ * rather than downloading the folder to count what came back. A server that
+ * answers no total leaves the page it sent as the count.
+ */
+export async function countChildren(accountId: Id, parentId: Id | null): Promise<number> {
+  const { list, total } = await listChildrenWithState(accountId, parentId, ["id"], {
+    limit: 1,
+    total: true,
+  });
+  return total ?? list.length;
+}
+
+/**
  * A record in the tray, the one place a failure is reported.
  *
  * The id is what a progress update and a dismissal are aimed at, so two steps

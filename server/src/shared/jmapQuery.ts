@@ -72,6 +72,12 @@ interface QueryThenGet {
   limit?: number;
   /** The properties the get asks for; all of them when it names none. */
   properties?: string[];
+  /**
+   * Ask the server to count what the filter matched, for a caller that wants
+   * the number rather than the page (a folder's element count). The count has
+   * its own price on the server, which is why it is not always on.
+   */
+  calculateTotal?: boolean;
 }
 
 /** The query and its get, as the two calls a JMAP request carries. */
@@ -85,6 +91,7 @@ export function queryThenGet({
   position,
   limit,
   properties,
+  calculateTotal,
 }: QueryThenGet): Invocation[] {
   // A page the get cannot resolve is refused whole, so a limit wider than the
   // ceiling becomes the ceiling; a caller naming none asks for one page of it.
@@ -98,6 +105,7 @@ export function queryThenGet({
         ...(sort ? { sort } : {}),
         ...(position === undefined ? {} : { position }),
         limit: page,
+        ...(calculateTotal ? { calculateTotal: true } : {}),
       },
       "q",
     ],
