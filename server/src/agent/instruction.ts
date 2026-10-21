@@ -9,6 +9,7 @@
 
 import { type Ctx, readAppFileAt } from "../appFolder.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
+import type { InstructionDoc } from "../shared/instruction.js";
 import {
   INSTRUCTION_FILE,
   parseInstructionDocumentDetailed,
@@ -20,7 +21,6 @@ export {
   type InstructionDoc,
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
-
 /**
  * An instruction this build cannot use.
  *
@@ -40,7 +40,7 @@ export class InstructionError extends CodedError {
 export async function readInstruction(
   ctx: Ctx,
   accountId: string,
-): Promise<string | null> {
+): Promise<InstructionDoc | null> {
   let found: Awaited<ReturnType<typeof readAppFileAt>>;
   try {
     found = await readAppFileAt(ctx, accountId, INSTRUCTION_FILE);
@@ -52,7 +52,7 @@ export async function readInstruction(
   if (!found) return null;
   const parsed = parseInstructionDocumentDetailed(found.text);
   if ("problem" in parsed) throw unreadable(parsed.problem);
-  return parsed.instruction.instruction;
+  return parsed.instruction;
 }
 
 function unreadable(why: string): InstructionError {

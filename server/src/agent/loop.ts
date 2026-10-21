@@ -2421,7 +2421,7 @@ export class AgentLoop {
     const group = await readInstruction(this.ctx, accountId);
     const levels: Partial<Record<ProseLevel, string>> = {
       ...(this.installation ? { installation: this.installation } : {}),
-      ...(group ? { group } : {}),
+      ...(group ? { group: group.instruction } : {}),
     };
     this.above.set(accountId, levels);
     return levels;

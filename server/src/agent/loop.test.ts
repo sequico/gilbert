@@ -3191,9 +3191,10 @@ test("every call is told the installation's line and the group's instruction, in
   await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
     v: INSTRUCTION_VERSION,
     instruction: standing,
+    areas: ["mail"],
   });
   assert.equal(
-    await readInstruction(ctx, accountId),
+    (await readInstruction(ctx, accountId))?.instruction,
     standing,
     "the fixture wrote the instruction where the loop reads it",
   );

@@ -705,11 +705,13 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const instruction = (await readInstruction(access.ctx, access.accountId)) ?? "";
+      const held = await readInstruction(access.ctx, access.accountId);
+      const instruction = held?.instruction ?? "";
       const records = await listRules(access.ctx, access.accountId);
       return c.json({
         group: name,
         instruction,
+        areas: held?.areas ?? [],
         rules: records.map((record) => record.rule),
         state: records[0]?.state ?? (await appFolderState(access.ctx, access.accountId)),
       });
@@ -729,9 +731,16 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           need: "agent documents",
         });
         if (!access.ok) return groupDenial(c, access);
-        const body = await readJson<{ instruction?: unknown; ifInState?: unknown }>(c);
+        const body = await readJson<{
+          instruction?: unknown;
+          areas?: unknown;
+          ifInState?: unknown;
+        }>(c);
         const instruction =
           typeof body?.instruction === "string" ? body.instruction.trim() : "";
+        const areas = Array.isArray(body?.areas)
+          ? body.areas.filter((one): one is string => typeof one === "string")
+          : [];
         /*
          * The folder is made before the token is chosen: making it moves the
          * account's state, so a token the client read **before** the folder
@@ -758,7 +767,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           return c.json({ ok: true, instruction: "" });
         }
         const parsed = parseInstructionDocumentDetailed(
-          JSON.stringify({ v: INSTRUCTION_VERSION, instruction }),
+          JSON.stringify({ v: INSTRUCTION_VERSION, instruction, areas }),
         );
         if ("problem" in parsed) return c.json({ error: parsed.problem }, 400);
         await writeAppFileAt(

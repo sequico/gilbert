@@ -72,11 +72,33 @@ test("a group's instruction is read from its own account, and no document is no 
   await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
     v: INSTRUCTION_VERSION,
     instruction: "Answer the shipper in the group's own words.",
+    areas: ["mail", "files"],
   });
-  assert.equal(
+  assert.deepEqual(
     await readInstruction(ctx, accountId),
-    "Answer the shipper in the group's own words.",
-    "and one it wrote is read whole",
+    {
+      v: INSTRUCTION_VERSION,
+      instruction: "Answer the shipper in the group's own words.",
+      areas: ["mail", "files"],
+    },
+    "and one it wrote is read whole, with the areas it works",
+  );
+  await removeStored();
+});
+
+test("an instruction written before the areas existed is still read, with none declared", async () => {
+  await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
+    v: 1,
+    instruction: "Answer the shipper in the group's own words.",
+  });
+  assert.deepEqual(
+    await readInstruction(ctx, accountId),
+    {
+      v: INSTRUCTION_VERSION,
+      instruction: "Answer the shipper in the group's own words.",
+      areas: [],
+    },
+    "the prose it wrote is the instruction it was, and no area is invented for it",
   );
   await removeStored();
 });
@@ -109,9 +131,19 @@ test("an instruction this build cannot read is refused with its path, never carr
 test("the parser takes the version this build writes and refuses every other shape", () => {
   assert.deepEqual(
     parseInstructionDocumentDetailed(
-      JSON.stringify({ v: INSTRUCTION_VERSION, instruction: "Work by these words." }),
+      JSON.stringify({
+        v: INSTRUCTION_VERSION,
+        instruction: "Work by these words.",
+        areas: ["mail"],
+      }),
     ),
-    { instruction: { v: INSTRUCTION_VERSION, instruction: "Work by these words." } },
+    {
+      instruction: {
+        v: INSTRUCTION_VERSION,
+        instruction: "Work by these words.",
+        areas: ["mail"],
+      },
+    },
     "the shape this build writes parses whole",
   );
   assert.deepEqual(
@@ -119,17 +151,44 @@ test("the parser takes the version this build writes and refuses every other sha
       JSON.stringify({
         v: INSTRUCTION_VERSION,
         instruction: "Work by these words.",
+        areas: ["mail"],
         retired: true,
       }),
     ),
-    { instruction: { v: INSTRUCTION_VERSION, instruction: "Work by these words." } },
+    {
+      instruction: {
+        v: INSTRUCTION_VERSION,
+        instruction: "Work by these words.",
+        areas: ["mail"],
+      },
+    },
     "a key this build does not know decides nothing and is dropped",
+  );
+  assert.deepEqual(
+    parseInstructionDocumentDetailed(
+      JSON.stringify({ v: 1, instruction: "Work by these words." }),
+    ),
+    {
+      instruction: {
+        v: INSTRUCTION_VERSION,
+        instruction: "Work by these words.",
+        areas: [],
+      },
+    },
+    "a document written before the areas existed is the prose it was, with none declared",
   );
   for (const raw of [
     "[]",
     JSON.stringify({ v: 2, instruction: "x" }),
     JSON.stringify({ v: INSTRUCTION_VERSION }),
     JSON.stringify({ v: INSTRUCTION_VERSION, instruction: 7 }),
+    JSON.stringify({ v: INSTRUCTION_VERSION, instruction: "x", areas: "mail" }),
+    JSON.stringify({ v: INSTRUCTION_VERSION, instruction: "x", areas: ["invoices"] }),
+    JSON.stringify({
+      v: INSTRUCTION_VERSION,
+      instruction: "x",
+      areas: ["mail", "files", "calendar", "workorders"],
+    }),
   ]) {
     const parsed = parseInstructionDocumentDetailed(raw);
     assert.ok("problem" in parsed, `${raw} is refused`);
