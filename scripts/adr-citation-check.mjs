@@ -89,7 +89,7 @@ const EXT = new Set([".ts", ".tsx", ".mts", ".mjs", ".md", ".css"]);
  */
 const STATUS_LINE = /^Status: (.+)$/gm;
 const IMPLEMENTATION_LINE = /^Implementation: (.+)$/gm;
-const STATUS_VALUES = ["Proposed", "Accepted"];
+const STATUS_VALUES = ["Proposed", "Accepted", "Superseded by"];
 const IMPLEMENTATION_VALUES = ["Built", "Partly built", "Not built"];
 
 /** The first section heading: the block above it is the record's own header. */

@@ -146,7 +146,14 @@ test("a record stating Status twice is reported rather than counted once", () =>
 test("a Status outside the vocabulary is refused", () => {
   const reasons = why("Status: Superseded\n\nImplementation: Built. `x.ts`.");
   assert.equal(reasons.length, 1);
-  assert.match(reasons[0]!, /begins with none of Proposed, Accepted/);
+  assert.match(reasons[0]!, /begins with none of Proposed, Accepted, Superseded by/);
+});
+
+test("a decision that moved names the record carrying it now, and says nothing else", () => {
+  assert.deepEqual(
+    why("Status: Superseded by 0002.\n\nImplementation: Built. `x.ts`."),
+    [],
+  );
 });
 
 test("an Implementation outside the vocabulary is refused", () => {

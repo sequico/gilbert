@@ -108,12 +108,14 @@ match the ADR that covers it. ADRs stay `Proposed` until the owner accepts them.
 **A record is edited in place, and the history is git's.** Changing a standing
 decision means rewriting the record that carries it, in the change that alters
 it, until it states the decision as it now stands: never a second record that
-supersedes the first, never a `Superseded` status, never a sentence narrating
+supersedes the first, never a `Superseded` status beside an ordinary decision,
+never a sentence narrating
 what the earlier version said or what used to be true. A number is minted for a
 decision that is new, not for a version of one already here. The single
 exception is the owner asking for otherwise, explicitly and in the turn: only
 then does a decision get a record beside the existing one instead of a rewrite
-of it.
+of it, and that earlier record states `Status: Superseded by NNNN.` — one line,
+naming the record that carries the decision now, and no account of its own.
 **Snapshot mode applies to the ADRs too, and a resolution carries no
 back-reference.** It states the decision and the facts it rests on — never the
 conversation that produced it: no "the first/second/third branch review found",

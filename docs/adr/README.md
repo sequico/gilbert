@@ -11,11 +11,13 @@ comment is read against.
 Each record describes the decision as it stands and how it is built —
 architecture, not a changelog. **A record is edited in place when the thing it
 describes changes**, in the change that alters it: a later version of one
-decision is the same file rewritten, so nothing here supersedes anything, no
-record carries a `Superseded` status, and nothing narrates what used to be
-true. A reader who wants the version before this commit asks git for it. The
-one exception is the owner asking for otherwise, explicitly: only then does a
-decision get a record beside the existing one instead of a rewrite of it.
+decision is the same file rewritten, so nothing here supersedes anything and no
+record carries a `Superseded` status beside an ordinary decision, and nothing
+narrates what used to be true. A reader who wants the version before this commit
+asks git for it. The one exception is the owner asking for otherwise,
+explicitly: only then does a decision get a record beside the existing one
+instead of a rewrite of it, and that earlier record states `Status: Superseded
+by NNNN.` — one line, naming the record that carries the decision now.
 
 A record names a block — **gilbertmailer**, **gilbertserver**,
 **gilbertagents**, **gilbertstalwart** — the way `README.md` defines it, and
