@@ -1,5 +1,5 @@
 /**
- * The agent's reading cursor, as a document in the group's own account.
+ * The agent's reading positions, as documents in the group's own account.
  *
  * A pass reads each account's change log from where the last one ended, and the
  * cursor is the state the server answered for that read. Held only in memory —
@@ -12,10 +12,19 @@
  * folder, read at the first pass of a process and written after a batch the pass
  * answered (ADR 0037).
  *
+ * **Two readers, two positions.** The working pass resumes a window of work; the
+ * switched-off pass answers the people who wrote, and answers each of them once.
+ * They are not the same reading: the off path used to satisfy its own freshness
+ * rule by deleting the shared cursor and writing the fresh anchor down, which
+ * threw away the window the on path exists to keep. Each now has its own document
+ * and its own writer, so neither can destroy the other's position.
+ *
  * An unreadable document is a **gap the pass says out loud** and the reading
  * anchors afresh, which is what the server's own `cannotCalculateChanges` is
  * answered with: a cursor guessed at from a shape this build cannot read would
- * be a window reported as an ordinary one.
+ * be a window reported as an ordinary one. It is left exactly as it is — the
+ * pass that could not read it does not write over it, so what made it unreadable
+ * is still there for whoever looks.
  */
 
 import { type Ctx, readAppFileAt, writeAppFileAt } from "../appFolder.js";
@@ -23,8 +32,11 @@ import { APP_FOLDER_NAME } from "../shared/appFolder.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
 import type { EventCursor } from "./events.js";
 
-/** The app-folder path of the cursor. */
+/** The app-folder path of the working cursor. */
 export const CURSOR_FILE = "cursors.json";
+
+/** The app-folder path of the switched-off pass's own position. */
+export const NOTICE_CURSOR_FILE = "notices.json";
 
 /** The document's shape version. */
 const CURSOR_VERSION = 1;
@@ -55,9 +67,9 @@ export interface StoredCursor {
   at: number;
 }
 
-function unreadable(why: string): CursorError {
+function unreadable(file: string, why: string): CursorError {
   return new CursorError(
-    `The agent's reading cursor (${APP_FOLDER_NAME}/${CURSOR_FILE}) ${why} It is left exactly as it is, and the reading of this account starts afresh: what fell in between is lost.`,
+    `The agent's reading position (${APP_FOLDER_NAME}/${file}) ${why} It is left exactly as it is, so whoever looks can see what it holds, and the reading of this account starts afresh: what fell in between is lost.`,
   );
 }
 
@@ -72,7 +84,7 @@ function isSeen(x: unknown): x is Record<string, string> {
 }
 
 /**
- * The cursor this account left, or null when the installation has never read it.
+ * The position this account left in `file`, or null when it has none.
  *
  * Absence is the ordinary state of a group read for the first time; a document
  * that is there and cannot be used is a refusal, because the alternative is a
@@ -83,24 +95,26 @@ function isSeen(x: unknown): x is Record<string, string> {
 export async function readCursor(
   ctx: Ctx,
   accountId: string,
+  file: string = CURSOR_FILE,
 ): Promise<StoredCursor | null> {
   let found: Awaited<ReturnType<typeof readAppFileAt>>;
   try {
-    found = await readAppFileAt(ctx, accountId, CURSOR_FILE);
+    found = await readAppFileAt(ctx, accountId, file);
   } catch (err) {
-    throw unreadable(`is there and could not be read: ${errorMessage(err)}`);
+    throw unreadable(file, `is there and could not be read: ${errorMessage(err)}`);
   }
   if (!found) return null;
   let raw: unknown;
   try {
     raw = JSON.parse(found.text);
   } catch {
-    throw unreadable("is not readable JSON.");
+    throw unreadable(file, "is not readable JSON.");
   }
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
-    throw unreadable("is not a cursor document.");
+    throw unreadable(file, "is not a cursor document.");
   const doc = raw as Record<string, unknown>;
-  if (doc.v !== CURSOR_VERSION) throw unreadable("is not a shape this build writes.");
+  if (doc.v !== CURSOR_VERSION)
+    throw unreadable(file, "is not a shape this build writes.");
   const { mail, files, calendar, seen, at } = doc;
   if (
     typeof mail !== "string" ||
@@ -110,38 +124,39 @@ export async function readCursor(
     typeof at !== "string" ||
     !Number.isFinite(Date.parse(at))
   )
-    throw unreadable("is not a shape this build writes.");
+    throw unreadable(file, "is not a shape this build writes.");
   return { cursor: { mail, files, calendar, seen: { ...seen } }, at: Date.parse(at) };
 }
 
 /**
- * Write the cursor this account's reading has reached, and when.
+ * Write the position a reading has reached, into `file`.
  *
- * The write moves the account's own FileNode state, so the state the write
- * produced is handed back through `onState`: that is where this process's
- * reading has now reached, and the caller takes it into the cursor. Without it
- * the next pass finds our own document as a change and rewrites it, which is a
- * change of its own.
+ * The instant is taken **here**, from the write's own clock: the caller used to
+ * pass its pass's start, so a document written after a long pass said it was read
+ * five minutes before it was. The write moves the account's own FileNode state,
+ * so the state the write produced is handed back through `onState`: that is where
+ * this process's reading has now reached, and the caller takes it into the
+ * cursor. Without it the next pass finds our own document as a change and
+ * rewrites it, which is a change of its own.
  */
 export async function writeCursor(
   ctx: Ctx,
   accountId: string,
   cursor: EventCursor,
-  at: Date,
-  onState?: (state: string) => void,
+  opts: { file?: string; onState?: (state: string) => void } = {},
 ): Promise<void> {
   await writeAppFileAt(
     ctx,
     accountId,
-    CURSOR_FILE,
+    opts.file ?? CURSOR_FILE,
     {
       v: CURSOR_VERSION,
       mail: cursor.mail,
       files: cursor.files,
       calendar: cursor.calendar,
       seen: Object.fromEntries(Object.entries(cursor.seen).slice(-SEEN_STORED_MAX)),
-      at: at.toISOString(),
+      at: new Date().toISOString(),
     },
-    onState ? { onState } : {},
+    opts.onState ? { onState: opts.onState } : {},
   );
 }

@@ -519,7 +519,7 @@ test("the memory is read, corrected and removed through the administration door"
     "correcting a fact that is not there is refused, not a silent success",
   );
   await assert.rejects(
-    () => forgetFact(master, memoryAccount, learned.id, gone.state),
+    () => forgetFact(master, memoryAccount, learned.id, gone),
     (err: unknown) => (err as { code?: string }).code === "fact_not_found",
     "and so is removing one twice",
   );

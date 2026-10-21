@@ -1405,7 +1405,16 @@ export async function destroyAppNode(
   ctx: Ctx,
   accountId: string,
   id: string,
-  opts: { ifInState?: string; removeChildren?: boolean } = {},
+  opts: {
+    ifInState?: string;
+    removeChildren?: boolean;
+    /**
+     * The state the removal produced, for a caller that has to write again
+     * afterwards (the memory's chain): a destroy moves the account's state the
+     * same way a write does, and a token nobody took is a token that is gone.
+     */
+    onState?: (state: string) => void;
+  } = {},
 ): Promise<void> {
   const res = await clientOf(ctx).call<SetResponse>(
     FILENODE_SET,
@@ -1429,6 +1438,7 @@ export async function destroyAppNode(
   const refused = res.notDestroyed?.[id];
   if (refused && refused.type !== "notFound")
     throw new AppFolderError(refusalOf(refused));
+  if (res.newState) opts.onState?.(res.newState);
 }
 
 /**

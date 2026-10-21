@@ -893,8 +893,8 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     try {
       const ctx = await masterCtx(c.get("session"));
       const accountId = memoryAccount(ctx);
-      const { state } = await listFacts(ctx, accountId);
-      await forgetFact(ctx, accountId, c.req.param("id") ?? "", state);
+      const store = await listFacts(ctx, accountId);
+      await forgetFact(ctx, accountId, c.req.param("id") ?? "", store);
       return c.json({ ok: true });
     } catch (err) {
       return doorFailure(c, err);

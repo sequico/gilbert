@@ -70,14 +70,15 @@ test("a cursor written is the cursor read back, with the instant it was taken", 
     calendar: "Ca",
     seen: { c: "gilbert/chat/one.json", d: "MS2/order.pdf" },
   };
-  await writeCursor(ctx, accountId, cursor, AT);
+  const before = Date.now();
+  await writeCursor(ctx, accountId, cursor);
+  const after = Date.now();
 
   const held = await readCursor(ctx, accountId);
   assert.deepEqual(held?.cursor, cursor, "the three states and the paths survive whole");
-  assert.equal(
-    held?.at,
-    AT.getTime(),
-    "and the instant is the one the read was taken at",
+  assert.ok(
+    held !== null && held.at >= before && held.at <= after,
+    "and the instant is the write's own, not the caller's clock",
   );
   await forget();
 });

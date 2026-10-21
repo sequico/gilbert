@@ -115,7 +115,9 @@ that group's own account and as the installation's Master. It does the
 reversible work itself, and it stops wherever a person is answerable. **What it
 has read is a document** — `gilbert/cursors.json` in each group's app folder
 (ADR 0037) — so a restart, a deploy or a crash resumes where the last process
-stopped instead of anchoring at the present and losing what arrived in between.
+stopped instead of anchoring at the present and losing what arrived in between;
+the switched-off pass keeps its own position in `gilbert/notices.json`, so
+answering the people who wrote never costs the work window.
 
 **It does:** reads inside documents and attachments; files and labels mail;
 keeps the label catalog and the folders; drafts a reply to everyone; settles a

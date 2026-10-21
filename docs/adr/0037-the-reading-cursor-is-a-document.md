@@ -4,12 +4,14 @@ Status: Proposed
 
 Implementation: Built. `server/src/agent/cursors.ts` — `readCursor`,
 `writeCursor` and the `gilbert/cursors.json` document in each group's own app
-folder — and `server/src/agent/loop.ts`, which restores it on a process's first
-pass (`restoreCursor`), writes it after a batch that moved the reading
-(`saveCursor`), and says an unreadable one in the pass's gaps. The write hands
-back the state it produced and the cursor takes it, so a quiet account writes
-nothing; `events.ts` counts the document as the agent's own, so writing it wakes
-no rule.
+folder, and the switched-off pass's own `gilbert/notices.json` — and
+`server/src/agent/loop.ts`, which restores both on the first pass of a claim it
+has just taken (`restoreCursor`, `restoreNotice`), writes each after a batch that
+moved that reading (`saveCursor`, `saveNotice`), and says an unreadable one in the
+pass's gaps without writing over it. The write hands back the state it produced
+and the cursor takes it, so a quiet account writes nothing, and it verifies the
+claim immediately before landing; `events.ts` counts both documents as the
+agent's own, so writing one wakes no rule.
 
 ## Context
 
@@ -30,18 +32,31 @@ the agent, produced no run, and left nothing behind that could answer why.
 `gilbert/cursors.json`, beside the runs, the rules and the drop queue — carrying
 the three states the reading ended at (`mail`, `files`, `calendar`), the paths it
 learned for destroyed nodes (`seen`), and the instant of the read that produced it.
+The switched-off pass keeps **its own** position in `gilbert/notices.json`, the
+same shape: it answers the people who wrote and answers each once, and its
+freshness rule is its own, so neither reader can destroy the other's position.
 
 - **It is read on a process's first pass for that account** and taken as the
   cursor; a process that finds none anchors where the server stands, which is the
-  first read of a group and the only time a window can be lost unseen.
+  first read of a group and the only time a window can be lost unseen. A claim
+  this process has just taken is a fresh tenure: both positions are re-read then,
+  because what the maps hold was read by the tenure before it.
 - **It is written after a batch the pass answered**, and only when the reading
   moved: a quiet account writes nothing, so a cursor never becomes a heartbeat.
+- **The claim is its authority.** The account's FileNode state cannot serve as
+  this document's compare-and-set token — every run write of the same pass moves
+  it, so a conditional write would lose on the state this process itself produced
+  a moment earlier. The write verifies the claim immediately before it lands
+  (`keepClaim` refuses a holder whose claim is not its own).
 - **An unreadable document is a gap the pass says out loud**, and the reading
-  anchors afresh — the same ending `cannotCalculateChanges` has. A cursor guessed
-  at from a shape this build cannot read would be a window reported as ordinary.
-- **`at` is part of the document** because the off path's freshness question
-  ("a cursor nobody advanced for an hour") is the cursor's age, and that age has
-  to survive a restart for the answer to be the same one.
+  anchors afresh — the same ending `cannotCalculateChanges` has. The document is
+  left exactly as it is: the pass does not write over it, so what made it
+  unreadable is still there for whoever looks. A cursor guessed at from a shape
+  this build cannot read would be a window reported as ordinary.
+- **`at` is part of the document**, stamped by the write itself rather than
+  handed in by the caller, because the notice's freshness question ("a position
+  nobody advanced for an hour") is that document's own age, and that age has to
+  survive a restart for the answer to be the same one.
 
 ## Consequences
 

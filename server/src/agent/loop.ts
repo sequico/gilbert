@@ -129,10 +129,10 @@ import {
   workChanges,
 } from "./changes.js";
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
-import { readCursor, writeCursor } from "./cursors.js";
+import { CURSOR_FILE, NOTICE_CURSOR_FILE, readCursor, writeCursor } from "./cursors.js";
 import type { AccountEvents, EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
-import { listFacts, type MemoryStore } from "./memory.js";
+import { forgetMemoryStores, listFacts, type MemoryStore } from "./memory.js";
 import {
   boundedText,
   chooseStep,
@@ -348,6 +348,33 @@ export class AgentLoop {
   private readonly cursors = new Map<string, EventCursor>();
   /** The cursor each account's document already carries, as last written. */
   private readonly savedCursor = new Map<string, string>();
+  /**
+   * The switched-off pass's own reading, by account — a second reader with its
+   * own freshness rule, and its own document (`notices.json`).
+   */
+  private readonly notices = new Map<string, EventCursor>();
+  /** When each account's notice position was last taken, in milliseconds. */
+  private readonly noticeAt = new Map<string, number>();
+  /** The notice position each account's document already carries. */
+  private readonly noticeSaved = new Map<string, string>();
+  /**
+   * Accounts whose cursor document this build could not read.
+   *
+   * The pass says so and anchors afresh in memory, but does **not** write over
+   * it: a document reported as left exactly as it is must be left exactly as it
+   * is, or the evidence of whatever made it unreadable is gone and the sentence
+   * was the only thing that ever said otherwise.
+   */
+  private readonly cursorUnreadable = new Set<string>();
+  /**
+   * The claim this process is working under, as the document names it.
+   *
+   * A claim document is returned unchanged while this process holds it, so a
+   * different `takenAt` is a claim this process has just taken — a boot, or a
+   * handover back after someone else held it. Everything this process believed
+   * about the durable state belongs to the previous tenure and is re-read then.
+   */
+  private claimTakenAt: string | null = null;
   /** When the last pass's document was written, so a quiet one is not a write. */
   private statusAt = 0;
   /** The last run the loop ended, for the status document a person reads. */
@@ -382,12 +409,12 @@ export class AgentLoop {
     }
   }
   /**
-   * When each account's change cursor was last advanced, by either path.
+   * When each account's change cursor was last advanced, by the working pass.
    *
-   * The off path's freshness question is the cursor's age, not when the off
-   * path itself last ran: the on path keeps the cursor current, and judging by
-   * the off path's own clock threw a five-second-old cursor away on the first
-   * pass after the switch went off — losing the mention that had just arrived.
+   * The working pass's own clock, used to seed a read and to answer nothing else:
+   * the switched-off pass has its own position and its own age (`notices`), and
+   * judging one by the other's clock is what threw a five-second-old cursor away
+   * on the first pass after the switch went off.
    */
   private readonly cursorAt = new Map<string, number>();
   /** The runs the alarms have handed over, worked on the next pass. */
@@ -542,13 +569,26 @@ export class AgentLoop {
     }
     summary.claimed = true;
     /*
-     * What the last holder ended is news this one has not read, so it is taken
-     * from the document when the claim changes hands -- before this pass can end
-     * anything of its own -- and not once per process: a process that takes the
-     * claim back after a handover would otherwise write its own older ending over
-     * the newer one it replaced.
+     * A claim this process has just taken is a fresh tenure.
+     *
+     * Everything this process believes about the durable state was read by the
+     * tenure before it — its own, or another holder's — and a handover must not
+     * leave this process writing an older position over a newer one. What is
+     * re-read here is exactly what is durable: the cursors (both positions), and
+     * the last ending, which is news this tenure has not read and is taken before
+     * this pass can end anything of its own.
      */
-    await this.loadLastEnded();
+    if (claim.takenAt !== this.claimTakenAt) {
+      this.claimTakenAt = claim.takenAt;
+      this.cursors.clear();
+      this.cursorAt.clear();
+      this.savedCursor.clear();
+      this.cursorUnreadable.clear();
+      this.notices.clear();
+      this.noticeAt.clear();
+      this.noticeSaved.clear();
+      await this.loadLastEnded();
+    }
     /*
      * The pass is the unit the agent's listings are read for: a mailbox or a
      * folder level a person changed between two passes is seen by the next one,
@@ -557,6 +597,7 @@ export class AgentLoop {
      * effect of a pass that works nothing.
      */
     forgetRemembered(this.ctx);
+    forgetMemoryStores();
     this.passState.clear();
     this.runState.clear();
     this.members.clear();
@@ -602,34 +643,47 @@ export class AgentLoop {
         offAccounts.map(async (accountId) => {
           const problems: string[] = [];
           /*
-           * The cursor the last process left is restored **before** the age
-           * question below, so a boot while the agent is off answers the mentions
+           * The notice has its **own** position, restored before the age
+           * question below: a boot while the agent is off answers the mentions
            * that arrived while it was down, and the hour's rule still applies to
-           * a cursor that is genuinely old.
+           * a position that is genuinely old.
+           *
+           * It is a document of its own on purpose. This branch used to delete
+           * the shared working cursor and write its own fresh anchor into it, so
+           * an installation switched off for an hour lost the window the on path
+           * exists to keep — and the loss was written down. Two readers with two
+           * freshness rules need two positions, and neither may destroy the
+           * other's.
            */
-          const unreadable = await this.restoreCursor(accountId);
+          const unreadable = await this.restoreNotice(accountId);
           if (unreadable) problems.push(unreadable);
           /*
-           * A notice is for what has just arrived. A cursor nobody has advanced
-           * for an hour would answer every mention of that time: past the hour,
-           * read from now. The age is the cursor's, not the off path's — the on
-           * path keeps it current, so switching the agent off does not throw
-           * away a fresh position.
+           * A notice is for what has just arrived. A position nobody has
+           * advanced for an hour would answer every mention of that time: past
+           * the hour, read from now. The age is the notice's own, and starting
+           * afresh is a decision of this read — not something written into a
+           * document another reader owns.
            */
-          if (now.getTime() - (this.cursorAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
-            this.cursors.delete(accountId);
+          const fresh =
+            now.getTime() - (this.noticeAt.get(accountId) ?? 0) <= OFF_READING_FRESH_MS;
+          const reading = new Map<string, EventCursor>();
+          const held = this.notices.get(accountId);
+          if (fresh && held) reading.set(accountId, held);
           await offPath(
-            { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
+            { ctx: this.ctx, cursors: reading, self: this.ctx.username },
             accountId,
             problems,
           ).catch((err) => problems.push(errorMessage(err)));
-          try {
-            await this.saveCursor(accountId, now);
-          } catch (err) {
-            problems.push(errorMessage(err));
+          const reached = reading.get(accountId);
+          if (reached) {
+            this.notices.set(accountId, reached);
+            try {
+              await this.saveNotice(accountId);
+            } catch (err) {
+              problems.push(errorMessage(err));
+            }
           }
           for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
-          this.cursorAt.set(accountId, now.getTime());
           /*
            * The archive is housekeeping, not a decision: a switched-off agent
            * still keeps the group's runs folder to the year the owner chose.
@@ -776,7 +830,7 @@ export class AgentLoop {
               );
             }
           }
-          await this.saveCursor(accountId, now);
+          await this.saveCursor(accountId);
           this.pruneStuck(accountId, records);
           /*
            * The filter on the pass side: the last state a store produced is
@@ -1307,8 +1361,57 @@ export class AgentLoop {
       this.savedCursor.set(accountId, JSON.stringify(held.cursor));
       return null;
     } catch (err) {
+      /*
+       * A document this build cannot read is **not** rewritten by this pass: the
+       * reading anchors afresh in memory and the sentence stays true — the
+       * document is left exactly as it is, for whoever looks at what made it
+       * unreadable.
+       */
+      this.cursorUnreadable.add(accountId);
       return errorMessage(err);
     }
+  }
+
+  /**
+   * The switched-off pass's own position, or nothing on this account's first.
+   *
+   * Its document is its own (`notices.json`), so a cursor this build cannot read
+   * does not stop the notices and a notice never touches the working window.
+   */
+  private async restoreNotice(accountId: string): Promise<string | null> {
+    if (this.notices.has(accountId)) return null;
+    try {
+      const held = await readCursor(this.ctx, accountId, NOTICE_CURSOR_FILE);
+      if (!held) return null;
+      this.notices.set(accountId, held.cursor);
+      this.noticeAt.set(accountId, held.at);
+      this.noticeSaved.set(accountId, JSON.stringify(held.cursor));
+      return null;
+    } catch (err) {
+      return errorMessage(err);
+    }
+  }
+
+  /** Record how far the notices have read, in their own document. */
+  private async saveNotice(accountId: string): Promise<void> {
+    const cursor = this.notices.get(accountId);
+    if (!cursor) return;
+    const reached = JSON.stringify(cursor);
+    if (this.noticeSaved.get(accountId) === reached) return;
+    await this.keepClaim();
+    let produced: string | null = null;
+    await writeCursor(this.ctx, accountId, cursor, {
+      file: NOTICE_CURSOR_FILE,
+      onState: (state) => {
+        produced = state;
+      },
+    });
+    if (produced) {
+      cursor.files = produced;
+      this.notices.set(accountId, cursor);
+    }
+    this.noticeSaved.set(accountId, JSON.stringify(cursor));
+    this.noticeAt.set(accountId, Date.now());
   }
 
   /**
@@ -1324,19 +1427,29 @@ export class AgentLoop {
    * instead of finding it. Without that the document records the state the read
    * ended at, the write moves that state, and every pass rewrites the file — a
    * change that kicks the next pass through the same switch every other write
-   * does. The claim is renewed before the write, like every other write of this
-   * process's: a claim that has lapsed leaves the account to its holder rather
-   * than letting this one overwrite a newer cursor.
+   * does.
+   *
+   * **What may write it** is the claim, and nothing else. The account-wide
+   * FileNode state cannot serve as this document's compare-and-set token: every
+   * run write of the same pass moves it, so a conditional write would lose on
+   * the state this process itself produced a moment earlier — a guard that fails
+   * for a reason unrelated to who is writing. The claim is the authority here
+   * (`keepClaim` refuses a holder whose claim is not its own), which is also why
+   * a tenure change re-reads the document rather than trusting the map.
    */
-  private async saveCursor(accountId: string, now: Date): Promise<void> {
+  private async saveCursor(accountId: string): Promise<void> {
+    // A cursor this build could not read is left exactly as it is.
+    if (this.cursorUnreadable.has(accountId)) return;
     const cursor = this.cursors.get(accountId);
     if (!cursor) return;
     const reached = JSON.stringify(cursor);
     if (this.savedCursor.get(accountId) === reached) return;
     await this.keepClaim();
     let produced: string | null = null;
-    await writeCursor(this.ctx, accountId, cursor, now, (state) => {
-      produced = state;
+    await writeCursor(this.ctx, accountId, cursor, {
+      onState: (state) => {
+        produced = state;
+      },
     });
     if (produced) {
       cursor.files = produced;

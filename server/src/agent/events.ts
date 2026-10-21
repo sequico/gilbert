@@ -40,13 +40,16 @@
  * account for ever, the caller keeping a cursor the server would never answer
  * again.
  *
- * A **first** read anchors at the account's current state, which is what makes
- * a process that starts ask for the changes after it started rather than for
- * the account's whole history. A cursor is process state and only process
- * state: the run document is what is durable (ADR 0030), and a process that
- * dies is replaced by one that anchors afresh. The consequence is stated rather
- * than hidden — mail that arrived while no agent was running is not replayed to
- * the next one.
+ * A **first** read of an account with no cursor anchors at the account's current
+ * state, which is what makes a process that starts ask for the changes after it
+ * started rather than for the account's whole history. The cursor is **not**
+ * process state: it is a document in the group's own app folder
+ * (`cursors.ts`, ADR 0037), read at the first pass of a process and written after
+ * a batch, so a restart resumes where the last process stopped instead of
+ * anchoring at the present and losing the window between. A position this build
+ * cannot read is the pass's gap and the reading anchors afresh — the one case in
+ * which mail that arrived while no agent was running is not replayed, and it is
+ * said out loud rather than hidden.
  *
  * **One change is one event.** A node written twice in one batch — created, then
  * written again through the update path (`setFileNode`, `appFolder.ts`) — reaches
@@ -70,7 +73,6 @@ import {
 } from "../appFolder.js";
 import { JmapError, type JmapResult } from "../jmap.js";
 import { cachedMail } from "../mailCache.js";
-import { PASS_STATUS_FILE } from "../shared/agent.js";
 import {
   APP_FOLDER_NAME,
   FILENODE_CHANGES,
@@ -89,7 +91,7 @@ import {
   type AccountEventChange,
   eventSourceOf,
 } from "./accountEvent.js";
-import { CURSOR_FILE } from "./cursors.js";
+import { CURSOR_FILE, NOTICE_CURSOR_FILE } from "./cursors.js";
 import { PENDING_FILE } from "./queue.js";
 import { RUNS_DIR } from "./runs.js";
 
@@ -126,8 +128,9 @@ const MAX_SEEN_NODES = 2048;
  * Where an account's reading has reached: one server state token per data type,
  * and the node paths this process has read.
  *
- * A cursor is process state and only process state: it is not written down, and
- * a process that dies is replaced by one that anchors afresh.
+ * Two of these exist per account — the working pass's and the switched-off
+ * pass's — and each is written to its own document (`cursors.json`,
+ * `notices.json`), so neither reader can destroy the other's position.
  */
 export interface EventCursor {
   /** The Email state the last read ended at. */
@@ -285,7 +288,7 @@ function isAgentPath(path: string): boolean {
     rel === INSTRUCTION_FILE ||
     rel === PENDING_FILE ||
     rel === CURSOR_FILE ||
-    rel === PASS_STATUS_FILE ||
+    rel === NOTICE_CURSOR_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
     rel.startsWith(`${RULES_DIR}/`) ||
     // Read markers sit beside the messages and are the agent's bookkeeping.
