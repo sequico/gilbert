@@ -1226,6 +1226,10 @@ minimisable and maximisable; full-screen on mobile.
 - **Plain text** as a per-message or default format.
 - **Recipient chips** with autocomplete from contacts, shared address books you
   have added, the server directory and recent recipients; your own cards win a tie.
+  The words typed match in any order and each starts a word of the name, a
+  nickname, the organization or the address — "jane smi" finds "Smith, Jane",
+  "globex" finds the people at Globex — and someone written to lately ranks a
+  little above an equal match.
   Free-form addresses parse leniently (`Ann <ann@x>, bob@y; "C, D" <c@z>`). A
   **group** is offered with them, marked with its size, and taking it adds those
   people — one address per member, the preferred one — with a note when a member
