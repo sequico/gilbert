@@ -415,10 +415,13 @@ holds it and until when it is believed — with the ten-second pass beside it, t
 **the last run it ended**, whose own sentence is on hover, so the agent's last act
 is answered without opening a group's list. The last pass is
 `gilbert/agent/status.json`, written after a pass that worked something and at
-most once a minute otherwise, and the model is named with a link to the section
-that chooses it rather than a second set of fields. A pass slower than thirty
-seconds also writes one line to the
-journal, so a stall is read while it is still happening. **Nothing on that page
+most once a minute otherwise, and a document that is there and cannot be read is
+**said** on that line rather than drawn as an installation whose agent never ran.
+The model is named with a link to the section
+that chooses it rather than a second set of fields. The loop writes a line as it
+starts an account and a run, so a stall is read as the last line that has no end
+beside it — the account and the run that never finished — and a pass that finished
+late also writes one line to the journal. **Nothing on that page
 starts or stops the agent**: it is part of
 the server, and the boot starts it. Each group's **runs** are drawn as the record
 carries them, since the record is the product (ADR 0030): the change that woke
@@ -433,10 +436,13 @@ that is in flight — the one being worked and the one waiting on a person's
 answer, which nothing else moves — from the group's chat, where the runs tab is
 live, or from the administration page; a group's every run in flight can be
 stopped at once there, while another group's run is refused. A group-wide stop
-answers the runs it closed and how many were still moving when it finished, and
-the page removes exactly those: the sweep has a ceiling so one press meets the
-browser's deadline, and a run that moved under it stays on screen rather than
-being claimed closed. A stopped run is
+says **whose work it did**: the runs it closed, the ones that moved under it and
+are still in flight, the ones whose stop failed and why, and the run documents it
+could not read — a document that cannot be read is named rather than counted as
+"nothing is moving". The sweep has a ceiling so one press meets the browser's
+deadline, and what the ceiling left unattempted is counted in the answer instead
+of being inferred by the page from two numbers. A run that moved under the sweep
+stays on screen rather than being claimed closed. A stopped run is
 left exactly as the person put it: the pass that was working it does not write
 over the ending.
 The **facts** of the installation's memory are listed with the run or the person
@@ -704,9 +710,13 @@ Beside it, the reader's own **Collected** book: after a send the server accepts,
 the recipients no card holds yet are saved there — never the sender's own
 addresses — so they are suggested by the composer on every device and not only
 in the browser that sent the message. It is an ordinary address book of the
-reader's own account (created on first use, remembered by id in the settings,
-emptied or deleted like any other) and the switch is Settings > Calendar &
-contacts > Contacts. Nothing is collected while a group's mailbox is the account
+reader's own account (created on first use, remembered by id in the settings —
+and asked for on every send, so a book deleted or unshared on another device is
+not written under — emptied or deleted like any other) and the switch is
+Settings > Calendar & contacts > Contacts. A card set the server refuses is
+reported on the Contacts surface rather than dropped, because a collection that
+quietly saves nothing is the feature failing on every send. Nothing is collected
+while a group's mailbox is the account
 in view: a reader's correspondents belong in their own account, not in a group's
 directory.
 

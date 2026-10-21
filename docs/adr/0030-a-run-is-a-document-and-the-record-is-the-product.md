@@ -122,12 +122,16 @@ agent's durable state.
   them, so those endings do not repeat themselves, and a background run that
   finished keeps its record. The notice is the ending's own `why`, so the
   conversation and the record cannot tell two stories; a notice that cannot be
-  posted is a failed step on the run and a debt the next pass pays, rather than a
-  silence. A run that dies without a word is the defect this closes: the person
-  whose request woke it saw nothing, and the installation looked like a queue
-  that had stopped. A run woken by mail is said in the group's conversation too:
-  an answer to that person's message is mail sent outward, which only a rule that
-  declares it sends may do (ADR 0028).
+  posted leaves the debt on the record and is reported as the pass's own gap —
+  never a silence, and never a step appended to a run that has already ended —
+  and the debt is marked paid only when the words have left, so a run that
+  already spoke is not read as owing them. A run that dies without a word is the
+  defect this closes: the person whose request woke it saw nothing, and the
+  installation looked like a queue that had stopped. A run woken by mail is said
+  in the group's conversation **when it closes out of budget**: an answer to that
+  person's message is mail sent outward, which only a rule that declares it sends
+  may do (ADR 0028), so a `done` run woken by mail answers where it was asked and
+  the group's conversation is not a second place for it.
 - **A member of the group reads its runs and stops one that is in flight** —
   the one being worked and the one waiting on a person's answer, which nothing
   else moves; a group's every run in flight can be stopped at once, because a
