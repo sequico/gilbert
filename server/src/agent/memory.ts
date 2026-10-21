@@ -134,8 +134,8 @@ interface FactRecord {
  * for every change in the pass, nor again for every write. What that costs is
  * written down where it is paid: a fact written during a pass is visible to the
  * **next** pass and not to the pass that wrote it, and the writes of one
- * process are made one at a time (`rememberFact`), so the token a write carries
- * is the one the write before it produced.
+ * process are made one at a time, so the token a write carries is the one the
+ * write before it produced.
  */
 export interface MemoryStore {
   state: string;
@@ -343,8 +343,31 @@ export async function rememberFact(
   store: MemoryStore,
 ): Promise<FactDoc> {
   return await oneAtATime(accountId, async () => {
+    /*
+     * The store this write is made against is the one the last write of this
+     * process left behind, when there is one: its token is the state the write
+     * before it produced, so two calls of one pass do not fight over the token
+     * the pass opened with. The pass's own reading is the fallback, for the
+     * first write since this process last read -- and for a process that has
+     * written nothing.
+     */
+    let used = memoryStores.get(accountId) ?? store;
+    const settle = (written: { fact: FactDoc; state: string | null }): FactDoc => {
+      if (written.state) {
+        memoryStores.set(accountId, {
+          ...used,
+          state: written.state,
+          folder: true,
+          facts: [
+            written.fact,
+            ...used.facts.filter((fact) => fact.id !== written.fact.id),
+          ],
+        });
+      }
+      return written.fact;
+    };
     try {
-      return await writeFact(ctx, accountId, write, store);
+      return settle(await writeFact(ctx, accountId, write, used));
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
       const fresh = await listFacts(ctx, accountId);
@@ -354,9 +377,12 @@ export async function rememberFact(
        * is concluded against the correction — the fresh reading carries it, and
        * `writeFact` records the proposal beside it rather than over it. Anything
        * else that moved (a subject another process wrote) is decided again
-       * against the fresh reading the same way.
+       * against the fresh reading the same way, and that reading is what the
+       * next write of this process starts from.
        */
-      return await writeFact(ctx, accountId, write, fresh);
+      memoryStores.set(accountId, fresh);
+      used = fresh;
+      return settle(await writeFact(ctx, accountId, write, fresh));
     }
   });
 }
@@ -370,11 +396,25 @@ export async function rememberFact(
  * of them lost the compare-and-set and paid a failed step for it. There is no
  * lock to take — JMAP offers none — and none is needed: one process is the
  * installation's agent (ADR 0032), so chaining this process's writes is the
- * whole of the contention. A person's own correction is still guarded by the
- * state its reading saw, which is what the retry above is for.
+ * whole of the contention.
+ *
+ * The chain is the door for **every** write of the memory, the agent's and a
+ * person's alike (`rememberFact`, `forgetFact`, `correctFactByPerson`,
+ * `dismissProposal`): one document per subject, one compare-and-set token, and a
+ * second writer that did not wait reads a state that is already gone. Nothing
+ * inside the chain may call back into it: a `rememberFact` awaited from inside a
+ * link for the same account would wait for itself.
  */
 const memoryWrites = new Map<string, Promise<unknown>>();
 
+/**
+ * The store each account's last write of this process left behind, beside the
+ * chain: its token is the state that write produced, so the next one does not
+ * have to walk the whole memory to learn where the account now stands.
+ */
+const memoryStores = new Map<string, MemoryStore>();
+
+/** One link of the chain per account; the next one runs when this settles. */
 function oneAtATime<T>(accountId: string, work: () => Promise<T>): Promise<T> {
   const previous = memoryWrites.get(accountId) ?? Promise.resolve();
   const next = previous.then(work, work);
@@ -393,7 +433,7 @@ async function writeFact(
   accountId: string,
   write: FactWrite,
   store: MemoryStore,
-): Promise<FactDoc> {
+): Promise<{ fact: FactDoc; state: string | null }> {
   const { subject, sentence } = checkedText(write.subject, write.fact, write.at);
   /*
    * The first write into a memory the reading found empty may be the one that
@@ -418,10 +458,14 @@ async function writeFact(
       ...same,
       proposal: { fact: sentence, run: write.run, at: write.at },
     };
+    let produced: string | null = null;
     await writeAppFileAt(ctx, accountId, factPath(proposed.id), proposed, {
       ifInState: token,
+      onState: (state) => {
+        produced = state;
+      },
     });
-    return proposed;
+    return { fact: proposed, state: produced };
   }
   /*
    * A store with no ceiling grows until every pass pays for it (owner decision
@@ -458,8 +502,14 @@ async function writeFact(
      */
     group: same?.group || write.group,
   };
-  await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, { ifInState: token });
-  return doc;
+  let produced: string | null = null;
+  await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, {
+    ifInState: token,
+    onState: (state) => {
+      produced = state;
+    },
+  });
+  return { fact: doc, state: produced };
 }
 
 /**
@@ -477,19 +527,23 @@ export async function dismissProposal(
   id: string,
   store: MemoryStore,
 ): Promise<FactDoc> {
-  const held = store.facts.find((fact) => fact.id === id);
-  if (!held)
-    throw new MemoryError(
-      "fact_not_found",
-      `The memory holds no fact called "${id}", so there is no proposal to dismiss. It was removed, or it was never there.`,
-      404,
+  return await oneAtATime(accountId, async () => {
+    const held = store.facts.find((fact) => fact.id === id);
+    if (!held)
+      throw new MemoryError(
+        "fact_not_found",
+        `The memory holds no fact called "${id}", so there is no proposal to dismiss. It was removed, or it was never there.`,
+        404,
+      );
+    if (held.proposal === undefined) return held;
+    const { proposal: _dismissed, ...rest } = held;
+    await conditional(() =>
+      writeAppFileAt(ctx, accountId, factPath(held.id), rest, {
+        ifInState: store.state,
+      }),
     );
-  if (held.proposal === undefined) return held;
-  const { proposal: _dismissed, ...rest } = held;
-  await conditional(() =>
-    writeAppFileAt(ctx, accountId, factPath(held.id), rest, { ifInState: store.state }),
-  );
-  return rest;
+    return rest;
+  });
 }
 
 /**
@@ -586,41 +640,45 @@ export async function correctFactByPerson(
   edit: PersonCorrection,
   store: MemoryStore,
 ): Promise<FactDoc> {
-  const held = store.facts.find((fact) => fact.id === edit.id);
-  if (!held)
-    throw new MemoryError(
-      "fact_not_found",
-      `The memory holds no fact called "${edit.id}", so there is nothing to correct. It was removed, or it was never there.`,
-      404,
+  return await oneAtATime(accountId, async () => {
+    const held = store.facts.find((fact) => fact.id === edit.id);
+    if (!held)
+      throw new MemoryError(
+        "fact_not_found",
+        `The memory holds no fact called "${edit.id}", so there is nothing to correct. It was removed, or it was never there.`,
+        404,
+      );
+    if (!edit.who.trim())
+      throw new MemoryError("fact_invalid", "A correction says who made it.", 400);
+    const { subject, sentence } = checkedText(edit.subject, edit.fact, edit.at);
+    const clash = store.facts.find(
+      (fact) => fact.id !== held.id && sameSubject(fact.subject, subject),
     );
-  if (!edit.who.trim())
-    throw new MemoryError("fact_invalid", "A correction says who made it.", 400);
-  const { subject, sentence } = checkedText(edit.subject, edit.fact, edit.at);
-  const clash = store.facts.find(
-    (fact) => fact.id !== held.id && sameSubject(fact.subject, subject),
-  );
-  if (clash)
-    throw new MemoryError(
-      "fact_invalid",
-      `The memory already holds a fact about "${clash.subject}", and one subject is one sheet: remove that one first, or correct this one without renaming it.`,
-      409,
+    if (clash)
+      throw new MemoryError(
+        "fact_invalid",
+        `The memory already holds a fact about "${clash.subject}", and one subject is one sheet: remove that one first, or correct this one without renaming it.`,
+        409,
+      );
+    const doc: FactDoc = {
+      v: MEMORY_VERSION,
+      id: held.id,
+      subject,
+      fact: sentence,
+      origin: held.origin,
+      at: held.at,
+      correction: { by: "person", who: edit.who, at: edit.at },
+      links: held.links,
+      standing: held.standing,
+      group: held.group,
+    };
+    await conditional(() =>
+      writeAppFileAt(ctx, accountId, factPath(doc.id), doc, {
+        ifInState: store.state,
+      }),
     );
-  const doc: FactDoc = {
-    v: MEMORY_VERSION,
-    id: held.id,
-    subject,
-    fact: sentence,
-    origin: held.origin,
-    at: held.at,
-    correction: { by: "person", who: edit.who, at: edit.at },
-    links: held.links,
-    standing: held.standing,
-    group: held.group,
-  };
-  await conditional(() =>
-    writeAppFileAt(ctx, accountId, factPath(doc.id), doc, { ifInState: store.state }),
-  );
-  return doc;
+    return doc;
+  });
 }
 
 /**
@@ -641,12 +699,16 @@ export async function forgetFact(
   id: string,
   ifInState: string,
 ): Promise<void> {
-  const { file } = await findAppFileAt(ctx, accountId, factPath(id));
-  if (!file?.id)
-    throw new MemoryError(
-      "fact_not_found",
-      `The memory holds no fact called "${id}", so there is nothing to remove. It was removed, or it was never there.`,
-      404,
+  return await oneAtATime(accountId, async () => {
+    const { file } = await findAppFileAt(ctx, accountId, factPath(id));
+    if (!file?.id)
+      throw new MemoryError(
+        "fact_not_found",
+        `The memory holds no fact called "${id}", so there is nothing to remove. It was removed, or it was never there.`,
+        404,
+      );
+    await conditional(() =>
+      destroyAppNode(ctx, accountId, String(file.id), { ifInState }),
     );
-  await conditional(() => destroyAppNode(ctx, accountId, String(file.id), { ifInState }));
+  });
 }
