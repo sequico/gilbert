@@ -46,6 +46,15 @@ export function isAreaName(name: string): name is AreaName {
 }
 
 /**
+ * The area a change on a surface falls in, or null when the surface is not one
+ * of the group's (`activity`, the installation's own bookkeeping).
+ */
+export function areaOfSource(source: string): AreaName | null {
+  if (source === "workorder") return "workorders";
+  return isAreaName(source) ? source : null;
+}
+
+/**
  * What a group declares, or the sentence that refuses it.
  *
  * The declared areas are what an instruction states its group works; a change

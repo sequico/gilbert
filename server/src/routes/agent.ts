@@ -42,8 +42,6 @@ import {
   MemoryError,
 } from "../agent/memory.js";
 import { probeModel, runningModelAccess } from "../agent/model.js";
-import { parseRuleDocumentDetailed } from "../agent/rule.js";
-import { createRule, deleteRule, listRules, replaceRule } from "../agent/rules.js";
 import {
   listRunsForReading,
   RUNS_DIR,
@@ -88,13 +86,12 @@ import {
   metricsOf,
   type RunMetrics,
 } from "../shared/agentMetrics.js";
-import { errorMessage, isStateMismatch } from "../shared/errors.js";
+import { CodedError, errorMessage, isStateMismatch } from "../shared/errors.js";
 import {
   INSTRUCTION_FILE,
   INSTRUCTION_VERSION,
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
-import { RULES_DIR, RuleError } from "../shared/rule.js";
 import type { RunDoc, RunSummary } from "../shared/run.js";
 import { finishRun, isInFlight, summarizeRun } from "../shared/run.js";
 import {
@@ -255,11 +252,11 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         409,
       );
     /*
-     * A rule name the document model refuses is the caller's to fix: its own
+     * A document name the document model refuses is the caller's to fix: its own
      * sentence and its own status, not the upstream 502 every unmatched error
      * becomes.
      */
-    if (err instanceof RuleError)
+    if (err instanceof CodedError && err.name === "RuleError")
       return c.json({ error: err.code, message: err.message }, err.status as 400);
     return doorFailure(c, err);
   };
@@ -707,13 +704,13 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       if (!access.ok) return groupDenial(c, access);
       const held = await readInstruction(access.ctx, access.accountId);
       const instruction = held?.instruction ?? "";
-      const records = await listRules(access.ctx, access.accountId);
       return c.json({
         group: name,
         instruction,
         areas: held?.areas ?? [],
-        rules: records.map((record) => record.rule),
-        state: records[0]?.state ?? (await appFolderState(access.ctx, access.accountId)),
+        surfaces: held?.surfaces ?? null,
+        sends: held?.sends ?? false,
+        state: await appFolderState(access.ctx, access.accountId),
       });
     } catch (err) {
       return proseFailure(c, err);
@@ -791,50 +788,19 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     requireSession,
     requireAdmin,
     async (c) => {
-      const name = c.req.param("name") ?? "";
-      const id = c.req.param("id") ?? "";
-      try {
-        const access = await resolveGroupAccess(c.get("session"), name, {
-          need: "agent documents",
-        });
-        if (!access.ok) return groupDenial(c, access);
-        const body = await readJson<{
-          rule?: unknown;
-          ifInState?: unknown;
-          create?: unknown;
-        }>(c);
-        const parsed = parseRuleDocumentDetailed(JSON.stringify(body?.rule));
-        if ("problem" in parsed) return c.json({ error: parsed.problem }, 400);
-        if (parsed.rule.id !== id)
-          return c.json(
-            { error: `The rule says "${parsed.rule.id}" but the route files "${id}".` },
-            400,
-          );
-        /*
-         * A create is a create: the editor says so for a rule it is making, and
-         * a name that slugs to one already filed is refused rather than
-         * replacing that rule's prose in silence. An edit keeps the id it was
-         * opened with, so it is a replace.
-         */
-        if (body?.create === true) {
-          await createRule(access.ctx, access.accountId, parsed.rule);
-          return c.json({ ok: true, rule: parsed.rule });
-        }
-        // The same rule as the instruction above: a folder this route creates is
-        // its own change, so the token is read after it, not carried from before.
-        const hadFolder = await findFolderPath(access.ctx, access.accountId, RULES_DIR);
-        await ensureFolderPath(access.ctx, access.accountId, RULES_DIR);
-        const state =
-          hadFolder && typeof body?.ifInState === "string"
-            ? body.ifInState
-            : await appFolderState(access.ctx, access.accountId);
-        await replaceRule(access.ctx, access.accountId, parsed.rule, {
-          ifInState: state,
-        });
-        return c.json({ ok: true, rule: parsed.rule });
-      } catch (err) {
-        return proseFailure(c, err);
-      }
+      /*
+       * A group writes one instruction now, and the areas it works (ADR 0038):
+       * the per-rule editor and its endpoints are gone. The route is kept for one
+       * release so a client that still calls it is told where the document moved,
+       * rather than being met with a 404 that says nothing.
+       */
+      return c.json(
+        {
+          error:
+            "A group writes one instruction, at /admin/groups/:name/prose/instruction, with the areas it works. There are no rules.",
+        },
+        410,
+      );
     },
   );
 
@@ -843,23 +809,13 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     requireSession,
     requireAdmin,
     async (c) => {
-      const name = c.req.param("name") ?? "";
-      const id = c.req.param("id") ?? "";
-      try {
-        const access = await resolveGroupAccess(c.get("session"), name, {
-          need: "agent documents",
-        });
-        if (!access.ok) return groupDenial(c, access);
-        const body = await readJson<{ ifInState?: unknown }>(c);
-        const state =
-          typeof body?.ifInState === "string"
-            ? body.ifInState
-            : await appFolderState(access.ctx, access.accountId);
-        await deleteRule(access.ctx, access.accountId, id, { ifInState: state });
-        return c.json({ ok: true });
-      } catch (err) {
-        return proseFailure(c, err);
-      }
+      return c.json(
+        {
+          error:
+            "A group writes one instruction, at /admin/groups/:name/prose/instruction, with the areas it works. There are no rules.",
+        },
+        410,
+      );
     },
   );
 

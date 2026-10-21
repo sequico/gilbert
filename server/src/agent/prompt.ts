@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { FactDoc } from "../shared/memory.js";
 import type { RunStep } from "../shared/run.js";
 import type { DecisionQuestion, ReadMade, StepQuestion } from "./model.js";
-import type { RuleDoc } from "./rule.js";
 
 /** The most of an outcome, a question or a note one prompt carries. */
 export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
@@ -43,11 +42,7 @@ export const STEP_OUTCOME_OLD_MAX = 240;
  * with a fixed marker could be ended by the text inside it, and a message or a
  * page is text somebody outside the group chose.
  */
-export function turnData(
-  question: DecisionQuestion,
-  candidates: readonly RuleDoc[],
-  reads: readonly ReadMade[],
-): string {
+export function turnData(question: DecisionQuestion, reads: readonly ReadMade[]): string {
   const { event } = question;
   const token = randomUUID().slice(0, 8);
   return [
@@ -82,13 +77,6 @@ export function turnData(
         ]
       : []),
     ...memoryBlock(token, question.memory),
-    "The group's rules that watch it. Name every one of them that applies, and an empty list when none does:",
-    ...candidates.map((rule) =>
-      dataBlock(token, [
-        `rule: ${rule.id}${rule.sends ? " (this rule sends)" : ""}`,
-        `instruction: ${rule.instruction}`,
-      ]),
-    ),
     ...reads.map(
       (read) =>
         `What ${read.name} answered:\n${dataBlock(token, [

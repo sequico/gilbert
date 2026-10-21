@@ -77,7 +77,6 @@ import { SURFACES } from "../shared/surfaces.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { clipped, dataBlock, stepData, textOf, turnData } from "./prompt.js";
 import { type ProseLevel, proseForModel } from "./prose.js";
-import { type RuleDoc, ruleApplies } from "./rule.js";
 import {
   type AnyTool,
   type ArgSpec,
@@ -808,7 +807,7 @@ function firstLine(text: string): string {
  * the write-free half of the catalogue.
  */
 type ModelAnswer =
-  | { kind: "decision"; rules: string[]; facts: Record<string, string> }
+  | { kind: "decision"; facts: Record<string, string> }
   | { kind: "read"; name: string; args: unknown }
   /** A short chat reply with no work behind it: the fast path, one call. */
   | { kind: "reply"; text: string };
@@ -845,13 +844,12 @@ export function parseAnswerDetailed(
 ): { answer: ModelAnswer } | { problem: string } {
   if (!isRecord(raw)) return { problem: "The answer must be a JSON object." };
   const keys = Object.keys(raw);
-  const hasRules = keys.includes("rules");
+  const hasFacts = keys.includes("facts");
   const hasRead = keys.includes("read");
   const hasReply = keys.includes("reply");
-  if ([hasRules, hasRead, hasReply].filter(Boolean).length !== 1)
+  if ([hasFacts, hasRead, hasReply].filter(Boolean).length !== 1)
     return {
-      problem:
-        'The answer carries exactly one of "rules" and "facts", "read", or "reply".',
+      problem: 'The answer carries exactly one of "facts", "read", or "reply".',
     };
   if (hasReply) {
     if (keys.length !== 1)
@@ -881,30 +879,18 @@ export function parseAnswerDetailed(
       answer: { kind: "read", name: read.tool.trim(), args: read.arguments ?? {} },
     };
   }
-  const unknown = keys.filter((key) => key !== "rules" && key !== "facts");
+  const unknown = keys.filter((key) => key !== "facts");
   if (unknown.length)
     return {
       problem:
-        `A decision carries "rules" and "facts" and nothing else, and it carries ${unknown.join(", ")}: ` +
+        `A decision carries "facts" and nothing else, and it carries ${unknown.join(", ")}: ` +
         "what may be done is never the model's to say.",
     };
-  const rules = raw.rules;
-  if (
-    !Array.isArray(rules) ||
-    !rules.every((one) => typeof one === "string" && one.trim())
-  )
-    return {
-      problem:
-        '"rules" must be a list of rule names — every one that applies, and an empty list when none does.',
-    };
-  const named = (rules as string[]).map((one) => one.trim());
-  if (new Set(named).size !== named.length)
-    return { problem: '"rules" must name each rule at most once.' };
   const facts = raw.facts;
   if (!isRecord(facts) || !Object.values(facts).every((v) => typeof v === "string"))
     return { problem: '"facts" must be an object whose values are text.' };
   return {
-    answer: { kind: "decision", rules: named, facts: facts as Record<string, string> },
+    answer: { kind: "decision", facts: facts as Record<string, string> },
   };
 }
 
@@ -915,17 +901,13 @@ export function parseAnswerDetailed(
 /** How many lookups one decision turn may make before it must answer. */
 const DECISION_READS_MAX = 4;
 
-/** What one turn is given: the change, the group's rules and the prose above them. */
+/** What one turn is given: the change and the prose above it. */
 export interface DecisionQuestion {
   /** The change in the group's own account the agent was woken by. */
   event: AccountEvent;
-  /** The group's rules, from the group's own account. */
-  rules: readonly RuleDoc[];
   /**
-   * The prose that reaches every call, outermost first (ADR 0031): the
-   * installation's own line, then the group's standing instruction. The rule's
-   * own instruction is the third level, and this is the turn that chooses which
-   * rule it is, so the candidates carry theirs.
+   * The prose that reaches every call, outermost first (ADR 0038): the
+   * installation's own line, then the group's standing instruction.
    */
   prose: { installation?: string; group?: string };
   /**
@@ -983,17 +965,13 @@ export async function decideEvent(
   call: ToolCall,
   opts: { maxReads?: number; timeoutMs?: number; meter?: UsageMeter } = {},
 ): Promise<DecisionAnswer> {
-  const candidates = question.rules.filter((rule) => ruleApplies(rule, question.event));
-  if (!candidates.length) return { kind: "decision", rules: [], facts: {} };
-
   const maxReads = opts.maxReads ?? DECISION_READS_MAX;
   const heads = proseForModel(question.prose);
   const system = [
     DATA_NOT_INSTRUCTIONS,
-    "You are the agent of one group. You are told one change in the group's own account, and the rules the group wrote for it.",
-    'Answer with one JSON object and nothing else: {"rules": [<the name of every rule that applies>], "facts": {"<name>": "<what you found>"}}.',
-    '"rules" names every rule you are given that applies to this change, and it is an empty list when none of them does. Two rules a group wrote over one activity are both its decision: name every one that fits, and choose between none of them.',
-    "\"facts\" is what the change is about, in the group's own vocabulary: which booking, which shipper, which client, and what is being asked. They are the change's own facts and sit beside the rules, not inside them. Its names are yours; its values are text.",
+    "You are the agent of one group. You are told one change in the group's own account, and the instruction the group wrote for it.",
+    'Answer with one JSON object and nothing else: {"facts": {"<name>": "<what you found>"}}.',
+    '"facts" is what the change is about, in the group\'s own vocabulary: which booking, which shipper, which client, and what is being asked. Its names are yours; its values are text.',
     "You never decide what may be done: what is allowed is the authority classes, not you, and an answer that carries a capability, a tool or an authorisation is refused.",
     `When you need the group's own state to answer, look it up first: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookups.`,
     "In the knowledge base, look for a subject with knowledge.search, or list the pages with knowledge.list, and read one by the folder that answered: never guess a folder.",
@@ -1013,7 +991,7 @@ export async function decideEvent(
       access,
       {
         system,
-        user: turnData(question, candidates, reads),
+        user: turnData(question, reads),
         ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
       },
       opts.meter,
@@ -1049,15 +1027,7 @@ export async function decideEvent(
     const parsed = parseAnswerDetailed(answer);
     if ("problem" in parsed)
       throw new ModelError("model_answer_malformed", parsed.problem);
-    if (parsed.answer.kind === "decision") {
-      for (const named of parsed.answer.rules)
-        if (!candidates.some((candidate) => candidate.id === named))
-          throw new ModelError(
-            "model_answer_malformed",
-            `The model named the rule "${named}", which this group did not write.`,
-          );
-      return parsed.answer;
-    }
+    if (parsed.answer.kind === "decision") return parsed.answer;
     if (parsed.answer.kind === "reply") return parsed.answer;
     /*
      * The read is the turn's own to make, and `runTool` is the only door to it:

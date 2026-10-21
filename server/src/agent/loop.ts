@@ -154,8 +154,7 @@ import {
   dueDrops as dropsDue,
   noteFile,
 } from "./queue.js";
-import type { RuleDoc } from "./rule.js";
-import { readRule } from "./rules.js";
+import type { InstructionDoc } from "./instruction.js";
 import {
   createRun,
   listRunsForWorking,
@@ -455,6 +454,8 @@ export class AgentLoop {
    * (ADR 0038). Read beside the prose, so the document is opened once per pass.
    */
   private readonly declared = new Map<string, readonly AreaName[]>();
+  /** The group's instruction itself, by account, as this pass read it. */
+  private readonly instructions = new Map<string, InstructionDoc | null>();
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
@@ -568,6 +569,7 @@ export class AgentLoop {
     this.reading = null;
     this.above.clear();
     this.declared.clear();
+    this.instructions.clear();
     const summary: PassSummary = {
       claimed: false,
       accounts: 0,
@@ -1086,6 +1088,7 @@ export class AgentLoop {
           cursors: this.cursors,
           access,
           proseAbove: (a) => this.proseAbove(a),
+          instructionOf: (a) => this.instructionOf(a),
           memory: () => this.memory(),
           readingCall: (a, e, c) => this.readingCall(a, e, c),
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
@@ -1124,7 +1127,7 @@ export class AgentLoop {
   private readingCall(
     accountId: string,
     event: AccountEvent,
-    candidates: readonly RuleDoc[],
+    instruction: InstructionDoc,
   ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader } {
     return {
       ctx: this.ctx,
@@ -1133,7 +1136,7 @@ export class AgentLoop {
       run: startRun({
         id: randomUUID(),
         startedBy: {
-          rule: candidates[0]?.id ?? null,
+          rule: null,
           instruction: null,
           woke: wokeOf(event),
         },
@@ -1141,11 +1144,11 @@ export class AgentLoop {
     };
   }
 
-  /** Open the run a change a rule covers is answered by. */
+  /** Open the run a change the group's instruction covers is answered by. */
   private async openRun(
     accountId: string,
     event: AccountEvent,
-    rule: RuleDoc,
+    instruction: InstructionDoc,
     wakeFrom: string | null,
     /** What the change said, and who set it off (the pass read both). */
     about?: string,
@@ -1154,23 +1157,23 @@ export class AgentLoop {
     const run = startRun({
       id: randomUUID(),
       startedBy: {
-        rule: rule.id,
+        rule: null,
         instruction: null,
         woke: wokeOf(event),
         // What the change said, in its own words, as the pass read it: the run
         // says why it exists without reading the source again.
         ...(about ? { about } : {}),
         ...(by ? { by } : {}),
-        // The rule's own declaration, carried by the run: the guard reads it,
-        // and so does the correspondent it answers.
-        sends: rule.sends,
+        // The instruction's own declaration, carried by the run: the guard reads
+        // it, and so does the correspondent it answers.
+        sends: instruction.sends,
         wakeFrom,
         // The whole drop this run answers, so its plan reads the names instead
         // of listing the folder again (ADR 0034).
         ...(event.also?.length ? { batch: [...event.also] } : {}),
-        // The matrix the rule carries at this instant (ADR 0031): the run says
-        // where it may act, and a later edit of the rule does not move it.
-        surfaces: { ...rule.surfaces },
+        // The matrix the instruction carries at this instant (ADR 0038): the run
+        // says where it may act, and a later edit does not move it.
+        surfaces: { ...instruction.surfaces },
       },
     });
     await createRun(this.ctx, accountId, run);
@@ -2432,14 +2435,26 @@ export class AgentLoop {
     return [...new Set([...surfaces, ...declared])];
   }
 
-  /** The two prose levels above a rule's own, as this pass read them (ADR 0031). */
+  /**
+   * The group's instruction, as this pass read it: one document per account, read
+   * once and shared by the prose, the run's matrix and the areas.
+   */
+  private async instructionOf(accountId: string): Promise<InstructionDoc | null> {
+    const held = this.instructions.get(accountId);
+    if (held !== undefined) return held;
+    const doc = await readInstruction(this.ctx, accountId);
+    this.instructions.set(accountId, doc);
+    this.declared.set(accountId, doc?.areas ?? []);
+    return doc;
+  }
+
+  /** The two prose levels above the work, as this pass read them (ADR 0038). */
   private async proseAbove(
     accountId: string,
   ): Promise<Partial<Record<ProseLevel, string>>> {
     const held = this.above.get(accountId);
     if (held) return held;
-    const group = await readInstruction(this.ctx, accountId);
-    this.declared.set(accountId, group?.areas ?? []);
+    const group = await this.instructionOf(accountId);
     const levels: Partial<Record<ProseLevel, string>> = {
       ...(this.installation ? { installation: this.installation } : {}),
       ...(group ? { group: group.instruction } : {}),
@@ -2448,16 +2463,13 @@ export class AgentLoop {
     return levels;
   }
 
-  /** The prose a run's call carries: the two levels above, then the rule's own. */
+  /** The prose a run's call carries: the two levels above, and nothing else. */
   private async proseOf(
     accountId: string,
-    run: RunDoc,
+    _run: RunDoc,
     above: Partial<Record<ProseLevel, string>>,
   ): Promise<Partial<Record<ProseLevel, string>>> {
-    const id = run.startedBy.rule;
-    if (!id) return above;
-    const record = await readRule(this.ctx, accountId, id);
-    return record ? { ...above, rule: record.rule.instruction } : above;
+    return above;
   }
 
   /**

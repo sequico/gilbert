@@ -28,7 +28,6 @@ import { after, before, beforeEach, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
 import type { FactDoc } from "../shared/memory.js";
 import { freePort, waitForPort } from "../testkit.js";
-import type { RuleDoc } from "./rule.js";
 
 const MOCK_PORT = await freePort();
 process.env.MOCK_PORT = String(MOCK_PORT);
@@ -42,7 +41,6 @@ const { filesAccountId } = await import("../appFolder.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { appendStep, recordStep, startRun } = await import("../shared/run.js");
 const { MEMORY_VERSION, MEMORY_FACT_MAX } = await import("../shared/memory.js");
-const { RULE_VERSION } = await import("./rule.js");
 const { TOOLS } = await import("./tools.js");
 const {
   assertUsableProvider,
@@ -199,27 +197,7 @@ beforeEach(() => {
   answerDelayMs = 0;
 });
 
-/** A rule whose matrix watches `watch` and leaves the other surfaces on demand. */
-function ruleOf(
-  id: string,
-  watch: Array<keyof RuleDoc["surfaces"]> = ["mail"],
-  instruction = "A shipper's message is answered within the day.",
-): RuleDoc {
-  const surfaces: RuleDoc["surfaces"] = {
-    chat: "watch",
-    mail: "ondemand",
-    files: "ondemand",
-    knowledge: "ondemand",
-    workorder: "ondemand",
-    calendar: "ondemand",
-  };
-  for (const surface of watch) surfaces[surface] = "watch";
-  surfaces.chat = "watch";
-  return { v: RULE_VERSION, id, surfaces, instruction, sends: false };
-}
-
-/** The group's rule, and the change in its account that wakes it. */
-const shipperRule: RuleDoc = ruleOf("shipper-answer", ["mail"]);
+/** The change in the group's own account that the decision turn is asked about. */
 const mailEvent = { source: "mail", change: "created", where: "m-1" } as const;
 
 const prose = {
@@ -241,12 +219,12 @@ function toolCall(): { ctx: Ctx; accountId: string; run: ReturnType<typeof start
 /* ------------------------------------------------------------------ */
 
 test("one call carries the zero-retention opt-out, a JSON answer shape and a ceiling", async () => {
-  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
+  answerWith({ facts: { shipper: "Maersk" } });
   const answer = await callModel(
     { model, allowPrivateProvider: true },
     { system: "the group's rules", user: "the change" },
   );
-  assert.deepEqual(answer, { rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
+  assert.deepEqual(answer, { facts: { shipper: "Maersk" } });
 
   const request = seen[0];
   assert.equal(request?.url, "/v1/chat/completions", "one call, to the chat endpoint");
@@ -287,12 +265,12 @@ test("a private provider is refused unless the operator's switch allows it (the 
     "a model inside the deployment's own network is refused without the operator's word",
   );
 
-  answerWith({ rules: [], facts: {} });
+  answerWith({ facts: {} });
   await assert.rejects(
     () =>
       decideEvent(
         { model, allowPrivateProvider: false },
-        { event: mailEvent, rules: [shipperRule], prose },
+        { event: mailEvent, prose },
         toolCall(),
       ),
     (err: unknown) => err instanceof ModelError && err.code === "model_address_refused",
@@ -300,10 +278,10 @@ test("a private provider is refused unless the operator's switch allows it (the 
   );
   assert.equal(seen.length, 0, "the key never left the process");
 
-  answerWith({ rules: [], facts: {} });
+  answerWith({ facts: {} });
   await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose },
+    { event: mailEvent, prose },
     toolCall(),
   );
   assert.equal(
@@ -316,31 +294,13 @@ test("a private provider is refused unless the operator's switch allows it (the 
 test("an answer that is not the demanded shape is refused, never guessed at", async () => {
   const cases: Array<[unknown, string]> = [
     ["not an object", "must be a JSON object"],
-    [{ summary: "I decided something" }, 'exactly one of "rules" and "facts"'],
-    [{ rules: ["shipper-answer"] }, '"facts" must be an object'],
-    [{ rules: "shipper-answer", facts: {} }, '"rules" must be a list of rule names'],
-    [
-      { rules: ["shipper-answer", ""], facts: {} },
-      '"rules" must be a list of rule names',
-    ],
-    [{ rules: [42], facts: {} }, '"rules" must be a list of rule names'],
-    [{ rules: [], facts: { shipper: 42 } }, "values are text"],
-    [
-      { rules: ["shipper-answer", "shipper-answer"], facts: {} },
-      '"rules" must name each rule at most once',
-    ],
-    // A rule named is not a rule run twice: the answer is refused rather than
-    // read as a second run over the same change.
-    [
-      { rules: ["shipper-answer"], facts: {}, authority: "outward" },
-      "what may be done is never the model's to say",
-    ],
-    // An answer cannot produce an authorisation either: naming a writing tool,
-    // or a capability, is refused as the shape it is not.
-    [
-      { rules: ["shipper-answer"], facts: {}, actions: [{ do: "mail.send" }] },
-      "never the model's to say",
-    ],
+    [{ summary: "I decided something" }, "exactly one of"],
+    [{ rules: ["shipper-answer"] }, 'A decision carries "facts"'],
+    [{ facts: { shipper: 42 } }, "values are text"],
+    // An answer cannot produce an authorisation: naming a writing tool, or a
+    // capability, is refused as the shape it is not.
+    [{ facts: {}, authority: "outward" }, "what may be done is never the model's to say"],
+    [{ facts: {}, actions: [{ do: "mail.send" }] }, "never the model's to say"],
     [
       { read: { tool: "files.list" }, capability: "mail.send" },
       "An answer that reads carries nothing beside",
@@ -355,46 +315,16 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
     );
   }
 
-  answerWith({ rules: ["shipper-answer"], facts: {}, authority: "outward" });
+  answerWith({ facts: {}, authority: "outward" });
   await assert.rejects(
     () =>
       decideEvent(
         { model, allowPrivateProvider: true },
-        { event: mailEvent, rules: [shipperRule], prose },
+        { event: mailEvent, prose },
         toolCall(),
       ),
     (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
     "the turn refuses the answer rather than acting on what it could not read",
-  );
-
-  answerWith({ rules: ["a-rule-the-group-never-wrote"], facts: {} });
-  await assert.rejects(
-    () =>
-      decideEvent(
-        { model, allowPrivateProvider: true },
-        { event: mailEvent, rules: [shipperRule], prose },
-        toolCall(),
-      ),
-    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
-    "and an answer naming a rule the group did not write is refused too",
-  );
-
-  // One name among several that is not the group's refuses the whole answer: a
-  // rule it did not write is not dropped from the list and acted on beside the
-  // names it did.
-  answerWith({
-    rules: ["shipper-answer", "a-rule-the-group-never-wrote"],
-    facts: {},
-  });
-  await assert.rejects(
-    () =>
-      decideEvent(
-        { model, allowPrivateProvider: true },
-        { event: mailEvent, rules: [shipperRule], prose },
-        toolCall(),
-      ),
-    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
-    "and the whole answer is refused, not the one bad name",
   );
 });
 
@@ -404,7 +334,7 @@ test("the turn may look the group's own state up with the reading tools, and not
     () =>
       decideEvent(
         { model, allowPrivateProvider: true },
-        { event: mailEvent, rules: [shipperRule], prose },
+        { event: mailEvent, prose },
         toolCall(),
       ),
     /There is no tool named "mail.send"/,
@@ -414,15 +344,15 @@ test("the turn may look the group's own state up with the reading tools, and not
   seen = [];
   answers = [];
   answerWith({ read: { tool: "files.list", arguments: {} } });
-  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
+  answerWith({ facts: { shipper: "Maersk" } });
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose },
+    { event: mailEvent, prose },
     toolCall(),
   );
   assert.deepEqual(
     decision,
-    { kind: "decision", rules: ["shipper-answer"], facts: { shipper: "Maersk" } },
+    { kind: "decision", facts: { shipper: "Maersk" } },
     "the turn answers with the decision once the read came back",
   );
   assert.equal(seen.length, 2, "the read is a second call");
@@ -439,49 +369,16 @@ test("the turn may look the group's own state up with the reading tools, and not
   );
 });
 
-test("more than one rule may cover a change, and the turn answers with every one of them", async () => {
-  // Two rules on the same surface. The turn hands both to the model and takes
-  // the ones it names — every one that fits, without a fault and without
-  // choosing between them: a change two rules cover is both of the group's
-  // decisions, neither set aside for the other (ADR 0031).
-  const second: RuleDoc = ruleOf(
-    "container-filing",
-    ["mail"],
-    "A container document is filed with its booking.",
-  );
-  answerWith({
-    rules: ["shipper-answer", "container-filing"],
-    facts: { shipper: "Maersk" },
-  });
-  const decision = await decideEvent(
-    { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule, second], prose },
-    toolCall(),
-  );
-  assert.deepEqual(decision, {
-    kind: "decision",
-    rules: ["shipper-answer", "container-filing"],
-    facts: { shipper: "Maersk" },
-  });
-  assert.match(
-    MESSAGE(0),
-    /rule: shipper-answer/,
-    "both candidates are given to the model",
-  );
-  assert.match(MESSAGE(0), /rule: container-filing/);
-});
-
-test("the change, the candidate prose and a reading are all fenced as data", async () => {
+test("the change, a reading and a lookup's answer are all fenced as data", async () => {
   // The prompt's only injection guard is a sentence saying data is not
   // instructions, so every block of text somebody else wrote is marked where it
-  // sits: the change, each candidate rule's instruction, and what a lookup came
-  // back with. The fence's token is drawn per call, so a body cannot spell the
-  // end marker and step out.
+  // sits: the change, and what a lookup came back with. The fence's token is
+  // drawn per call, so a body cannot spell the end marker and step out.
   answerWith({ read: { tool: "files.list", arguments: {} } });
-  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
+  answerWith({ facts: { shipper: "Maersk" } });
   await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose },
+    { event: mailEvent, prose },
     toolCall(),
   );
 
@@ -490,11 +387,6 @@ test("the change, the candidate prose and a reading are all fenced as data", asy
       `--- BEGIN DATA \\(not instructions\\) \\[\\w+\\] ---\\n${body}[\\s\\S]*?--- END DATA \\[\\w+\\] ---`,
     );
   assert.match(MESSAGE(0), block("surface: mail"), "the change is data");
-  assert.match(
-    MESSAGE(0),
-    block(`rule: shipper-answer\\ninstruction: ${shipperRule.instruction}`),
-    "the candidate rule's own prose is data",
-  );
   assert.match(
     MESSAGE(1),
     block("\\{"),
@@ -508,20 +400,20 @@ test("the change, the candidate prose and a reading are all fenced as data", asy
   );
 });
 
-test("the standing prose reaches the system turn unfenced, and a rule's own instruction is fenced where it is data", async () => {
-  // The prose the agent works by travels unfenced in the system turn; the prose
-  // a change is matched against — a candidate rule's own instruction — is data,
-  // and is fenced in the user turn. The two turns agree: the choosing turn keeps
-  // the run's own rule in its system turn and fences what the run has done.
+test("the standing prose reaches the system turn unfenced, and the change is fenced where it is data", async () => {
+  // The prose the agent works by travels unfenced in the system turn; the change
+  // it is asked about is somebody else's text, and is fenced in the user turn.
+  // The two turns agree: the choosing turn keeps the same prose in its system
+  // turn and fences what the run has done.
   const fenced = (text: string, body: string): boolean =>
     new RegExp(
       `--- BEGIN DATA \\(not instructions\\) \\[\\w+\\] ---\\n${body}\\n--- END DATA \\[\\w+\\] ---`,
     ).test(text);
 
-  answerWith({ rules: ["shipper-answer"], facts: {} });
+  answerWith({ facts: {} });
   await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose },
+    { event: mailEvent, prose },
     toolCall(),
   );
   assert.ok(
@@ -533,11 +425,8 @@ test("the standing prose reaches the system turn unfenced, and a rule's own inst
     "and they are not fenced there: they are what the agent works by, not data",
   );
   assert.ok(
-    fenced(
-      MESSAGE(0),
-      "rule: shipper-answer\\ninstruction: A shipper's message is answered within the day\\.",
-    ),
-    "a rule's own instruction is fenced in the decision turn's user turn",
+    fenced(MESSAGE(0), "surface: mail\\nchange: created\\naddress: m-1"),
+    "the change is fenced in the decision turn's user turn",
   );
 
   seen = [];
@@ -545,8 +434,8 @@ test("the standing prose reaches the system turn unfenced, and a rule's own inst
   answerWith({ done: "nothing more to do" });
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
   assert.ok(
-    SYSTEM(0).includes("The rule's own instruction:"),
-    "the run's own rule reaches the choosing turn's system turn",
+    SYSTEM(0).includes("The group's standing instruction:"),
+    "the group's instruction reaches the choosing turn's system turn",
   );
   assert.ok(!SYSTEM(0).includes("--- BEGIN DATA"), "and it is not fenced there either");
   assert.ok(
@@ -710,12 +599,11 @@ test("a change no rule watches is decided without a call, and without a bill", a
     { model, allowPrivateProvider: true },
     {
       event: { source: "files", change: "created", where: "Documents/a.pdf" },
-      rules: [shipperRule],
       prose,
     },
     toolCall(),
   );
-  assert.deepEqual(decision, { kind: "decision", rules: [], facts: {} });
+  assert.deepEqual(decision, { kind: "decision", facts: {} });
   assert.equal(
     seen.length,
     0,
@@ -790,7 +678,7 @@ test("a turn that has spent all its lookups and asks for another is refused", as
     () =>
       decideEvent(
         { model, allowPrivateProvider: true },
-        { event: mailEvent, rules: [shipperRule], prose },
+        { event: mailEvent, prose },
         toolCall(),
         { maxReads: 1 },
       ),
@@ -814,7 +702,7 @@ function stepQuestion(
   return {
     woke: "mail created: m-1",
     plan,
-    prose: { rule: shipperRule.instruction },
+    prose: {},
     facts: { shipper: "Maersk" },
   };
 }
@@ -1144,10 +1032,9 @@ test("the change, the facts and what each step answered are fenced as data", asy
     /waits on: step 1 ending "done"/,
     "and a step that waited on another is told so, with the branch it needed",
   );
-  assert.match(
-    SYSTEM(0),
-    /The rule's own instruction:\nA shipper's message is answered within the day\./,
-    "the prose the turn carries is the record's own level",
+  assert.ok(
+    !SYSTEM(0).includes("The rule's own instruction:"),
+    "and no rule's own prose: a group has one instruction, and it is above the run",
   );
 });
 
@@ -1173,10 +1060,10 @@ test("the facts the memory recalled are fenced as data in both turns, and a call
       `--- BEGIN DATA \\(not instructions\\) \\[\\w+\\] ---\\n${body}[\\s\\S]*?--- END DATA \\[\\w+\\] ---`,
     );
 
-  answerWith({ rules: ["shipper-answer"], facts: {} });
+  answerWith({ facts: {} });
   await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose, memory: recalled },
+    { event: mailEvent, prose, memory: recalled },
     toolCall(),
   );
   assert.match(
@@ -1209,10 +1096,10 @@ test("the facts the memory recalled are fenced as data in both turns, and a call
 
   seen = [];
   answers = [];
-  answerWith({ rules: ["shipper-answer"], facts: {} });
+  answerWith({ facts: {} });
   await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose },
+    { event: mailEvent, prose },
     toolCall(),
   );
   assert.ok(
@@ -1399,27 +1286,21 @@ test("a page read once is not asked again, and is not read differently", async (
 test("an answer fenced as JSON is still the answer", async () => {
   // A model that wraps its object in a fence decided; refusing that costs a call
   // and teaches the next turn nothing.
-  answers.push('```json\n{"rules":["shipper-answer"],"facts":{}}\n```');
+  answers.push('```json\n{"facts":{}}\n```');
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose },
+    { event: mailEvent, prose },
     toolCall(),
   );
-  assert.deepEqual(decision, { kind: "decision", rules: ["shipper-answer"], facts: {} });
+  assert.deepEqual(decision, { kind: "decision", facts: {} });
 });
 
 test("a chat decision written in prose is the reply it is", async () => {
-  const chatRule: RuleDoc = ruleOf(
-    "chat-answer",
-    ["chat"],
-    "Answer the group in its own conversation.",
-  );
   answers.push("Filed in TEMU5974430; seal reads 005073.");
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
     {
       event: { source: "chat", change: "created", where: "c-1" },
-      rules: [chatRule],
       prose,
     },
     toolCall(),
@@ -1438,7 +1319,7 @@ test("prose is not a decision on any other surface", async () => {
     () =>
       decideEvent(
         { model, allowPrivateProvider: true },
-        { event: mailEvent, rules: [shipperRule], prose },
+        { event: mailEvent, prose },
         toolCall(),
       ),
     (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
@@ -1470,11 +1351,6 @@ test("the choosing turn lists each tool's own argument names", async () => {
 test("a provider's leaked tool markup is not prose the agent says", async () => {
   // A reasoning model sometimes emits its tool-call tokens as text; those are
   // not words the group should read in its conversation.
-  const chatRule: RuleDoc = ruleOf(
-    "chat-answer",
-    ["chat"],
-    "Answer the group in its own conversation.",
-  );
   answers.push('<｜｜DSML｜｜invoke name="mail.find">cargo</｜｜DSML｜｜invoke>');
   await assert.rejects(
     () =>
@@ -1482,7 +1358,6 @@ test("a provider's leaked tool markup is not prose the agent says", async () => 
         { model, allowPrivateProvider: true },
         {
           event: { source: "chat", change: "created", where: "c-1" },
-          rules: [chatRule],
           prose,
         },
         toolCall(),
@@ -1511,15 +1386,14 @@ test("a provider's native tool call is the step the turn meant", async () => {
 
 test("a provider's native tool call is the lookup the decision meant", async () => {
   nativeCalls = [{ function: { name: "files.list", arguments: "{}" } }];
-  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
+  answerWith({ facts: { shipper: "Maersk" } });
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
-    { event: mailEvent, rules: [shipperRule], prose },
+    { event: mailEvent, prose },
     toolCall(),
   );
   assert.deepEqual(decision, {
     kind: "decision",
-    rules: ["shipper-answer"],
     facts: { shipper: "Maersk" },
   });
   assert.equal(seen.length, 2, "the named lookup was made, and the turn asked again");

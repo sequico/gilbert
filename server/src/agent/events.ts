@@ -84,7 +84,6 @@ import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
 import { isRecord } from "../shared/json.js";
 import { mailboxesOf } from "../shared/mailboxes.js";
-import { RULES_DIR } from "../shared/rule.js";
 import { clientOf } from "../util.js";
 import {
   type AccountEvent,
@@ -290,7 +289,6 @@ function isAgentPath(path: string): boolean {
     rel === CURSOR_FILE ||
     rel === NOTICE_CURSOR_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
-    rel.startsWith(`${RULES_DIR}/`) ||
     // Read markers sit beside the messages and are the agent's bookkeeping.
     rel.startsWith(`${CHAT_STATE_FOLDER}/`) ||
     // The switch and the legacy upstream state are the agent's own records.

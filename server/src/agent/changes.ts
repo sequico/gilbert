@@ -1,15 +1,18 @@
 /**
  * One account's changes, and the runs they open or continue.
  *
- * Split from the loop it serves: this walks the account's change batch, asks
- * the decision turn which rules cover each change, continues the run a person
- * answered and opens one per rule named. It reads the pass's cursor and the
- * installation's prose and memory through `ChangesDeps`, so nothing here holds
- * the loop's claim or its alarms.
+ * Split from the loop it serves: this walks the account's change batch, asks the
+ * decision turn what the change is about, continues the run this change already
+ * has and opens one when it has none. A group has **one** instruction, so a
+ * covered change is one run and there is no routing to do (ADR 0038). It reads
+ * the pass's cursor and the installation's prose and memory through
+ * `ChangesDeps`, so nothing here holds the loop's claim or its alarms.
  */
 
 import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
+import { areaOfSource } from "../shared/areas.js";
+import type { SurfaceName } from "../shared/surfaces.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
@@ -26,12 +29,11 @@ import {
 } from "./events.js";
 import type { AnsweredRun, PassSummary, RefusedAnswer } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
+import type { InstructionDoc } from "./instruction.js";
 import type { ModelAccess } from "./model.js";
 import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type Drop, dropEvent } from "./queue.js";
-import { type RuleDoc, ruleApplies } from "./rule.js";
-import { listRules } from "./rules.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
 import { takeOwnCalendarChange } from "./tools/calendar.js";
 import type { ImageReader } from "./tools/content.js";
@@ -43,11 +45,13 @@ export interface ChangesDeps {
   cursors: Map<string, EventCursor>;
   access: ModelAccess;
   proseAbove(accountId: string): Promise<Partial<Record<ProseLevel, string>>>;
+  /** The group's one instruction, which says whether a change is its work. */
+  instructionOf(accountId: string): Promise<InstructionDoc | null>;
   memory(): Promise<MemoryStore>;
   readingCall(
     accountId: string,
     event: AccountEvent,
-    candidates: readonly RuleDoc[],
+    instruction: InstructionDoc,
   ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader };
   runAnsweredBy(
     accountId: string,
@@ -80,7 +84,7 @@ export interface ChangesDeps {
   openRun(
     accountId: string,
     event: AccountEvent,
-    rule: RuleDoc,
+    instruction: InstructionDoc,
     /** The sender the waking message named, or null when the change names none. */
     from: string | null,
     /** What the change said, in its own words, as this pass read it. */
@@ -150,8 +154,8 @@ export function chatWoken(woke: string | null | undefined): string | null {
  * is filed under and the pair a change is looked up by are one string and not
  * two spellings that could drift.
  */
-function startKey(rule: string, woke: string): string {
-  return `${rule}\n${woke}`;
+function startKey(woke: string): string {
+  return woke;
 }
 /**
  * The one rule a mention opens.
@@ -170,15 +174,15 @@ function mentionRoute(
   return first ? [first] : [];
 }
 /**
- * The account's runs by what started them: one entry per rule-and-change pair.
+ * The account's runs by the change that woke them: one entry per change.
  *
  * A run an instruction started names no rule and no change, and is not an answer
- * to one — nothing here. Two runs of one pair cannot be written by this build,
+ * to one — nothing here. Two runs of one change cannot be written by this build,
  * and the one a pass can continue is the one still running, so that is the one
  * kept when a hand-written pair of documents says otherwise.
  *
  * shortcut: a change is named by its surface, its kind and its address, which is
- * all the change log hands over — so a document created again at a path a rule
+ * all the change log hands over — so a document created again at a path a run
  * already answered is read as the change that was answered, not as a new one.
  * Upgrade when an event can name the state it happened at, or the object's own
  * version, which is what tells a recurrence from a replay.
@@ -186,9 +190,9 @@ function mentionRoute(
 function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
   const byStart = new Map<string, RunDoc>();
   for (const { run } of records) {
-    const { rule, woke } = run.startedBy;
-    if (!rule || !woke) continue;
-    const key = startKey(rule, woke);
+    const { woke } = run.startedBy;
+    if (!woke) continue;
+    const key = startKey(woke);
     const held = byStart.get(key);
     if (!held || (held.state !== "running" && run.state === "running"))
       byStart.set(key, run);
@@ -214,7 +218,25 @@ function noRuleNotice(
   const where = surface === "mail" ? "mail" : "the conversation";
   const from = about.from ? ` from ${about.from}` : "";
   const subject = about.subject ? ` (“${about.subject}”)` : "";
-  return `This group has no rule for ${where}, so the message${from}${subject} has woken nothing. An administrator can write one in Administration → Agent → Rules.`;
+  return `This group has no instruction naming ${where}, so the message${from}${subject} has woken nothing. An administrator can write one in Administration → Agent → Instruction.`;
+}
+
+/**
+ * Whether the group's instruction names this change: its area is one the
+ * instruction declares, or the surface is one its matrix does not turn off.
+ *
+ * The instruction is the whole of the routing (ADR 0038): a group that wrote no
+ * area for mail is not woken by mail, and the notice above says so rather than
+ * leaving the change unanswered in silence.
+ */
+function coversChange(instruction: InstructionDoc, event: AccountEvent): boolean {
+  const area = areaOfSource(event.source);
+  if (area === null) return false;
+  if (instruction.areas.includes(area)) return true;
+  const surface = (
+    event.source === "workorder" ? "workorder" : event.source
+  ) as SurfaceName;
+  return instruction.surfaces[surface] !== "off";
 }
 
 /**
@@ -404,7 +426,7 @@ export async function workChanges(
     deps.cursors.set(accountId, read.cursor);
     return held;
   }
-  const rules = (await listRules(deps.ctx, accountId)).map((record) => record.rule);
+  const instruction = await deps.instructionOf(accountId);
   for (const event of events) {
     summary.changes += 1;
     /*
@@ -496,16 +518,17 @@ export async function workChanges(
         continue;
       }
     }
-    const candidates = rules.filter((rule) => ruleApplies(rule, event));
+    const coversIt = instruction !== null && coversChange(instruction, event);
     /*
-     * A change no rule watches costs no model call and no step (ADR 0031) — but a
-     * person addressing the agent in the conversation is not such a change. The
-     * address is the mention, so a message that names the agent is answered even
-     * when the group's rules say nothing about the conversation: silence was the
-     * live ending (a mention produced no run and no word, and nothing said why),
-     * and a person who typed a question is owed an answer or a reason.
+     * A change the group's instruction does not name costs no model call and no
+     * step (ADR 0038) — but a person addressing the agent in the conversation is
+     * not such a change. The address is the mention, so a message that names the
+     * agent is answered even when the instruction says nothing about the
+     * conversation: silence was the live ending (a mention produced no run and no
+     * word, and nothing said why), and a person who typed a question is owed an
+     * answer or a reason.
      */
-    if (!candidates.length) {
+    if (!coversIt) {
       /*
        * A person who addressed the agent gets an answer or a reason on **every**
        * surface it can arrive on. A chat mention had its notice; a mail had
@@ -542,6 +565,9 @@ export async function workChanges(
       continue;
     }
     const woke = wokeOf(event);
+    /* The branch above returns when there is none, so the group's instruction is
+       here: the change is its work. */
+    const instructionHeld = instruction as InstructionDoc;
     /*
      * What the change said and who set it off, captured now: the record is the
      * arbiter of what happened, so a message edited next week does not rewrite
@@ -580,13 +606,12 @@ export async function workChanges(
       deps.access,
       {
         event,
-        rules,
         prose: await deps.proseAbove(accountId),
         memory: recallFacts((await deps.memory()).facts, woke, accountId),
         ...(detail ? { detail } : {}),
         ...(document ? { document } : {}),
       },
-      deps.readingCall(accountId, event, candidates),
+      deps.readingCall(accountId, event, instructionHeld),
       // A file event carries its document above, so the turn needs few lookups
       // at most; the other surfaces keep the full allowance.
       { meter, ...(event.source === "files" ? { maxReads: 2 } : {}) },
@@ -596,8 +621,8 @@ export async function workChanges(
        * The fast path: a chat message that only wants words is answered by the
        * call that decided it, instead of opening a run and a step to say the
        * same. Other surfaces are never answered in the group's chat, and the
-       * agent has no licence to send outward without a rule that declares it
-       * (ADR 0028) — so the words go nowhere, and the pass says so rather than
+       * agent has no licence to send outward without an instruction that declares
+       * it (ADR 0028) — so the words go nowhere, and the pass says so rather than
        * dropping them in silence.
        */
       if (event.source === "chat")
@@ -615,80 +640,53 @@ export async function workChanges(
       continue;
     }
     /*
-     * A mention is an address, and an address is answered once (ADR 0031). The
-     * decision turn names **which** rule answers it, never how many runs it opens
-     * — a group with two chat rules answering one sentence twice is the same
-     * defect as answering it never — so a mention narrows to one rule whichever
-     * way the decision went. Its facts — empty when it named nothing — are what
-     * the run is told.
+     * A group has **one** instruction, so a change it covers is one run: there is
+     * no second to choose between and no routing to do (ADR 0038). The run is
+     * continued when the account already holds one for this change, and opened
+     * otherwise — the record is what says the change was answered, so a pass that
+     * re-reads it does not answer it twice.
      */
-    const mentioned = message !== null && addressesAgent(message, deps.ctx.username);
-    /*
-     * What is left here is a decision: a `reply` answered above and continued,
-     * and `decideEvent` answers with nothing else, so there is no third kind to
-     * meet — a mention the model chose no act for is still routed, to the rule
-     * that answers it, and the run's own record says what it did with it.
-     */
-    const chosen = mentioned ? mentionRoute(decision.rules, candidates) : decision.rules;
-    /*
-     * The runs by (rule, change) for this event, grown once and rebuilt only
-     * after a named rule changes a run's state: a decision naming three rules
-     * used to rebuild the whole map three times.
-     */
-    let byStart: Map<string, RunDoc> | null = null;
-    for (const named of chosen) {
-      const rule = rules.find((candidate) => candidate.id === named);
-      if (!rule) continue;
-      const key = startKey(named, woke);
-      // A run of the account that already names this rule and this change is
-      // that change being worked, or the answer it already has: never a second
-      // run over it.
-      if (!held) {
-        /*
-         * The working listing says a document it cannot read and hands the
-         * readable runs beside it: one corrupt run must not leave the group's
-         * change page, or a person's answer, unanswered (runs.ts).
-         */
-        const listed = await listRunsForWorking(deps.ctx, accountId);
-        for (const problem of listed.problems)
-          summary.gaps.push(`${accountId}: ${problem}`);
-        held = listed.records;
-      }
-      byStart ??= runsByStart(held);
-      const open = byStart.get(key);
-      if (open) {
-        if (open.state === "running") {
-          const worked = await deps.workRun(
-            accountId,
-            withUsage(open, meter),
-            decision.facts,
-            openQuestionsOf(held ?? [], open.id),
-          );
-          if (worked) {
-            remember(held, worked);
-            byStart = null;
-          }
-        }
-        continue;
-      }
-      const run = await deps.openRun(
-        accountId,
-        event,
-        rule,
-        message?.from ?? null,
-        said.about,
-        said.by,
-      );
-      summary.runs += 1;
-      const worked = await deps.workRun(
-        accountId,
-        withUsage(run, meter),
-        decision.facts,
-        openQuestionsOf(held ?? [], run.id),
-      );
-      remember(held, worked ?? run);
-      byStart = null;
+    const key = startKey(woke);
+    if (!held) {
+      /*
+       * The working listing says a document it cannot read and hands the
+       * readable runs beside it: one corrupt run must not leave the group's
+       * change page, or a person's answer, unanswered (runs.ts).
+       */
+      const listed = await listRunsForWorking(deps.ctx, accountId);
+      for (const problem of listed.problems)
+        summary.gaps.push(`${accountId}: ${problem}`);
+      held = listed.records;
     }
+    const open = runsByStart(held).get(key);
+    if (open) {
+      if (open.state === "running") {
+        const worked = await deps.workRun(
+          accountId,
+          withUsage(open, meter),
+          decision.facts,
+          openQuestionsOf(held ?? [], open.id),
+        );
+        if (worked) remember(held, worked);
+      }
+      continue;
+    }
+    const run = await deps.openRun(
+      accountId,
+      event,
+      instructionHeld,
+      message?.from ?? null,
+      said.about,
+      said.by,
+    );
+    summary.runs += 1;
+    const worked = await deps.workRun(
+      accountId,
+      withUsage(run, meter),
+      decision.facts,
+      openQuestionsOf(held ?? [], run.id),
+    );
+    remember(held, worked ?? run);
   }
   /*
    * The drops answered here leave the queue once the batch is worked. A crash

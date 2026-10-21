@@ -14,6 +14,7 @@
 import { type AreaName, declaredAreas } from "./areas.js";
 import { errorDetail } from "./errors.js";
 import { isRecord } from "./json.js";
+import { isSurfaceMatrix, type SurfaceMatrix } from "./surfaces.js";
 
 /** Where a group's standing instruction lives: the one path constant. */
 export const INSTRUCTION_FILE = "instruction.json";
@@ -36,7 +37,26 @@ export interface InstructionDoc {
   instruction: string;
   /** The areas the group works, and the whole of what a run may change. */
   areas: AreaName[];
+  /** Where a run may act, one mode per surface of the group's own account. */
+  surfaces: SurfaceMatrix;
+  /** Whether the group's agent may send outward without a person's yes. */
+  sends: boolean;
 }
+
+/**
+ * The matrix of an instruction that names none: the conversation, and nothing
+ * else. A group that writes an instruction and declares no area has told the
+ * agent about the chat and about nothing more, and the matrix says exactly that
+ * rather than handing it every surface the account has.
+ */
+const CHAT_ONLY: SurfaceMatrix = {
+  chat: "watch",
+  mail: "off",
+  files: "off",
+  knowledge: "off",
+  workorder: "off",
+  calendar: "off",
+};
 
 /**
  * Parse one stored instruction.
@@ -64,7 +84,13 @@ export function parseInstructionDocumentDetailed(
     if (typeof whole.instruction !== "string" || !whole.instruction.trim())
       return { problem: '"instruction" must say how the group wants its agent to work.' };
     return {
-      instruction: { v: INSTRUCTION_VERSION, instruction: whole.instruction, areas: [] },
+      instruction: {
+        v: INSTRUCTION_VERSION,
+        instruction: whole.instruction,
+        areas: [],
+        surfaces: { ...CHAT_ONLY },
+        sends: false,
+      },
     };
   }
   if (whole.v !== INSTRUCTION_VERSION)
@@ -77,11 +103,19 @@ export function parseInstructionDocumentDetailed(
     return { problem: '"areas" must be a list of area names.' };
   const areas = declaredAreas(whole.areas as string[]);
   if (areas.problem) return { problem: areas.problem };
+  if (whole.surfaces !== undefined && !isSurfaceMatrix(whole.surfaces))
+    return {
+      problem: '"surfaces" must be one mode per surface of the group\'s account.',
+    };
+  if (whole.sends !== undefined && typeof whole.sends !== "boolean")
+    return { problem: '"sends" must be true or false.' };
   return {
     instruction: {
       v: INSTRUCTION_VERSION,
       instruction: whole.instruction,
       areas: [...areas.areas],
+      surfaces: whole.surfaces ?? { ...CHAT_ONLY },
+      sends: whole.sends ?? false,
     },
   };
 }
