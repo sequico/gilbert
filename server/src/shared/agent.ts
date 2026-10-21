@@ -54,7 +54,7 @@ export interface ClaimDoc {
  */
 export interface PassStatusDoc {
   /** The version this build writes. A reader does not insist on it. */
-  v: 1;
+  v: number;
   /** When the pass ended, ISO 8601. */
   at: string;
   /** How long it took, in milliseconds. */
@@ -104,7 +104,7 @@ export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
   const ended = isRecord(x) ? (x as { lastEnded?: unknown }).lastEnded : undefined;
   return (
     isRecord(x) &&
-    (x.v === undefined || typeof x.v === "number") &&
+    typeof x.v === "number" &&
     isInstant(x.at) &&
     isFiniteNumber(x.ms) &&
     typeof x.claimed === "boolean" &&
@@ -167,13 +167,23 @@ export interface AgentStatus {
   /** How often the supervisor asks the loop for a pass, in seconds. */
   passSeconds: number;
   /**
-   * What the last pass did, or null when the document is absent or unreadable.
+   * What the last pass did, or null when no pass has been recorded.
    *
    * The pump's own answer: an installation whose agent is working and one whose
    * agent has stopped look the same from the runs alone, and this is the line
    * that tells them apart.
    */
   lastPass: PassStatusDoc | null;
+  /**
+   * Why the document that should carry `lastPass` could not be used, when it is
+   * there and this build cannot read it.
+   *
+   * Absent from the answer when there is no document at all — no pass has been
+   * written yet — and present when there is one and it is unreadable: the two
+   * are different answers to "is the pump turning", and drawing them as one
+   * `null` says "it never ran" about a document somebody has to look at.
+   */
+  lastPassProblem?: string;
 }
 
 /**

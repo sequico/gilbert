@@ -186,7 +186,15 @@ export function AgentOverview({
        * does not carry one, so without this an agent that is working and one that
        * has stopped look the same. The last ending is the answer to "what was its
        * last act" without opening a group's list; its sentence is the hover.
+       *
+       * A document that is there and cannot be read is not "no pass has run":
+       * saying so is the one answer the document exists to give.
        */}
+      {status?.lastPassProblem && (
+        <p className="hint" style={{ marginTop: 0 }}>
+          {status.lastPassProblem}
+        </p>
+      )}
       {status?.lastPass && (
         <p className="hint" style={{ marginTop: 0 }}>
           {t(

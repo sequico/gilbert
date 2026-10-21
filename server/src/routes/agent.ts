@@ -278,17 +278,27 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const stored = await readClaim(ctx);
       /*
        * The last pass is read beside the claim and answers the same question
-       * about the process itself: whether the pump is turning. A document this
-       * build cannot read is `null` — the claim's own sentence — rather than a
-       * refusal that would hide the agent's state with it.
+       * about the process itself: whether the pump is turning.
+       *
+       * **Absent and unreadable are not the same answer.** No document means no
+       * pass has been recorded yet; a document that is there and cannot be used
+       * means the agent may have worked and the reader cannot see it — carrying
+       * the two as one `null` drew "no pass has run" over the very case the
+       * document exists to cure. The refusal travels as `lastPassProblem` and the
+       * surface says it, while the claim and the switch beside it stay true.
        */
       let lastPass: PassStatusDoc | null = null;
+      let lastPassProblem: string | null = null;
       try {
         const found = await readAppFileAt(ctx, filesAccountId(ctx), PASS_STATUS_FILE);
-        const parsed = found ? (JSON.parse(found.text) as unknown) : null;
-        if (isPassStatusDoc(parsed)) lastPass = parsed;
-      } catch {
-        lastPass = null;
+        if (found) {
+          const parsed = JSON.parse(found.text) as unknown;
+          if (isPassStatusDoc(parsed)) lastPass = parsed;
+          else
+            lastPassProblem = `The last pass's document (${PASS_STATUS_FILE}) is not a shape this build reads.`;
+        }
+      } catch (err) {
+        lastPassProblem = `The last pass's document (${PASS_STATUS_FILE}) could not be read: ${errorMessage(err)}`;
       }
       const agent: AgentStatus = {
         claim:
@@ -297,6 +307,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
             : null,
         passSeconds: Math.round(AGENT_PASS_INTERVAL_MS / 1000),
         lastPass,
+        ...(lastPassProblem ? { lastPassProblem } : {}),
       };
       return c.json({ agent });
     } catch (err) {
