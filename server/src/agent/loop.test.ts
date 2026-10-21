@@ -2413,6 +2413,40 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
   assert.equal(run.ended?.why, "the plan was refused, so nothing was done");
 });
 
+test("a run is handed the areas its group works, not the whole catalogue", async () => {
+  /*
+   * The measured cause of the refused calls is a model reading forty-five names to
+   * use four. The catalogue a turn is offered is therefore the group's areas — and
+   * a surface it turned off takes its **writing** tools out, while its readings
+   * stay: reading is proof, not an act (ADR 0038).
+   */
+  const id = "intake-areas";
+  const doc = rule(id);
+  doc.surfaces.files = "off";
+  await createRule(ctx, accountId, doc);
+  written.push(id);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ done: "nothing here needs me" });
+  await deliver("a change the group works in mail");
+  await agent.pass();
+
+  const choosing = seen.filter(({ user }) =>
+    user.includes("The change that woke this run"),
+  );
+  assert.ok(choosing.length > 0, "the run was handed a turn of its own");
+  assert.ok(
+    choosing.some(({ system, user }) => `${system}${user}`.includes("mail.read")),
+    "the group's own area is offered",
+  );
+  assert.ok(
+    !choosing.some(({ system, user }) => `${system}${user}`.includes("files.write")),
+    "and a write in an area turned off is not",
+  );
+});
+
 test("a malformed answer costs a step and is asked again, not the run", async () => {
   /*
    * A model stuck on one malformed answer repeats it, and every repeat is a

@@ -121,6 +121,7 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upst
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
+import { areasOfSurfaces, catalogueFor } from "./areas.js";
 import {
   chatWoken,
   offPath,
@@ -1625,7 +1626,17 @@ export class AgentLoop {
       const meter = usageMeter();
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
-        choice = await chooseStep(this.catalogue, access, question, { meter });
+        choice = await chooseStep(
+          catalogueFor(
+            this.catalogue,
+            current.startedBy.surfaces
+              ? areasOfSurfaces(current.startedBy.surfaces)
+              : null,
+          ),
+          access,
+          question,
+          { meter },
+        );
       } catch (err) {
         /*
          * An answer this build refused is a step the record shows, not a silence:
