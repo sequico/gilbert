@@ -358,21 +358,27 @@ export class AgentLoop {
    *
    * One read per claim: a deploy does not blank the line a reader came for, and a
    * handover does not leave this process believing its own older ending is the
-   * newest. A document this build cannot read is no ending, and the next status
-   * write replaces it.
+   * newest. A read that **failed** says nothing about the ending — a transient
+   * failure is not news that there was none — so what this process already holds
+   * is kept, and a document this build cannot read is left to the next status
+   * write that replaces it.
    */
   private async loadLastEnded(): Promise<void> {
-    this.lastEnded = null;
     try {
       const found = await readAppFileAt(
         this.ctx,
         filesAccountId(this.ctx),
         PASS_STATUS_FILE,
       );
-      const parsed = found ? (JSON.parse(found.text) as unknown) : null;
-      if (isPassStatusDoc(parsed) && parsed.lastEnded) this.lastEnded = parsed.lastEnded;
+      if (!found) {
+        this.lastEnded = null;
+        return;
+      }
+      const parsed = JSON.parse(found.text) as unknown;
+      if (!isPassStatusDoc(parsed)) return;
+      this.lastEnded = parsed.lastEnded ?? null;
     } catch {
-      this.lastEnded = null;
+      // Kept, not blanked: the read failed, and that is not an ending.
     }
   }
   /**
@@ -740,22 +746,35 @@ export class AgentLoop {
            * false`) until it is paid, which is what keeps a run that already
            * spoke from speaking again.
            */
-          for (const { run: finished, state } of records) {
+          for (const { run: finished } of records) {
             if (finished.ended?.said !== false) continue;
+            let said = false;
             try {
-              await this.sayEnding(
+              said = await this.sayEnding(
                 accountId,
                 finished,
                 chatWoken(finished.startedBy.woke),
               );
-            } catch {
+            } catch (err) {
+              /*
+               * The post failed: the debt stays and the pass says so. It is not a
+               * silence — a saying that can never leave is something a person has
+               * to be able to see — and it is not a `continue`, which swallowed
+               * both the failure and the reason.
+               */
+              summary.gaps.push(
+                `${accountId}: ${finished.id}: its ending was not said: ${errorMessage(err)}`,
+              );
               continue;
             }
-            await this.store(
-              accountId,
-              { ...finished, ended: { ...(finished.ended as RunEnd), said: true } },
-              state,
-            );
+            if (!said) continue;
+            try {
+              await this.markSaid(accountId, finished);
+            } catch (err) {
+              summary.gaps.push(
+                `${accountId}: ${finished.id}: its ending was said and could not be marked: ${errorMessage(err)}`,
+              );
+            }
           }
           await this.saveCursor(accountId, now);
           this.pruneStuck(accountId, records);
@@ -891,42 +910,57 @@ export class AgentLoop {
       const record = index === undefined ? null : records[index];
       if (!record) continue;
       /*
-       * A run waiting on a person is picked up only when the question's deadline
-       * has come (ADR 0029, 0030): the work then goes on without the answer, with
-       * a step that says what did not come, rather than waiting for ever.
+       * One run that fails is **that run's** failure. The pass goes on with the
+       * others and, above all, with the account's own bookkeeping — the cursor,
+       * the archive, the debts of every other run. A throw here used to leave the
+       * whole account unworked for that pass and for every pass after it, which
+       * is a defect in one run turning into an installation that stopped.
        */
-      let due = record.run;
-      if (due.state === "blocked") {
-        if (!isRunDue(due, now)) continue;
-        const overdue = answerOverdue(due, now.toISOString());
+      try {
         /*
-         * The transition is **written before the run is worked**: the step it
-         * adds and the budget it spends are then what the record holds, and a
-         * model call whose spend never landed would make the declared ceiling a
-         * number the loop can pass — which is what an overdue run paid for on
-         * every pass that failed. A write that does not land leaves the run
-         * blocked and still due, and the next pass tries again.
+         * A run waiting on a person is picked up only when the question's deadline
+         * has come (ADR 0029, 0030): the work then goes on without the answer, with
+         * a step that says what did not come, rather than waiting for ever.
          */
-        const stored = await this.store(accountId, overdue, record.state);
-        if (!stored) continue;
-        due = overdue;
-        if (index !== undefined) records[index] = { ...record, run: overdue };
-      } else if (due.state !== "running") continue;
-      summary.due += 1;
-      /*
-       * A run nothing waits on is the crash path: it has no date, so the clock
-       * cannot say when to try it again. One minute between attempts keeps a
-       * failure from paying for a model call every ten seconds; the first
-       * attempt after a restart is immediate.
-       */
-      const key = `${accountId}\u0000${due.id}`;
-      const stuck = due.waiting === null;
-      if (stuck) this.stuckUntil.set(key, now.getTime() + STUCK_RETRY_MS);
-      const worked = await this.workRun(accountId, due, undefined, record.state);
-      const stillStuck = worked?.state === "running" && worked.waiting === null;
-      if (!stillStuck) this.stuckUntil.delete(key);
-      // The archive and the change batch see the document as this pass left it.
-      if (worked && index !== undefined) records[index] = { ...record, run: worked };
+        let due = record.run;
+        if (due.state === "blocked") {
+          if (!isRunDue(due, now)) continue;
+          const overdue = answerOverdue(due, now.toISOString());
+          /*
+           * The transition is **written before the run is worked**: the step it
+           * adds and the budget it spends are then what the record holds, and a
+           * model call whose spend never landed would make the declared ceiling a
+           * number the loop can pass — which is what an overdue run paid for on
+           * every pass that failed. A write that does not land leaves the run
+           * blocked and still due, and the next pass tries again.
+           */
+          const stored = await this.store(accountId, overdue, record.state);
+          if (!stored) continue;
+          due = overdue;
+          if (index !== undefined) records[index] = { state: stored, run: overdue };
+        } else if (due.state !== "running") continue;
+        summary.due += 1;
+        /*
+         * A run nothing waits on is the crash path: it has no date, so the clock
+         * cannot say when to try it again. One minute between attempts keeps a
+         * failure from paying for a model call every ten seconds; the first
+         * attempt after a restart is immediate.
+         */
+        const key = `${accountId}\u0000${due.id}`;
+        const stuck = due.waiting === null;
+        if (stuck) this.stuckUntil.set(key, now.getTime() + STUCK_RETRY_MS);
+        const worked = await this.workRun(accountId, due, undefined, record.state);
+        const stillStuck = worked?.state === "running" && worked.waiting === null;
+        if (!stillStuck) this.stuckUntil.delete(key);
+        // The archive and the change batch see the document as this pass left it.
+        if (worked && index !== undefined)
+          records[index] = {
+            state: this.runState.get(key) ?? record.state,
+            run: worked,
+          };
+      } catch (err) {
+        summary.gaps.push(`${accountId}: ${record.run.id}: ${errorMessage(err)}`);
+      }
     }
     // What the pass read is also what the archive decides on: a run this pass
     // just ended is on the list with its ending, and goes in its drawer now.
@@ -1377,6 +1411,12 @@ export class AgentLoop {
     this.opts.log?.(`[gilbert] agent: run ${run.id} — working it in ${accountId}`);
     /** The message a person wrote, when one woke this run: what a report replies to. */
     const woke = chatWoken(run.startedBy.woke);
+    /**
+     * What this run posted in the conversation, so a reply to its own message is
+     * a reply in the same thread the person opened. The relation is recorded,
+     * never guessed by comparing text.
+     */
+    const posted = new Set<string>();
     let current = run;
     /*
      * A step left `open` by an earlier process is an act whose outcome was
@@ -1527,9 +1567,10 @@ export class AgentLoop {
       /*
        * The plan has to fit the steps the run has left. The parser refuses an
        * answer larger than the whole ceiling, but a run already part-way
-       * through its budget can still be asked for more than remains; it is
-       * refused as an answer that made no progress, and a second refusal ends
-       * the run rather than letting a wave run past the ceiling.
+       * through its budget can still be asked for more than remains; the refusal
+       * is recorded as a step that made no progress and the run is asked again.
+       * The budget is the only ceiling a refusal reaches (ADR 0030): a refusal
+       * spends the step it cost, and nothing else ends the run here.
        */
       const room = RUN_STEPS_MAX - current.spent.steps;
       const asked = choice.calls.reduce((sum, call) => {
@@ -1708,20 +1749,33 @@ export class AgentLoop {
           if (result?.status === "fulfilled") {
             /*
              * Whether this step answered the message that woke the run: the fact
-             * `spoke` reads. A `chat.say` that replies to that message is a report
-             * to the person who asked; a `chat.ask` asks something, and a say
-             * about anything else is the group's, so neither makes the run heard
-             * by the person who woke it.
+             * `spoke` reads. A `chat.say` that replies to that message — or to a
+             * message **this run itself posted** in that thread, which is a reply
+             * one level deeper and the same answer — is a report to the person
+             * who asked; a `chat.ask` asks something, and a say about anything
+             * else is the group's, so neither makes the run heard by the person
+             * who woke it.
              */
+            const replyTo = (call.args as { replyTo?: unknown } | null)?.replyTo;
             const repliedToWake =
               call.name === "chat.say" &&
               woke !== null &&
-              (call.args as { replyTo?: unknown } | null)?.replyTo === woke;
+              (replyTo === woke || (typeof replyTo === "string" && posted.has(replyTo)));
+            const put = result.value;
+            const postedId =
+              put !== null && typeof put === "object"
+                ? (put as { id?: unknown }).id
+                : undefined;
             current = recordStep(current, at, {
               state: "done",
               outcome: boundedText(result.value),
               ...(repliedToWake ? { repliedToWake: true } : {}),
             });
+            if (
+              (call.name === "chat.say" || call.name === "chat.ask") &&
+              typeof postedId === "string"
+            )
+              posted.add(postedId);
             // Each call spends what its tool declares; the wave's own wall time
             // is spent once below, because the calls ran together.
             const tool = this.catalogue.find((one) => one.name === call.name);
@@ -1800,13 +1854,22 @@ export class AgentLoop {
    *
    * The saying is a message of the group's own conversation (`groupChat.ts`),
    * a reply to the message that woke it when there is one. A saying that cannot
-   * be posted is a failed step on the record and an ending still owed, never a
-   * silence: the next pass tries again. The ending is written **before** it is
+   * be posted leaves the ending still owed on the record and is reported as the
+   * pass's own gap — never a silence, and never a step appended to a run that
+   * has ended. The ending is written **before** it is
    * said — the document is the arbiter of what happened, so a run a person
    * stopped during its last call does not say an ending that never landed, and
-   * the saying is marked on the record once it has left, so a run that already
+   * the saying is marked on the record once it has left (`markSaid`, the one
+   * edge out of an ended run), so a run that already
    * spoke is not read as owing words. A process that dies between the two leaves
    * an ending owed, and the pass that follows says it.
+   *
+   * **The one ending written elsewhere.** A person's stop is not this function's:
+   * the stop route writes `cancelled` itself, because it is the person's act
+   * rather than the loop's, and the ending it replaces is withdrawn with its
+   * debt — the words the loop owed belonged to an ending that no longer happened.
+   * For the same reason `lastEnded` is the last ending the **loop** wrote, not the
+   * last ending the installation saw.
    */
   private async endRun(
     accountId: string,
@@ -1827,30 +1890,84 @@ export class AgentLoop {
     const owed =
       ending === "out-of-budget" || (ending === "done" && woke !== null && !spoke);
     const ended = finishRun(current, ending, owed ? { ...end, said: false } : end);
-    const tokenAfter = await this.store(accountId, ended, token);
+    const written = await this.store(accountId, ended, token);
     // The document was not this process's to end: somebody stopped it first, and
     // an ending that did not land is not one to announce.
-    if (!tokenAfter) return null;
+    if (!written) return null;
     /*
      * What a reader sees without opening a group's list: the last run this process
      * ended, written into the pass's own document below.
      */
     this.lastEnded = { id: ended.id, ending, why: end.why };
     if (!owed) return ended;
-    let marked = ended;
-    try {
-      await this.sayEnding(accountId, ended, woke);
-      marked = { ...ended, ended: { ...(ended.ended as RunEnd), said: true } };
-    } catch (err) {
-      marked = this.withStep(
-        ended,
-        "the run's ending, said in the conversation",
-        `refused: ${errorMessage(err)}`,
-        false,
-      );
+    /*
+     * The words, then the mark — and a failure of either is the caller's to
+     * record, never a step.
+     *
+     * The plan is the work a run chose; an ending is not work, so a failed
+     * saying is not a step to append to a run that has already ended. Appending
+     * one threw here (an ended run does not grow), inside the ending, and took
+     * the account's whole pass with it — the same pass that would have said the
+     * ending next time. The debt is already on the record (`said: false`), so
+     * nothing is lost by letting the failure out: the pass reports it as its own
+     * gap, and the next pass finds the debt and says it.
+     */
+    const said = await this.sayEnding(accountId, ended, woke);
+    /*
+     * Nothing was said, so nothing is marked: the debt stays `false` on the
+     * document, which is true — those words were never spoken. It is not
+     * forgiven, and it is not retried for ever either: an ending the record no
+     * longer carries (a stop, a later ending, a run already archived) is nobody's
+     * to announce.
+     */
+    if (!said) return ended;
+    await this.markSaid(accountId, ended);
+    return { ...ended, ended: { ...(ended.ended as RunEnd), said: true } };
+  }
+
+  /**
+   * The one edge out of an ended run: an ending that owed words is marked said.
+   *
+   * A run that has ended accepts exactly one more write, and this is it. It is
+   * guarded on **the ending it marks** — the `at` and `why` the words were
+   * written for — so a document that moved in between (a person stopped it, a
+   * later ending replaced it) is not marked by a writer announcing something
+   * that no longer happened. A mark that cannot land throws rather than returning
+   * quietly: a debt left `false` with nobody told is a message said twice on the
+   * next pass.
+   */
+  private async markSaid(accountId: string, run: RunDoc): Promise<void> {
+    await this.keepClaim();
+    const key = `${accountId}\u0000${run.id}`;
+    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+      const held = await readRun(this.ctx, accountId, run.id);
+      if (!held) return;
+      if (held.run.ended?.at !== run.ended?.at || held.run.ended?.why !== run.ended?.why)
+        return;
+      if (held.run.ended?.said === true) return;
+      const marked: RunDoc = {
+        ...held.run,
+        ended: { ...(held.run.ended as RunEnd), said: true },
+      };
+      let produced: string | undefined;
+      try {
+        await replaceRun(this.ctx, accountId, marked, {
+          ifInState: held.state,
+          onState: (fresh) => {
+            produced = fresh;
+          },
+        });
+        const next = produced ?? held.state;
+        this.passState.set(accountId, next);
+        this.runState.set(key, next);
+        return;
+      } catch (err) {
+        if (retryStateMismatch(err, attempt)) break;
+      }
     }
-    await this.store(accountId, marked, tokenAfter);
-    return marked;
+    throw new Error(
+      `the run "${run.id}" ended and its saying could not be marked: another write kept winning the race for the account.`,
+    );
   }
 
   /**
@@ -1867,9 +1984,9 @@ export class AgentLoop {
     accountId: string,
     run: RunDoc,
     woke: string | null,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const ended = run.ended;
-    if (!ended) return;
+    if (!ended) return false;
     /*
      * Only the ending the document still carries is said. A person can stop the
      * run in the moment between its last write and these words, and the record
@@ -1884,7 +2001,7 @@ export class AgentLoop {
       held.run.ended?.at !== ended.at ||
       held.run.ended?.why !== ended.why
     )
-      return;
+      return false;
     const text =
       run.state === "done"
         ? `Done: ${ended.why}`
@@ -1893,6 +2010,7 @@ export class AgentLoop {
     await postChatMessage(this.ctx, accountId, this.ctx.username, text, {
       ...(asked?.id ? { replyTo: asked.id } : {}),
     });
+    return true;
   }
 
   /**

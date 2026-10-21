@@ -993,6 +993,13 @@ export function finishRun(run: RunDoc, ending: RunEnding, end: RunEnd): RunDoc {
   requireInstant("an ending needs the instant it happened", end.at);
   if (ending === "blocked" && !run.waiting)
     throw new Error(`a run blocked on a person names the question it left: "${run.id}"`);
+  /*
+   * The ending replaces the one it lands on, **with its debt**: `said` belongs to
+   * the ending it was written for, so an ending that replaced another withdraws a
+   * saying that has not left. That is what a person's stop means — the words the
+   * loop owed described an ending that no longer happened — and it is why the
+   * field is not carried over here.
+   */
   return {
     ...run,
     state: ending,
