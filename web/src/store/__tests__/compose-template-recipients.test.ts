@@ -74,6 +74,20 @@ describe("inserting a template that remembers its recipients", () => {
     expect(draftFor(key).html).toContain("Dear Bob");
   });
 
+  it("still names the message's own first recipient when it already has one", () => {
+    const key = useCompose.getState().open({
+      to: [{ name: "Ann Lee", email: "ann@example.com" }],
+    });
+    useCompose.getState().insertTemplate(key, {
+      html: "<p>Dear {{recipientFirstName}}</p>",
+      to: [{ name: "Bob Smith", email: "bob@example.com" }],
+    });
+
+    // The template's recipients join the message; the message's own first To
+    // stays the person the placeholders name.
+    expect(draftFor(key).html).toContain("Dear Ann");
+  });
+
   it("inserts a template saved without recipients exactly as before", () => {
     const key = useCompose.getState().open();
     const before = draftFor(key);

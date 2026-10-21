@@ -1362,6 +1362,9 @@ export const catalog: Catalog = {
     "Spam filter": "垃圾邮件过滤",
     "Spam filter's model": "垃圾邮件过滤器的模型",
     "{confidence} confidence": "置信度：{confidence}",
+    "confidence\u0004Low": "低",
+    "confidence\u0004Medium": "中",
+    "confidence\u0004High": "高",
     "One of several signals the spam filter weighed":
       "这是垃圾邮件过滤器权衡的多个信号之一",
     Starred: "已标星",

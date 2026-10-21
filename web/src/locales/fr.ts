@@ -1416,6 +1416,9 @@ export const catalog: Catalog = {
     "Spam filter": "Filtre antispam",
     "Spam filter's model": "Modèle du filtre antispam",
     "{confidence} confidence": "Confiance : {confidence}",
+    "confidence\u0004Low": "faible",
+    "confidence\u0004Medium": "moyenne",
+    "confidence\u0004High": "élevée",
     "One of several signals the spam filter weighed":
       "L'un des plusieurs signaux pesés par le filtre antispam",
     Starred: "Suivis",

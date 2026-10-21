@@ -217,9 +217,8 @@ export function parseSpamModelOpinion(
   const s = flatten(raw);
   // The category is one word -- letters, digits, `_` or `-` -- then optionally
   // the explanation. Combining marks are not in the class: a category is an
-  // identifier the administrator configured, which a deployment that needs a
-  // script with them would have to answer for first (the skill records the
-  // live question as owed).
+  // identifier the administrator configured, and a server that writes one in a
+  // script which needs them would put the whole opinion out of reach.
   const m = /^([\p{L}\p{N}_-]+)(?:\s+(.*))?$/u.exec(s);
   if (!m) return null;
   const tag = m[1]!;

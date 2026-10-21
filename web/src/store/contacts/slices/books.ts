@@ -202,17 +202,26 @@ export function booksSlice(
      * `from` is the account the message goes out from, and only the reader's own
      * collects: a message written from a group mailbox is the group's, and its
      * correspondents belong in the group's directory rather than in the reader's
-     * personal book, where their other devices would read them.
+     * personal book, where their other devices would read them. That is the
+     * account Send was pressed under, not whatever mailbox is on screen when the
+     * undo window closes -- a message of the reader's own sent while a group is
+     * on screen still collects, into the reader's own book.
      *
      * Nothing is collected until every card of the account is known: a card list
      * that is not there yet would make every existing contact look new, and a
-     * duplicate card is worse than one send's worth of addresses left uncollected.
+     * duplicate card is worse than one send's worth of addresses left
+     * uncollected. A load already in flight is not waited for, so that send
+     * leaves them uncollected and the next one collects.
      *
      * The book is created on first use and remembered by id, so its name can be
      * anything and an emptied or deleted one is simply replaced -- by another book
      * of that name where there is one (a settings write the installation's policy
      * refused leaves the id unset, and a second book per send is not the answer).
-     * One collection runs at a time, so two sends in flight cannot create two.
+     * That name is the catalogue's current one, so a reader who changes language
+     * between two such sends is the one case where a second book appears.
+     *
+     * shortcut: one collection at a time is per tab; two devices sending at once
+     * can each create a book, upgraded if that ever shows.
      */
     async collectRecipients(addrs, own, from) {
       const run = async () => {

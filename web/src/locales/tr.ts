@@ -1486,6 +1486,9 @@ export const catalog: Catalog = {
     "Spam filter": "Spam filtresi",
     "Spam filter's model": "Spam filtresinin modeli",
     "{confidence} confidence": "Güven: {confidence}",
+    "confidence\u0004Low": "düşük",
+    "confidence\u0004Medium": "orta",
+    "confidence\u0004High": "yüksek",
     "One of several signals the spam filter weighed":
       "Spam filtresinin değerlendirdiği birkaç sinyalden biri",
     "Spell check while typing": "Yazarken yazım denetimi yap",

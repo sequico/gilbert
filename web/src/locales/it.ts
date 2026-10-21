@@ -2275,6 +2275,12 @@ export const catalog: Catalog = {
 
     "{confidence} confidence": "Confidenza: {confidence}",
 
+    "confidence\u0004Low": "bassa",
+
+    "confidence\u0004Medium": "media",
+
+    "confidence\u0004High": "alta",
+
     "One of several signals the spam filter weighed":
       "Uno dei vari segnali che il filtro antispam ha soppesato",
     Starred: "Con stella",

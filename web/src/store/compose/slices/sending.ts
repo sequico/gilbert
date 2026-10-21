@@ -106,7 +106,10 @@ export function sendingSlice(
           // as sent here; the account is the one Send was pressed under, which
           // is what keeps a group's correspondents out of the reader's book.
           if (useSettings.getState().settings.collectRecipients) {
-            const own = useMail.getState().identities.map((i) => i.email);
+            // The sending account's own addresses, resolved when Send was
+            // pressed: the identities on screen may belong to another mailbox by
+            // the time the undo window closes.
+            const own = identities.map((i) => i.email);
             void useContacts
               .getState()
               .collectRecipients([...d.to, ...d.cc, ...d.bcc], own, target.accountId)

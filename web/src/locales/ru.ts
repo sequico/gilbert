@@ -1396,6 +1396,9 @@ export const catalog: Catalog = {
     "Spam filter": "Спам-фильтр",
     "Spam filter's model": "Модель спам-фильтра",
     "{confidence} confidence": "Уверенность: {confidence}",
+    "confidence\u0004Low": "низкая",
+    "confidence\u0004Medium": "средняя",
+    "confidence\u0004High": "высокая",
     "One of several signals the spam filter weighed":
       "Один из нескольких признаков, которые учёл спам-фильтр",
     Starred: "Отмеченные",

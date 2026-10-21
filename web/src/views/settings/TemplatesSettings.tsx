@@ -41,13 +41,9 @@ export function TemplatesSettings() {
               {translate("Subject: {subject}", { subject: t.subject })}
             </div>
           )}
-          {recipientCount(t) > 0 && (
+          {templateAdds(t) && (
             <div className="hint truncate">
-              {translate("Adds: {recipients}", {
-                recipients: formatAddressList(
-                  uniqueAddresses([...(t.to ?? []), ...(t.cc ?? []), ...(t.bcc ?? [])]),
-                ),
-              })}
+              {translate("Adds: {recipients}", { recipients: templateAdds(t)! })}
             </div>
           )}
           <div className="hint truncate">{htmlToText(t.html).slice(0, 140)}</div>
@@ -173,8 +169,15 @@ export function TemplatesSettings() {
   );
 }
 
-function recipientCount(t: Template): number {
-  return (t.to?.length ?? 0) + (t.cc?.length ?? 0) + (t.bcc?.length ?? 0);
+/**
+ * Who a template adds, as one line: the people insertion would put on the
+ * message, each once, or nothing where it would add nobody.
+ */
+function templateAdds(t: Template): string | null {
+  const list = formatAddressList(
+    uniqueAddresses([...(t.to ?? []), ...(t.cc ?? []), ...(t.bcc ?? [])]),
+  );
+  return list || null;
 }
 
 /**

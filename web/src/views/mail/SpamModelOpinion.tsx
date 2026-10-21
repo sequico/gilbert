@@ -1,6 +1,28 @@
 import type { Email } from "@/jmap/types";
-import { t as translate } from "@/lib/i18n";
+import { t as translate, tc } from "@/lib/i18n";
 import { spamModelOpinion } from "@/lib/spamScore";
+
+/**
+ * The confidence, in the reader's language.
+ *
+ * The three words are Stalwart's own (LOW/MEDIUM/HIGH). They are keyed with a
+ * "confidence" context because the same English words label a priority, and an
+ * adjective agrees with the noun it belongs to: "confidenza alta" is not the
+ * "High" of a message's priority. A literal per word, so the catalogue check
+ * can see the three keys are looked up.
+ */
+function confidenceWord(word: string): string {
+  switch (word) {
+    case "Low":
+      return tc("confidence", "Low");
+    case "Medium":
+      return tc("confidence", "Medium");
+    case "High":
+      return tc("confidence", "High");
+    default:
+      return word;
+  }
+}
 
 /**
  * What the spam filter's own model said, as a row of the message details.
@@ -26,9 +48,7 @@ export function SpamModelOpinionRow({ email }: { email: Email }) {
               <span className="hint">
                 {" — "}
                 {translate("{confidence} confidence", {
-                  // The word is Stalwart's own (LOW/MEDIUM/HIGH), read as a
-                  // category's label and translated like one.
-                  confidence: translate(opinion.confidence),
+                  confidence: confidenceWord(opinion.confidence),
                 })}
               </span>
             )}

@@ -1402,6 +1402,9 @@ export const catalog: Catalog = {
     "Spam filter": "迷惑メールフィルター",
     "Spam filter's model": "迷惑メールフィルターのモデル",
     "{confidence} confidence": "信頼度: {confidence}",
+    "confidence\u0004Low": "低",
+    "confidence\u0004Medium": "中",
+    "confidence\u0004High": "高",
     "One of several signals the spam filter weighed":
       "迷惑メールフィルターが判断した複数の材料のひとつです",
     Starred: "スター付き",

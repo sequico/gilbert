@@ -42,6 +42,11 @@ beforeEach(() => {
         organizations: { o: { name: "Globex Industries" } },
       } as Partial<ContactCard>),
       c4: card("c4", "Ann Taylor", "ataylor@example.org"),
+      c5: card("c5", "Freight", "", {
+        kind: "group",
+        members: { u1: true },
+        nicknames: { n: { name: "Logistics Crew" } },
+      } as Partial<ContactCard>),
     },
   });
 });
@@ -80,5 +85,10 @@ describe("recipient suggestions", () => {
   it("still ranks a match at the start above a word inside the name", async () => {
     // "jo" starts Jones's surname word; it starts no other card's name or address.
     expect(await emails("jo")).toEqual(["rj@corp.test"]);
+  });
+
+  it("offers a group by its nickname as well as its name", async () => {
+    const names = (await useContacts.getState().suggest("logistics")).map((s) => s.name);
+    expect(names).toEqual(["Freight"]);
   });
 });
