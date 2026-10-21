@@ -129,9 +129,13 @@ describe("All contacts, and the group a card came from", () => {
     await arrange({ accountId: null, bookId: "all" });
     await render();
     expect(names()).toEqual(["Ada Person", "Freight team"]);
-    // One badge, on the group's row, and the reader's own row carries none.
-    expect(badges()).toEqual(["freight@example.org"]);
-    expect(rows()[1]!.querySelector(".c-group")).not.toBeNull();
+    // One badge, on the group's row, and the reader's own row carries none. It
+    // names the group by its local part: the domain is the same for every card
+    // in the list, and the full address is the badge's own tooltip.
+    expect(badges()).toEqual(["freight@"]);
+    expect(rows()[1]!.querySelector(".c-group")?.getAttribute("title")).toContain(
+      "freight@example.org",
+    );
     expect(rows()[0]!.querySelector(".c-group")).toBeNull();
   });
 

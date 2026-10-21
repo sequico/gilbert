@@ -826,8 +826,6 @@ export const catalog: Catalog = {
     "Choose a date": "日付を選択",
     "Choose a date and time": "日時を選択",
     "Pick date and time…": "日時を選択…",
-    "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)":
-      "メールを検索  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
     "Settings → Filters & rules": "設定 → フィルターとルール",
     "Open the Mail view to see all shortcuts.":
       "すべてのショートカットはメール画面で確認できます。",

@@ -287,36 +287,55 @@ export const saveFile = defineTool({
     const held = await unusedVisibleName(ctx, accountId, folder, name);
     const source = from
       ? await fileBlob(ctx, accountId, from)
-      : await attachmentBlob(ctx, accountId, message ?? "", attachment ?? "");
-    const id = await writeBlobIntoVisibleFolder(
-      ctx,
-      accountId,
-      folder,
-      held,
-      source.blobId,
-      source.type,
-    );
+      : await attachmentBytes(ctx, accountId, message ?? "", attachment ?? "");
+    const id =
+      source.kind === "blob"
+        ? await writeBlobIntoVisibleFolder(
+            ctx,
+            accountId,
+            folder,
+            held,
+            source.blobId,
+            source.type,
+          )
+        : await writeBytesIntoVisibleFolder(
+            ctx,
+            accountId,
+            folder,
+            held,
+            source.bytes,
+            source.type,
+          );
     return {
       path: folder ? `${folder}/${held}` : held,
       from: source.from,
       type: source.type,
-      bytes: source.bytes,
+      bytes: source.kind === "blob" ? source.bytes : source.bytes.byteLength,
       id,
     };
   },
 });
+
+/**
+ * What a save copies: a node of Files, which can be re-pointed at the blob it
+ * already names, or an attachment, which has to be read and written again.
+ */
+type SaveSource =
+  | { kind: "blob"; blobId: string; type: string; bytes: number | null; from: string }
+  | { kind: "bytes"; bytes: Uint8Array; type: string; from: string };
 
 /** The blob of a document already in Files, and what it is. */
 async function fileBlob(
   ctx: Ctx,
   accountId: string,
   path: string,
-): Promise<{ blobId: string; type: string; bytes: number | null; from: string }> {
+): Promise<Extract<SaveSource, { kind: "blob" }>> {
   const held = await findVisibleFile(ctx, accountId, path);
   if (!held) throw notFound(`document "${path}" in this account's Files`);
   const blobId = typeof held.file.blobId === "string" ? held.file.blobId : "";
   if (!blobId) throw new ToolError("bad_arguments", `"${path}" holds no file.`, 422);
   return {
+    kind: "blob",
     blobId,
     type: contentType(held.file),
     bytes: typeof held.file.size === "number" ? held.file.size : null,
@@ -324,13 +343,25 @@ async function fileBlob(
   };
 }
 
-/** The blob of one attachment of a message, found the way mail.readAttachment finds it. */
-async function attachmentBlob(
+/**
+ * The bytes of one attachment of a message, found the way mail.readAttachment
+ * finds it and read rather than named.
+ *
+ * A FileNode holds a whole blob, and Stalwart answers an attachment's `blobId`
+ * as a **section** of the message's own blob: the offset range and transfer
+ * encoding of the part (`BlobId::new_section`, `crates/email/src/message/body.rs`,
+ * v0.16.23). `FileNode/set` keeps only the blob's hash and its whole length
+ * (`crates/jmap/src/file/set.rs`), so a node pointed at an attachment's id
+ * serves the entire raw message — headers, base64 and all — and a reader finds a
+ * file nothing can open. The section id downloads the part decoded, so the save
+ * is a copy of these bytes into a blob of its own.
+ */
+async function attachmentBytes(
   ctx: Ctx,
   accountId: string,
   id: string,
   name: string,
-): Promise<{ blobId: string; type: string; bytes: number | null; from: string }> {
+): Promise<Extract<SaveSource, { kind: "bytes" }>> {
   const answer = await clientOf(ctx).call<{ list?: Array<{ attachments?: unknown }> }>(
     "Email/get",
     { accountId, ids: [id], properties: ["attachments"] },
@@ -350,13 +381,10 @@ async function attachmentBlob(
   const blobId = typeof one.blobId === "string" ? one.blobId : "";
   if (!blobId)
     throw new ToolError("bad_arguments", `The attachment "${name}" has no file.`, 422);
-  return {
-    blobId,
-    type:
-      typeof one.type === "string" && one.type ? one.type : "application/octet-stream",
-    bytes: typeof one.size === "number" ? one.size : null,
-    from: `${id}/${name}`,
-  };
+  const type =
+    typeof one.type === "string" && one.type ? one.type : "application/octet-stream";
+  const bytes = await clientOf(ctx).downloadBlob(accountId, blobId, name, type);
+  return { kind: "bytes", bytes, type, from: `${id}/${name}` };
 }
 
 /** The type a FileNode says it is, or what an untyped node is read as. */

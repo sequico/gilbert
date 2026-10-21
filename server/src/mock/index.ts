@@ -391,6 +391,38 @@ function putBlob(accountId: string, data: Buffer | string, type: string): string
 const blobOf = (accountId: unknown, blobId: unknown) =>
   blobs.get(blobKey(String(accountId), String(blobId)));
 
+/**
+ * A part of another blob, answered the way Stalwart answers an attachment.
+ *
+ * An attachment's `blobId` is a **section** of the message's own blob — an
+ * offset range plus the transfer encoding of the part (`BlobId::new_section`,
+ * `crates/email/src/message/body.rs`, v0.16.23) — and downloading it serves the
+ * part decoded. This server holds no encoded raw message to cut a range out of,
+ * so a section is the parent's id with `~<n>` beside it and the decoded bytes
+ * stand beside it in the store. What it reproduces is the pair of answers the
+ * code depends on: a section downloads as the part, and `FileNode/set` keeps
+ * only the whole blob (see `wholeBlobId`), so a node pointed at a part serves
+ * the entire message. `server/src/mock/attachment-section-blob.test.ts` pins
+ * both.
+ */
+let sections = 1;
+function putSection(
+  accountId: string,
+  parentId: string,
+  data: Buffer | string,
+  type: string,
+): string {
+  const id = `${parentId}~${sections++}`;
+  blobs.set(blobKey(accountId, id), {
+    type,
+    data: Buffer.isBuffer(data) ? data : Buffer.from(data),
+  });
+  return id;
+}
+
+/** The blob an id names: a section id keeps only the blob it is a part of. */
+const wholeBlobId = (id: string) => id.split("~")[0] ?? id;
+
 const people = [
   ["Ada Lovelace", "ada@example.org"],
   ["Grace Hopper", "grace@example.org"],
@@ -651,11 +683,17 @@ function addEmail(o: {
   const textBlob = putBlob(account, text, "text/plain");
   const shown = o.styled ? STYLED_MARKETING_HTML : html;
   const htmlBlob = putBlob(account, shown, "text/html");
+  /* The message's own blob, made first: every part of it is a section of this. */
+  const rawBlob = putBlob(
+    account,
+    `From: ${o.from[0]} <${o.from[1]}>\r\nTo: ${USER}\r\nSubject: ${o.subject}\r\nDate: ${received}\r\nMessage-ID: <${id}@mock>\r\n\r\n${text}`,
+    "message/rfc822",
+  );
   const attachments: Obj[] = [];
   if (o.attach) {
     attachments.push({
       partId: "3",
-      blobId: putBlob(account, "%PDF-1.4 mock", "application/pdf"),
+      blobId: putSection(account, rawBlob, "%PDF-1.4 mock", "application/pdf"),
       size: 48213,
       name: "contract-v3.pdf",
       type: "application/pdf",
@@ -665,8 +703,9 @@ function addEmail(o: {
     });
     attachments.push({
       partId: "4",
-      blobId: putBlob(
+      blobId: putSection(
         account,
+        rawBlob,
         Buffer.from(
           "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
           "base64",
@@ -685,7 +724,7 @@ function addEmail(o: {
     const dat = winmailDat();
     attachments.push({
       partId: "6",
-      blobId: putBlob(account, dat, "application/ms-tnef"),
+      blobId: putSection(account, rawBlob, dat, "application/ms-tnef"),
       size: dat.length,
       name: "winmail.dat",
       type: "application/ms-tnef",
@@ -697,8 +736,9 @@ function addEmail(o: {
   if (o.html)
     attachments.push({
       partId: "5",
-      blobId: putBlob(
+      blobId: putSection(
         account,
+        rawBlob,
         Buffer.from(
           "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
           "base64",
@@ -714,11 +754,7 @@ function addEmail(o: {
     });
   const e: Obj = {
     id,
-    blobId: putBlob(
-      account,
-      `From: ${o.from[0]} <${o.from[1]}>\r\nTo: ${USER}\r\nSubject: ${o.subject}\r\nDate: ${received}\r\nMessage-ID: <${id}@mock>\r\n\r\n${text}`,
-      "message/rfc822",
-    ),
+    blobId: rawBlob,
     threadId: o.threadId ?? `t${id}`,
     mailboxIds: { [o.mailbox]: true },
     keywords: {
@@ -3441,6 +3477,22 @@ const handlers: Record<string, Handler> = {
           `Subject: ${o.subject}\r\n\r\n${bv.text?.value ?? ""}`,
           "message/rfc822",
         );
+        /* Every attachment becomes a part of the message's own blob, the way a
+           real server stores one: what was uploaded is the part, and the id the
+           message answers with is the section (see `putSection`). */
+        o.attachments = (o.attachments as Obj[]).map((p) => {
+          const part = blobOf(accountOf(a), p.blobId as string);
+          return {
+            ...p,
+            blobId: putSection(
+              accountOf(a),
+              o.blobId as string,
+              part?.data ?? Buffer.alloc(0),
+              String(p.type ?? "application/octet-stream"),
+            ),
+            size: part?.data.length ?? p.size,
+          };
+        });
       },
       "Email",
     )(a);
@@ -4813,6 +4865,20 @@ const handlers: Record<string, Handler> = {
           blobId: o.blobId ?? null,
           ...o,
         });
+        /*
+         * A FileNode holds a **whole** blob. An attachment's id is a section of
+         * the message's own blob, and a real server keeps only the blob's hash
+         * and its whole length (`crates/jmap/src/file/set.rs`, v0.16.23), so a
+         * node pointed at a part serves the entire raw message. Reproduced here
+         * because the agent's `files.save` reads a part and writes the bytes
+         * instead, and a mock that kept the section would let a re-pointing
+         * save look correct here and produce an unopenable file on a real
+         * server (`attachment-section-blob.test.ts`).
+         */
+        if (typeof o.blobId === "string") {
+          o.blobId = wholeBlobId(o.blobId);
+          o.size = blobOf(accountOf(a), o.blobId)?.data.length ?? 0;
+        }
         // Without nodeType, a node is a directory precisely when it carries no
         // file properties. Keep it internally so query and get stay consistent.
         if (!o.nodeType)
@@ -4916,6 +4982,7 @@ const handlers: Record<string, Handler> = {
        */
       (o, patch) => {
         refuseSiblingClash({ ...o, ...patch });
+        if (typeof patch.blobId === "string") patch.blobId = wholeBlobId(patch.blobId);
         o.modified = new Date(now()).toISOString();
       },
     )(a);

@@ -172,6 +172,20 @@ export function groupMailboxAccounts(
 }
 
 /**
+ * A group's name inside a control: the local part and its "@".
+ *
+ * Every group in an installation shares one domain, so the domain is the part
+ * that carries no information and the part that does not fit — a picker button
+ * reading `freight@` names the group, and the full address stays in the
+ * `title` beside it. The mail tree is the exception and keeps the whole
+ * address: that is where the reader is, and where the account is the subject.
+ */
+export function shortAccountName(name: string): string {
+  const at = name.lastIndexOf("@");
+  return at > 0 ? name.slice(0, at + 1) : name;
+}
+
+/**
  * Every account a full catch-up has to reach: the one on screen plus every
  * mailbox the session holds, the reader's own and each group's.
  *

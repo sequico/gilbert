@@ -1337,8 +1337,6 @@ export const catalog: Catalog = {
     "Search contacts to add…": "Eklemek için kişileri ara…",
     "Search in this chat": "Bu sohbette ara",
     "Search mail": "Postalarda ara",
-    "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)":
-      "Posta ara  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
     "Search messages": "İletilerde ara",
     "Search names and addresses": "Adları ve adresleri ara",
     "Search or create label": "Etiket ara veya oluştur",

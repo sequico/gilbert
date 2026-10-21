@@ -148,7 +148,7 @@ export function AdminInstallation() {
           })}
         </div>
       )}
-      <p className="hint">
+      <p className="warn-box">
         {tNode(
           "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.",
           { field: <code>secret</code> },

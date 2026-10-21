@@ -1348,11 +1348,16 @@ export async function writeBytesIntoVisibleFolder(
  * Put a blob the account already holds into a folder of its **visible** Files.
  *
  * A copy, not a download and an upload: the bytes are already the account's —
- * an attachment of a message, a document in Files — and a FileNode can name the
- * blob it was given. One round trip and no size ceiling, which is what makes a
- * large scan as cheap to save as a note. The caller picks a free name (see
- * `unusedVisibleName`): this writer replaces what is at `name`, as every writer
- * of a named node does.
+ * a document in Files, whose node names the whole blob it holds — and a
+ * FileNode can name the blob it was given. One round trip and no size ceiling,
+ * which is what makes a large scan as cheap to save as a note. The caller picks
+ * a free name (see `unusedVisibleName`): this writer replaces what is at `name`,
+ * as every writer of a named node does.
+ *
+ * An attachment of a message does **not** come through here. Its blob id is a
+ * section of the message's own blob, and the server writes a FileNode with the
+ * blob and no section, so the node would serve the whole raw message; the
+ * attachment's bytes are read and written again instead.
  */
 export async function writeBlobIntoVisibleFolder(
   ctx: Ctx,

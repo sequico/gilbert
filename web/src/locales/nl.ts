@@ -905,8 +905,6 @@ export const catalog: Catalog = {
     "Drop here for the top level": "Hier neerzetten voor het hoogste niveau",
 
     // ── Longer prose ───────────────────────────────────────────────────
-    "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)":
-      "In e-mail zoeken  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
     "Settings → Filters & rules": "Instellingen → Filters en regels",
     "Open the Mail view to see all shortcuts.":
       "Open de E-mailweergave om alle sneltoetsen te zien.",

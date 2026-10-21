@@ -811,8 +811,6 @@ export const catalog: Catalog = {
     "Choose a date": "选择日期",
     "Choose a date and time": "选择日期和时间",
     "Pick date and time…": "选择日期和时间…",
-    "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)":
-      "搜索邮件  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
     "Settings → Filters & rules": "设置 → 过滤器与规则",
     "Open the Mail view to see all shortcuts.": "打开邮件视图以查看全部快捷键。",
     "Gmail-style shortcuts are always on. Press {key} anywhere to see this list.":

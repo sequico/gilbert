@@ -1693,10 +1693,11 @@ test("an attachment of a message is read inside, by the same reader as a documen
 test("the agent saves a file into Files, from an attachment or from a document", async () => {
   /*
    * The bytes, not a transcription: a document the agent was only able to read
-   * used to be a document it could not keep — a PDF's text is not the PDF. The
-   * save names the source's blob, so the file lands as it arrived, and a name
-   * already taken gets a numbered one beside it rather than replacing what a
-   * person filed.
+   * used to be a document it could not keep — a PDF's text is not the PDF. An
+   * attachment is read and written again, because a FileNode holds a whole blob
+   * while an attachment's id is only a part of the message's: naming that id
+   * left a file of raw message nothing could open. A name already taken gets a
+   * numbered one beside it rather than replacing what a person filed.
    */
   const text = "The booking is BK-42, sealed on the second door.";
   const type = "text/plain";

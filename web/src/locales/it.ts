@@ -1447,9 +1447,6 @@ export const catalog: Catalog = {
 
     // ── Longer prose ───────────────────────────────────────────────────
 
-    "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)":
-      "Cerca nella posta  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
-
     "Settings → Filters & rules": "Impostazioni → Filtri e regole",
 
     "Open the Mail view to see all shortcuts.":

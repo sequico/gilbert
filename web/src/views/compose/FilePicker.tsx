@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { FileNode } from "@/jmap/types";
 import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
+import { shortAccountName } from "@/lib/mailAccounts";
 import type { AttachableFile } from "@/store/compose";
 import { useFiles } from "@/store/files";
 import { Dialog } from "@/ui/dialog";
@@ -111,9 +112,10 @@ export function FilePicker({
             <button
               key={a.id}
               className={`btn btn-sm ${files.accountId === a.id ? "btn-primary" : ""}`}
+              title={a.name}
               onClick={() => openAccount(a.id)}
             >
-              <Users size={14} /> {a.name}
+              <Users size={14} /> {shortAccountName(a.name)}
             </button>
           ))}
         </div>

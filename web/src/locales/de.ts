@@ -850,8 +850,6 @@ export const catalog: Catalog = {
     "Choose a date": "Datum wählen",
     "Choose a date and time": "Datum und Uhrzeit wählen",
     "Pick date and time…": "Datum und Uhrzeit wählen…",
-    "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)":
-      "E-Mail durchsuchen  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
     "Settings → Filters & rules": "Einstellungen → Filter & Regeln",
     "Open the Mail view to see all shortcuts.":
       "Öffnen Sie die E-Mail-Ansicht, um alle Tastenkürzel zu sehen.",

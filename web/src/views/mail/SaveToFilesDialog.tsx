@@ -8,7 +8,7 @@ import { directoryCreate } from "@/lib/filenode";
 import { sortFiles } from "@/lib/fileSort";
 import { plural, t as translate } from "@/lib/i18n";
 import { DEFAULT_FILES_SORT } from "@/lib/lastPlace";
-import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { groupMailboxAccounts, shortAccountName } from "@/lib/mailAccounts";
 import { readChildren, useFiles, withoutAppFolder } from "@/store/files";
 import { useMail } from "@/store/mail";
 import { Dialog, promptDialog } from "@/ui/dialog";
@@ -55,14 +55,15 @@ export function SaveToFilesDialog({
   const [busy, setBusy] = useState(false);
 
   /* The reader's own files first, then the groups they are a member of. */
-  const places: Array<{ accountId: Id; name: string; group: boolean }> = [
+  const places: Array<{ accountId: Id; name: string; group: boolean; full?: string }> = [
     ...(ownAccountId
       ? [{ accountId: ownAccountId, name: translate("My files"), group: false }]
       : []),
     ...groupMailboxAccounts(mailAccounts).map((a) => ({
       accountId: a.accountId,
-      name: a.name,
+      name: shortAccountName(a.name),
       group: true,
+      full: a.name,
     })),
   ];
   const chosen = places.find((p) => p.accountId === destination) ?? null;
@@ -259,6 +260,7 @@ export function SaveToFilesDialog({
             <button
               key={p.accountId}
               className={`btn btn-sm ${destination === p.accountId ? "btn-primary" : ""}`}
+              title={p.full}
               disabled={busy}
               onClick={() => choose(p.accountId)}
             >

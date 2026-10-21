@@ -904,8 +904,6 @@ export const catalog: Catalog = {
     "Drop here for the top level": "Перетягніть сюди, щоб винести на верхній рівень",
 
     // ── Longer prose ───────────────────────────────────────────────────
-    "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)":
-      "Пошук поштою  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
     "Settings → Filters & rules": "Налаштування → Фільтри та правила",
     "Open the Mail view to see all shortcuts.":
       "Відкрийте розділ «Пошта», щоб побачити всі сполучення клавіш.",

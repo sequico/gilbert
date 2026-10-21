@@ -941,7 +941,10 @@ export function ContactsView({ id }: { id?: string }) {
                             group: groupName,
                           })}
                         >
-                          {groupName}
+                          {/* The local part is what tells one group from another
+                              in a 300px list; the domain is the same for every
+                              card and the full address is in the tooltip. */}
+                          {`${groupName.split("@")[0]}@`}
                         </span>
                       )}
                     </div>

@@ -80,9 +80,7 @@ export function SearchBar() {
         <input
           ref={inputRef}
           type="search"
-          placeholder={t(
-            "Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)",
-          )}
+          placeholder={t("Search mail")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           aria-label={t("Search mail")}
