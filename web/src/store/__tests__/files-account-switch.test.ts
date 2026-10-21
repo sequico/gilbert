@@ -26,6 +26,7 @@ describe("what a switch to another account keeps", () => {
       dirIds: [],
       treeLoaded: false,
       draggingIds: [],
+      folderCounts: {},
       error: null,
     });
   });
@@ -54,6 +55,7 @@ describe("what a switch to another account keeps", () => {
       "dirIds",
       "draggingIds",
       "error",
+      "folderCounts",
       "nodes",
       "treeLoaded",
     ]);

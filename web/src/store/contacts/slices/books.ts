@@ -261,7 +261,12 @@ export function booksSlice(
             { accountId: self, ids: [remembered] },
           );
           if (epoch !== sessionEpoch || get().accountId !== self) return { written: 0 };
-          if (answered.list.length) bookId = remembered;
+          /*
+           * The answer must carry **this** id. A non-empty list is not the same
+           * thing: a server that answers a subset, or a different book, would
+           * otherwise leave the write pointed at an id it did not return.
+           */
+          if (answered.list.some((book) => book.id === remembered)) bookId = remembered;
           else update({ collectedBookId: null });
         }
         if (!bookId) {

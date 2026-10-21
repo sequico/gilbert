@@ -76,7 +76,11 @@ describe("recipient suggestions", () => {
   });
 
   it("puts someone written to lately ahead of an equal match", async () => {
-    expect(await emails("ann")).toEqual(["ann@example.org", "ataylor@example.org"]);
+    expect(await emails("ann")).toEqual([
+      "ann@example.org",
+      "ataylor@example.org",
+      "am@dupont.test",
+    ]);
     useContacts.setState({
       recent: [{ name: "Ann Taylor", email: "ataylor@example.org" }],
     });
