@@ -24,6 +24,8 @@
  *   a refused call leaves its siblings' steps beside it, the ready calls run at
  *   once, and a wait is honoured after them;
  * - a wave asks the server for at most four calls at once;
+ * - a refused answer or a refused call spends a step, so the budget is what
+ *   stops a run — never a counter the record cannot show;
  * - a run says how it ended in the conversation, and a question or a stop does
  *   not repeat itself as a notice;
  * - a step that waits on an earlier one runs the branch that step's outcome
@@ -2205,11 +2207,13 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
   assert.equal(run.ended?.why, "the plan was refused, so nothing was done");
 });
 
-test("two answers refused in a row end the run instead of paying for a third", async () => {
+test("a malformed answer costs a step and is asked again, not the run", async () => {
   /*
-   * A model stuck on one malformed answer repeats it: every repeat is a model
-   * call on the run's budget and moves nothing. Two refusals in a row end the
-   * run, and the record says why (ADR 0030, the budget's own ending).
+   * A model stuck on one malformed answer repeats it, and every repeat is a
+   * model call and a step that ended refused — so the run stops on the budget it
+   * declares, not on a counter invisible in the record. A live run died after
+   * three all-refused rounds with its budget untouched; the person heard nothing,
+   * which is the ending this replaced.
    */
   const id = "intake-stuck-model";
   await putRule(id);
@@ -2228,16 +2232,65 @@ test("two answers refused in a row end the run instead of paying for a third", a
   };
   answerWith(stuck);
   answerWith(stuck);
-  await deliver("a change the model cannot answer");
+  answerWith({ done: "the model recovered and finished" });
+  await deliver("a change the model fumbles twice");
   await agent.pass();
 
   const run = await runOf(id);
-  assert.equal(run.state, "out-of-budget", "the run stops rather than looping");
-  assert.match(run.ended?.why ?? "", /refused twice in a row/);
+  assert.equal(run.state, "done", "two refusals are not an ending");
   assert.equal(
     run.plan.filter((step) => step.state === "failed").length,
     2,
-    "both refusals are on the record, and there is no third",
+    "both refusals are on the record",
+  );
+  assert.equal(run.spent.steps, 2, "and each one spent a step of the budget");
+  assert.equal(run.ended?.why, "the model recovered and finished");
+});
+
+test("a call the account refuses spends a step of the run's budget", async () => {
+  /*
+   * A reading tool declares no step, so a model that keeps proposing a call the
+   * account refuses could grow the plan with its budget untouched — the live run
+   * that appended 74 steps to a twenty-step ceiling. An attempt that ended
+   * refused spends a step, so the ceiling is what stops it.
+   */
+  const id = "intake-refused-steps";
+  await putRule(id);
+  const broken = defineTool<{ n: number }>({
+    name: "probe.broken",
+    description: "A reading tool the account refuses every time.",
+    authority: "reversible",
+    writes: false,
+    spend: { steps: 0 },
+    keys: ["n"],
+    parse: (raw: unknown) => raw as { n: number },
+    run: async () => {
+      throw new Error("the account refused it");
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, broken] });
+  await agent.start();
+
+  let round = 0;
+  onCall = (system) => {
+    if (isDecision(system)) return { rules: [id], facts: {} };
+    round += 1;
+    return { calls: [{ name: "probe.broken", arguments: { n: round } }] };
+  };
+  await deliver("a change whose calls are refused");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(run.state, "out-of-budget", "the ceiling ends it, not a counter");
+  assert.equal(
+    run.spent.steps,
+    RUN_STEPS_MAX,
+    "every refused attempt spent a step of the budget",
+  );
+  assert.match(run.ended?.why ?? "", new RegExp(`${RUN_STEPS_MAX} steps`));
+  assert.ok(
+    run.plan.every((step) => step.state === "failed"),
+    "and every attempt is on the record as a refusal",
   );
 });
 

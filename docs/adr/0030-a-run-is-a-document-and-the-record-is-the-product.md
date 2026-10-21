@@ -92,7 +92,12 @@ agent's durable state.
   dies is not an incident.
 - **A run ends in one of four ways** — the work is done, it is blocked on a
   person, its budget (ADR 0027) is spent, or a member of the group stopped it —
-  and its ending is written down, so a run that stops says why. The one that ends
+  and its ending is written down, so a run that stops says why. **The budget is
+  the only ceiling a refusal reaches**: an answer the parser cannot read, an
+  answer asking for more steps than the run has left, and a call the account
+  refuses are each a step that ended, and each spends a step — a model that
+  repeats a refused call stops on the twenty steps the run declares, not on a
+  counter of refusals the record cannot show. The one that ends
   blocked on a person keeps the question it left, and the sentence it asked it
   in, so the answer that comes back can be recognised as addressed to it. The
   one a person stopped is `cancelled` with the words it was stopped with, and the

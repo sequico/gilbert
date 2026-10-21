@@ -152,7 +152,9 @@ evidence behind its claims, and the budget it has spent — the shape, its parse
 and its transitions are `server/src/shared/run.ts`, and where a run lives is
 `server/src/agent/runs.ts` (ADR 0030). **A run is capped** at 20 steps, 40 model
 calls and five minutes of work, so a model that is stuck ends at a record rather
-than looping on the account. **An ending is said, not only recorded**: a run that
+than looping on the account; a refused answer or a call the account refuses is a
+step that ended, and it spends a step, so the cap is what stops a run that keeps
+failing. **An ending is said, not only recorded**: a run that
 could not finish says so in the group's own conversation with the sentence its
 ending carries, a run that finished says so when a person woke it there, and a
 question or a stop (already words between the two) does not repeat itself —
@@ -348,8 +350,8 @@ only when that step ends the way it needs, and a step no branch reaches is left
 unrun with the record naming which step and which outcome left it — the model
 writes the order and the conditions from the group's knowledge, its checklists and
 its workorders, and the loop invents none. A model that chooses the same plan twice is a stall the record shows
-rather than an endless turn, and an answer refused twice in a row — or a round whose every step was refused —
-ends the run at once, so a model stuck on one malformed answer does not spend the budget repeating it. The server starts the loop with itself
+rather than an endless turn; an answer refused twice, or a round whose every step was refused,
+is a step that ended and spends a step, so a model stuck on one malformed answer stops on the run's declared ceiling — never on a counter the record cannot show. The server starts the loop with itself
 (`server/src/agent/supervisor.ts`) and asks it for a pass on a pushed change,
 with ten seconds as the floor without a working stream and thirty with one, and
 the accounts each pass works — the Master's

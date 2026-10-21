@@ -1171,12 +1171,14 @@ export class AgentLoop {
     );
     let previous: string | null = null;
     /*
-     * An answer refused for its shape, or a round whose every step was refused,
-     * is the model repeating itself rather than working: two malformed answers
-     * in a row, or three all-refused rounds, end the run instead of paying for
-     * the same refusal again. A successful step clears the count.
+     * A refusal is not an ending: an answer the parser cannot read, an answer
+     * that asks for more steps than the run has left, and a call the account
+     * refuses are each a step that ended, and each spends a step of the budget
+     * (`loop.ts`'s wave below). The run therefore stops on the budget it
+     * declares — twenty steps, forty calls, five minutes — and not on a counter
+     * nobody reading the record can see: a live run died after three all-refused
+     * rounds with its budget untouched, which is the ending this replaces.
      */
-    let refused = 0;
     for (;;) {
       const over = overBudget(current);
       if (over) {
@@ -1252,19 +1254,6 @@ export class AgentLoop {
           false,
         );
         current = spendRun(current, { ms: Date.now() - startedMs });
-        refused += 1;
-        if (refused >= 2) {
-          return await this.endRun(
-            accountId,
-            current,
-            "out-of-budget",
-            {
-              at: new Date().toISOString(),
-              why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
-            },
-            token,
-          );
-        }
         const written = await this.store(accountId, current, token);
         if (!written) return null;
         token = written;
@@ -1304,19 +1293,6 @@ export class AgentLoop {
           `refused: it asked for ${asked} steps with ${room} left in the run's budget`,
           false,
         );
-        refused += 1;
-        if (refused >= 2) {
-          return await this.endRun(
-            accountId,
-            current,
-            "out-of-budget",
-            {
-              at: new Date().toISOString(),
-              why: "the model asked for more steps than the run had left, twice, so the work did not finish.",
-            },
-            token,
-          );
-        }
         const kept = await this.store(accountId, current, token);
         if (!kept) return null;
         token = kept;
@@ -1428,6 +1404,13 @@ export class AgentLoop {
                   ? (held.outcome ?? "")
                   : "an earlier attempt ended without its outcome, so it was not made again: it may have happened.",
             });
+            /*
+             * A repeat the loop refuses to make is still a step that ended, and
+             * it spends a step: a model that keeps proposing the same listings
+             * stops on the budget with a sentence, instead of growing the plan
+             * forever and dying on a counter.
+             */
+            if (held?.state !== "done") current = spendRun(current, { steps: 1 });
             continue;
           }
           wave.push({ at, call });
@@ -1470,11 +1453,9 @@ export class AgentLoop {
           }
         });
         const elapsedMs = Date.now() - ranMs;
-        let worked = false;
         for (const [which, { at, call }] of wave.entries()) {
           const result = settled[which];
           if (result?.status === "fulfilled") {
-            worked = true;
             current = recordStep(current, at, {
               state: "done",
               outcome: boundedText(result.value),
@@ -1484,26 +1465,22 @@ export class AgentLoop {
             const tool = this.catalogue.find((one) => one.name === call.name);
             current = spendRun(current, { ...(tool?.spend ?? {}) });
             wait = waitOf(result.value) ?? wait;
-          } else
+          } else {
             current = recordStep(current, at, {
               state: "failed",
               outcome: `refused: ${errorMessage(result?.reason)}`,
             });
+            /*
+             * An attempt that ended refused spends a step whatever its tool
+             * declares: a reading tool spends nothing, and a model that keeps
+             * proposing a refused call would otherwise grow a plan of failures
+             * with its budget untouched — the live run that appended 74 steps and
+             * died of a counter instead of its ceiling.
+             */
+            current = spendRun(current, { steps: 1 });
+          }
         }
         current = spendRun(current, { ms: elapsedMs });
-        refused = worked ? 0 : refused + 1;
-        if (refused >= 3) {
-          return await this.endRun(
-            accountId,
-            current,
-            "out-of-budget",
-            {
-              at: new Date().toISOString(),
-              why: "the last rounds were refused in full, so the work did not finish.",
-            },
-            token,
-          );
-        }
       }
 
       /*
@@ -1828,10 +1805,13 @@ export class AgentLoop {
   /** Append a step and record how it ended, in one place for every step. */
   private withStep(run: RunDoc, what: string, outcome: string, done: boolean): RunDoc {
     const grown = appendStep(run, what);
-    return recordStep(grown, grown.plan.length - 1, {
+    const ended = recordStep(grown, grown.plan.length - 1, {
       state: done ? "done" : "failed",
       outcome,
     });
+    // A step that ended refused spends a step: the budget is the ceiling a run
+    // stops on, and an answer the loop could not use is one of its steps.
+    return done ? ended : spendRun(ended, { steps: 1 });
   }
 
   /**
