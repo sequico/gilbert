@@ -1,8 +1,8 @@
+import type { EmailAddress } from "@/jmap/types";
 import { sameAddress, uniqueAddresses } from "@/lib/address";
 import { sanitizeEditorHtml } from "@/lib/html";
 import { fillPlaceholders, type PlaceholderContext } from "@/lib/templatePlaceholders";
 import { htmlToText } from "@/lib/text";
-import type { EmailAddress } from "@/jmap/types";
 import { useMail } from "../../mail";
 import { identityBcc, signatureBlock, stillTheIdentitys } from "../draft";
 import type { ComposeGet, ComposeSet, ComposeState, Draft } from "../types";

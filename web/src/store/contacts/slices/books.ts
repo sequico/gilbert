@@ -7,9 +7,9 @@ import type {
   Id,
   SetResponse,
 } from "@/jmap/types";
-import { refuseDirectoryWrite } from "@/lib/globalContactsAdmin";
 import { uniqueAddresses } from "@/lib/address";
 import { contactFromAddress } from "@/lib/contacts";
+import { refuseDirectoryWrite } from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { sharedKey } from "@/lib/sharedKey";

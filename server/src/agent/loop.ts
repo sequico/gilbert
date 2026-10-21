@@ -72,12 +72,12 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
-import { readChatMessage, readChatMessageAt, postChatMessage } from "../groupChat.js";
+import { postChatMessage, readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
-import { CAPABILITIES } from "../shared/capabilities.js";
 import { PASS_STATUS_FILE, type PassStatusDoc } from "../shared/agent.js";
+import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { mapLimit } from "../shared/concurrency.js";
 import { errorMessage } from "../shared/errors.js";

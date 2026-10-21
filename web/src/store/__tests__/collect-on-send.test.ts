@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
-import { useCompose } from "@/store/compose";
+import { UNDO_SEND_SECONDS, useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
@@ -20,7 +20,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
   useSettings.setState({
-    settings: { ...DEFAULT_SETTINGS, undoSendSeconds: 0 },
+    settings: { ...DEFAULT_SETTINGS },
   });
   useMail.setState({
     accountId: "a1",
@@ -74,7 +74,7 @@ async function send(): Promise<void> {
     text: "Hi",
   });
   void useCompose.getState().send(key);
-  await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersByTimeAsync(UNDO_SEND_SECONDS * 1000);
   await settle();
 }
 

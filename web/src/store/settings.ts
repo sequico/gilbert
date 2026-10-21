@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
+import type { EmailAddress } from "@/jmap/types";
 import { readCssVar } from "@/lib/cssVars";
 import {
   type DateFormat,
@@ -28,7 +29,6 @@ import {
 import { pendingSettingsKeys, queueSettingsPush } from "@/lib/settingsSync";
 import { hasCachedJson, isDeviceTrusted, loadJson, saveJson } from "@/lib/storage";
 import type { SwipeAction } from "@/lib/swipe";
-import type { EmailAddress } from "@/jmap/types";
 import { useSession } from "@/store/session";
 
 /**
