@@ -69,12 +69,15 @@ export interface PassStatusDoc {
   /** What it could not cover, named (ADR 0030). */
   gaps: string[];
   /**
-   * The last run the loop ended, or absent when it has ended none since it
-   * started.
+   * The last run the loop ended, or absent when it has ended none since this
+   * process took the claim.
    *
    * Kept from pass to pass, unlike the counts beside it: a reader wants to know
    * what the agent's last act was without opening a group's list, and a quiet
    * pass that wiped it would leave the answer "nothing" where there was a run.
+   * The instant it ended is the run's own, in the listing — this says what, not
+   * when, so that a pass which skipped its own write cannot make a stale date
+   * read as a recent one.
    */
   lastEnded?: {
     id: string;

@@ -280,13 +280,21 @@ export interface RunSpent {
   cachedPromptTokens?: number;
 }
 
-/** How and why a run ended. */
 /** How a run ended: when, and why, in words (ADR 0030). */
 export interface RunEnd {
   /** The instant it ended, ISO 8601. */
   at: string;
   /** Why it ended, in words. */
   why: string;
+  /**
+   * Whether the ending has been said where a person reads it, when the ending
+   * owes words: absent when nothing is owed (a question it left, a stop a person
+   * took), `false` while the words are still to be said, `true` once they have
+   * left. The debt is on the record so that a pass which could not speak, or a
+   * process that stopped between writing and speaking, says it exactly once
+   * afterwards.
+   */
+  said?: boolean;
 }
 
 /**
@@ -573,7 +581,12 @@ function isSpent(x: unknown): x is RunSpent {
 }
 
 function isEnd(x: unknown): x is RunEnd {
-  return isRecord(x) && isInstant(x.at) && typeof x.why === "string";
+  return (
+    isRecord(x) &&
+    isInstant(x.at) &&
+    typeof x.why === "string" &&
+    (x.said === undefined || typeof x.said === "boolean")
+  );
 }
 
 /** Whether a value is one of the four endings. */

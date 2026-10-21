@@ -338,10 +338,31 @@ export class AgentLoop {
   private readonly savedCursor = new Map<string, string>();
   /** When the last pass's document was written, so a quiet one is not a write. */
   private statusAt = 0;
-  /** The last run this process ended, for the status document a person reads. */
+  /** The last run the loop ended, for the status document a person reads. */
   private lastEnded: PassStatusDoc["lastEnded"] | null = null;
-  /** Whether the previous process's last ending has been carried over, once. */
-  private lastEndedLoaded = false;
+
+  /**
+   * Take the last ending the document holds, when this process takes the claim.
+   *
+   * One read per claim: a deploy does not blank the line a reader came for, and a
+   * handover does not leave this process believing its own older ending is the
+   * newest. A document this build cannot read is no ending, and the next status
+   * write replaces it.
+   */
+  private async loadLastEnded(): Promise<void> {
+    this.lastEnded = null;
+    try {
+      const found = await readAppFileAt(
+        this.ctx,
+        filesAccountId(this.ctx),
+        PASS_STATUS_FILE,
+      );
+      const parsed = found ? (JSON.parse(found.text) as unknown) : null;
+      if (isPassStatusDoc(parsed) && parsed.lastEnded) this.lastEnded = parsed.lastEnded;
+    } catch {
+      this.lastEnded = null;
+    }
+  }
   /**
    * When each account's change cursor was last advanced, by either path.
    *
@@ -502,6 +523,14 @@ export class AgentLoop {
       this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     }
     summary.claimed = true;
+    /*
+     * What the last holder ended is news this one has not read, so it is taken
+     * from the document when the claim changes hands -- before this pass can end
+     * anything of its own -- and not once per process: a process that takes the
+     * claim back after a handover would otherwise write its own older ending over
+     * the newer one it replaced.
+     */
+    await this.loadLastEnded();
     /*
      * The pass is the unit the agent's listings are read for: a mailbox or a
      * folder level a person changed between two passes is seen by the next one,
@@ -691,6 +720,30 @@ export class AgentLoop {
             read ?? undefined,
           );
           if (after) records = after;
+          /*
+           * An ending written and not said — the conversation refused the
+           * message, or the process stopped between the write and the words — is
+           * said once the way is clear. The record carries the debt (`said:
+           * false`) until it is paid, which is what keeps a run that already
+           * spoke from speaking again.
+           */
+          for (const { run: finished, state } of records) {
+            if (finished.ended?.said !== false) continue;
+            try {
+              await this.sayEnding(
+                accountId,
+                finished,
+                chatWoken(finished.startedBy.woke),
+              );
+            } catch {
+              continue;
+            }
+            await this.store(
+              accountId,
+              { ...finished, ended: { ...(finished.ended as RunEnd), said: true } },
+              state,
+            );
+          }
           await this.saveCursor(accountId, now);
           this.pruneStuck(accountId, records);
           /*
@@ -1250,21 +1303,6 @@ export class AgentLoop {
     // account would add a sentence about a folder nobody has.
     const accountId = filesAccountId(this.ctx);
     if (!accountId) return;
-    /*
-     * The ending a previous process left is carried over once, so a deploy does
-     * not blank the line a reader came for. One read per process, never per pass.
-     */
-    if (!this.lastEndedLoaded) {
-      this.lastEndedLoaded = true;
-      try {
-        const held = await readAppFileAt(this.ctx, accountId, PASS_STATUS_FILE);
-        const parsed = held ? (JSON.parse(held.text) as unknown) : null;
-        if (!this.lastEnded && isPassStatusDoc(parsed) && parsed.lastEnded)
-          this.lastEnded = parsed.lastEnded;
-      } catch {
-        // A document this build cannot read is one the pass writes over below.
-      }
-    }
     const at = new Date();
     const worked =
       summary.changes + summary.runs + summary.due > 0 || summary.gaps.length > 0;
@@ -1709,10 +1747,13 @@ export class AgentLoop {
    *
    * The saying is a message of the group's own conversation (`groupChat.ts`),
    * a reply to the message that woke it when there is one. A saying that cannot
-   * be posted is a failed step on the record, never a silence: the ending is
-   * not lost for it. The notice is written **before** the run, so a process that
-   * dies between the two says the ending twice rather than never — the side of
-   * the race a person can forgive, and the one they can see.
+   * be posted is a failed step on the record and an ending still owed, never a
+   * silence: the next pass tries again. The ending is written **before** it is
+   * said — the document is the arbiter of what happened, so a run a person
+   * stopped during its last call does not say an ending that never landed, and
+   * the saying is marked on the record once it has left, so a run that already
+   * spoke is not read as owing words. A process that dies between the two leaves
+   * an ending owed, and the pass that follows says it.
    */
   private async endRun(
     accountId: string,
@@ -1721,7 +1762,7 @@ export class AgentLoop {
     end: RunEnd,
     token?: string,
   ): Promise<RunDoc | null> {
-    let current = run;
+    const current = run;
     const woke = chatWoken(run.startedBy.woke);
     /*
      * A run that already spoke in the conversation is heard: its own report is
@@ -1732,34 +1773,60 @@ export class AgentLoop {
     const spoke = run.plan.some(
       (step) => step.state === "done" && /^chat\.(say|ask) /.test(step.what),
     );
-    if (ending === "out-of-budget" || (ending === "done" && woke && !spoke)) {
-      const text =
-        ending === "done"
-          ? `Done: ${end.why}`
-          : `I could not finish this one: ${end.why}`;
-      try {
-        const asked = woke ? await readChatMessageAt(this.ctx, accountId, woke) : null;
-        await postChatMessage(this.ctx, accountId, this.ctx.username, text, {
-          ...(asked?.id ? { replyTo: asked.id } : {}),
-        });
-      } catch (err) {
-        current = this.withStep(
-          current,
-          "the run's ending, said in the conversation",
-          `refused: ${errorMessage(err)}`,
-          false,
-        );
-      }
-    }
-    const ended = finishRun(current, ending, end);
-    if (!(await this.store(accountId, ended, token))) return null;
+    const owed =
+      ending === "out-of-budget" || (ending === "done" && woke !== null && !spoke);
+    const ended = finishRun(current, ending, owed ? { ...end, said: false } : end);
+    const tokenAfter = await this.store(accountId, ended, token);
+    // The document was not this process's to end: somebody stopped it first, and
+    // an ending that did not land is not one to announce.
+    if (!tokenAfter) return null;
     /*
-     * What a reader sees without opening a group's list: the last run this
-     * process ended, written into the pass's own document below. Kept here rather
-     * than on the summary because the notice above and this ending are one act.
+     * What a reader sees without opening a group's list: the last run this process
+     * ended, written into the pass's own document below.
      */
     this.lastEnded = { id: ended.id, ending, why: end.why };
-    return ended;
+    if (!owed) return ended;
+    let marked = ended;
+    try {
+      await this.sayEnding(accountId, ended, woke);
+      marked = { ...ended, ended: { ...(ended.ended as RunEnd), said: true } };
+    } catch (err) {
+      marked = this.withStep(
+        ended,
+        "the run's ending, said in the conversation",
+        `refused: ${errorMessage(err)}`,
+        false,
+      );
+    }
+    await this.store(accountId, marked, tokenAfter);
+    return marked;
+  }
+
+  /**
+   * Say how a run ended, in the group's conversation, as a reply to what woke it.
+   *
+   * Every ending that owes words is said here, in one place, so the ending a run
+   * reaches and the ending a later pass picks up cannot be phrased twice. A run
+   * woken by mail is said here too: an answer to that person's message would be
+   * mail the agent sends outward, which ADR 0028 gives only to a rule that
+   * declares it sends, so the group reads the failure where its people are. A
+   * refusal is the caller's to record — never swallowed here.
+   */
+  private async sayEnding(
+    accountId: string,
+    run: RunDoc,
+    woke: string | null,
+  ): Promise<void> {
+    const ended = run.ended;
+    if (!ended) return;
+    const text =
+      run.state === "done"
+        ? `Done: ${ended.why}`
+        : `I could not finish this one: ${ended.why}`;
+    const asked = woke ? await readChatMessageAt(this.ctx, accountId, woke) : null;
+    await postChatMessage(this.ctx, accountId, this.ctx.username, text, {
+      ...(asked?.id ? { replyTo: asked.id } : {}),
+    });
   }
 
   /**
