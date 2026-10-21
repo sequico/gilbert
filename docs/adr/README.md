@@ -397,4 +397,11 @@ is, not what a user sees.
   and its mail beside its checklist or stays the panel it is; and whether a
   binder-written name on a collision is numbered or refused. Flat, with no facet
   layout. **Partly built, Proposed.**
+- **0037 — The reading cursor is a document.** The state each account's change
+  log was read up to is `gilbert/cursors.json` in that account's own app folder,
+  read on a process's first pass and written after a batch that moved the
+  reading — so a restart resumes where the last process stopped instead of
+  anchoring at the present and losing the window in between. An unreadable
+  document is a gap the pass says out loud. **Built**
+  (`server/src/agent/cursors.ts`, `agent/loop.ts`, `agent/events.ts`).
 

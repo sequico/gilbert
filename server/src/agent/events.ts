@@ -88,6 +88,7 @@ import {
   type AccountEventChange,
   eventSourceOf,
 } from "./accountEvent.js";
+import { CURSOR_FILE } from "./cursors.js";
 import { PENDING_FILE } from "./queue.js";
 import { RUNS_DIR } from "./runs.js";
 
@@ -282,6 +283,7 @@ function isAgentPath(path: string): boolean {
   return (
     rel === INSTRUCTION_FILE ||
     rel === PENDING_FILE ||
+    rel === CURSOR_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
     rel.startsWith(`${RULES_DIR}/`) ||
     // Read markers sit beside the messages and are the agent's bookkeeping.

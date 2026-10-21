@@ -122,6 +122,7 @@ import {
   workChanges,
 } from "./changes.js";
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
+import { readCursor, writeCursor } from "./cursors.js";
 import type { AccountEvents, EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
 import { listFacts, type MemoryStore } from "./memory.js";
@@ -312,13 +313,18 @@ export interface AgentLoopOptions {
 /**
  * One process's loop, and the process state it carries.
  *
- * An instance is the whole of it: the reading cursors and the alarms live here
- * and nowhere else, so a restart begins with a fresh instance and the run
- * documents decide what happens next.
+ * An instance is the whole of it: the alarms live here and nowhere else, so a
+ * restart begins with a fresh instance and the run documents decide what happens
+ * next. The **reading cursor is not** process state: it is a document in each
+ * group's own app folder (`cursors.ts`, ADR 0037), read at a process's first
+ * pass and written after a batch, so a restart resumes where the last process
+ * stopped instead of anchoring at the present and losing the window between.
  */
 export class AgentLoop {
   /** Where each account's reading has reached, by account. */
   private readonly cursors = new Map<string, EventCursor>();
+  /** The cursor each account's document already carries, as last written. */
+  private readonly savedCursor = new Map<string, string>();
   /**
    * When each account's change cursor was last advanced, by either path.
    *
@@ -522,11 +528,18 @@ export class AgentLoop {
           if (now.getTime() - (this.cursorAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
             this.cursors.delete(accountId);
           const problems: string[] = [];
+          const held = await this.restoreCursor(accountId);
+          if (held) problems.push(held);
           await offPath(
             { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
             accountId,
             problems,
           ).catch((err) => problems.push(errorMessage(err)));
+          try {
+            await this.saveCursor(accountId, now);
+          } catch (err) {
+            problems.push(errorMessage(err));
+          }
           for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
           this.cursorAt.set(accountId, now.getTime());
           /*
@@ -598,6 +611,11 @@ export class AgentLoop {
         let read: AccountEvents | null = null;
         if ((this.retryAfter.get(accountId) ?? 0) <= now.getTime()) {
           try {
+            // The first pass of a process resumes from the cursor the last one
+            // left (ADR 0037); a document this build cannot read is the pass's
+            // gap, and the reading anchors afresh in the same breath.
+            const problem = await this.restoreCursor(accountId);
+            if (problem) summary.gaps.push(`${accountId}: ${problem}`);
             read = await readChangesForPass(this.ctx, this.cursors, accountId);
             // The cursor now stands where this pass read: the off path's age
             // check reads this instant, not its own last run.
@@ -632,6 +650,7 @@ export class AgentLoop {
             read ?? undefined,
           );
           if (after) records = after;
+          await this.saveCursor(accountId, now);
           this.pruneStuck(accountId, records);
           /*
            * The filter on the pass side: the last state a store produced is
@@ -1104,6 +1123,44 @@ export class AgentLoop {
     const live = new Set((records ?? []).map((record) => `${prefix}${record.run.id}`));
     for (const key of this.stuckUntil.keys())
       if (key.startsWith(prefix) && !live.has(key)) this.stuckUntil.delete(key);
+  }
+
+  /**
+   * The cursor the last process left, or nothing on this account's first read.
+   *
+   * Called once per account per process: the first account body that runs finds
+   * no in-memory cursor and takes the document's. A document this build cannot
+   * read is answered with the sentence the pass says, and the reading anchors
+   * afresh — the same ending the server's `cannotCalculateChanges` has.
+   */
+  private async restoreCursor(accountId: string): Promise<string | null> {
+    if (this.cursors.has(accountId)) return null;
+    try {
+      const held = await readCursor(this.ctx, accountId);
+      if (!held) return null;
+      this.cursors.set(accountId, held.cursor);
+      this.cursorAt.set(accountId, held.at);
+      this.savedCursor.set(accountId, JSON.stringify(held.cursor));
+      return null;
+    } catch (err) {
+      return errorMessage(err);
+    }
+  }
+
+  /**
+   * Write the cursor a batch ended at, once.
+   *
+   * A quiet account writes nothing: the document is rewritten only when the
+   * reading moved, which is what keeps a pass that worked nothing to its reads
+   * (ADR 0032's claim economy, and the reason a cursor is not a heartbeat).
+   */
+  private async saveCursor(accountId: string, now: Date): Promise<void> {
+    const cursor = this.cursors.get(accountId);
+    if (!cursor) return;
+    const reached = JSON.stringify(cursor);
+    if (this.savedCursor.get(accountId) === reached) return;
+    await writeCursor(this.ctx, accountId, cursor, now);
+    this.savedCursor.set(accountId, reached);
   }
 
   /**

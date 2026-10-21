@@ -112,7 +112,10 @@ else a member does to move mail around still works.
 
 The agent works one group at a time, from the mail server's change log, inside
 that group's own account and as the installation's Master. It does the
-reversible work itself, and it stops wherever a person is answerable.
+reversible work itself, and it stops wherever a person is answerable. **What it
+has read is a document** — `gilbert/cursors.json` in each group's app folder
+(ADR 0037) — so a restart, a deploy or a crash resumes where the last process
+stopped instead of anchoring at the present and losing what arrived in between.
 
 **It does:** reads inside documents and attachments; files and labels mail;
 keeps the label catalog and the folders; drafts a reply to everyone; settles a

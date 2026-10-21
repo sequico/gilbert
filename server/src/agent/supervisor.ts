@@ -60,11 +60,11 @@
  * skipped) — and never once per ten seconds. The line a person reads is one
  * they can act on.
  *
- * **Nothing is kept.** The loop, its reading cursors, the roster the last pass
- * resolved and its alarms live in memory, which is disposable by law
- * (`IMMUTABLE=1`, ADR 0027): what outlives the process is the claim, the runs
- * and the waits, all documents in Stalwart. There is no lock file, no pid file
- * and no state of its own on disk.
+ * **Nothing is kept.** The loop, the roster the last pass resolved and its
+ * alarms live in memory, which is disposable by law (`IMMUTABLE=1`, ADR 0027):
+ * what outlives the process is the claim, the runs, the waits and each group's
+ * reading cursor (`agent/cursors.ts`, ADR 0037), all documents in Stalwart.
+ * There is no lock file, no pid file and no state of its own on disk.
  */
 
 import { hostname } from "node:os";

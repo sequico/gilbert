@@ -38,6 +38,8 @@
  *   outcome on the same document after it;
  * - a run whose wait has come due is picked up again, which is what a restart
  *   loses nothing to.
+ * - a restart resumes from the cursor the last process left, so a change that
+ *   arrived while the agent was down is still worked.
  * - a fact one run learned is handed to the next change's call, and the run's
  *   record names what it recalled — while a change the memory holds nothing
  *   about is worked exactly as it was before the memory existed;
@@ -95,6 +97,7 @@ const { INSTRUCTION_FILE, INSTRUCTION_VERSION, readInstruction } = await import(
   "./instruction.js"
 );
 const { takeClaim, releaseClaim } = await import("./claim.js");
+const { CURSOR_FILE } = await import("./cursors.js");
 const { RULE_VERSION } = await import("./rule.js");
 const { defineTool, TOOLS } = await import("./tools.js");
 const { administratorAt, AgentLoop, RUN_STEPS_MAX } = await import("./loop.js");
@@ -275,6 +278,15 @@ const remembered: string[] = [];
 beforeEach(async () => {
   freshCalls();
   for (const holder of HOLDERS) await releaseClaim(ctx, holder);
+  /*
+   * Each test is a process meeting an account it has not read: the cursor is a
+   * document now (ADR 0037), so the one a previous test wrote is taken out
+   * before this one's first pass — otherwise this test reads the last test's
+   * changes instead of its own.
+   */
+  const cursor = await readAppFileAt(ctx, accountId, CURSOR_FILE);
+  if (typeof cursor?.file.id === "string")
+    await destroyAppNode(ctx, accountId, cursor.file.id, {});
 });
 
 /**
@@ -792,6 +804,40 @@ test("a run says how it ended, unless the ending is already words between them",
   const failed = await findChatMessages(ctx, accountId, "I could not finish this one", 5);
   assert.equal(failed.length, 1, "the failure is said, once");
   assert.match(failed[0]?.text ?? "", /the same calls twice/, "and it says why");
+});
+
+test("a restart resumes from the cursor the last process left", async () => {
+  /*
+   * A cursor held only in memory made a restart a fresh start: the process
+   * anchored at the state the server held then, and a change that arrived while
+   * it was down was never read and never named. A live chat message mentioned
+   * the agent, produced no run, and nothing could say why. The second loop here
+   * is that restart (ADR 0037).
+   */
+  const id = "intake-restart";
+  await putRule(id);
+  const first = loop(HOLDER);
+  await first.start();
+  assert.ok(
+    (await readAppFileAt(ctx, accountId, CURSOR_FILE))?.file.id,
+    "the first pass leaves the reading in the account",
+  );
+
+  const message = await deliver("a message that arrived while the agent was down");
+
+  // A new process: no cursor in memory, so the document is its only memory.
+  const second = loop(HOLDER);
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ done: "worked the message that waited" });
+  await second.start();
+
+  const run = await runOf(id);
+  assert.equal(
+    run.startedBy.woke,
+    `mail created: ${message}`,
+    "the change that arrived while the process was down is worked after it restarts",
+  );
+  assert.equal(run.state, "done");
 });
 
 test("every rule that fits one change opens its own run", async () => {
