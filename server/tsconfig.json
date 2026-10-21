@@ -14,7 +14,10 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": false,
-    "sourceMap": true
+    "sourceMap": true,
+    /* Emitted by the build as well as by the gate: one cache, in a file git
+       never sees, so a rebuild compiles what changed. */
+    "incremental": true
   },
   "include": ["src"],
   /*

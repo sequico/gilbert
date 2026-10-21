@@ -6,6 +6,8 @@
 # carries on its own is fine — a name that matches at any depth belongs here,
 # which is about the tree rather than about a build context.
 node_modules/
+# TypeScript's incremental state: a cache, never a source.
+*.tsbuildinfo
 dist/
 .env
 # deploy.example.sh keeps its settings in .env.production; any .env.* holds APP_SECRET.

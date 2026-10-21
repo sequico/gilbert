@@ -156,5 +156,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    /*
+     * jsdom is the whole cost of this suite: the default pool builds and throws
+     * away a DOM for every **file**, and 321 files paid for 321 of them. A
+     * vm-thread worker keeps one per worker and still isolates file from file —
+     * the same tests, a fraction of the clock.
+     */
+    pool: "vmThreads",
   },
 });

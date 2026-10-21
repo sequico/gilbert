@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": []
+  "exclude": [],
+  /* The gate's own program, beside the build's: two caches, or the second run
+     of one would rebuild the other's tree. */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./tsconfig.test.tsbuildinfo"
+  }
 }

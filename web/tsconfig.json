@@ -15,6 +15,14 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
+    /*
+     * The gate typechecks this tree and then builds it, and the build runs the
+     * same `tsc` again (`build -w web`). Incremental turns the second run into a
+     * comparison of file stamps instead of a re-parse of a thousand files: the
+     * answers are identical, the cache lives in a file git never sees, and a
+     * repeated gate pays for what changed rather than for the whole tree.
+     */
+    "incremental": true,
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
