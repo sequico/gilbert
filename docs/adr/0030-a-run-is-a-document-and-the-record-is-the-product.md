@@ -113,7 +113,10 @@ agent's durable state.
   rather than a silence. A run that dies without a word is the defect this
   closes: the person whose request woke it saw nothing, and the installation
   looked like a queue that had stopped.
-- **A member of the group reads its runs and stops a running one.** The gate is
+- **A member of the group reads its runs and stops one that is in flight** —
+  the one being worked and the one waiting on a person's answer, which nothing
+  else moves; a group's every run in flight can be stopped at once, because a
+  group with nineteen of them is nineteen presses otherwise. The gate is
   the person's own grant on the group whose account holds the runs — not the
   administrator's — so a member of one group neither sees nor stops another
   group's run, and the administrator has no reach beyond the groups they are in.

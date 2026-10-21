@@ -242,3 +242,15 @@ export async function stopRun(group: string, id: string): Promise<void> {
     },
   );
 }
+
+/**
+ * Stop every run in flight in a group — the ones working and the ones waiting on
+ * a person — and answer how many were stopped.
+ */
+export async function stopAllRuns(group: string): Promise<number> {
+  const answer = await apiFetch<{ stopped?: number }>(
+    `/api/groups/${encodeURIComponent(group)}/runs/stop`,
+    { method: "POST" },
+  );
+  return typeof answer.stopped === "number" ? answer.stopped : 0;
+}

@@ -3054,3 +3054,8 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   padding: 8px 10px; border: 1px solid var(--border);
   border-radius: var(--radius-sm); background: var(--bg-elev);
 }
+/* A row's Stop sits at the row's end whatever the row carries before it. */
+.run-stop { margin-left: auto; }
+.run-group-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}

@@ -957,7 +957,13 @@ export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
  * addressed to it (ADR 0029).
  */
 export function finishRun(run: RunDoc, ending: RunEnding, end: RunEnd): RunDoc {
-  mustBeRunning(run);
+  /*
+   * A run waiting on a person is still in flight: a member of the group may stop
+   * it, and that ending is `cancelled`. No other ending takes a blocked run —
+   * only the answer that arrives continues it (`takeAnswer`) — so the exception
+   * is stated here, where the transition is, and not left to each caller.
+   */
+  if (!(run.state === "blocked" && ending === "cancelled")) mustBeRunning(run);
   requireInstant("an ending needs the instant it happened", end.at);
   if (ending === "blocked" && !run.waiting)
     throw new Error(`a run blocked on a person names the question it left: "${run.id}"`);

@@ -14,7 +14,7 @@ import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
-import { StopRun } from "./GroupRuns";
+import { StopAll, StopRun } from "./GroupRuns";
 import {
   addMetrics,
   emptyMetrics,
@@ -279,7 +279,19 @@ export function AgentOverview({
           <h2>{t("Runs in flight")}</h2>
           {inFlight.map((entry) => (
             <div key={entry.group} style={{ marginBottom: 16 }}>
-              <h3 style={{ margin: "8px 0 6px" }}>{entry.group}</h3>
+              <div className="run-group-head">
+                <h3 style={{ margin: "8px 0 6px" }}>{entry.group}</h3>
+                <StopAll
+                  group={entry.group}
+                  onStopped={() =>
+                    setLive((held) =>
+                      held.map((row) =>
+                        row.group === entry.group ? { ...row, runs: [] } : row,
+                      ),
+                    )
+                  }
+                />
+              </div>
               <div style={{ display: "grid", gap: 6 }}>
                 {entry.rows.map(({ listed }) => (
                   <div key={listed.id} className="run-current">

@@ -412,16 +412,18 @@ step answered, what the run spent, what it recalled — each fact resolved to it
 subject and sentence — and where it parked and why. A run written by
 another build is **said** where it would be drawn, never drawn as an empty one.
 A run ends as done, blocked on a person, out of budget or **cancelled**, and
-**any member of the group whose account holds it** reads its runs and stops a
-running one — from the group's chat, where the runs tab is live, or from the
-administration page — while another group's run is refused. A stopped run is
+**any member of the group whose account holds it** reads its runs and stops one
+that is in flight — the one being worked and the one waiting on a person's
+answer, which nothing else moves — from the group's chat, where the runs tab is
+live, or from the administration page; a group's every run in flight can be
+stopped at once there, while another group's run is refused. A stopped run is
 left exactly as the person put it: the pass that was working it does not write
 over the ending.
 The **facts** of the installation's memory are listed with the run or the person
 each came from, and corrected or removed through the server's own route as the
 Master (`GET /api/admin/agent`, `GET /api/groups/<group>/runs`,
-`POST /api/groups/<group>/runs/<id>/stop`, `GET`/`PUT`/`DELETE /api/admin/memory`;
-`server/src/routes/agent.ts`).
+`POST /api/groups/<group>/runs/<id>/stop`, `POST /api/groups/<group>/runs/stop`,
+`GET`/`PUT`/`DELETE /api/admin/memory`; `server/src/routes/agent.ts`).
 
 # Administration
 

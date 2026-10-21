@@ -88,7 +88,7 @@ import {
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
 import { RULES_DIR, RuleError } from "../shared/rule.js";
-import type { RunSummary } from "../shared/run.js";
+import type { RunDoc, RunSummary } from "../shared/run.js";
 import { finishRun, summarizeRun } from "../shared/run.js";
 import {
   type Env,
@@ -102,6 +102,41 @@ import {
 
 /** The answer to a fact this surface could not read or write, or upstream's. */
 const memoryFailure = failureFor(MemoryError);
+
+/**
+ * Stop one run, whatever it is doing — working, or waiting on a person's answer.
+ *
+ * Stopping is the race the run documents exist for: the pass records a step of
+ * the same run while a person presses Stop. A lost compare-and-set is retried on
+ * the document as it now stands — the same attempts every other writer makes —
+ * and a stop that keeps losing answers `"moved"`, which the route turns into a
+ * sentence that says the run is still in flight rather than an upstream error.
+ * An already-ended run is handed back as it is: a second Stop is not an error.
+ */
+async function stopRun(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  by: string,
+): Promise<RunDoc | "not_found" | "moved"> {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+    const record = await readRun(ctx, accountId, id);
+    if (!record) return "not_found";
+    if (record.run.state !== "running" && record.run.state !== "blocked")
+      return record.run;
+    const ended = finishRun(record.run, "cancelled", {
+      at: new Date().toISOString(),
+      why: `stopped by ${by}`,
+    });
+    try {
+      await replaceRun(ctx, accountId, ended, { ifInState: record.state });
+      return ended;
+    } catch (err) {
+      if (!isStateMismatch(err)) throw err;
+    }
+  }
+  return "moved";
+}
 
 /**
  * The runs listing per account, reused while the account's FileNode state has
@@ -327,39 +362,60 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      /*
-       * Stopping is the race this door exists for: the pass records a step of
-       * the same run while the person presses Stop. A lost compare-and-set is
-       * retried on the document as it now stands — the same attempts every
-       * other writer makes — and only a stop that keeps losing is refused, with
-       * a sentence that says the run is still running rather than an upstream
-       * mail-server error.
-       */
-      for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
-        const record = await readRun(access.ctx, access.accountId, id);
-        if (!record) return c.json({ error: "not_found" }, 404);
-        if (record.run.state !== "running") return c.json({ run: record.run });
-        const ended = finishRun(record.run, "cancelled", {
-          at: new Date().toISOString(),
-          why: `stopped by ${c.get("session").username}`,
-        });
-        try {
-          await replaceRun(access.ctx, access.accountId, ended, {
-            ifInState: record.state,
-          });
-          return c.json({ run: ended });
-        } catch (err) {
-          if (!isStateMismatch(err)) throw err;
-        }
-      }
-      return c.json(
-        {
-          error: "run_moved",
-          message:
-            "The run moved while it was being stopped, so it is still running. Try again.",
-        },
-        409,
+      const stopped = await stopRun(
+        access.ctx,
+        access.accountId,
+        id,
+        c.get("session").username,
       );
+      if (stopped === "not_found") return c.json({ error: "not_found" }, 404);
+      if (stopped === "moved")
+        return c.json(
+          {
+            error: "run_moved",
+            message:
+              "The run moved while it was being stopped, so it is still in flight. Try again.",
+          },
+          409,
+        );
+      return c.json({ run: stopped });
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
+  /**
+   * Stop every run in flight in a group: the ones working, and the ones waiting
+   * on a person's answer.
+   *
+   * A run parked on a question is still in flight — nothing will move it but an
+   * answer — and a person who wants the group's agent to stop must not have to
+   * press Stop once per run. The gate is the same member grant as the single
+   * stop, and a run that moved under this pass is retried inside `stopRun` like
+   * any other write.
+   */
+  api.post("/groups/:name/runs/stop", requireSession, async (c) => {
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await memberGroupAccess(c.get("session"), name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return groupDenial(c, access);
+      const rows = await listRunsForReading(access.ctx, access.accountId);
+      let stopped = 0;
+      for (const row of rows) {
+        const run = row.run;
+        if (!run || (run.state !== "running" && run.state !== "blocked")) continue;
+        const result = await stopRun(
+          access.ctx,
+          access.accountId,
+          run.id,
+          c.get("session").username,
+        );
+        if (result === "not_found" || result === "moved") continue;
+        stopped += 1;
+      }
+      return c.json({ stopped });
     } catch (err) {
       return doorFailure(c, err);
     }

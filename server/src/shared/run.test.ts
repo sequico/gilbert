@@ -472,6 +472,30 @@ test("a run blocked on a person keeps the question it left, and where it asked",
   );
 });
 
+test("a person stops a run that is waiting on them, and no other ending takes it", () => {
+  /*
+   * A run parked on a question is still in flight — nothing but an answer moves
+   * it — and Stop on it did nothing, so the row stayed on screen and the person
+   * saw a control that was not there. A stop is `cancelled`, which drops the
+   * question; nothing else ends a blocked run, because only an answer continues
+   * it (ADR 0029, 0030).
+   */
+  const blocked = finishRun(
+    waitUntil(startRun({ id: "r13", startedBy: START }), QUESTION),
+    "blocked",
+    { at: AT, why: "the answer has to come from a person" },
+  );
+  const stopped = finishRun(blocked, "cancelled", { at: AT, why: "stopped by a member" });
+  assert.equal(stopped.state, "cancelled", "the stop is the run's ending");
+  assert.equal(stopped.waiting, null, "and the question it left is dropped with it");
+  for (const ending of ["done", "out-of-budget", "blocked"] as const)
+    assert.throws(
+      () => finishRun(blocked, ending, { at: AT, why: "not a stop" }),
+      /has ended \(blocked\)/,
+      `"${ending}" is not how a run waiting on a person ends`,
+    );
+});
+
 test("a stored run tolerates a field this build does not know, and keeps the rest", () => {
   const run = startRun({
     id: "r5",

@@ -11,6 +11,7 @@ import {
   type RunListing,
   type RunMetrics,
   type RunSummary,
+  stopAllRuns,
   stopRun,
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
@@ -50,7 +51,7 @@ export function StopRun({
     <>
       <button
         type="button"
-        className="btn btn-ghost"
+        className="btn btn-ghost run-stop"
         disabled={busy}
         onClick={(event) => {
           event.preventDefault();
@@ -64,6 +65,41 @@ export function StopRun({
         }}
       >
         {t("Stop")}
+      </button>
+      {error && <span className="hint">{error}</span>}
+    </>
+  );
+}
+
+/**
+ * Stop every run in flight in a group: the ones working and the ones waiting on
+ * a person's answer.
+ *
+ * A group with nineteen runs in flight is nineteen presses otherwise, and a run
+ * parked on a question is the one nothing else will move — a person who wants the
+ * agent to stop must be able to say so once.
+ */
+export function StopAll({ group, onStopped }: { group: string; onStopped?: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        disabled={busy}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setBusy(true);
+          setError(null);
+          void stopAllRuns(group)
+            .then(() => onStopped?.())
+            .catch((err) => setError(errorMessage(err)))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {t("Stop all")}
       </button>
       {error && <span className="hint">{error}</span>}
     </>
@@ -144,7 +180,7 @@ function RunRow({
             })}
           </span>
         )}
-        {!month && row.state === "running" && (
+        {!month && (row.state === "running" || row.state === "blocked") && (
           <StopRun group={group} id={row.id} onStopped={onStopped} />
         )}
       </summary>
