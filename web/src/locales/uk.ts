@@ -623,6 +623,11 @@ export const catalog: Catalog = {
     "Insert template": "Вставити шаблон",
     "Template text…": "Текст шаблону…",
     "Subject: {subject}": "Тема: {subject}",
+    "To (optional)": "Кому (необов'язково)",
+    "Cc (optional)": "Копія (необов'язково)",
+    "Adds: {recipients}": "Додає: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Додаються до листа, коли ви вставляєте шаблон, поруч із тими, хто вже в ньому.",
     "Filters & rules": "Фільтри та правила",
     "Filters unavailable": "Фільтри недоступні",
     Rules: "Правила",
@@ -1372,6 +1377,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Надіслати за межі організації?",
     "Send to {count} people?": "Надіслати {count} одержувачам?",
     "Show birthdays from your contacts": "Показувати дні народження з контактів",
+    "Save people you write to as contacts": "Зберігати адресатів як контакти",
+    Collected: "Зібрані",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Усі, кому ви пишете і хто ще не є контактом, додаються до адресної книги «Зібрані», щоб вони пропонувалися на кожному пристрої. Ваші власні адреси не додаються ніколи.",
     "Show in the sidebar": "Показувати на бічній панелі",
     "Show keyboard shortcuts": "Показати клавіатурні скорочення",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1379,6 +1388,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "Сортувати за, у цьому порядку",
     Source: "Вихідний текст",
     "Spam filter": "Спам-фільтр",
+    "Spam filter's model": "Модель спам-фільтра",
+    "{confidence} confidence": "Упевненість: {confidence}",
+    "confidence\u0004Low": "низька",
+    "confidence\u0004Medium": "середня",
+    "confidence\u0004High": "висока",
+    "One of several signals the spam filter weighed":
+      "Один із кількох сигналів, які врахував спам-фільтр",
     Starred: "Позначені",
     "Starred first": "Спочатку позначені",
     "Stay here": "Лишитися тут",

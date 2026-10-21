@@ -691,6 +691,16 @@ Contacts. A `shareWith` naming every account cannot work — Stalwart caps a sha
 account created later needs nothing added. Every reader sees it as the first row of
 the Contacts sidebar and merged in `All contacts`.
 
+Beside it, the reader's own **Collected** book: after a send the server accepts,
+the recipients no card holds yet are saved there — never the sender's own
+addresses — so they are suggested by the composer on every device and not only
+in the browser that sent the message. It is an ordinary address book of the
+reader's own account (created on first use, remembered by id in the settings,
+emptied or deleted like any other) and the switch is Settings > Calendar &
+contacts > Contacts. Nothing is collected while a group's mailbox is the account
+in view: a reader's correspondents belong in their own account, not in a group's
+directory.
+
 ---
 
 # The knowledge base
@@ -1170,6 +1180,10 @@ unread-only, and composes the same query string.
   largest mover first and signed. Both the SpamAssassin-shaped `X-Spam-*` set and
   Rspamd's `X-Spamd-Result` are read; anything else is left alone. A score is
   always given its threshold, and where no verdict was recorded none is invented.
+  Where the installation's spam filter asks a **model of its own** (Stalwart's AI
+  classification), the category it chose, its confidence and its explanation are
+  shown beside the score as **one of several signals the filter weighed** — the
+  filter's model, never the agent's, and the explanation only ever as text.
 - **Message body theming** is off by default. One setting lets mail with no colours
   of its own follow the app's theme; a second setting, off unless the first is on,
   forces the theme over the sender's colours, telling a *sheet* from a *painted
@@ -1228,6 +1242,11 @@ minimisable and maximisable; full-screen on mobile.
 - **Plain text** as a per-message or default format.
 - **Recipient chips** with autocomplete from contacts, shared address books you
   have added, the server directory and recent recipients; your own cards win a tie.
+  The words typed match in any order and each starts a word of the name, a
+  nickname, the organization or the address — "jane smi" finds "Smith, Jane",
+  "globex" finds the people at Globex. A word can also match the middle of a
+  word, ranked below the ones that start one, and someone written to lately
+  ranks a little above an equal match.
   Free-form addresses parse leniently (`Ann <ann@x>, bob@y; "C, D" <c@z>`). A
   **group** is offered with them, marked with its size, and taking it adds those
   people — one address per member, the preferred one — with a note when a member
@@ -1249,8 +1268,11 @@ minimisable and maximisable; full-screen on mobile.
   HTML and, where it still will not fit, stores the full signature in the account's
   Files and leaves a marker plus a plain-text fallback in the identity. Signature
   images live in Files and become inline `cid:` parts at send.
-- **Templates**: named subject + body, inserted into any draft, managed in
-  Settings. Both carry **placeholders** — `{{recipientName}}`,
+- **Templates**: named subject + body, and the To, Cc and Bcc they are for,
+  inserted into any draft, managed in Settings. Inserting one adds its
+  recipients beside anyone already on the message — an address already there, in
+  any field, is not added twice, and the Cc and Bcc rows open when the template
+  uses them. The subject and the body carry **placeholders** — `{{recipientName}}`,
   `{{recipientFirstName}}`, `{{recipientEmail}}`, `{{myName}}`, `{{myEmail}}`,
   `{{subject}}`, `{{date}}` and `{{time}}` — filled when the template is inserted,
   so what they came to is visible and editable before sending. Dates and times
@@ -1720,8 +1742,8 @@ mail store because they *are* in the mail store.
 | **Out of office** | Vacation response |
 | **Folders** | Create, rename, colour, subscribe |
 | **Labels** | Keyword, display name, colour |
-| **Templates** | Named subject + body |
-| **Calendar & contacts** | Colour categories, working hours, default view, default duration, default reminder |
+| **Templates** | Named subject + body, and the recipients it is for |
+| **Calendar & contacts** | Colour categories, working hours, default view, default duration, default reminder, saving the people you write to as contacts |
 | **Notifications** | In-tab notifications, notify-when-closed (Web Push), sound |
 | **Security & sessions** | Password, two-factor state, app passwords, active webmail sessions |
 | **Keyboard shortcuts** | The full list, grouped |

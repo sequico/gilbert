@@ -627,6 +627,11 @@ export const catalog: Catalog = {
     "Insert template": "Вставить шаблон",
     "Template text…": "Текст шаблона…",
     "Subject: {subject}": "Тема: {subject}",
+    "To (optional)": "Кому (необязательно)",
+    "Cc (optional)": "Копия (необязательно)",
+    "Adds: {recipients}": "Добавляет: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Добавляются в письмо при вставке шаблона, рядом с теми, кто уже в нём указан.",
     "Filters & rules": "Фильтры и правила",
     "Filters unavailable": "Фильтры недоступны",
     Rules: "Правила",
@@ -1378,6 +1383,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Отправить за пределы организации?",
     "Send to {count} people?": "Отправить {count} получателям?",
     "Show birthdays from your contacts": "Показывать дни рождения из контактов",
+    "Save people you write to as contacts": "Сохранять адресатов как контакты",
+    Collected: "Собранные",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Все, кому вы пишете и кто ещё не является контактом, добавляются в адресную книгу «Собранные», чтобы они предлагались на всех устройствах. Ваши собственные адреса не добавляются никогда.",
     "Show in the sidebar": "Показывать на боковой панели",
     "Show keyboard shortcuts": "Показать сочетания клавиш",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1385,6 +1394,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "Сортировать по, в этом порядке",
     Source: "Исходный текст",
     "Spam filter": "Спам-фильтр",
+    "Spam filter's model": "Модель спам-фильтра",
+    "{confidence} confidence": "Уверенность: {confidence}",
+    "confidence\u0004Low": "низкая",
+    "confidence\u0004Medium": "средняя",
+    "confidence\u0004High": "высокая",
+    "One of several signals the spam filter weighed":
+      "Один из нескольких признаков, которые учёл спам-фильтр",
     Starred: "Отмеченные",
     "Starred first": "Сначала отмеченные",
     "Stay here": "Остаться здесь",

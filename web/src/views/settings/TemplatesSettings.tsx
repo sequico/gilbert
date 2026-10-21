@@ -1,10 +1,12 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { formatAddressList, uniqueAddresses } from "@/lib/address";
 import { t as translate } from "@/lib/i18n";
 import { PLACEHOLDER_NAMES } from "@/lib/templatePlaceholders";
 import { htmlToText } from "@/lib/text";
 import { type Template, useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
+import { RecipientInput } from "../compose/RecipientInput";
 import { RichEditor } from "../compose/RichEditor";
 
 export function TemplatesSettings() {
@@ -19,29 +21,37 @@ export function TemplatesSettings() {
           "Canned responses you can insert into any message from the composer's template button.",
         )}
       </p>
-      {templates.map((t) => (
-        <div key={t.id} className="card clickable" onClick={() => setEditing(t)}>
-          <div className="card-head">
-            <h3>{t.name}</h3>
-            <button
-              className="icon-btn sm danger"
-              aria-label={translate("Delete template")}
-              onClick={(e) => {
-                e.stopPropagation();
-                update({ templates: templates.filter((x) => x.id !== t.id) });
-              }}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-          {t.subject && (
-            <div className="hint">
-              {translate("Subject: {subject}", { subject: t.subject })}
+      {templates.map((t) => {
+        const adds = templateAdds(t);
+        return (
+          <div key={t.id} className="card clickable" onClick={() => setEditing(t)}>
+            <div className="card-head">
+              <h3>{t.name}</h3>
+              <button
+                className="icon-btn sm danger"
+                aria-label={translate("Delete template")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  update({ templates: templates.filter((x) => x.id !== t.id) });
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
-          )}
-          <div className="hint truncate">{htmlToText(t.html).slice(0, 140)}</div>
-        </div>
-      ))}
+            {t.subject && (
+              <div className="hint">
+                {translate("Subject: {subject}", { subject: t.subject })}
+              </div>
+            )}
+            {adds && (
+              <div className="hint truncate">
+                {translate("Adds: {recipients}", { recipients: adds })}
+              </div>
+            )}
+            <div className="hint truncate">{htmlToText(t.html).slice(0, 140)}</div>
+          </div>
+        );
+      })}
       <button
         className="btn"
         onClick={() =>
@@ -103,6 +113,40 @@ export function TemplatesSettings() {
             </div>
           </div>
           <div className="field">
+            <label htmlFor="template-to">{translate("To (optional)")}</label>
+            <RecipientInput
+              id="template-to"
+              value={editing.to ?? []}
+              onChange={(to) => setEditing({ ...editing, to })}
+              exclude={[...(editing.cc ?? []), ...(editing.bcc ?? [])]}
+            />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="template-cc">{translate("Cc (optional)")}</label>
+              <RecipientInput
+                id="template-cc"
+                value={editing.cc ?? []}
+                onChange={(cc) => setEditing({ ...editing, cc })}
+                exclude={[...(editing.to ?? []), ...(editing.bcc ?? [])]}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="template-bcc">{translate("Bcc (optional)")}</label>
+              <RecipientInput
+                id="template-bcc"
+                value={editing.bcc ?? []}
+                onChange={(bcc) => setEditing({ ...editing, bcc })}
+                exclude={[...(editing.to ?? []), ...(editing.cc ?? [])]}
+              />
+            </div>
+          </div>
+          <p className="hint">
+            {translate(
+              "Added to the message when you insert the template, beside anyone already on it.",
+            )}
+          </p>
+          <div className="field">
             <label>{translate("Body")}</label>
             <div
               style={{
@@ -126,6 +170,19 @@ export function TemplatesSettings() {
       )}
     </div>
   );
+}
+
+/**
+ * Who a template carries, each once, as one line: the people its To, Cc and Bcc
+ * name, or nothing when it names nobody. It is what the template holds rather
+ * than a promise that inserting it adds every one of them -- someone already on
+ * the message is not added twice.
+ */
+function templateAdds(t: Template): string | null {
+  const list = formatAddressList(
+    uniqueAddresses([...(t.to ?? []), ...(t.cc ?? []), ...(t.bcc ?? [])]),
+  );
+  return list || null;
 }
 
 /**

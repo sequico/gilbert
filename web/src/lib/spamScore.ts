@@ -10,7 +10,9 @@
  * Two formats cover what sits in front of a Stalwart mailbox in practice: the
  * SpamAssassin-shaped `X-Spam-*` set, which Stalwart's own filter writes, and
  * Rspamd's `X-Spamd-Result`. Anything else is left unread rather than guessed
- * at -- a misparsed score shown confidently is worse than no panel.
+ * at -- a misparsed score shown confidently is worse than no panel. Beside
+ * them, `X-Spam-LLM` carries what the filter's own model answered when the
+ * installation has AI classification on, read at the end of this file.
  *
  * The one editorial decision: **a score is not shown without its threshold
  * where the header states one.** 6.7 is damning against a threshold of 5 and
@@ -47,6 +49,9 @@ export const SPAM_HEADER_PROPS = [
   "header:X-Spam-Status:asText",
   "header:X-Spam-Score:asText",
   "header:X-Spamd-Result:asText",
+  // Stalwart's AI classification, when the installation has it on: the model the
+  // spam filter itself asks, never the agent's.
+  "header:X-Spam-LLM:asText",
 ] as const;
 
 /** Headers arrive folded, so tabs and newlines are whitespace like any other. */
@@ -165,4 +170,89 @@ export function spamReport(e: HeaderBag): SpamReport | null {
     rules: [],
     source: "spamassassin",
   };
+}
+
+/* ---------- The model the spam filter itself asks ---------- */
+
+/**
+ * Stalwart's AI classification, when the installation has it on, records the
+ * model's answer in `X-Spam-LLM`: the category it chose and, in parentheses,
+ * its explanation.
+ *
+ *     X-Spam-LLM: Unsolicited (Promotes a product the reader never asked about)
+ *
+ * The confidence goes into the filter's own tags (`LLM_<category>_<confidence>`)
+ * rather than this header, so a header carrying a tag in that form is read the
+ * same way. The explanation may arrive as encoded words, which the JMAP
+ * `asText` form decodes.
+ *
+ * **It is the spam filter's model, not the agent's**: it is one signal the
+ * filter weighed among the others in the report above, the surface says so, and
+ * nothing here judges anything. The explanation is model output and is only
+ * ever rendered as text.
+ */
+export interface SpamModelOpinion {
+  /** The category as the server wrote it. */
+  tag: string;
+  /** That category as a reader would say it. */
+  category: string;
+  /** A confidence word from the header, where it carried one. */
+  confidence: string | null;
+  /** The model's own explanation, as plain text. */
+  explanation: string | null;
+}
+
+/** Confidence words of Stalwart's default prompt; anything else is all category. */
+const CONFIDENCES = new Set(["LOW", "MEDIUM", "HIGH"]);
+
+/** `UNSOLICITED_BULK` -> `Unsolicited bulk`. */
+function readable(words: string[]): string {
+  const s = words.join(" ").toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+export function parseSpamModelOpinion(
+  raw: string | null | undefined,
+): SpamModelOpinion | null {
+  const s = flatten(raw);
+  // The category is one word -- letters, digits, `_` or `-` -- then optionally
+  // the explanation. Combining marks are not in the class: a category is an
+  // identifier the administrator configured, and a server that writes one in a
+  // script which needs them would put the whole opinion out of reach.
+  const m = /^([\p{L}\p{N}_-]+)(?:\s+(.*))?$/u.exec(s);
+  if (!m) return null;
+  const tag = m[1]!;
+
+  let category: string;
+  let confidence: string | null = null;
+  if (tag.startsWith("LLM_")) {
+    const parts = tag.slice("LLM_".length).split("_").filter(Boolean);
+    if (parts.length === 0) return null;
+    if (parts.length > 1 && CONFIDENCES.has(parts[parts.length - 1]!.toUpperCase())) {
+      confidence = readable([parts.pop()!]);
+    }
+    category = readable(parts);
+  } else {
+    // As the administrator wrote it, unless it is all capitals or underscores.
+    category =
+      /[a-z]/.test(tag) && !tag.includes("_")
+        ? tag
+        : readable(tag.split("_").filter(Boolean));
+    if (!category) return null;
+  }
+
+  let explanation: string | null = null;
+  const rest = (m[2] ?? "").trim();
+  if (rest) {
+    // The server wraps the explanation in one pair of parentheses.
+    if (!(rest.startsWith("(") && rest.endsWith(")"))) return null;
+    explanation = rest.slice(1, -1).trim() || null;
+  }
+
+  return { tag, category, confidence, explanation };
+}
+
+/** The spam filter's model opinion on a message, if the server recorded one. */
+export function spamModelOpinion(e: HeaderBag): SpamModelOpinion | null {
+  return parseSpamModelOpinion(e["header:X-Spam-LLM:asText"]);
 }

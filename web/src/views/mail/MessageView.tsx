@@ -85,6 +85,7 @@ import { AddressList, useAddressMenu } from "./AddressMenu";
 import { InviteCard } from "./InviteCard";
 import { SaveToFilesDialog } from "./SaveToFilesDialog";
 import { SignatureBanner } from "./SignatureBanner";
+import { SpamModelOpinionRow } from "./SpamModelOpinion";
 import { VCardCard } from "./VCardCard";
 
 interface Props {
@@ -827,6 +828,7 @@ export const MessageView = memo(function MessageView({
                   </dd>
                 </>
               )}
+              <SpamModelOpinionRow email={e} />
               {receiptRequested && (
                 <>
                   <dt>{translate("Receipt")}</dt>

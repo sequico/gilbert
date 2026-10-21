@@ -254,6 +254,8 @@ export interface Email {
   "header:Received:asText:all"?: string[] | null;
   "header:X-Spam-Status:asText"?: string | null;
   "header:X-Spam-Result:asText"?: string | null;
+  /** What the spam filter's own model said, when AI classification is on (lib/spamScore). */
+  "header:X-Spam-LLM:asText"?: string | null;
 }
 
 /**

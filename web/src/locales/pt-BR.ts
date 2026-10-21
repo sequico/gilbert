@@ -630,6 +630,11 @@ export const catalog: Catalog = {
     "Insert template": "Inserir um modelo",
     "Template text…": "Texto do modelo…",
     "Subject: {subject}": "Assunto: {subject}",
+    "To (optional)": "Para (opcional)",
+    "Cc (optional)": "Cc (opcional)",
+    "Adds: {recipients}": "Adiciona: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Adicionados à mensagem quando você insere o modelo, ao lado de quem já está nela.",
     "Filters & rules": "Filtros e regras",
     "Filters unavailable": "Filtros indisponíveis",
     Rules: "Regras",
@@ -1391,6 +1396,11 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Enviar para fora da sua organização?",
     "Send to {count} people?": "Enviar para {count} pessoas?",
     "Show birthdays from your contacts": "Exibir aniversários dos seus contatos",
+    "Save people you write to as contacts":
+      "Salvar como contatos as pessoas para quem você escreve",
+    Collected: "Coletados",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Todos para quem você escreve e que ainda não são contatos são adicionados à agenda Coletados, para serem sugeridos em todos os dispositivos. Seus próprios endereços nunca são adicionados.",
     "Show in the sidebar": "Exibir na barra lateral",
     "Show keyboard shortcuts": "Exibir atalhos de teclado",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1398,6 +1408,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "Ordenar por, nesta ordem",
     Source: "Código-fonte",
     "Spam filter": "Filtro de spam",
+    "Spam filter's model": "Modelo do filtro de spam",
+    "{confidence} confidence": "Confiança: {confidence}",
+    "confidence\u0004Low": "baixa",
+    "confidence\u0004Medium": "média",
+    "confidence\u0004High": "alta",
+    "One of several signals the spam filter weighed":
+      "Um dos vários sinais que o filtro de spam considerou",
     Starred: "Favoritas",
     "Starred first": "Favoritas primeiro",
     "Stay here": "Ficar aqui",

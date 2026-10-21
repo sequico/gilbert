@@ -993,6 +993,15 @@ export const catalog: Catalog = {
 
     "Subject: {subject}": "Oggetto: {subject}",
 
+    "To (optional)": "A (facoltativo)",
+
+    "Cc (optional)": "Cc (facoltativo)",
+
+    "Adds: {recipients}": "Aggiunge: {recipients}",
+
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Aggiunti al messaggio quando inserisci il modello, accanto a chi c'è già.",
+
     "Filters & rules": "Filtri e regole",
 
     "Filters unavailable": "Filtri non disponibili",
@@ -2243,6 +2252,13 @@ export const catalog: Catalog = {
 
     "Show birthdays from your contacts": "Mostra i compleanni dei contatti",
 
+    "Save people you write to as contacts": "Salva come contatti le persone a cui scrivi",
+
+    Collected: "Raccolti",
+
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Tutti coloro a cui scrivi e che non sono ancora contatti vengono aggiunti alla rubrica Raccolti, così vengono suggeriti su ogni dispositivo. I tuoi indirizzi non vengono mai aggiunti.",
+
     "Show in the sidebar": "Mostra nella barra laterale",
 
     "Show keyboard shortcuts": "Mostra le scorciatoie da tastiera",
@@ -2254,6 +2270,19 @@ export const catalog: Catalog = {
     Source: "Codice sorgente",
 
     "Spam filter": "Filtro antispam",
+
+    "Spam filter's model": "Modello del filtro antispam",
+
+    "{confidence} confidence": "Confidenza: {confidence}",
+
+    "confidence\u0004Low": "bassa",
+
+    "confidence\u0004Medium": "media",
+
+    "confidence\u0004High": "alta",
+
+    "One of several signals the spam filter weighed":
+      "Uno dei vari segnali che il filtro antispam ha soppesato",
     Starred: "Con stella",
 
     "Starred first": "Prima quelli con stella",

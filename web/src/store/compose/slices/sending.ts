@@ -2,8 +2,10 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { t as translate } from "@/lib/i18n";
 import { formatScheduleTime } from "@/lib/schedule";
 import { toast } from "@/ui/toast";
+import { useContacts } from "../../contacts";
 import { useMail } from "../../mail";
 import { useScheduled } from "../../scheduled";
+import { useSettings } from "../../settings";
 import { identitiesFor } from "../outgoing";
 import { autosaveTimers } from "../saves";
 import { newMessageId, SendOutcomeUnknown, sendInternal } from "../send";
@@ -97,6 +99,21 @@ export function sendingSlice(
               translate("This message had already been sent, so it wasn't sent again."),
             );
             return;
+          }
+          // Everyone written to who is not a contact yet, so they are suggested
+          // on every device and not only in the browser that sent the message.
+          // A scheduled message is submitted when Send is pressed, so it counts
+          // as sent here; the account is the one Send was pressed under, which
+          // is what keeps a group's correspondents out of the reader's book.
+          if (useSettings.getState().settings.collectRecipients) {
+            // The sending account's own addresses, resolved when Send was
+            // pressed: the identities on screen may belong to another mailbox by
+            // the time the undo window closes.
+            const own = identities.map((i) => i.email);
+            void useContacts
+              .getState()
+              .collectRecipients([...d.to, ...d.cc, ...d.bcc], own, target.accountId)
+              .catch(() => undefined);
           }
           toast.success(
             scheduling

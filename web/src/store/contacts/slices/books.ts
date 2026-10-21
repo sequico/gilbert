@@ -7,7 +7,10 @@ import type {
   Id,
   SetResponse,
 } from "@/jmap/types";
+import { uniqueAddresses } from "@/lib/address";
+import { contactFromAddress } from "@/lib/contacts";
 import { refuseDirectoryWrite } from "@/lib/globalContactsAdmin";
+import { t } from "@/lib/i18n";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { sharedKey } from "@/lib/sharedKey";
 import { useSession } from "../../session";
@@ -19,6 +22,13 @@ import {
   sessionEpoch,
 } from "../shared";
 import type { ContactsGet, ContactsSet, ContactsState } from "../types";
+
+/**
+ * One collection at a time. Two sends in flight would otherwise both find the
+ * remembered book unset and create one each, and would both see an address as
+ * new before the other's card landed.
+ */
+let collecting: Promise<number> = Promise.resolve(0);
 
 /**
  * The reader's own address books: the list, the selection, and the writes that
@@ -37,6 +47,7 @@ export function booksSlice(
   | "select"
   | "setBookSubscribed"
   | "emptyBook"
+  | "collectRecipients"
   | "createBook"
   | "updateBook"
   | "destroyBook"
@@ -181,6 +192,88 @@ export function booksSlice(
       } finally {
         await get().syncCards();
       }
+    },
+
+    /**
+     * Save the addresses written to that are not on any card yet, in an address
+     * book of their own, so every device suggests them and not only the browser
+     * that sent the message.
+     *
+     * `from` is the account the message goes out from, and only the reader's own
+     * collects: a message written from a group mailbox is the group's, and its
+     * correspondents belong in the group's directory rather than in the reader's
+     * personal book, where their other devices would read them. That is the
+     * account Send was pressed under, not whatever mailbox is on screen when the
+     * undo window closes -- a message of the reader's own sent while a group is
+     * on screen still collects, into the reader's own book.
+     *
+     * Nothing is collected until every card of the account is known: a card list
+     * that is not there yet would make every existing contact look new, and a
+     * duplicate card is worse than one send's worth of addresses left
+     * uncollected. A load already in flight is not waited for, so that send
+     * leaves them uncollected and the next one collects.
+     *
+     * The book is created on first use and remembered by id, so its name can be
+     * anything and an emptied or deleted one is simply replaced -- by another book
+     * of that name where there is one (a settings write the installation's policy
+     * refused leaves the id unset, and a second book per send is not the answer).
+     * That name is the catalogue's current one, so a reader who changes language
+     * between two such sends is the one case where a second book appears.
+     *
+     * shortcut: one collection at a time is per tab; two devices sending at once
+     * can each create a book, upgraded if that ever shows.
+     */
+    async collectRecipients(addrs, own, from) {
+      const run = async () => {
+        const self = useSession.getState().ownAccountFor(CAP.contacts);
+        if (!self || from !== self) return 0;
+        if (!get().available) return 0;
+        if (!get().loaded) await get().loadAll();
+        if (!get().loaded) return 0;
+        const ownSet = new Set(own.map((e) => e.toLowerCase()));
+        const fresh = uniqueAddresses(addrs).filter(
+          (a) =>
+            a.email &&
+            !ownSet.has(a.email.toLowerCase()) &&
+            !get().lookupByEmail(a.email),
+        );
+        if (!fresh.length) return 0;
+        const { settings, update } = useSettings.getState();
+        let bookId =
+          settings.collectedBookId && get().books[settings.collectedBookId]
+            ? settings.collectedBookId
+            : null;
+        if (!bookId) {
+          bookId =
+            Object.values(get().books).find((b) => b.name === t("Collected"))?.id ?? null;
+          if (bookId) update({ collectedBookId: bookId });
+        }
+        if (!bookId) {
+          bookId = await get().createBook(t("Collected"));
+          update({ collectedBookId: bookId });
+        }
+        const create = Object.fromEntries(
+          fresh.map((a, i) => [
+            `c${i}`,
+            {
+              "@type": "Card",
+              version: "1.0",
+              uid: crypto.randomUUID(),
+              ...contactFromAddress(a),
+              addressBookIds: { [bookId!]: true },
+            },
+          ]),
+        );
+        const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
+          accountId: self,
+          create,
+        });
+        await get().syncCards();
+        return Object.keys(res.created ?? {}).length;
+      };
+      const next = collecting.then(run, run);
+      collecting = next.catch(() => 0);
+      return next;
     },
 
     /**

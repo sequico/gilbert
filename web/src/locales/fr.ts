@@ -637,6 +637,11 @@ export const catalog: Catalog = {
     "Insert template": "Insérer un modèle",
     "Template text…": "Texte du modèle…",
     "Subject: {subject}": "Objet : {subject}",
+    "To (optional)": "À (facultatif)",
+    "Cc (optional)": "Cc (facultatif)",
+    "Adds: {recipients}": "Ajoute : {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Ajoutés au message à l'insertion du modèle, à côté de ceux qui y figurent déjà.",
     "Filters & rules": "Filtres et règles",
     "Filters unavailable": "Filtres indisponibles",
     Rules: "Règles",
@@ -1397,6 +1402,11 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Envoyer en dehors de votre organisation ?",
     "Send to {count} people?": "Envoyer à {count} personnes ?",
     "Show birthdays from your contacts": "Afficher les anniversaires de vos contacts",
+    "Save people you write to as contacts":
+      "Enregistrer comme contacts les personnes à qui vous écrivez",
+    Collected: "Collectés",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Toutes les personnes à qui vous écrivez et qui ne sont pas encore des contacts sont ajoutées au carnet Collectés, pour être suggérées sur tous les appareils. Vos propres adresses ne sont jamais ajoutées.",
     "Show in the sidebar": "Afficher dans la barre latérale",
     "Show keyboard shortcuts": "Afficher les raccourcis clavier",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1404,6 +1414,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "Trier par, dans cet ordre",
     Source: "Source",
     "Spam filter": "Filtre antispam",
+    "Spam filter's model": "Modèle du filtre antispam",
+    "{confidence} confidence": "Confiance : {confidence}",
+    "confidence\u0004Low": "faible",
+    "confidence\u0004Medium": "moyenne",
+    "confidence\u0004High": "élevée",
+    "One of several signals the spam filter weighed":
+      "L'un des plusieurs signaux pesés par le filtre antispam",
     Starred: "Suivis",
     "Starred first": "Les suivis d'abord",
     "Stay here": "Rester ici",

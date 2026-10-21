@@ -628,6 +628,11 @@ export const catalog: Catalog = {
     "Insert template": "Vorlage einfügen",
     "Template text…": "Vorlagentext…",
     "Subject: {subject}": "Betreff: {subject}",
+    "To (optional)": "An (optional)",
+    "Cc (optional)": "Cc (optional)",
+    "Adds: {recipients}": "Fügt hinzu: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Wird der Nachricht hinzugefügt, wenn Sie die Vorlage einfügen, neben allen, die schon darauf stehen.",
     "Filters & rules": "Filter & Regeln",
     "Filters unavailable": "Filter nicht verfügbar",
     Rules: "Regeln",
@@ -1419,12 +1424,24 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Nach außerhalb Ihrer Organisation senden?",
     "Send to {count} people?": "An {count} Personen senden?",
     "Show birthdays from your contacts": "Geburtstage aus Ihren Kontakten anzeigen",
+    "Save people you write to as contacts":
+      "Personen, denen Sie schreiben, als Kontakte speichern",
+    Collected: "Gesammelt",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Alle, denen Sie schreiben und die noch kein Kontakt sind, werden dem Adressbuch „Gesammelt“ hinzugefügt, damit sie auf jedem Gerät vorgeschlagen werden. Ihre eigenen Adressen werden nie hinzugefügt.",
     "Show in the sidebar": "In der Seitenleiste anzeigen",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
       "Jemand anderes hat diese Datei gespeichert, während sie geöffnet war. Kopieren Sie Ihre Änderungen, schließen Sie die Datei und beginnen Sie erneut.",
     "Sort by, in order": "Sortieren nach, in dieser Reihenfolge",
     Source: "Quelltext",
     "Spam filter": "Spamfilter",
+    "Spam filter's model": "Modell des Spamfilters",
+    "{confidence} confidence": "Konfidenz: {confidence}",
+    "confidence\u0004Low": "gering",
+    "confidence\u0004Medium": "mittel",
+    "confidence\u0004High": "hoch",
+    "One of several signals the spam filter weighed":
+      "Eines von mehreren Signalen, die der Spamfilter abgewogen hat",
     Starred: "Markiert",
     "Starred first": "Markierte zuerst",
     "Stay here": "Hier bleiben",

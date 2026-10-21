@@ -622,6 +622,11 @@ export const catalog: Catalog = {
     "Insert template": "Sjabloon invoegen",
     "Template text…": "Sjabloontekst…",
     "Subject: {subject}": "Onderwerp: {subject}",
+    "To (optional)": "Aan (optioneel)",
+    "Cc (optional)": "Cc (optioneel)",
+    "Adds: {recipients}": "Voegt toe: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Toegevoegd aan het bericht wanneer je de sjabloon invoegt, naast iedereen die er al op staat.",
     "Filters & rules": "Filters en regels",
     "Filters unavailable": "Filters niet beschikbaar",
     Rules: "Regels",
@@ -1377,6 +1382,11 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Buiten uw organisatie verzenden?",
     "Send to {count} people?": "Naar {count} personen verzenden?",
     "Show birthdays from your contacts": "Verjaardagen van uw contacten tonen",
+    "Save people you write to as contacts":
+      "Mensen aan wie u schrijft als contact opslaan",
+    Collected: "Verzameld",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Iedereen aan wie u schrijft en nog geen contact is, wordt toegevoegd aan het adresboek Verzameld, zodat ze op elk apparaat worden voorgesteld. Uw eigen adressen worden nooit toegevoegd.",
     "Show in the sidebar": "In de zijbalk tonen",
     "Show keyboard shortcuts": "Sneltoetsen tonen",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1384,6 +1394,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "Sorteren op, in deze volgorde",
     Source: "Bron",
     "Spam filter": "Spamfilter",
+    "Spam filter's model": "Model van het spamfilter",
+    "{confidence} confidence": "Zekerheid: {confidence}",
+    "confidence\u0004Low": "laag",
+    "confidence\u0004Medium": "gemiddeld",
+    "confidence\u0004High": "hoog",
+    "One of several signals the spam filter weighed":
+      "Een van de signalen die het spamfilter heeft gewogen",
     Starred: "Met ster",
     "Starred first": "Met ster eerst",
     "Stay here": "Hier blijven",

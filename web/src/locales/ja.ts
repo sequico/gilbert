@@ -624,6 +624,11 @@ export const catalog: Catalog = {
     "Insert template": "テンプレートを挿入",
     "Template text…": "テンプレートの本文…",
     "Subject: {subject}": "件名: {subject}",
+    "To (optional)": "宛先（省略可）",
+    "Cc (optional)": "Cc（省略可）",
+    "Adds: {recipients}": "追加: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "テンプレートを挿入したときに、すでに入っている宛先に加えてメッセージに追加されます。",
     "Filters & rules": "フィルターとルール",
     "Filters unavailable": "フィルターは利用できません",
     Rules: "ルール",
@@ -1384,6 +1389,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "組織の外に送信しますか？",
     "Send to {count} people?": "{count} 人に送信しますか？",
     "Show birthdays from your contacts": "連絡先の誕生日を表示する",
+    "Save people you write to as contacts": "メールを送った相手を連絡先に保存",
+    Collected: "収集した連絡先",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "まだ連絡先になっていない送信先は「収集した連絡先」に追加され、どの端末でも候補に表示されます。ご自身のアドレスが追加されることはありません。",
     "Show in the sidebar": "サイドバーに表示する",
     "Show keyboard shortcuts": "キーボードショートカットを表示",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1391,6 +1400,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "並べ替えの優先順位",
     Source: "ソース",
     "Spam filter": "迷惑メールフィルター",
+    "Spam filter's model": "迷惑メールフィルターのモデル",
+    "{confidence} confidence": "信頼度: {confidence}",
+    "confidence\u0004Low": "低",
+    "confidence\u0004Medium": "中",
+    "confidence\u0004High": "高",
+    "One of several signals the spam filter weighed":
+      "迷惑メールフィルターが判断した複数の材料のひとつです",
     Starred: "スター付き",
     "Starred first": "スター付きを先頭に",
     "Stay here": "ここに留まる",

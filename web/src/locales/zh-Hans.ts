@@ -614,6 +614,11 @@ export const catalog: Catalog = {
     "Insert template": "插入模板",
     "Template text…": "模板内容…",
     "Subject: {subject}": "主题：{subject}",
+    "To (optional)": "收件人（可选）",
+    "Cc (optional)": "抄送（可选）",
+    "Adds: {recipients}": "添加：{recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "插入模板时，会添加到邮件中，位于已有收件人之后。",
     "Filters & rules": "过滤器与规则",
     "Filters unavailable": "过滤器不可用",
     Rules: "规则",
@@ -1344,6 +1349,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "发送到组织外部吗？",
     "Send to {count} people?": "发送给 {count} 个人吗？",
     "Show birthdays from your contacts": "显示联系人的生日",
+    "Save people you write to as contacts": "将您写信的联系人保存为联系人",
+    Collected: "已收集",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "尚未成为联系人的收件人会加入「已收集」通讯录，以便在所有设备上被建议。您自己的地址永远不会被加入。",
     "Show in the sidebar": "在侧边栏中显示",
     "Show keyboard shortcuts": "显示键盘快捷键",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1351,6 +1360,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "排序依据，按此顺序",
     Source: "源代码",
     "Spam filter": "垃圾邮件过滤",
+    "Spam filter's model": "垃圾邮件过滤器的模型",
+    "{confidence} confidence": "置信度：{confidence}",
+    "confidence\u0004Low": "低",
+    "confidence\u0004Medium": "中",
+    "confidence\u0004High": "高",
+    "One of several signals the spam filter weighed":
+      "这是垃圾邮件过滤器权衡的多个信号之一",
     Starred: "已标星",
     "Starred first": "已标星在前",
     "Stay here": "留在此处",

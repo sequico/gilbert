@@ -630,6 +630,11 @@ export const catalog: Catalog = {
     "Insert template": "Insertar una plantilla",
     "Template text…": "Texto de la plantilla…",
     "Subject: {subject}": "Asunto: {subject}",
+    "To (optional)": "Para (opcional)",
+    "Cc (optional)": "Cc (opcional)",
+    "Adds: {recipients}": "Añade: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Se añaden al mensaje al insertar la plantilla, junto a quienes ya están en él.",
     "Filters & rules": "Filtros y reglas",
     "Filters unavailable": "Filtros no disponibles",
     Rules: "Reglas",
@@ -1390,6 +1395,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "¿Enviar fuera de su organización?",
     "Send to {count} people?": "¿Enviar a {count} personas?",
     "Show birthdays from your contacts": "Mostrar los cumpleaños de sus contactos",
+    "Save people you write to as contacts": "Guardar como contactos a quienes escribe",
+    Collected: "Recopilados",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Todos a quienes escribe y aún no son contactos se añaden a la libreta Recopilados, para que se sugieran en todos los dispositivos. Sus propias direcciones nunca se añaden.",
     "Show in the sidebar": "Mostrar en la barra lateral",
     "Show keyboard shortcuts": "Mostrar los atajos de teclado",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
@@ -1397,6 +1406,13 @@ export const catalog: Catalog = {
     "Sort by, in order": "Ordenar por, en este orden",
     Source: "Código fuente",
     "Spam filter": "Filtro de spam",
+    "Spam filter's model": "Modelo del filtro de spam",
+    "{confidence} confidence": "Confianza: {confidence}",
+    "confidence\u0004Low": "baja",
+    "confidence\u0004Medium": "media",
+    "confidence\u0004High": "alta",
+    "One of several signals the spam filter weighed":
+      "Una de las varias señales que sopesó el filtro de spam",
     Starred: "Destacados",
     "Starred first": "Los destacados primero",
     "Stay here": "Quedarse aquí",

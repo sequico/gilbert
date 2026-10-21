@@ -241,6 +241,16 @@ export function CalendarSettings() {
         )}
       />
 
+      <h2>{t("Contacts")}</h2>
+      <Switch
+        checked={s.collectRecipients}
+        onChange={(v) => update({ collectRecipients: v })}
+        label={t("Save people you write to as contacts")}
+        hint={t(
+          "Everyone you send to who isn\u2019t a contact yet is added to the Collected address book, so they\u2019re suggested on every device. Your own addresses are never added.",
+        )}
+      />
+
       <h2>{t("Working hours")}</h2>
       <div className="field-row">
         <div className="field">
