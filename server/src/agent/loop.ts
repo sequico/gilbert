@@ -1819,6 +1819,21 @@ export class AgentLoop {
   ): Promise<void> {
     const ended = run.ended;
     if (!ended) return;
+    /*
+     * Only the ending the document still carries is said. A person can stop the
+     * run in the moment between its last write and these words, and the record
+     * is the arbiter of what happened: a stop that landed first makes this
+     * ending somebody else's, and announcing it would be telling a person the
+     * opposite of what they did.
+     */
+    const held = await readRun(this.ctx, accountId, run.id);
+    if (
+      !held ||
+      held.run.state !== run.state ||
+      held.run.ended?.at !== ended.at ||
+      held.run.ended?.why !== ended.why
+    )
+      return;
     const text =
       run.state === "done"
         ? `Done: ${ended.why}`
