@@ -45,8 +45,8 @@ commits, of which 44 are in this tree (33 near-verbatim, 11 adapted), and the
 rest are CI/infra (29), the administration surface (19), docs/i18n/process (8),
 dependency bumps (5) and upstream's internal refactors (2).
 
-`upstream/main` is ahead of that release by a further 30 commits (15 work
-commits, the rest pull-request merges), listed under *After the newest release*
+`upstream/main` is ahead of that release by a further 78 commits (43 of them
+work commits, the rest pull-request merges), each with a row in the sections
 below.
 
 The percentage is how much of a commit's added identifiers already exist in this
@@ -164,12 +164,12 @@ UX is left to read.
 | `bd6a605d` | refactor — not taken (collides with our structure) | 99% | Group six more clusters out of web/src/lib |
 | `f7712b1c` | refactor — not taken (collides with our structure) | 38% | Group the admin and calendar modules, and stop calling screenshots docs |
 
-## The newest release, `v2026.10.5-g20c32ed`
+## Release `v2026.10.5-g20c32ed`
 
-Between `v2026.9.27-ge5709b4` (`e5709b4`) and the newest release,
-`v2026.10.5-g20c32ed` (`20c32ed`), upstream carries 36 commits, 18 of them work
-commits (the rest are pull-request merges). Each row records where the reading
-stands, and a decision moves the row.
+Between `v2026.9.27-ge5709b4` (`e5709b4`) and `v2026.10.5-g20c32ed`
+(`20c32ed`), upstream carries 36 commits, 18 of them work commits (the rest are
+pull-request merges). Each row records where the reading stands, and a decision
+moves the row.
 
 | upstream | disposition | overlap | subject |
 |---|---|---|---|
@@ -192,11 +192,11 @@ stands, and a decision moves the row.
 | `33dc8be` | in (adapted: the same rule moved Dutch too) | 64% | Turkish out of Beta: it comes from a native speaker |
 | `f8d282e` | in (adapted to this tree's send flow) | 90% | Never send a message twice; two small composer and sidebar fixes |
 
-## The newest release, `v2026.10.11-g1b6b5d0`
+## Release `v2026.10.11-g1b6b5d0`
 
-Between `v2026.10.5-g20c32ed` (`20c32ed`) and the newest release,
-`v2026.10.11-g1b6b5d0` (`1b6b5d0`), upstream carries 28 commits, 11 of them work
-commits (the rest are pull-request merges). Each row records where the reading
+Between `v2026.10.5-g20c32ed` (`20c32ed`) and `v2026.10.11-g1b6b5d0`
+(`1b6b5d0`), upstream carries 28 commits, 14 of them work commits (the rest are
+pull-request merges). Each row records where the reading
 stands, and a decision moves the row. The overlap column is the share of a
 commit's added identifiers this tree already carries, where it was measured;
 `—` where it was not.
@@ -218,10 +218,35 @@ commit's added identifiers this tree already carries, where it was measured;
 | `4b0a3dca` | in (already carried: `EventInstance.accountId` reaches every write about an event, and the editor offers the writable shared calendars, labelled with whose they are) | — | Calendar: write shared events in the account that holds them |
 | `18a66114` | diagnosis recorded, not taken for now — a front door that authenticates answers an expired session with a redirect, which a `fetch` reports as a network error; this tree's own front door is Caddy with no sign-in of its own, so nothing here raises that redirect. Rows move when a deployment has one. | — | Sign in again through a front-door proxy when its session ends |
 
+## Release `v2026.10.13-ge0e6aec`
+
+Between `v2026.10.11-g1b6b5d0` (`1b6b5d0`) and `v2026.10.13-ge0e6aec`
+(`e0e6aec`), upstream carries one commit — the release is a dependency bump —
+and its row records where the reading stands.
+
+| upstream | disposition | overlap | subject |
+|---|---|---|---|
+| `df53301` | already ours — `concurrently` is `^10.0.6` in `package.json`, in the lock and installed | 31% | Update concurrently to 10.0.6 (GHSA-pqg4-j6r4-53mv) |
+
 ## After the newest release
 
-`upstream/main` is at `v2026.10.11-g1b6b5d0` (`1b6b5d0`) itself: nothing after the
-newest release.
+`upstream/main` is at `e31a804`. From the newest release (`e0e6aec`) to it,
+upstream carries twelve commits: two pull-request merges and the ten work
+commits below. Each row records where the reading stands, and a decision moves
+the row.
+
+| upstream | disposition | overlap | subject |
+|---|---|---|---|
+| `b4167b2` | not taken (rests on the account switcher below, and adds a route that signs JMAP calls with another session's credential) | 96% | A narrow route to another signed-in account, for its push subscription |
+| `58c933d` | not taken (rests on the account switcher below) | 95% | New mail in the other signed-in accounts: counts, a dot, and a notification |
+| `4e2de30` | in (partly: the suggestion ranking, which now matches words in any order and ranks who you write to first; pasting a link over a selection and the image-size threshold are written for a `document.execCommand` editor, and this composer's is Squire — ADR 0025) | 93% | Composer: smarter suggestions, links over selections, big images attached |
+| `0190262` | in | 92% | Templates remember who they're for |
+| `aedcf74` | not taken, except its fix — this tree already links a background notification from the Inbox id in the briefing, which is what that fix introduced | 92% | Notifications with the app closed, for every signed-in account |
+| `2002120` | UI refresh — not taken (it contradicts the UI law: a pill counter beside `.nav-count`, a new elevation, and a rail drawn for four modules where this app has five plus the agent's surfaces). What a Gilbert-side design pass may take is the folder-role tint and the pressed state | 92% | App rail, pill counts, tinted folder icons and raised controls |
+| `60fd2be` | not taken (a change of product rather than a delta: several principals signed in at once changes the session model, what the account switcher means, and ADR 0014's one push row per device) | 91% | Account switcher: more than one account signed in at once |
+| `3576e8e` | already ours — the mailbox is classified by the `Mailbox/get` probe (`web/src/lib/mailAccounts.ts`), the account switcher and the announcement of the reader's own mail while another mailbox is in view exist, and Stalwart does not deliver mail folder sharing | 91% | Open a group's mailbox, or folders someone shared, from the account menu |
+| `6e78d74` | in (adapted: the reader's own account's book, and nothing collected while a group mailbox is in view) | 90% | Save the people you write to as contacts |
+| `d2b3fda` | in (adapted: read in `lib/spamScore.ts`, beside the other headers the filter writes, and named as the spam filter's model rather than "the language model") | 81% | Show the language model's opinion on a message |
 
 ## Keeping it current
 

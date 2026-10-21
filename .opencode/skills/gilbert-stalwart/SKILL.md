@@ -335,6 +335,17 @@ hop, the account the reading would take from it, and the auth result's own name;
 it writes nothing. Record the answer, with the version and date, in the OWED
 note.
 
+### The spam filter's model header — `X-Spam-LLM`
+
+OWED: that a live Stalwart with AI spam classification on writes `X-Spam-LLM`,
+and in which of the two shapes `lib/spamScore.ts` reads — `<Category>
+(<explanation>)`, or the filter's own `LLM_<category>_<confidence>` tag followed
+by the explanation. The mock reproduces both and pins them
+(`server/src/mock/spam-model-header.test.ts`); what a live server writes has not
+been seen from here. Ask it by fetching one delivered message with `Email/get`
+and the property `header:X-Spam-LLM:asText`, then record the answer here with
+the version and the date.
+
 ### `scripts/probe-group-subscriptions.mjs` — a member's own subscription
 
 Confirmed live on 0.16.23 (2026-09-24), for `ensureSubscribed` in
