@@ -143,7 +143,7 @@ export const readMessage = defineTool({
     "The id is one a search answered with.",
   authority: "reversible",
   writes: false,
-  args: { id: { type: "text" } },
+  args: { id: { type: "text", about: "a message id, from mail.find" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
@@ -330,7 +330,7 @@ export const trashMessage = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
-  args: { id: { type: "text" } },
+  args: { id: { type: "text", about: "a message id, from mail.find" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) =>
     moveMessage(ctx, accountId, id, "trash", { allowTrash: true }),
@@ -346,7 +346,7 @@ export const untrashMessage = defineTool({
   writes: true,
   surface: "mail",
   spend: { steps: 1 },
-  args: { id: { type: "text" } },
+  args: { id: { type: "text", about: "a message id, from mail.find" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "inbox"),
 });

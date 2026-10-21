@@ -145,7 +145,7 @@ export const readEvent = defineTool({
     "the calendar it is on.",
   authority: "reversible",
   writes: false,
-  args: { id: { type: "text" } },
+  args: { id: { type: "text", about: "an event id, from calendar.find" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const res = await clientOf(ctx).call<{ list?: unknown[]; notFound?: string[] }>(
@@ -377,7 +377,7 @@ export const deleteEvent = defineTool({
   surface: "calendar",
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
-  args: { id: { type: "text" } },
+  args: { id: { type: "text", about: "an event id, from calendar.find" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const client = clientOf(ctx);
