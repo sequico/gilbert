@@ -223,12 +223,23 @@ export function treeSlice(
         set((s) => {
           const nodes = { ...s.nodes };
           for (const n of listed) nodes[n.id] = n;
+          /*
+           * A level that has just been read is a level whose count this cache
+           * cannot vouch for: an upload, a delete, a move or a change from
+           * another device all land here, and the count of the level is what
+           * changed. Dropping it here is the one place every one of them passes
+           * through, so the Size column never shows the number a folder held
+           * before the thing inside it was added or removed.
+           */
+          const folderCounts = { ...s.folderCounts };
+          delete folderCounts[parentId ?? "root"];
           return {
             nodes,
             children: {
               ...s.children,
               [parentId ?? "root"]: listed.map((n) => n.id),
             },
+            folderCounts,
             loading: childrenLoads > 0,
             error: null,
           };
@@ -241,6 +252,10 @@ export function treeSlice(
         childrenLoads -= 1;
         set({ loading: childrenLoads > 0, error: errorMessage(err) });
       }
+    },
+
+    setFolderCount(id, count) {
+      set((s) => ({ folderCounts: { ...s.folderCounts, [id]: count } }));
     },
 
     /* Re-read named nodes in place. Sharing changes one property of one node and

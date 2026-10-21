@@ -239,13 +239,14 @@ export interface ContactsState {
    * "Collected" book, so every device suggests them. `own` is the sender's own
    * addresses, which are never collected, and `from` is the account the message
    * goes out from: only the reader's own collects. Answers how many cards were
-   * created.
+   * created and, when the server refused some, the refusal — a count alone has
+   * nowhere to say that the book nobody can write to failed silently.
    */
   collectRecipients(
     addrs: EmailAddress[],
     own: string[],
     from: Id | null,
-  ): Promise<number>;
+  ): Promise<{ written: number; refused?: SetError }>;
   /**
    * Rename an address book, or patch it some other way.
    *

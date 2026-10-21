@@ -110,10 +110,15 @@ export function sendingSlice(
             // pressed: the identities on screen may belong to another mailbox by
             // the time the undo window closes.
             const own = identities.map((i) => i.email);
+            /*
+             * Fire and forget on purpose: the message is already sent, and a
+             * book that could not be written must not fail it. The store reports
+             * its own refusal and its own failure on its error surface, so there
+             * is nothing to swallow here.
+             */
             void useContacts
               .getState()
-              .collectRecipients([...d.to, ...d.cc, ...d.bcc], own, target.accountId)
-              .catch(() => undefined);
+              .collectRecipients([...d.to, ...d.cc, ...d.bcc], own, target.accountId);
           }
           toast.success(
             scheduling

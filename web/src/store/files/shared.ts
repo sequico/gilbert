@@ -58,6 +58,7 @@ export function emptyForAccount(accountId: Id | null) {
     dirIds: [],
     treeLoaded: false,
     draggingIds: [],
+    folderCounts: {},
     error: null,
   };
 }
@@ -493,15 +494,20 @@ export async function readChildren(
  * directly inside it, nothing further.
  *
  * The server counts the level, so this asks for one id and reads the total
- * rather than downloading the folder to count what came back. A server that
- * answers no total leaves the page it sent as the count.
+ * rather than downloading the folder to count what came back. **A server that
+ * states no total answers `null`**, not the length of the page it sent: the page
+ * was asked for one id, so its length is the constant 1 — a number nobody
+ * measured, printed as "1" beside every folder.
  */
-export async function countChildren(accountId: Id, parentId: Id | null): Promise<number> {
-  const { list, total } = await listChildrenWithState(accountId, parentId, ["id"], {
+export async function countChildren(
+  accountId: Id,
+  parentId: Id | null,
+): Promise<number | null> {
+  const { total } = await listChildrenWithState(accountId, parentId, ["id"], {
     limit: 1,
     total: true,
   });
-  return total ?? list.length;
+  return typeof total === "number" ? total : null;
 }
 
 /**

@@ -98,10 +98,17 @@ export function directorySlice(
        * Someone written to lately ranks a little above someone not, within the
        * same kind of match -- the list of recent recipients is the only signal
        * the reader has given about who they write to.
+       *
+       * The **first** mention of an address wins, explicitly: the list is
+       * deduplicated where it is built, and an address that slipped in twice
+       * keeps the place of its most recent write rather than the index of
+       * whichever line happens to name it last.
        */
-      const recentRank = new Map(
-        st.recent.map((r, i) => [r.email.toLowerCase(), i] as const),
-      );
+      const recentRank = new Map<string, number>();
+      for (const [i, r] of st.recent.entries()) {
+        const key = r.email.toLowerCase();
+        if (!recentRank.has(key)) recentRank.set(key, i);
+      }
       const recency = (email: string) => {
         const i = recentRank.get(email.toLowerCase());
         return i === undefined ? 0 : -0.3 * (1 - i / Math.max(1, st.recent.length));

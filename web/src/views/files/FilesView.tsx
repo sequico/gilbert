@@ -61,10 +61,17 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const [menuNode, setMenuNode] = useState<FileNode | null>(null);
   /*
    * How many elements each folder row holds, by folder id: the Size column shows
-   * the count where a file shows its bytes, and a folder is counted once per
-   * account in this session rather than on every repaint.
+   * the count where a file shows its bytes. The cache lives in the files store,
+   * because it is a fact about the account rather than about this screen and
+   * because the level it describes is dropped from it whenever that level is
+   * read again (`loadChildren`).
    */
-  const [folderCounts, setFolderCounts] = useState<Record<Id, number>>({});
+  const folderCounts = files.folderCounts;
+  const setFolderCount = files.setFolderCount;
+  /** The folders this view has already asked about, so a landed count asks no
+      again: the map is in the effect's own output, and depending on it re-issued
+      every pending query each time one answered. */
+  const counting = useRef(new Set<Id>());
   const [moveNodes, setMoveNodes] = useState<FileNode[] | null>(null);
   /** The two folders being merged, and the dialog that asks which name stays. */
   const [mergeNodes, setMergeNodes] = useState<FileNode[] | null>(null);
@@ -222,26 +229,24 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
 
   /*
    * Count the folders on screen, one query each: the server answers the total,
-   * so a folder is never downloaded to be counted. A count that fails leaves
-   * the cell empty rather than showing a number nobody measured, and the next
-   * listing tries again.
+   * so a folder is never downloaded to be counted. A count that fails leaves the
+   * cell empty rather than showing a number nobody measured, and the next
+   * listing tries again — `counting` is what keeps this from asking twice for the
+   * same folder while a count is in flight, without putting the counted map in
+   * the dependencies (a count that landed used to re-issue every pending query).
    */
   useEffect(() => {
     if (!files.available || !files.accountId) return;
-    let cancelled = false;
     const level = files.children[parentId ?? "root"] ?? [];
     for (const id of level) {
       if (files.nodes[id]?.nodeType !== "directory") continue;
-      if (folderCounts[id] !== undefined) continue;
+      if (id in folderCounts || counting.current.has(id)) continue;
+      counting.current.add(id);
       void countChildren(files.accountId, id)
-        .then((count) => {
-          if (!cancelled) setFolderCounts((c) => ({ ...c, [id]: count }));
-        })
-        .catch(() => undefined);
+        .then((count) => setFolderCount(id, count))
+        .catch(() => undefined)
+        .finally(() => counting.current.delete(id));
     }
-    return () => {
-      cancelled = true;
-    };
   }, [
     files.available,
     files.accountId,
@@ -249,6 +254,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     files.nodes,
     parentId,
     folderCounts,
+    setFolderCount,
   ]);
 
   if (!files.available)

@@ -37,6 +37,20 @@ export interface FilesState {
    * looked at instead of every folder the reader has ever opened.
    */
   listingShown: { parentId: Id | null } | null;
+  /**
+   * What each folder on screen holds, one level down, as the server counted it.
+   *
+   * Held in the store rather than in the view because it is a fact about the
+   * account, not about one screen: the Files view and anything else that draws a
+   * folder's Size read the same number. `null` is the answer "the server states
+   * no total", which is not zero and not one — a page of one asked for one id
+   * would otherwise read as a folder holding exactly one thing.
+   *
+   * A level is dropped from it whenever that level is read again
+   * (`loadChildren`), which is the one path an upload, a delete, a move or a
+   * change from another device passes through.
+   */
+  folderCounts: Record<Id, number | null>;
   loading: boolean;
   error: string | null;
   /**
@@ -116,6 +130,11 @@ export interface FilesState {
    */
   openOwningAccount(nodeId: Id): Promise<void>;
   loadChildren(parentId: Id | null): Promise<void>;
+  /**
+   * Record what a folder holds, as the count query answered it: a number, or
+   * `null` when the server states no total for the level.
+   */
+  setFolderCount(id: Id, count: number | null): void;
   mkdir(parentId: Id | null, name: string): Promise<Id>;
   /*
    * Upload files into a folder of the account being browsed.

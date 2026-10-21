@@ -16,6 +16,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   nodes: {},
   children: {},
   listingShown: null,
+  folderCounts: {},
   loading: false,
   error: null,
   runs: [],

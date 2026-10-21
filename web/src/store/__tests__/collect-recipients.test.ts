@@ -108,7 +108,7 @@ describe("collecting the people written to", () => {
       ["me@example.org"],
     );
 
-    expect(created).toBe(1);
+    expect(created.written).toBe(1);
     const set = calls.callsTo("ContactCard/set")[0]!;
     const create = set.args.create as Record<
       string,
@@ -161,14 +161,14 @@ describe("collecting the people written to", () => {
     // would look new and get a second card.
     const calls = server();
     useContacts.setState({ loaded: false, loadAll: (async () => undefined) as never });
-    expect(await collect([{ name: null, email: "new@example.com" }])).toBe(0);
+    expect((await collect([{ name: null, email: "new@example.com" }])).written).toBe(0);
     expect(calls.callsTo("ContactCard/set")).toHaveLength(0);
   });
 
   it("collects nothing for a message sent from a group's mailbox", async () => {
     const calls = server();
     const created = await collect([{ name: null, email: "new@example.com" }], [], "g");
-    expect(created).toBe(0);
+    expect(created.written).toBe(0);
     expect(calls.callsTo("ContactCard/set")).toHaveLength(0);
   });
 
@@ -193,6 +193,35 @@ describe("collecting the people written to", () => {
       { addressBookIds: Record<string, true> }
     >;
     expect(Object.values(create)[0]!.addressBookIds).toEqual({ "bk-collected": true });
+  });
+
+  it("does not write under a remembered book the server no longer has", async () => {
+    /*
+     * The book was deleted or unshared on another device while this session was
+     * open, so the cache still carries it. Asking the server is what keeps the
+     * cards from being created under an id nobody can reach, and the stale id is
+     * dropped from the settings rather than tried again on every send.
+     */
+    const calls = server().on("AddressBook/get", (call) => ({
+      accountId: "r",
+      state: "1",
+      list: [],
+      notFound: (call.args.ids ?? []) as string[],
+    }));
+    useSettings.setState((s) => ({
+      settings: { ...s.settings, collectedBookId: "bk-gone" },
+    }));
+    const answer = await collect([{ name: null, email: "new@example.com" }]);
+    expect(
+      Object.values(
+        (calls.callsTo("ContactCard/set")[0]!.args.create ?? {}) as Record<
+          string,
+          { addressBookIds: Record<string, true> }
+        >,
+      ).every((card) => !("bk-gone" in card.addressBookIds)),
+    ).toBe(true);
+    expect(answer.written).toBe(1);
+    expect(useSettings.getState().settings.collectedBookId).not.toBe("bk-gone");
   });
 
   it("creates one book for two collections in flight at once", async () => {

@@ -38,8 +38,12 @@ export function sortFiles(
    * What a folder holds, when the caller has counted it: the Size column shows
    * that number for a folder, so it is what the column sorts by — a column whose
    * value and sort key disagree orders by something the reader cannot see.
+   *
+   * `null` (or no entry) is an folder whose count the server did not state: it is
+   * **not** zero, and it is ordered after the counted ones in both directions —
+   * a folder whose size nobody knows is not the smallest thing on the screen.
    */
-  folderCounts?: Readonly<Record<string, number>>,
+  folderCounts?: Readonly<Record<string, number | null>>,
 ): FileNode[] {
   const rank = (n: FileNode) => (n.nodeType === "directory" ? 0 : 1);
   const byName = (a: FileNode, b: FileNode) =>
@@ -47,14 +51,22 @@ export function sortFiles(
   /* `UTCDate` is an ISO-8601 instant in UTC (`jmap/types.ts`), so the strings
      compare in time order and no parsing is needed to order two of them. */
   const stamp = (n: FileNode) => n.modified ?? n.created;
-  const size = (n: FileNode) =>
-    n.nodeType === "directory" ? (folderCounts?.[n.id] ?? 0) : (n.size ?? 0);
+  const size = (n: FileNode): number | null =>
+    n.nodeType === "directory" ? (folderCounts?.[n.id] ?? null) : (n.size ?? 0);
   return [...nodes].sort((a, b) => {
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     let by: number;
     if (sort.key === "name") by = byName(a, b);
-    else if (sort.key === "size") by = size(a) - size(b);
-    else by = stamp(a).localeCompare(stamp(b));
+    else if (sort.key === "size") {
+      const left = size(a);
+      const right = size(b);
+      if (left === null || right === null) {
+        // Unknown is not a number: it sits after what was measured, whichever
+        // way the column points, and two unknowns fall back to the name.
+        if (left === null && right === null) by = 0;
+        else return left === null ? 1 : -1;
+      } else by = left - right;
+    } else by = stamp(a).localeCompare(stamp(b));
     if (by === 0) return byName(a, b);
     return sort.desc ? -by : by;
   });

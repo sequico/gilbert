@@ -5,6 +5,7 @@ import type {
   ContactCard,
   GetResponse,
   Id,
+  SetError,
   SetResponse,
 } from "@/jmap/types";
 import { uniqueAddresses } from "@/lib/address";
@@ -224,18 +225,18 @@ export function booksSlice(
      * can each create a book, upgraded if that ever shows.
      */
     async collectRecipients(addrs, own, from) {
-      const run = async () => {
+      const run = async (): Promise<{ written: number; refused?: SetError }> => {
         const self = useSession.getState().ownAccountFor(CAP.contacts);
-        if (!self || from !== self) return 0;
-        if (!get().available) return 0;
+        if (!self || from !== self) return { written: 0 };
+        if (!get().available) return { written: 0 };
         // The session a collection was started in: a sign-out or another
         // account's sign-in between two awaits leaves books, cards and the write
         // target belonging to two accounts, and the neighbours in this slice all
         // refuse that rather than write across it.
         const epoch = sessionEpoch;
         if (!get().loaded) await get().loadAll();
-        if (epoch !== sessionEpoch || get().accountId !== self) return 0;
-        if (!get().loaded) return 0;
+        if (epoch !== sessionEpoch || get().accountId !== self) return { written: 0 };
+        if (!get().loaded) return { written: 0 };
         const ownSet = new Set(own.map((e) => e.toLowerCase()));
         const fresh = uniqueAddresses(addrs).filter(
           (a) =>
@@ -243,26 +244,25 @@ export function booksSlice(
             !ownSet.has(a.email.toLowerCase()) &&
             !get().lookupByEmail(a.email),
         );
-        if (!fresh.length) return 0;
+        if (!fresh.length) return { written: 0 };
         const { settings, update } = useSettings.getState();
         let bookId: Id | null = null;
         const remembered = settings.collectedBookId;
         if (remembered) {
-          if (get().books[remembered]) bookId = remembered;
-          else {
-            /*
-             * The books this store holds can be older than the account — a create
-             * whose list read failed, or a second device — so a remembered id the
-             * cache does not carry is asked for rather than assumed deleted.
-             * Assuming costs a second book of the same name, every send.
-             */
-            const answered = await client.call<GetResponse<AddressBook>>(
-              "AddressBook/get",
-              { accountId: self, ids: [remembered] },
-            );
-            if (epoch !== sessionEpoch || get().accountId !== self) return 0;
-            if (answered.list.length) bookId = remembered;
-          }
+          /*
+           * The remembered book is **asked for**, whether or not the cache holds
+           * it: a book deleted or unshared on another device while this session
+           * was open is still in the cache, and creating the cards under an id
+           * the server no longer has writes cards nobody can reach. One request
+           * per send is the price of the id being a server fact.
+           */
+          const answered = await client.call<GetResponse<AddressBook>>(
+            "AddressBook/get",
+            { accountId: self, ids: [remembered] },
+          );
+          if (epoch !== sessionEpoch || get().accountId !== self) return { written: 0 };
+          if (answered.list.length) bookId = remembered;
+          else update({ collectedBookId: null });
         }
         if (!bookId) {
           bookId =
@@ -290,8 +290,10 @@ export function booksSlice(
          * The cards go out through the store's one batching door: a send to a
          * few hundred people is more objects than one `/set` may carry, and a
          * single call would have been refused whole — the feature promising to
-         * save them and saving nothing. A refusal is answered as the count it
-         * managed, so a caller can say how many.
+         * save them and saving nothing. What the server **refused** is answered
+         * back rather than dropped: this runs while a message is being sent, so
+         * the refusal is reported on the store's own error surface, where the
+         * book the reader asked for lives.
          */
         const written = await batchedSet<ContactCard>({
           method: "ContactCard",
@@ -299,10 +301,31 @@ export function booksSlice(
           create,
         });
         await get().syncCards();
-        return written.created;
+        if (written.refused) {
+          set({ error: setErrorMessage(written.refused) });
+          return { written: written.created, refused: written.refused };
+        }
+        return { written: written.created };
       };
-      const next = collecting.then(run, run);
-      collecting = next.catch(() => 0);
+      /*
+       * One collection at a time, chained: a second send waits for the first.
+       * A run that fails is the store's error, not the caller's rejection — the
+       * send it rode along with has already happened, and a rejected promise here
+       * would have been swallowed by whoever fired it.
+       */
+      const report = async () => {
+        try {
+          return await run();
+        } catch (err) {
+          set({ error: errorMessage(err) });
+          return { written: 0 };
+        }
+      };
+      const next = collecting.then(report, report);
+      collecting = next.then(
+        () => undefined,
+        () => undefined,
+      );
       return next;
     },
 
