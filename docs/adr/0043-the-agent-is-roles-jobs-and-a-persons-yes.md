@@ -1,4 +1,4 @@
-# ADR 0043 — The agent is roles, jobs, and a person's yes
+# ADR 0043 — The agent is areas, jobs, and a person's yes
 
 Status: Proposed
 
@@ -40,22 +40,35 @@ workflow rather than in a free plan, and what leaves should wait for a person.
 
 ## Decision
 
-### The work is two roles, one interface, one shared library
+### The areas are independent; a run's catalogue is the selection of them
 
-- **Correspondence and documents** — mail with files: read the message, file what
-  it brought, label it, answer it. One job, because a message and its paperwork are
-  one piece of work.
-- **Agenda and workflow** — the calendar with the workorders: commitments with
-  dates and owners.
-- **Knowledge is transversal** — readable and writable by both roles, never a role
-  of its own.
-- **The conversation is the interface**, not a role: saying, asking and reporting
-  belong to every run.
-- **The role is read from the rule** (ADR 0031's surface matrix), never inferred by
-  the model: mail or files → correspondence; calendar or workorder → agenda. A rule
-  naming both is **refused when saved**, with the sentence that says why.
+Each area is a **module** — posta, calendario, contatti, files, conocenza,
+workorder, chat, memoria — with one definition of its actions and no import of
+another area's: `mail.triage` never calls `files.write` in code; it answers with
+the ids that `files.write` takes. An area is not an agent and does not talk to the
+others: what crosses between them is **an identifier inside the account** (a
+message id, a node id, an event id, a card id), and the run is the one place where
+two areas meet.
 
-A run is handed the catalogue of its role plus the transversal tools, and nothing
+- **The catalogue of a run is computed, not administered.** A run is handed the
+  actions of the areas its **rule declares** (ADR 0031's matrix) plus the two
+  transversal areas:
+  - **chat** — the interface: saying, asking, reporting, in every run;
+  - **memoria** and **conoscenza** — the shared library: in every run.
+
+  A rule that works mail and files gets those two; a rule that files a booking and
+  stamps its workorder gets mail, files and workorder; a rule that only answers in
+  the conversation gets chat, memory and knowledge. The selection is the job.
+- **A rule declares at most three areas.** A rule naming more is **refused when
+  saved**, with the sentence that says to split it: five areas is thirty tools in
+  one turn, which is the failure this record exists to undo.
+- **The role names are not a grouping of the product**, they are the two common
+  selections and nothing more: *correspondence* is mail with files, *agenda* is
+  calendar with workorders. They are the shapes a person recognises; the mechanism
+  is the selection.
+
+A run is handed the catalogue of the areas its rule declares, plus chat, memory and
+knowledge, and nothing
 else.
 
 ### Tools have the shape of the job, not of the endpoint
@@ -81,7 +94,7 @@ provider ignores is stated in words beside the schema.
 and the folder listing stay in the account; the model is told what happened and
 what id to use next.
 
-**Progressive disclosure:** the turn sees the role's tools as signatures (name,
+**Progressive disclosure:** the turn sees the run's tools as signatures (name,
 arguments, kind, bound) and asks `tool.describe` for the full definition of one it
 means to call.
 
@@ -91,11 +104,11 @@ container with no writable filesystem (ADR 0027).
 
 ### The common path is a workflow; a plan is the exception
 
-A run of either role runs three beats, each a step of the document:
+A run of any area set runs three beats, each a step of the document:
 
 1. **Read** — the tool the change names reads what arrived; what it read becomes the
    run's `evidence`.
-2. **Act** — the model chooses **one** act from the role's catalogue given what the
+2. **Act** — the model chooses **one** act from the run's catalogue given what the
    read found.
 3. **Report** — the run says in the conversation what it did or what it could not,
    and ends.
@@ -130,7 +143,7 @@ waits on, and the ones the next choice depends on — instead of the whole plan.
 
 An evaluation set taken from the run corpus — the message, the promise, the outcome
 a person would accept — judged by two measures: **the outcome was accepted** and
-**what it cost** (calls, refusals, milliseconds). It is run when a tool, a role or
+**what it cost** (calls, refusals, milliseconds). It is run when a tool, an area or
 the prompt changes, on the mock, and is not the release gate. Every live failure
 adds a task.
 
@@ -143,13 +156,13 @@ one. The installation document stops carrying a key.
 ## Consequences
 
 - The largest measured failure class — a tool name the catalogue does not hold —
-  shrinks to a role's own vocabulary; the second largest (argument names and
+  shrinks to the vocabulary of the areas the rule declares; the second largest (argument names and
   bounds) is answered by names that say what they are and by errors that teach.
 - A run's duration becomes predictable and a pass stops starving the other groups.
 - A false `done` can no longer leave the installation unheard: the product drafts,
   the judge checks, the person sends.
 - The catalogue is small enough to read on every turn without paying for the whole
-  company's API surface, and a role can grow a tool without growing the others.
+  company's API surface, and an area can grow a tool without growing the others.
 - The record keeps its shape: a workflow run carries its three beats as steps, so
   every surface that reads a run reads the same fields.
 - The cost of the redesign is a rewrite of the tool catalogue and of the loop's
