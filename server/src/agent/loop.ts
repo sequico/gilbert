@@ -135,6 +135,7 @@ import { NOTICE_CURSOR_FILE, readCursor, writeCursor } from "./cursors.js";
 import type { AccountEvents, EventCursor } from "./events.js";
 import type { InstructionDoc } from "./instruction.js";
 import { readInstruction } from "./instruction.js";
+import { clearLegacyAgentState } from "./legacy.js";
 import { forgetMemoryStores, listFacts, type MemoryStore } from "./memory.js";
 import {
   boundedText,
@@ -449,11 +450,12 @@ export class AgentLoop {
    * edited is in force at the next pass with no restart.
    */
   private readonly above = new Map<string, Partial<Record<ProseLevel, string>>>();
-  /**
-   * The group's instruction itself, by account, as this pass read it: one
+  /** The group's instruction itself, by account, as this pass read it: one
    * document opened once and shared by the prose, the run's matrix and the areas.
    */
   private readonly instructions = new Map<string, InstructionDoc | null>();
+  /** The accounts whose old rules were cleared by this process (ADR 0038). */
+  private readonly legacyCleared = new Set<string>();
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
@@ -752,6 +754,24 @@ export class AgentLoop {
     await Promise.all(
       accounts.map(async (accountId) => {
         this.opts.log?.(`[gilbert] agent: working ${accountId}`);
+        /*
+         * The documents the rules left behind go once per account, before
+         * anything reads the account: a group starts from its instruction and
+         * nothing else (ADR 0038). The marker inside the account is what makes
+         * the clear one-off; the set only saves the read on every later pass.
+         */
+        if (!this.legacyCleared.has(accountId)) {
+          try {
+            const removed = await clearLegacyAgentState(this.ctx, accountId);
+            if (removed.length)
+              this.opts.log?.(
+                `[gilbert] agent: cleared the old rules of ${accountId}: ${removed.join(", ")}`,
+              );
+            this.legacyCleared.add(accountId);
+          } catch (err) {
+            summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+          }
+        }
         let records: RunRecord[] | null = null;
         /*
          * One account that cannot be read is not the installation failing: a
