@@ -561,12 +561,14 @@ test("the standing prose reaches the system turn unfenced, and a rule's own inst
  * from a refusal: the reported failures were a value one character too long and
  * a field named `text` where the tool takes `fact`.
  */
-test("the catalogue reaches the turn once, as the tools it may call", async () => {
+test("the catalogue reaches the turn twice: the definitions, and the signatures beside them", async () => {
   /*
-   * The same names, descriptions, arguments and bounds used to travel twice in one
-   * request — prose in the system turn and the tool definitions beside it — and the
-   * choosing turn is the call every step of every run makes. The tools are the one
-   * rendering now, so the system turn must not repeat them.
+   * It used to travel once — the provider's own `tools` only — to save the
+   * repetition on every step of every run. A live installation paid for the
+   * saving: the turn answered from memory and invented `mail.search` and
+   * `mail.threads`, and 260 steps over 94 runs were refused (55%). So the
+   * signatures travel beside the definitions, and only the signatures: the
+   * description a definition already carries is not paid for twice.
    */
   seen = [];
   answers = [];
@@ -574,15 +576,16 @@ test("the catalogue reaches the turn once, as the tools it may call", async () =
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
   const system = SYSTEM(0);
 
-  assert.doesNotMatch(
-    system,
-    /- memory\.remember\(/,
-    "the catalogue lines are not repeated beside the tools",
-  );
+  const remember = TOOLS.find((tool) => tool.name === "memory.remember");
+  assert.ok(remember, "the catalogue holds the tool this test reads");
   assert.match(
     system,
-    /are the tool definitions this call carries/,
-    "and the turn is told where they are",
+    /- memory\.remember\(/,
+    "the signatures are written beside the definitions this call carries",
+  );
+  assert.ok(
+    !system.includes(remember.description),
+    "and the description is not paid for twice",
   );
 });
 
@@ -993,24 +996,46 @@ test("an answer that is not a plan or a done is refused, never guessed at", () =
   });
 });
 
-test("a plan naming a tool the catalogue does not hold, or arguments a tool cannot use, is refused whole", async () => {
+test("a call the catalogue does not hold is refused alone, and the rest of the plan runs", async () => {
+  /*
+   * A live installation lost four good calls to one invented name, and the model
+   * came back with the same name because nothing had told it what the catalogue
+   * holds. So the refusal is **per call**: the plan keeps the calls that pass, and
+   * the one that failed is returned beside them with the nearest real name.
+   */
   answerWith({
     calls: [
       { name: "mail.find", arguments: { query: "from:x" } },
-      { name: "mail.send", arguments: { to: "x@example.com" } },
+      { name: "mail.search", arguments: { query: "from:x" } },
     ],
   });
-  await assert.rejects(
-    () => chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion()),
-    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
-    "one unknown tool refuses the whole answer, not only the call that named it",
+  const choice = await chooseStep(
+    TOOLS,
+    { model, allowPrivateProvider: true },
+    stepQuestion(),
+  );
+  assert.equal(choice.kind, "plan");
+  assert.deepEqual(
+    choice.kind === "plan" ? choice.calls.map((call) => call.name) : [],
+    ["mail.find"],
+    "the call that named a real tool still runs",
+  );
+  const refused = choice.kind === "plan" ? (choice.refused ?? []) : [];
+  assert.equal(refused.length, 1, "and the invented one is refused on its own");
+  assert.equal(refused[0]?.name, "mail.search");
+  assert.match(
+    refused[0]?.problem ?? "",
+    /mail\.find/,
+    "the refusal names the tool it meant",
   );
 
+  // Nothing of the answer could be made: that is the answer refused, and the model
+  // is told what the catalogue holds.
   answerWith({ calls: [{ name: "mail.find", arguments: {} }] });
   await assert.rejects(
     () => chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion()),
     (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
-    "and arguments a tool cannot use refuse the whole answer too",
+    "an answer with no usable call is refused whole",
   );
 
   answerWith({
@@ -1047,11 +1072,12 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
 
   const system = SYSTEM(0);
   /*
-   * The catalogue reaches the turn **once**, as the provider's own `tools` (ADR
-   * 0027): the system turn carries no second list of the same names,
-   * descriptions and bounds, and the duplicate was the largest part of a prompt
-   * paid on every step. What the test has to hold is that the definition the
-   * provider sees is the catalogue's own words, not a copy written beside it.
+   * The catalogue reaches the turn **twice, and on purpose**: as the provider's
+   * own `tools`, and as one signature line per tool in the system turn. The
+   * duplicate is the answer to a measured failure — a turn handed only the
+   * definitions invented names it had never been given — so what this test holds
+   * is that the definition the provider sees is the catalogue's own words, and
+   * that the signatures are there beside them.
    */
   const first = seen[0] as { body?: { tools?: unknown } } | undefined;
   const carried = first?.body?.tools;
@@ -1067,10 +1093,9 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
       `"${tool.name}" reaches the model as the catalogue states it, not as a copy`,
     );
   }
-  assert.equal(
+  assert.ok(
     system.includes("- chat.say("),
-    false,
-    "and the same lines are not paid for twice in the system turn",
+    "and the signatures are beside the definitions, since the definitions alone were not read",
   );
   assert.ok(
     system.includes("refused rather than run"),
