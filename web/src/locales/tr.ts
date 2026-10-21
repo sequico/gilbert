@@ -1480,6 +1480,10 @@ export const catalog: Catalog = {
     "Sort by, in order": "Sıralama ölçütü, sırasıyla",
     Source: "Kaynak",
     "Spam filter": "Spam filtresi",
+    "Spam filter's model": "Spam filtresinin modeli",
+    "{confidence} confidence": "Güven: {confidence}",
+    "One of several signals the spam filter weighed":
+      "Spam filtresinin değerlendirdiği birkaç sinyalden biri",
     "Spell check while typing": "Yazarken yazım denetimi yap",
     "Spellcheck the composer.": "Besteciyi yazım denetiminden geçir.",
     Stalwart: "Stalwart",

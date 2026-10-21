@@ -1164,6 +1164,10 @@ unread-only, and composes the same query string.
   largest mover first and signed. Both the SpamAssassin-shaped `X-Spam-*` set and
   Rspamd's `X-Spamd-Result` are read; anything else is left alone. A score is
   always given its threshold, and where no verdict was recorded none is invented.
+  Where the installation's spam filter asks a **model of its own** (Stalwart's AI
+  classification), the category it chose, its confidence and its explanation are
+  shown beside the score as **one of several signals the filter weighed** — the
+  filter's model, never the agent's, and the explanation only ever as text.
 - **Message body theming** is off by default. One setting lets mail with no colours
   of its own follow the app's theme; a second setting, off unless the first is on,
   forces the theme over the sender's colours, telling a *sheet* from a *painted

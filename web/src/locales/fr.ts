@@ -1409,6 +1409,10 @@ export const catalog: Catalog = {
     "Sort by, in order": "Trier par, dans cet ordre",
     Source: "Source",
     "Spam filter": "Filtre antispam",
+    "Spam filter's model": "Modèle du filtre antispam",
+    "{confidence} confidence": "Confiance : {confidence}",
+    "One of several signals the spam filter weighed":
+      "L'un des plusieurs signaux pesés par le filtre antispam",
     Starred: "Suivis",
     "Starred first": "Les suivis d'abord",
     "Stay here": "Rester ici",

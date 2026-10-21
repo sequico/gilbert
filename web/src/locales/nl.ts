@@ -1389,6 +1389,10 @@ export const catalog: Catalog = {
     "Sort by, in order": "Sorteren op, in deze volgorde",
     Source: "Bron",
     "Spam filter": "Spamfilter",
+    "Spam filter's model": "Model van het spamfilter",
+    "{confidence} confidence": "Zekerheid: {confidence}",
+    "One of several signals the spam filter weighed":
+      "Een van de signalen die het spamfilter heeft gewogen",
     Starred: "Met ster",
     "Starred first": "Met ster eerst",
     "Stay here": "Hier blijven",

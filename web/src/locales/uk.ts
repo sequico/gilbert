@@ -1384,6 +1384,10 @@ export const catalog: Catalog = {
     "Sort by, in order": "Сортувати за, у цьому порядку",
     Source: "Вихідний текст",
     "Spam filter": "Спам-фільтр",
+    "Spam filter's model": "Модель спам-фільтра",
+    "{confidence} confidence": "Упевненість: {confidence}",
+    "One of several signals the spam filter weighed":
+      "Один із кількох сигналів, які врахував спам-фільтр",
     Starred: "Позначені",
     "Starred first": "Спочатку позначені",
     "Stay here": "Лишитися тут",

@@ -1356,6 +1356,10 @@ export const catalog: Catalog = {
     "Sort by, in order": "排序依据，按此顺序",
     Source: "源代码",
     "Spam filter": "垃圾邮件过滤",
+    "Spam filter's model": "垃圾邮件过滤器的模型",
+    "{confidence} confidence": "置信度：{confidence}",
+    "One of several signals the spam filter weighed":
+      "这是垃圾邮件过滤器权衡的多个信号之一",
     Starred: "已标星",
     "Starred first": "已标星在前",
     "Stay here": "留在此处",

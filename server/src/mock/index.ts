@@ -885,6 +885,20 @@ function addEmail(o: {
         : o.mailbox === "inbox"
           ? "No, score=-1.8 required=5.0 tests=[BAYES_00=-1.9, DKIM_VALID=-0.7, SPF_PASS=-0.1, HTML_MESSAGE=0.9]"
           : null,
+    /*
+     * The filter's own model, where the installation has AI classification on:
+     * the category it chose, then its explanation in parentheses. A message it
+     * liked as much as one it did not, and neither on mail this account wrote.
+     * The exact shape a live Stalwart writes here is an assumption this mock
+     * makes (`spam-model-header.test.ts` pins it; the probe it owes is in
+     * `gilbert-stalwart`).
+     */
+    "header:X-Spam-LLM:asText":
+      o.mailbox === "junk"
+        ? "Unsolicited (Promotes a product the reader never asked about)"
+        : o.mailbox === "inbox"
+          ? "LLM_HAM_HIGH (A reply in a thread the reader started)"
+          : null,
   };
   (o.into ?? emails).push(e);
   return e;

@@ -2263,6 +2263,13 @@ export const catalog: Catalog = {
     Source: "Codice sorgente",
 
     "Spam filter": "Filtro antispam",
+
+    "Spam filter's model": "Modello del filtro antispam",
+
+    "{confidence} confidence": "Confidenza: {confidence}",
+
+    "One of several signals the spam filter weighed":
+      "Uno dei vari segnali che il filtro antispam ha soppesato",
     Starred: "Con stella",
 
     "Starred first": "Prima quelli con stella",

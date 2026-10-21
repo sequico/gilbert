@@ -60,7 +60,7 @@ import { remoteImagesAllowed, remoteImagesLoadable } from "@/lib/remoteImages";
 import { formatScheduleTime } from "@/lib/schedule";
 import { canShare, canShareFiles, shareFile, shareText } from "@/lib/share";
 import { useSignature } from "@/lib/smime/useSignature";
-import { type SpamReport, spamReport } from "@/lib/spamScore";
+import { type SpamReport, spamModelOpinion, spamReport } from "@/lib/spamScore";
 import { findQuoteStart, htmlToText, textToHtml, withoutBidiControls } from "@/lib/text";
 import { isTnef, parseTnef, type TnefAttachment } from "@/lib/tnef";
 import { findInTree } from "@/lib/tree";
@@ -366,6 +366,7 @@ export const MessageView = memo(function MessageView({
     e["header:Authentication-Results:asText"] ?? "",
   );
   const spam = useMemo(() => spamReport(e), [e]);
+  const modelOpinion = useMemo(() => spamModelOpinion(e), [e]);
   const identities = useMail((st) => st.identities);
   /*
    * Only computed when the warning is on, because the domains it compares
@@ -824,6 +825,32 @@ export const MessageView = memo(function MessageView({
                   <dt>{translate("Spam filter")}</dt>
                   <dd>
                     <SpamSummary report={spam} />
+                  </dd>
+                </>
+              )}
+              {modelOpinion && (
+                <>
+                  <dt>{translate("Spam filter's model")}</dt>
+                  <dd>
+                    <div className="spam-summary">
+                      <div>
+                        <strong>{modelOpinion.category}</strong>
+                        {modelOpinion.confidence && (
+                          <span className="hint">
+                            {" — "}
+                            {translate("{confidence} confidence", {
+                              confidence: modelOpinion.confidence,
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      {modelOpinion.explanation && (
+                        <div className="hint">{modelOpinion.explanation}</div>
+                      )}
+                      <div className="hint">
+                        {translate("One of several signals the spam filter weighed")}
+                      </div>
+                    </div>
                   </dd>
                 </>
               )}

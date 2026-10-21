@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { spamReport } from "@/lib/spamScore";
+import { parseSpamModelOpinion, spamModelOpinion, spamReport } from "@/lib/spamScore";
 
 const sa = (v: string) => spamReport({ "header:X-Spam-Status:asText": v });
 const rs = (v: string) => spamReport({ "header:X-Spamd-Result:asText": v });
@@ -107,5 +107,41 @@ describe("spamReport, precedence and fallback", () => {
     // Above the threshold, but the filter did not say "Yes" -- so neither do we.
     const r = sa("score=9.9 required=5.0 tests=[X=9.9]");
     expect(r!.verdict).toBeNull();
+  });
+});
+
+describe("the spam filter's model, read off X-Spam-LLM", () => {
+  it("reads a category and the explanation in parentheses", () => {
+    const o = parseSpamModelOpinion(
+      "Unsolicited (Promotes a product the reader never asked about)",
+    );
+    expect(o).toEqual({
+      tag: "Unsolicited",
+      category: "Unsolicited",
+      confidence: null,
+      explanation: "Promotes a product the reader never asked about",
+    });
+  });
+
+  it("reads the filter's own LLM_<category>_<confidence> tag", () => {
+    const o = parseSpamModelOpinion(
+      "LLM_HAM_HIGH (A reply in a thread the reader started)",
+    );
+    expect(o!.category).toBe("Ham");
+    expect(o!.confidence).toBe("High");
+    expect(o!.explanation).toBe("A reply in a thread the reader started");
+  });
+
+  it("reads a header that is folded", () => {
+    const o = parseSpamModelOpinion("Unsolicited\n\t(Promotes a product)");
+    expect(o!.category).toBe("Unsolicited");
+    expect(o!.explanation).toBe("Promotes a product");
+  });
+
+  it("says nothing for a missing header, and nothing it cannot parse", () => {
+    expect(spamModelOpinion({})).toBeNull();
+    expect(spamModelOpinion({ "header:X-Spam-LLM:asText": "" })).toBeNull();
+    // An explanation the server did not wrap: not read rather than shown cut.
+    expect(parseSpamModelOpinion("Unsolicited Promotes a product")).toBeNull();
   });
 });
