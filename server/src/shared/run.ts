@@ -75,7 +75,8 @@ export type RunStepState = "open" | RunStepOutcome | "skipped";
 type RunStepOutcome = "done" | "failed";
 
 /** The three ways a run ends (ADR 0030): done, a person is needed, or the budget is spent. */
-type RunEnding = "done" | "blocked" | "out-of-budget" | "cancelled";
+/** The three ways a run is finished, and the two that are not an ending. */
+export type RunEnding = "done" | "blocked" | "out-of-budget" | "cancelled";
 
 /** A run's state: in flight, or one of the three endings. */
 export type RunState = "running" | RunEnding;
@@ -280,7 +281,8 @@ export interface RunSpent {
 }
 
 /** How and why a run ended. */
-interface RunEnd {
+/** How a run ended: when, and why, in words (ADR 0030). */
+export interface RunEnd {
   /** The instant it ended, ISO 8601. */
   at: string;
   /** Why it ended, in words. */

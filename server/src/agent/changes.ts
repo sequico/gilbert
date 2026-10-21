@@ -127,6 +127,19 @@ export function wokeOf(event: AccountEvent): string {
 }
 
 /**
+ * The chat message a run's wake names, when a person wrote to the agent.
+ *
+ * The inverse of the one spelling `wokeOf` gives a wake: `chat created: <path>`
+ * and nothing else is a message a person wrote in the group's conversation. It
+ * lives here, beside the writer, so the two cannot drift apart.
+ */
+export function chatWoken(woke: string | null | undefined): string | null {
+  const [head, ...rest] = (woke ?? "").split(": ");
+  if (head !== "chat created" || !rest.length) return null;
+  return rest.join(": ");
+}
+
+/**
  * Which rule and which change a run is the answer to: its own `startedBy`.
  *
  * The change is named the way the run carries it (`wokeOf`), so the pair a run

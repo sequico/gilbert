@@ -152,7 +152,11 @@ evidence behind its claims, and the budget it has spent — the shape, its parse
 and its transitions are `server/src/shared/run.ts`, and where a run lives is
 `server/src/agent/runs.ts` (ADR 0030). **A run is capped** at 20 steps, 40 model
 calls and five minutes of work, so a model that is stuck ends at a record rather
-than looping on the account. **One claim per installation** keeps a
+than looping on the account. **An ending is said, not only recorded**: a run that
+could not finish says so in the group's own conversation with the sentence its
+ending carries, a run that finished says so when a person woke it there, and a
+question or a stop (already words between the two) does not repeat itself —
+`endRun` in `server/src/agent/loop.ts`. **One claim per installation** keeps a
 single agent working it: a document taken by compare-and-set that a holder
 renews, and a holder that died on this host is taken over at once — another host
 waits the lease — so a restart never leaves a document to delete by hand

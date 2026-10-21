@@ -25,9 +25,12 @@ installation administrator reads them, a run is drawn as the record carries it:
 `listRunsForReading` for `server/src/routes/agent.ts`, which carries that run as
 a problem the view says out loud rather than drawing it blank
 (`web/src/views/admin/agents/GroupRuns.tsx`, behind the installation's own door,
-ADR 0027). The records a run writes next to a person's already exist — a
-workorder step's `state`/`by`/`at`/`note` (`server/src/shared/workorder.ts`) and
-a KB page's revisions (ADR 0020).
+ADR 0027). The ending a run says is one message of the group's own conversation
+(`endRun` in `server/src/agent/loop.ts`, over `postChatMessage` in
+`server/src/groupChat.ts`), a reply to the message that woke the run when a
+person wrote in the conversation. The records a run writes next to a person's
+already exist — a workorder step's `state`/`by`/`at`/`note`
+(`server/src/shared/workorder.ts`) and a KB page's revisions (ADR 0020).
 
 ## Context
 
@@ -95,6 +98,16 @@ agent's durable state.
   one a person stopped is `cancelled` with the words it was stopped with, and the
   pass that was working it leaves that ending alone rather than writing its step
   over it.
+- **An ending is said, not only recorded.** A run that could not finish says so
+  in the group's own conversation, with the sentence its ending carries; a run
+  that finished says so when a person woke it there. A question it asked and a
+  stop a person took are already words between them, so those endings do not
+  repeat themselves, and a background run that finished keeps its record. The
+  notice is the ending's own `why`, so the conversation and the record cannot
+  tell two stories; a notice that cannot be posted is a failed step on the run
+  rather than a silence. A run that dies without a word is the defect this
+  closes: the person whose request woke it saw nothing, and the installation
+  looked like a queue that had stopped.
 - **A member of the group reads its runs and stops a running one.** The gate is
   the person's own grant on the group whose account holds the runs — not the
   administrator's — so a member of one group neither sees nor stops another

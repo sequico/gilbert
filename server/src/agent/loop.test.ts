@@ -24,6 +24,8 @@
  *   a refused call leaves its siblings' steps beside it, the ready calls run at
  *   once, and a wait is honoured after them;
  * - a wave asks the server for at most four calls at once;
+ * - a run says how it ended in the conversation, and a question or a stop does
+ *   not repeat itself as a notice;
  * - a step that waits on an earlier one runs the branch that step's outcome
  *   names and is left unrun when no branch does, and the record says which step
  *   and which outcome left it;
@@ -736,6 +738,58 @@ test("a wave asks the server for at most four calls at once", async () => {
     9,
     "and bounding the burst did not lose a step of the answer",
   );
+});
+
+test("a run says how it ended, unless the ending is already words between them", async () => {
+  /*
+   * The live run that closed this: a person's chat message was worked, its files
+   * landed, and the run ended `out-of-budget` before it wrote a line — the
+   * person saw nothing and the queue looked stuck (ADR 0030). Every ending
+   * speaks; a question and a stop are already words, and a background run that
+   * finished keeps its record.
+   */
+  const id = "intake-says";
+  await putRule(id, ["chat", "mail"]);
+  const agent = loop();
+  await agent.start();
+
+  // A person asks in the conversation and the run finishes: the ending is a
+  // message in that conversation, in the thread they wrote in.
+  const asked = await postChatMessage(
+    ctx,
+    accountId,
+    "sam@example.org",
+    "@gilbert file the booking, please",
+  );
+  onCall = (system) =>
+    isDecision(system) ? { rules: [id], facts: {} } : { done: "the booking is filed" };
+  await agent.pass();
+  const said = await findChatMessages(ctx, accountId, "Done: the booking is filed", 5);
+  assert.equal(said.length, 1, "the ending is said once, where the person wrote");
+  assert.equal(said[0]?.replyTo, asked, "and it answers the message that woke the run");
+
+  // A background run that finished says nothing: nobody asked it in the
+  // conversation, and the record is where its ending is read.
+  onCall = (system) =>
+    isDecision(system) ? { rules: [id], facts: {} } : { done: "a background ending" };
+  await deliver("a booking confirmation");
+  await agent.pass();
+  assert.equal(
+    (await findChatMessages(ctx, accountId, "Done: a background ending", 5)).length,
+    0,
+    "a run woken by mail keeps its ending on the record",
+  );
+
+  // A run that could not finish speaks whatever woke it: a failure is news.
+  onCall = null;
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ calls: [{ name: "mail.folders", arguments: {} }] });
+  answerWith({ calls: [{ name: "mail.folders", arguments: {} }] });
+  await deliver("a message the agent stalls on");
+  await agent.pass();
+  const failed = await findChatMessages(ctx, accountId, "I could not finish this one", 5);
+  assert.equal(failed.length, 1, "the failure is said, once");
+  assert.match(failed[0]?.text ?? "", /the same calls twice/, "and it says why");
 });
 
 test("every rule that fits one change opens its own run", async () => {

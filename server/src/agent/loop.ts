@@ -71,7 +71,7 @@ import {
   readVisibleFileBytes,
 } from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
-import { readChatMessage, readChatMessageAt } from "../groupChat.js";
+import { readChatMessage, readChatMessageAt, postChatMessage } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
@@ -92,6 +92,8 @@ import {
   isRunWait,
   RUN_STEPS_MAX,
   type RunDoc,
+  type RunEnd,
+  type RunEnding,
   type RunMessageRef,
   type RunStep,
   type RunStepNeeds,
@@ -112,7 +114,13 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upst
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
-import { offPath, readChangesForPass, wokeOf, workChanges } from "./changes.js";
+import {
+  chatWoken,
+  offPath,
+  readChangesForPass,
+  wokeOf,
+  workChanges,
+} from "./changes.js";
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
 import type { AccountEvents, EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
@@ -1172,11 +1180,16 @@ export class AgentLoop {
     for (;;) {
       const over = overBudget(current);
       if (over) {
-        const ended = finishRun(current, "out-of-budget", {
-          at: new Date().toISOString(),
-          why: `the budget ended the run: ${over}, so the work did not finish.`,
-        });
-        return (await this.store(accountId, ended, token)) ? ended : null;
+        return await this.endRun(
+          accountId,
+          current,
+          "out-of-budget",
+          {
+            at: new Date().toISOString(),
+            why: `the budget ended the run: ${over}, so the work did not finish.`,
+          },
+          token,
+        );
       }
       const prose = await this.proseOf(accountId, current, above);
       const startedMs = Date.now();
@@ -1241,11 +1254,16 @@ export class AgentLoop {
         current = spendRun(current, { ms: Date.now() - startedMs });
         refused += 1;
         if (refused >= 2) {
-          const ended = finishRun(current, "out-of-budget", {
-            at: new Date().toISOString(),
-            why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
-          });
-          return (await this.store(accountId, ended, token)) ? ended : null;
+          return await this.endRun(
+            accountId,
+            current,
+            "out-of-budget",
+            {
+              at: new Date().toISOString(),
+              why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
+            },
+            token,
+          );
         }
         const written = await this.store(accountId, current, token);
         if (!written) return null;
@@ -1259,11 +1277,13 @@ export class AgentLoop {
         cachedPromptTokens: meter.cachedTokens,
       });
       if (choice.kind === "done") {
-        const ended = finishRun(current, "done", {
-          at: new Date().toISOString(),
-          why: choice.why,
-        });
-        return (await this.store(accountId, ended, token)) ? ended : null;
+        return await this.endRun(
+          accountId,
+          current,
+          "done",
+          { at: new Date().toISOString(), why: choice.why },
+          token,
+        );
       }
       /*
        * The plan has to fit the steps the run has left. The parser refuses an
@@ -1286,11 +1306,16 @@ export class AgentLoop {
         );
         refused += 1;
         if (refused >= 2) {
-          const ended = finishRun(current, "out-of-budget", {
-            at: new Date().toISOString(),
-            why: "the model asked for more steps than the run had left, twice, so the work did not finish.",
-          });
-          return (await this.store(accountId, ended, token)) ? ended : null;
+          return await this.endRun(
+            accountId,
+            current,
+            "out-of-budget",
+            {
+              at: new Date().toISOString(),
+              why: "the model asked for more steps than the run had left, twice, so the work did not finish.",
+            },
+            token,
+          );
         }
         const kept = await this.store(accountId, current, token);
         if (!kept) return null;
@@ -1325,11 +1350,16 @@ export class AgentLoop {
           "the same calls were chosen twice and made no progress",
           false,
         );
-        const ended = finishRun(current, "out-of-budget", {
-          at: new Date().toISOString(),
-          why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
-        });
-        return (await this.store(accountId, ended, token)) ? ended : null;
+        return await this.endRun(
+          accountId,
+          current,
+          "out-of-budget",
+          {
+            at: new Date().toISOString(),
+            why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
+          },
+          token,
+        );
       }
       previous = chosenWhole;
 
@@ -1463,11 +1493,16 @@ export class AgentLoop {
         current = spendRun(current, { ms: elapsedMs });
         refused = worked ? 0 : refused + 1;
         if (refused >= 3) {
-          const ended = finishRun(current, "out-of-budget", {
-            at: new Date().toISOString(),
-            why: "the last rounds were refused in full, so the work did not finish.",
-          });
-          return (await this.store(accountId, ended, token)) ? ended : null;
+          return await this.endRun(
+            accountId,
+            current,
+            "out-of-budget",
+            {
+              at: new Date().toISOString(),
+              why: "the last rounds were refused in full, so the work did not finish.",
+            },
+            token,
+          );
         }
       }
 
@@ -1492,6 +1527,58 @@ export class AgentLoop {
       token = settledWrite;
       if (wait) return current;
     }
+  }
+
+  /**
+   * End the run, write it, and say it where a person is listening.
+   *
+   * A run that stops without a word is the defect this closes (ADR 0030): a
+   * person's request was worked, its files landed, and the run ended
+   * `out-of-budget` before it wrote a line — so the request looked unanswered
+   * and the queue looked stuck. The ending's own sentence is what is said, so
+   * the record and the conversation cannot tell two stories.
+   *
+   * **What speaks.** Every run that ends otherwise than `done`, `blocked` and
+   * `cancelled`: a question it asked and a stop a person took are already words
+   * between them, and a failure is news nobody else carries. A `done` run speaks
+   * when a person woke it in the conversation — the person asked, so the person
+   * hears the answer — and a background run keeps its record.
+   *
+   * The saying is a message of the group's own conversation (`groupChat.ts`),
+   * a reply to the message that woke it when there is one. A saying that cannot
+   * be posted is a failed step on the record, never a silence: the ending is
+   * not lost for it.
+   */
+  private async endRun(
+    accountId: string,
+    run: RunDoc,
+    ending: RunEnding,
+    end: RunEnd,
+    token?: string,
+  ): Promise<RunDoc | null> {
+    let current = run;
+    const woke = chatWoken(run.startedBy.woke);
+    if (ending === "out-of-budget" || (ending === "done" && woke)) {
+      const text =
+        ending === "done"
+          ? `Done: ${end.why}`
+          : `I could not finish this one: ${end.why}`;
+      try {
+        const asked = woke ? await readChatMessageAt(this.ctx, accountId, woke) : null;
+        await postChatMessage(this.ctx, accountId, this.ctx.username, text, {
+          ...(asked?.id ? { replyTo: asked.id } : {}),
+        });
+      } catch (err) {
+        current = this.withStep(
+          current,
+          "the run's ending, said in the conversation",
+          `refused: ${errorMessage(err)}`,
+          false,
+        );
+      }
+    }
+    const ended = finishRun(current, ending, end);
+    return (await this.store(accountId, ended, token)) ? ended : null;
   }
 
   /**
