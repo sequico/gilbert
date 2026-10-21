@@ -199,14 +199,23 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
 const OFF_NOTICE = "AI agents are turned off.";
 
 /**
- * What a person is told when their mention of the agent reaches no rule at all.
+ * What a person is told when their words reached the agent and no rule watches
+ * the surface they arrived on.
  *
- * A group with no rule watching the conversation is a group whose agent is not
- * asked to speak there; the person still addressed it, and silence is not an
- * answer to a question somebody typed.
+ * One sentence for every surface. A group with no rule watching the conversation
+ * is a group whose agent is not asked to speak there, and the same holds for mail
+ * — the live defect was that only the conversation got the sentence, so a message
+ * to a group with no mail rule was read and dropped without a word.
  */
-const NO_RULE_NOTICE =
-  "This group has no rule for the conversation, so your message has woken nothing. An administrator can write one in Administration → Agent → Rules.";
+function noRuleNotice(
+  surface: "chat" | "mail",
+  about: { from?: string | null; subject?: string | null } = {},
+): string {
+  const where = surface === "mail" ? "mail" : "the conversation";
+  const from = about.from ? ` from ${about.from}` : "";
+  const subject = about.subject ? ` (“${about.subject}”)` : "";
+  return `This group has no rule for ${where}, so the message${from}${subject} has woken nothing. An administrator can write one in Administration → Agent → Rules.`;
+}
 
 /**
  * A pass with the agent off: nothing is decided, nothing is modelled, and the
@@ -497,14 +506,39 @@ export async function workChanges(
      * and a person who typed a question is owed an answer or a reason.
      */
     if (!candidates.length) {
+      /*
+       * A person who addressed the agent gets an answer or a reason on **every**
+       * surface it can arrive on. A chat mention had its notice; a mail had
+       * nothing, and a live installation read and dropped thirteen messages in a
+       * group whose agent has no rule for mail. The notice goes to the group's
+       * conversation — an administrator reads it there — and says what arrived
+       * and that no rule watches mail: the silence was the defect.
+       */
       if (
         event.source === "chat" &&
         message &&
         addressesAgent(message, deps.ctx.username)
       )
-        await postChatMessage(deps.ctx, accountId, deps.ctx.username, NO_RULE_NOTICE, {
-          ...(message.id ? { replyTo: message.id } : {}),
-        });
+        await postChatMessage(
+          deps.ctx,
+          accountId,
+          deps.ctx.username,
+          noRuleNotice("chat"),
+          {
+            ...(message.id ? { replyTo: message.id } : {}),
+          },
+        );
+      else if (
+        event.source === "mail" &&
+        mail &&
+        addressesAgent({ text: mail.text }, deps.ctx.username)
+      )
+        await postChatMessage(
+          deps.ctx,
+          accountId,
+          deps.ctx.username,
+          noRuleNotice("mail", { from: mail.from, subject: mail.subject }),
+        );
       continue;
     }
     const woke = wokeOf(event);
@@ -561,8 +595,10 @@ export async function workChanges(
       /*
        * The fast path: a chat message that only wants words is answered by the
        * call that decided it, instead of opening a run and a step to say the
-       * same. Other surfaces are never answered in the group's chat, so a
-       * reply chosen for them is a decision with nothing to do.
+       * same. Other surfaces are never answered in the group's chat, and the
+       * agent has no licence to send outward without a rule that declares it
+       * (ADR 0028) — so the words go nowhere, and the pass says so rather than
+       * dropping them in silence.
        */
       if (event.source === "chat")
         await postChatMessage(
@@ -571,6 +607,10 @@ export async function workChanges(
           deps.ctx.username,
           decision.text,
           message?.id ? { replyTo: message.id } : {},
+        );
+      else
+        summary.gaps.push(
+          `${accountId}: the model answered a ${event.source} change in words, and a reply on that surface has no licence to be sent: nothing was said.`,
         );
       continue;
     }

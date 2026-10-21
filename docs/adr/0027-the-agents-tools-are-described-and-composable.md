@@ -146,23 +146,30 @@ typed arguments, each acting on one of those objects.
 - The provider's contract is pinned against a stub, and **no real provider has
   answered it**: the first live call is owed before the model path is trusted.
 <!-- owed: model-provider-live -->
-- The catalogue is offered as **the provider's own tool definitions**, rendered
-  from each tool's own `args`: `catalogueTools` is the one rendering, and the
-  system turn carries no second list of the same names, descriptions, arguments
-  and bounds — the choosing turn is the call every step of every run makes, and
-  the same lines twice are paid twice on every call. A call that carries the
-  definitions asks the provider to check the kind and the bound of every
-  argument, which is what a hand-written JSON plan gets wrong: a live
-  installation paid refused answers for a numeric `id`, an over-long `fact` and
-  an argument name no tool takes. Every argument a tool names declares its kind,
-  and the kind cannot be left out: an argument's names are its `args`, and
-  `ArgSpec.type` is required — a key and its description are one list, so there
-  is nothing to disagree with, and an argument published as a string because
-  nobody said otherwise cannot be written. `required` is
-  not stated, because a key is not a required key and the tool's parser is the
-  one door. The demanded JSON shape is still read as the fallback of the same
-  call, and a call that branches is written in that shape, because a native call
-  is one linear step with the tool's own arguments and nothing of the step's
-  structure in them; a gateway that refuses a `tools` field is asked once more
-  without the catalogue, and a second refusal is reported in a sentence that says
-  the catalogue was withheld.
+- The catalogue is offered as **the provider's own tool definitions** and as one
+  **signature line** per tool — the name, its arguments, the kind and the bound
+  of each — rendered from the same `args`: `catalogueTools` writes the definition
+  and `toolSignature` the line, and both are the one definition read twice. The
+  line is not the definitions repeated: it carries no description, and it is what
+  the model demonstrably follows. A live installation paid for the definitions
+  alone: the turn answered from memory, invented `mail.search` and `mail.threads`,
+  put a mailbox id where a message id goes, and one invented name refused a whole
+  five-call plan — 260 refused steps over 94 runs. Every argument a tool names
+  declares its kind, and the kind cannot be left out: an argument's names are its
+  `args`, and `ArgSpec.type` is required. A bound the provider ignores is a bound
+  the line still states — one provider accepted a `fact` five times its limit — and
+  an `about` beside an argument says what the value *is* when its name cannot
+  (`id` is a message, a mailbox, a node or a chat message depending on the tool).
+  `required` is not stated, because a key is not a required key and the tool's
+  parser is the one door. The demanded JSON shape is still read as the fallback of
+  the same call, and a call that branches is written in that shape, because a
+  native call is one linear step with the tool's own arguments and nothing of the
+  step's structure in them; a gateway that refuses a `tools` field is asked once
+  more without the catalogue, and a second refusal is reported in a sentence that
+  says the catalogue was withheld.
+- A call the catalogue refuses is **that call**, not the answer: the plan's other
+  steps run, the refusal is written as a failed step the model reads before it
+  chooses again, and the sentence names the tools the catalogue holds on that
+  surface. Refusing the whole answer — the earlier rule — cost a live run four
+  good calls for one invented name, and the model repeated the name because
+  nothing told it what the catalogue had.

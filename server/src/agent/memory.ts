@@ -609,7 +609,12 @@ function linkIds(held: readonly FactDoc[], subjects: readonly string[]): string[
     if (!found)
       throw new MemoryError(
         "link_unknown",
-        `The memory holds no fact about "${subject}", so nothing links to it.`,
+        `The memory holds no fact about "${subject}", so nothing links to it. It holds: ${
+          held
+            .map((fact) => fact.subject)
+            .slice(0, 20)
+            .join(", ") || "no subjects yet"
+        }.`,
         400,
       );
     if (!ids.includes(found.id)) ids.push(found.id);

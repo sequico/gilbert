@@ -200,6 +200,15 @@ const RUN_MS_MAX = 5 * 60_000;
 const TOOL_WAVE_MAX = 4;
 
 /**
+ * The step a `done` that closed over a refusal leaves on the record.
+ *
+ * One name for one idea: the guard that asks the model to finish before it
+ * claims the work is done writes it, and the run's card draws it like any other
+ * step.
+ */
+const DONE_CHECKED = "the work, checked against the plan's refusals";
+
+/**
  * How close to lapsing the claim is renewed.
  *
  * Holding a claim is not an event, so an ordinary pass costs one read and no
@@ -1696,6 +1705,29 @@ export class AgentLoop {
         cachedPromptTokens: meter.cachedTokens,
       });
       if (choice.kind === "done") {
+        /*
+         * A `done` is a claim about the work, and the run's own plan is the
+         * evidence for it: a live run ended `done` after the only mail call it
+         * made had been refused, and its own report conceded it had checked one
+         * side. A step is refused once for it — the model is told what failed and
+         * asked to finish or to say what it could not do — and a second `done`
+         * the model still chooses is accepted: the failed step and this one stay
+         * on the record, so the claim is checkable.
+         */
+        const refused = current.plan.filter((step) => step.state === "failed").length;
+        const checked = current.plan.filter((step) => step.what === DONE_CHECKED).length;
+        if (refused > 0 && checked === 0) {
+          current = this.withStep(
+            current,
+            DONE_CHECKED,
+            `the plan carries ${refused} refused step(s): finish the work, or say what you could not do`,
+            false,
+          );
+          const kept = await this.store(accountId, current, token);
+          if (!kept) return null;
+          token = kept;
+          continue;
+        }
         return await this.endRun(
           accountId,
           current,
@@ -1934,11 +1966,27 @@ export class AgentLoop {
              * what was done, so it does not make the run a report (ADR 0030).
              */
             const said = call.name === "chat.say";
+            const source = sourceOf(result.value);
             current = recordStep(current, at, {
               state: "done",
               outcome: boundedText(result.value),
               ...(said ? { spoke: true } : {}),
             });
+            /*
+             * What the step actually touched, so the report can be checked against
+             * what was read: `evidence` was in the document and always empty, and a
+             * `done` that admitted "this covers the Files side only" had nothing
+             * under it. A reference — an object's id or a document's path — never a
+             * copy of what came back.
+             */
+            if (source && !current.evidence.some((one) => one.source === source))
+              current = {
+                ...current,
+                evidence: [
+                  ...current.evidence,
+                  { claim: `${call.name} ${boundedText(call.args)}`, source },
+                ],
+              };
             // Each call spends what its tool declares; the wave's own wall time
             // is spent once below, because the calls ran together.
             const tool = this.catalogue.find((one) => one.name === call.name);
@@ -2062,6 +2110,17 @@ export class AgentLoop {
      * ended, written into the pass's own document below.
      */
     this.lastEnded = { id: ended.id, ending, why: end.why };
+    /*
+     * One line when a run closes, with the refusals it carries: the choosing
+     * turn's refusals never reached the journal, so an installation whose runs
+     * were being refused looked like one whose agent had nothing to do. The line
+     * names the run, its ending and how many steps were refused; the first
+     * refusal's own sentence is on the step.
+     */
+    const refused = ended.plan.filter((step) => step.state === "failed").length;
+    this.opts.log?.(
+      `[gilbert] agent: run ${ended.id} ended ${ending}${refused ? `, ${refused} step(s) refused` : ""}`,
+    );
     if (!owed) return ended;
     /*
      * The words, then the mark — and a failure of either is the caller's to
@@ -2670,4 +2729,21 @@ function waitOf(outcome: unknown): RunWait | null {
   if (!isRecord(outcome)) return null;
   const wait = outcome.wait;
   return isRunWait(wait) ? wait : null;
+}
+
+/**
+ * The object a call's answer names, when it names one.
+ *
+ * The reference a run writes into `evidence`: an object's id (a message, a card,
+ * an event, a chat message) or a document's path. One lookup for the three names
+ * every tool's answer uses, so evidence is collected in one place instead of
+ * each tool declaring its own.
+ */
+function sourceOf(outcome: unknown): string | null {
+  if (!isRecord(outcome)) return null;
+  for (const key of ["id", "path", "folder"]) {
+    const held = outcome[key];
+    if (typeof held === "string" && held) return held;
+  }
+  return null;
 }
