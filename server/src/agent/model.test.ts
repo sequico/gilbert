@@ -1053,10 +1053,11 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
    * paid on every step. What the test has to hold is that the definition the
    * provider sees is the catalogue's own words, not a copy written beside it.
    */
-  const sent = (seen[0]?.body as { tools?: unknown }).tools as
-    | Array<{ function: { name: string; description: string } }>
-    | undefined;
-  assert.ok(Array.isArray(sent) && sent.length > 0, "the call carries the tools");
+  const carried = (seen[0]?.body as { tools?: unknown }).tools;
+  assert.ok(Array.isArray(carried) && carried.length > 0, "the call carries the tools");
+  const sent = carried as Array<{
+    function: { name: string; description: string };
+  }>;
   for (const tool of TOOLS) {
     const definition = sent.find((one) => one.function.name === tool.name);
     assert.equal(
