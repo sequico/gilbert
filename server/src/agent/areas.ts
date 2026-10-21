@@ -15,6 +15,7 @@
 
 import {
   AREA_NAMES,
+  areaOfSource,
   type AreaName,
   isAreaName,
   TRANSVERSAL_AREAS,
@@ -84,7 +85,7 @@ export function areaOf(toolName: string): AreaName {
  * to select from and is handed the whole catalogue, which is what every run got
  * before the areas existed.
  */
-export function areasOfRun(
+export function selectedAreas(
   declared: readonly AreaName[],
   surfaces: SurfaceMatrix | undefined,
 ): readonly AreaName[] | null {
@@ -106,10 +107,11 @@ export function areasOfSurfaces(
 ): readonly AreaName[] {
   const held = new Set<AreaName>(TRANSVERSAL_AREAS);
   for (const [surface, mode] of Object.entries(surfaces ?? {})) {
+    // `off` neither wakes nor writes; `watch` and `ondemand` both belong to a
+    // catalogue that may act on them.
     if (mode === "off") continue;
-    if (surface === "workorder") held.add("workorders");
-    else if ((AREA_NAMES as readonly string[]).includes(surface))
-      held.add(surface as AreaName);
+    const area = areaOfSource(surface);
+    if (area) held.add(area);
   }
   return AREA_NAMES.filter((area) => held.has(area));
 }

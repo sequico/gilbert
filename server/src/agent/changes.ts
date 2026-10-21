@@ -191,7 +191,7 @@ function noInstructionNotice(
   const where = surface === "mail" ? "mail" : "the conversation";
   const from = about.from ? ` from ${about.from}` : "";
   const subject = about.subject ? ` (“${about.subject}”)` : "";
-  return `This group has no instruction naming ${where}, so the message${from}${subject} has woken nothing. An administrator can write one in Administration → Agent → Instruction.`;
+  return `This group has no instruction naming ${where}, so the message${from}${subject} has woken nothing. An administrator can write one in Administration → AI Agents → Instruction.`;
 }
 
 /**
@@ -208,10 +208,9 @@ function coversChange(instruction: InstructionDoc, event: AccountEvent): boolean
   const area = areaOfSource(event.source);
   if (area === null) return false;
   if (instruction.areas.includes(area)) return true;
-  const surface = (
-    event.source === "workorder" ? "workorder" : event.source
-  ) as SurfaceName;
-  return instruction.surfaces[surface] === "watch";
+  // The source and the surface share a name; only the area differs (`workorder`
+  // is the workorders area, which `areaOfSource` says once).
+  return instruction.surfaces[event.source as SurfaceName] === "watch";
 }
 
 /**

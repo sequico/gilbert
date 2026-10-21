@@ -10,7 +10,7 @@
  * conversation, and nothing else) and is not drawn here: with the areas declared,
  * a declared area is what wakes the work.
  */
-import { AREA_NAMES, type AreaName } from "@gilbert/shared/areas";
+import { AREA_NAMES, type AreaName, MAX_DECLARED_AREAS } from "@gilbert/shared/areas";
 import { errorMessage } from "@gilbert/shared/errors";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/jmap/client";
@@ -127,6 +127,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
                   <input
                     type="checkbox"
                     checked={areas.includes(area)}
+                    disabled={!areas.includes(area) && areas.length >= MAX_DECLARED_AREAS}
                     onChange={() => toggle(area)}
                   />
                   {t(AREA_LABEL[area])}

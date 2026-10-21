@@ -91,6 +91,7 @@ import {
   eventSourceOf,
 } from "./accountEvent.js";
 import { CURSOR_FILE, NOTICE_CURSOR_FILE } from "./cursors.js";
+import { LEGACY_RULES_DIR } from "./legacy.js";
 import { PENDING_FILE } from "./queue.js";
 import { RUNS_DIR } from "./runs.js";
 
@@ -289,6 +290,9 @@ function isAgentPath(path: string): boolean {
     rel === CURSOR_FILE ||
     rel === NOTICE_CURSOR_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
+    // The folder the old rules lived in is the agent's bookkeeping while a clear
+    // may still remove it (ADR 0038): its documents are not the group's activity.
+    rel.startsWith(`${LEGACY_RULES_DIR}/`) ||
     // Read markers sit beside the messages and are the agent's bookkeeping.
     rel.startsWith(`${CHAT_STATE_FOLDER}/`) ||
     // The switch and the legacy upstream state are the agent's own records.

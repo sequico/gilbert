@@ -25,6 +25,12 @@ import {
 /** Where the marker that says this account was cleared lives. */
 export const RESET_FILE = "agent/reset-0038.json";
 
+/**
+ * The folder the old rules lived in. It is the agent's own bookkeeping, so the
+ * change log's "is this activity" test skips it while a clear may still run.
+ */
+export const LEGACY_RULES_DIR = "rules";
+
 /** What the clear removed, for the pass's own log; empty when it was done before. */
 export async function clearLegacyAgentState(
   ctx: Ctx,
@@ -34,10 +40,10 @@ export async function clearLegacyAgentState(
   const done = await findAppFileAt(ctx, accountId, RESET_FILE);
   if (done?.file) return [];
   const removed: string[] = [];
-  const rules = await findFolderPath(ctx, accountId, "rules");
+  const rules = await findFolderPath(ctx, accountId, LEGACY_RULES_DIR);
   if (rules) {
     await destroyAppNode(ctx, accountId, rules, { removeChildren: true });
-    removed.push("rules/");
+    removed.push(`${LEGACY_RULES_DIR}/`);
   }
   const legacy = await findAppFileAt(ctx, accountId, "agent/rules.json");
   const id = legacy?.file && typeof legacy.file.id === "string" ? legacy.file.id : null;

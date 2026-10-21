@@ -3,13 +3,13 @@ import { test } from "node:test";
 import {
   AREA_NAMES,
   areaOf,
-  areasOfRun,
   areasOfSurfaces,
   CONTEXT_TOOL_PREFIXES,
   catalogueFor,
   declaredAreas,
   isAreaTool,
   MAX_DECLARED_AREAS,
+  selectedAreas,
 } from "./areas.js";
 import { TOOLS } from "./tools.js";
 
@@ -55,7 +55,7 @@ test("a prefix that is not the area's name still lands in its area", () => {
 });
 
 test("the areas of a run are its instruction's and its matrix's, plus the three", () => {
-  const picked = areasOfRun(["workorders"], {
+  const picked = selectedAreas(["workorders"], {
     chat: "watch",
     mail: "watch",
     files: "off",
@@ -64,7 +64,7 @@ test("the areas of a run are its instruction's and its matrix's, plus the three"
     calendar: "off",
   });
   assert.deepEqual(picked, ["mail", "knowledge", "workorders", "chat", "memory"]);
-  assert.equal(areasOfRun([], undefined), null, "a run with neither selects nothing");
+  assert.equal(selectedAreas([], undefined), null, "a run with neither selects nothing");
 });
 
 test("a group cannot declare its way back to a catalogue of forty-five", () => {

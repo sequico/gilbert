@@ -122,7 +122,7 @@ import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
 import type { AreaName } from "./areas.js";
-import { areasOfRun, catalogueFor } from "./areas.js";
+import { catalogueFor, selectedAreas } from "./areas.js";
 import {
   chatWoken,
   offPath,
@@ -2439,7 +2439,7 @@ export class AgentLoop {
    */
   private areasOfRun(accountId: string, run: RunDoc): readonly AreaName[] | null {
     const held = this.instructions.get(accountId);
-    return areasOfRun(held?.areas ?? [], run.startedBy.surfaces);
+    return selectedAreas(held?.areas ?? [], run.startedBy.surfaces);
   }
 
   /**
