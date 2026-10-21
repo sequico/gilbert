@@ -76,7 +76,10 @@ agent's durable state.
   folder is one such turn: neither act waits on the other, so both are asked for
   at once — and the same turn may ask a person in chat about what follows, the
   acts and the question being one answer, whose wait begins once they are done.
-- **A plan carries order and conditions.** The model may ask for a step that
+- **A plan carries order and conditions, and it is the exception.** The common
+  path is the role's workflow — read, act, report — and a run takes a plan only
+  when its rule declares that it needs one (ADR 0043). When it does: the model may
+  ask for a step that
   waits on an earlier one, and for a later step to depend on how an earlier one
   ended — if that call filed the message, do this; if it was refused, do that —
   reasoned from the group's knowledge, its checklists and its workorders, and
