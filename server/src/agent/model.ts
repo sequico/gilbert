@@ -377,9 +377,11 @@ export async function callModel(
   meter?: UsageMeter,
   opts: {
     /**
-     * Whether prose with no JSON object in it is an answer. Only the decision
-     * turn takes it, and only for a chat change: a person wrote in the
-     * conversation, and the model's words are the reply.
+     * Whether prose with no JSON object in it is an answer. The decision turn
+     * takes it for a chat change — a person wrote, and the model's words are the
+     * reply — and the choosing turn takes it always, because a turn that carries
+     * the catalogue as `tools` answers with calls or with text, and the text is
+     * the run's ending.
      */
     allowText?: boolean;
   } = {},
@@ -482,12 +484,17 @@ export async function callModel(
        * person can act on: an OpenAI-compatible provider that does not accept
        * `tools` answers 400 (or 422), and every choosing turn of the installation
        * fails for it while the runs look like a model that cannot plan. The
-       * sentence names the cause and the one way out, because the installation
-       * has no switch to turn the catalogue off (ADR 0027).
+       * sentence names the cause where the provider's own body names it, and
+       * offers the way out either way — a 400 can also be a context that is too
+       * long or a model name nobody serves, and blaming the catalogue for those
+       * sends an operator to change provider for nothing. The installation has no
+       * switch to turn the catalogue off (ADR 0027).
        */
       `${provider} answered ${res.status}: ${firstLine(raw)}${
         req.tools?.length && (res.status === 400 || res.status === 422)
-          ? ` The choosing turn sends the catalogue as tool definitions, and this provider does not accept them: choose a provider that speaks tool calling — the agent has no second path to fall back to — or check that "${model}" is a chat model that takes tools.`
+          ? /tool|function/i.test(raw)
+            ? ` The choosing turn sends the catalogue as tool definitions, and this provider refused them: choose a provider that speaks tool calling, or check that "${model}" is a chat model that takes tools.`
+            : ` The choosing turn sends the catalogue as tool definitions. If this provider does not accept them, choose one that speaks tool calling, or check that "${model}" is a chat model that takes tools.`
           : ""
       }`,
     );
@@ -1635,6 +1642,7 @@ export async function chooseStep(
     'Take the run\'s steps with the tools you are given: call one, several, or the same one twice in one answer, and each step is shown to you before you are asked again. When the work of this run is finished, answer {"done": "<what is finished>"} and nothing else. A plan written out as {"calls": [{"name": "<tool>", "arguments": {...}}, ...]} is read the same way, and a call whose arguments are not what the tool states is refused whole — there is no second spelling and no repair.',
     "Decide what this change needs and ask for it in one answer, as a small plan: name a tool and its arguments for each step — one tool, several, or the same tool twice. The steps whose dependencies have ended are carried out together, and each is shown to you before you are asked again.",
     'A step that has to follow another gives itself an "id" and waits on it: {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
+    'In a tool call, "id" and "needs" travel in the call\'s own arguments object beside the tool\'s arguments: they are the step\'s structure, and they are read out before the tool sees the arguments it knows.',
     "A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run's record says which step and which outcome left it.",
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
@@ -1654,16 +1662,41 @@ export async function chooseStep(
       ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
     },
     opts.meter,
+    /*
+     * The choosing turn carries the catalogue as `tools`, so the protocol gives
+     * the turn two answers: calls, or text. A model that closes with "the work
+     * is finished" — the ordinary shape of a tool-calling turn — is ending the
+     * run with that sentence, not failing to write a plan; the JSON shape below
+     * stays for a provider without tool calling.
+     */
+    { allowText: true },
   );
   // The provider's own tool calls are the plan: the same calls the JSON shape
-  // would carry, through the same validation below (ADR 0027).
+  // would carry, through the same validation below (ADR 0027). `id` and `needs`
+  // are read out of the call's arguments first: they are the step's own
+  // structure, not the tool's, and a tool refuses every argument it does not
+  // take — which is what made a dependent step unwritable through this channel.
   if (isNativeToolCalls(answer))
     answer = {
-      calls: answer.nativeToolCalls.map((one) => ({
-        name: one.name,
-        arguments: one.arguments,
-      })),
+      calls: answer.nativeToolCalls.map((one) => {
+        const { id, needs, ...args } = one.arguments;
+        return {
+          name: one.name,
+          arguments: args,
+          ...(id === undefined ? {} : { id }),
+          ...(needs === undefined ? {} : { needs }),
+        };
+      }),
     };
+  // Text with no call is the other answer the protocol gives, and it is the
+  // ending: the words are the run's own sentence.
+  else if (
+    isRecord(answer) &&
+    Object.keys(answer).length === 1 &&
+    typeof answer.text === "string" &&
+    answer.text.trim()
+  )
+    answer = { done: answer.text.trim() };
   const parsed = parseStepAnswerDetailed(answer);
   if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
   if (parsed.choice.kind === "plan") {
