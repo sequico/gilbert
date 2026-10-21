@@ -477,7 +477,19 @@ export async function callModel(
   if (!res.ok)
     throw new ModelError(
       "model_call_failed",
-      `${provider} answered ${res.status}: ${firstLine(raw)}`,
+      /*
+       * A call that carried the catalogue and was refused is the one failure a
+       * person can act on: an OpenAI-compatible provider that does not accept
+       * `tools` answers 400 (or 422), and every choosing turn of the installation
+       * fails for it while the runs look like a model that cannot plan. The
+       * sentence names the cause and the one way out, because the installation
+       * has no switch to turn the catalogue off (ADR 0027).
+       */
+      `${provider} answered ${res.status}: ${firstLine(raw)}${
+        req.tools?.length && (res.status === 400 || res.status === 422)
+          ? ` The choosing turn sends the catalogue as tool definitions, and this provider does not accept them: choose a provider that speaks tool calling — the agent has no second path to fall back to — or check that "${model}" is a chat model that takes tools.`
+          : ""
+      }`,
     );
   let body: unknown;
   try {

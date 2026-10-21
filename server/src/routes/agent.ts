@@ -435,8 +435,10 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           run.id,
           c.get("session").username,
         );
+        // The listing was read before the writes: a run that ended between them
+        // is handed back as it is, and is not one this request stopped.
         if (result === "not_found" || result === "moved") continue;
-        stopped += 1;
+        if (result.state === "cancelled") stopped += 1;
       }
       return c.json({ stopped });
     } catch (err) {

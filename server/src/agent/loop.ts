@@ -1219,6 +1219,11 @@ export class AgentLoop {
     // A peer's installation is not this process's to write about: the one that
     // holds the claim says what the last pass did.
     if (!summary.claimed) return;
+    // An installation whose session names no Files account has nowhere to leave
+    // the document; the pass has already said the other gaps, and a write to no
+    // account would add a sentence about a folder nobody has.
+    const accountId = filesAccountId(this.ctx);
+    if (!accountId) return;
     const at = new Date();
     const worked =
       summary.changes + summary.runs + summary.due > 0 || summary.gaps.length > 0;
@@ -1235,7 +1240,7 @@ export class AgentLoop {
       gaps: summary.gaps,
     };
     try {
-      await writeAppFileAt(this.ctx, filesAccountId(this.ctx), PASS_STATUS_FILE, doc);
+      await writeAppFileAt(this.ctx, accountId, PASS_STATUS_FILE, doc);
       this.statusAt = at.getTime();
     } catch (err) {
       summary.gaps.push(`status: ${errorMessage(err)}`);
@@ -1661,7 +1666,9 @@ export class AgentLoop {
    * The saying is a message of the group's own conversation (`groupChat.ts`),
    * a reply to the message that woke it when there is one. A saying that cannot
    * be posted is a failed step on the record, never a silence: the ending is
-   * not lost for it.
+   * not lost for it. The notice is written **before** the run, so a process that
+   * dies between the two says the ending twice rather than never — the side of
+   * the race a person can forgive, and the one they can see.
    */
   private async endRun(
     accountId: string,

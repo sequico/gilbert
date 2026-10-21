@@ -29,6 +29,18 @@ export const CURSOR_FILE = "cursors.json";
 /** The document's shape version. */
 const CURSOR_VERSION = 1;
 
+/**
+ * How many paths of destroyed nodes the document keeps.
+ *
+ * `seen` answers "which surface was this node on" for a node that is gone, and
+ * in memory it holds up to `MAX_SEEN_NODES` (2048) — a hundred kilobytes or more
+ * as one document, written after every batch that moved the reading. The stored
+ * copy is trimmed to the newest few hundred: a node older than that answers by
+ * its id, which is the shortcut the in-memory map already states, and the
+ * document stays a cursor rather than an index.
+ */
+const SEEN_STORED_MAX = 256;
+
 /** A cursor this build cannot use, in a code a pass composes its gap from. */
 export class CursorError extends CodedError {
   constructor(message: string) {
@@ -114,7 +126,7 @@ export async function writeCursor(
     mail: cursor.mail,
     files: cursor.files,
     calendar: cursor.calendar,
-    seen: cursor.seen,
+    seen: Object.fromEntries(Object.entries(cursor.seen).slice(-SEEN_STORED_MAX)),
     at: at.toISOString(),
   });
 }
