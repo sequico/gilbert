@@ -17,7 +17,6 @@ import {
   AREA_NAMES,
   areaOfSource,
   type AreaName,
-  isAreaName,
   TRANSVERSAL_AREAS,
 } from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
@@ -31,9 +30,6 @@ export {
   TRANSVERSAL_AREAS,
 } from "../shared/areas.js";
 
-/** A tool's prefix where the area's own name differs from it. */
-const AREA_ALIASES: Readonly<Record<string, AreaName>> = { workorder: "workorders" };
-
 /**
  * Prefixes that name no area: the agent's own record (`run.read`), which every
  * run may consult, is a tool of the harness rather than of a product surface.
@@ -45,13 +41,11 @@ function prefixOf(toolName: string): string | null {
   return dot > 0 ? toolName.slice(0, dot) : null;
 }
 
-/** The area a tool names, or null when its name is not `area.action`. */
+/** A tool's prefix is the area's own name, and `areaOfSource` is the one mapping
+ * (`workorder` is the workorders area) — there is no second table to keep. */
 function areaOrNull(toolName: string): AreaName | null {
   const prefix = prefixOf(toolName);
-  if (prefix === null) return null;
-  const alias = AREA_ALIASES[prefix];
-  if (alias !== undefined) return alias;
-  return isAreaName(prefix) ? prefix : null;
+  return prefix === null ? null : areaOfSource(prefix);
 }
 
 /** Whether a tool belongs to an area rather than to the harness. */
