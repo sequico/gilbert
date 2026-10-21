@@ -217,6 +217,17 @@ test suites (the parent runs the gate); large reviews are split into small
 parallel reviewers by area; deep reasoning is reserved for security-critical
 surfaces. An agent that drifts into wide exploration gets a converge-now
 instruction rather than being left to widen scope.
+**Diagnosis: measure once, on what runs (global user rule, active here).** A
+measurement is trusted only after the thing it meant to provoke is proved to
+have happened (the route changed, the action fired, the state moved); behaviour
+questions are measured against the code that runs — the built bundle the
+deployment serves, the real latency, the real data — not the dev server when the
+report came from production. One attempt per tool: a capture that does not
+produce the datum on the first try (screencast, profiler without screenshots, a
+trace without the track needed) is dropped for the cheapest source that answers
+the question, usually a count over the DOM. Diagnosis → the smallest fix →
+verification, with no exploration in between; what was tried and abandoned is
+said in the report, never pursued.
 **Reviewer dispatch (owner decision 2026-09-09):** every review is split into small parallel reviewers by
 area, each with an explicit bounded file list, a diff range limited to the
 change under review (never a stale merge-base that drags unrelated history
