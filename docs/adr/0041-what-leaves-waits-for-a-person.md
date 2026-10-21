@@ -47,3 +47,19 @@ holds is a different thing: a draft and a yes.
   misread `wakeFrom` cannot send to the wrong correspondent.
 - Sending costs the person a step; that is the point of the decision, and a rule
   whose work is routine correspondence still saves every step before it.
+
+## The ending is judged before it is believed
+
+A draft is the product's check on the **words**; the ending needs a check on the
+**work**, and the model cannot be its own judge. So:
+
+- When a run is about to end `done`, a second call — cheap, the same model, a
+  short question — is given the ask (`startedBy.about`), the plan with each step's
+  state and the `evidence` the run recorded, and answers one of two things: the
+  work covers the ask, or it names what is missing.
+- A "missing" answer is the same refusal the loop already gives (ADR 0027's
+  repair): the run is asked once more, with the missing thing named. The second
+  `done` stands, and what the judge said is written on the ending, so the person
+  who reads it sees what the agent claimed and what the check found.
+- The judge never runs for a run with no `evidence`: a claim with nothing under it
+  is refused without spending a call.

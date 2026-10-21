@@ -39,7 +39,11 @@ needs.**
   `workorder.list`, `workorder.read`, `workorder.settle`.
 - **Transversal, in every role**: `knowledge.search`, `knowledge.read`,
   `knowledge.write`, `memory.remember`, `memory.list`, `chat.say`, `chat.ask`,
-  `chat.find`, `chat.read`.
+  `chat.find`, `chat.read`, and `tool.describe` for progressive disclosure (below).
+
+A sequence the job implies lives **inside** the tool that names the job. Filing the
+documents of a booking is part of `mail.triage` because it is part of reading that
+mail; it is not a second tool the model has to chain after the first.
 
 A sequence the job implies lives **inside** the tool that names the job. Filing the
 documents of a booking is part of `mail.triage` because it is part of reading that
@@ -68,3 +72,25 @@ valid call** — the error is the repair, not a verdict.
   step to be assembled from parts.
 - The catalogue line stays the one rendering (ADR 0027): the tool's `args`, its
   names and its bounds.
+
+## What a tool returns, and what the model is shown
+
+Copied from the practice that made agents survive many tools, and it is the second
+half of the decision above:
+
+- **A tool returns a distillation, never the payload.** `mail.triage` answers
+  "filed 3 documents under the booking, labelled it, the sender is X" and keeps the
+  message, its attachments and the folder listing in the account, where the next
+  tool can reach them by id. A tool that returns two hundred nodes and lets the
+  model read them is the same cost the model was paying to chain calls by hand.
+- **Progressive disclosure.** The turn sees the role's tools as **signatures** (the
+  name, its arguments, their kinds and bounds) and asks for a tool's **full
+  definition** only when it intends to call it: `tool.describe(name)` answers that
+  one line in full. A role of eight tools does not need this; the day a role grows,
+  the mechanism is already there instead of the catalogue being cut again.
+- **No code execution, by decision.** Running generated code is the other way to
+  keep intermediate results out of the context, and it buys its own sandbox,
+  resource limits and monitoring. The same benefit is obtained here by putting the
+  sequence inside the tool that names the job, which costs no execution
+  environment — and the installation's law is a container with no writable
+  filesystem (ADR 0027).

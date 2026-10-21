@@ -64,3 +64,22 @@ does not look for more work.
 - A job that genuinely needs exploration (a research question) is the case the plan
   exists for, and a rule that wants it says so — the exception is chosen, never
   guessed by the model.
+
+## The pass owns the clock, and the log is a session
+
+Two mechanisms taken from the way long-running agents are built, and both come
+from a failure this installation measured — a 329-second pass that made the other
+group wait:
+
+- **A run gets a slice of a pass, not the budget.** The pass gives each run a
+  bounded piece of wall time (the same order as the pass cadence) and, when it is
+  spent, writes the run where it stands and returns; the next pass resumes it from
+  the document. A run that needs many calls takes many passes, and no other group
+  waits for it. The budget of ADR 0030 stays the run's own ceiling, unrelated to
+  the pass's clock.
+- **The step question carries a slice of the run's log, chosen by the harness.** The
+  run document is the session: every step, outcome, refusal and read is on it. The
+  harness hands the turn a **bounded slice** — the last steps, the steps the plan
+  waits on, and the ones whose outcome the next choice depends on — instead of the
+  whole plan. A run whose plan grows does not grow its prompt, and the harness
+  decides what is relevant rather than the model re-reading everything.
