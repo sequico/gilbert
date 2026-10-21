@@ -45,8 +45,19 @@ consult and add to.
 
 The role of a run is **declared by the rule that opened it**, from the surface the
 change arrived on and the surfaces the rule wrote: the rule already carries that
-matrix (ADR 0031), so the role is read, never inferred by the model. A change on a
-surface no role covers opens no run and gets the notice it is owed.
+matrix (ADR 0031), so the role is read, never inferred by the model. The mapping
+is fixed:
+
+- a rule that **watches or writes mail, or files** → correspondence and documents;
+- a rule that **watches or writes the calendar, or workorders** → agenda and
+  workflow;
+- a rule that names **both** is refused when it is saved, with the sentence that
+  says why, rather than discovered as a run that cannot be worked. The knowledge
+  base and the conversation are in neither list because they are in every role.
+
+A change on a surface no rule watches opens no run and gets the notice it is owed
+(ADR 0031). A change on a surface whose rule exists but whose role refuses it at
+save time cannot exist: the rule was refused before it could fire.
 
 `chooseStep` hands the model **the catalogue of the run's role** — that role's
 tools, the transversal reading tools and the conversation tools — and nothing

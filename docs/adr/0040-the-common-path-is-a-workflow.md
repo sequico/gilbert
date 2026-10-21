@@ -28,11 +28,21 @@ tool, apply, report. That is three beats, and the product can own them.
 
 **A run's shape is the role's workflow, and the model decides inside a beat.**
 
-- The **correspondence and documents** role runs **read → act → report**: the tool
-  reads what the change names, the model chooses the act from that role's
-  catalogue, the run reports in the conversation and closes.
-- The **agenda and workflow** role runs the same three beats over a dated
-  commitment.
+The correspondence and documents role runs three beats, and each is a step of the
+run document:
+
+1. **Read** — the tool the change names reads what arrived: the message with its
+   documents, or the document; the run records what it read as its evidence.
+2. **Act** — the model chooses **one** act from the role's catalogue, given what
+   the read found. A door that cannot be taken (a rule without the class) is not in
+   the catalogue.
+3. **Report** — the run says in the conversation what it did, or what it could not,
+   and ends. A report is never optional.
+
+The agenda and workflow role runs the same three beats over a dated commitment.
+
+The run ends when its report is written, whatever budget is left: a workflow run
+does not look for more work.
 - A **plan** — several steps, dependencies, a branch that depends on how an earlier
   step ended — stays available and is used only when the rule declares it needs
   one. It is then exactly the document ADR 0030 describes, unchanged.

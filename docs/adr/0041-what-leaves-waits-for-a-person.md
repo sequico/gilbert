@@ -23,13 +23,13 @@ holds is a different thing: a draft and a yes.
 
 **An act that leaves the installation is a draft, and a person says yes.**
 
-- `mail.reply`, `mail.forward` and every outward message create a **draft** in the
-  run's account, and the run's ending says the draft is waiting.
-- The run records the draft as its **outcome and its evidence**; the surface that
-  shows the run shows what was drafted, and a person sends it from the draft.
-- `startedBy.sends` stops being a licence the model sees: it becomes the rule's
-  declaration that a draft is wanted at all, and a rule without it produces no
-  draft.
+- `mail.reply` and every outward message **create a draft** in the run's account
+  and return its id; there is no tool that submits.
+- The run records the draft id as its **outcome and its evidence**, and its ending
+  says the draft is waiting. A person opens the run, reads the draft, and sends it
+  from the draft itself.
+- `startedBy.sends` stops being a licence the model reads: it is the rule's
+  declaration that a draft is wanted at all, and a rule without it produces none.
 - A **run that ends `done` with a refused step** is refused once by the loop and
   asked to finish or to say what it could not do (ADR 0027's repair); its second
   `done` stands with the refusal on the record, and the review of the draft is what

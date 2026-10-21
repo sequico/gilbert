@@ -28,18 +28,22 @@ model chooses **what** to do and not **how to chain it**.
 **A role's tools are named after its jobs, and each carries the sequence the job
 needs.**
 
-- **Correspondence and documents** (from 45 to about eight): `mail.triage` (read a
-  message, decide, and apply what the decision says: label, folder, file its
-  documents, report), `mail.reply` (a draft, never a send — ADR 0041),
-  `mail.search`, `mail.read`, `files.search`, `files.read`, `files.write`
-  (create or replace a document at a path, making the folders it needs),
-  `files.remove`.
+- **Correspondence and documents** (from 45 to eight): `mail.triage` — read the
+  message the change names, decide, and apply what the decision says: label it,
+  move it, file the documents it brought under the booking's folder, report.
+  `mail.reply` (a draft, never a send — ADR 0041), `mail.search`, `mail.read`,
+  `files.search`, `files.read`, `files.write` (create or replace a document at a
+  path, making the folders it needs), `files.remove`.
 - **Agenda and workflow**: `calendar.find`, `calendar.read`, `calendar.schedule`
-  (create or update an event, with its reminders), `calendar.cancel`,
+  (create or update an event with its reminders), `calendar.cancel`,
   `workorder.list`, `workorder.read`, `workorder.settle`.
-- **Transversal**: `knowledge.search`, `knowledge.read`, `knowledge.write`,
-  `memory.remember`, `memory.list`, and the conversation's `chat.say`, `chat.ask`,
+- **Transversal, in every role**: `knowledge.search`, `knowledge.read`,
+  `knowledge.write`, `memory.remember`, `memory.list`, `chat.say`, `chat.ask`,
   `chat.find`, `chat.read`.
+
+A sequence the job implies lives **inside** the tool that names the job. Filing the
+documents of a booking is part of `mail.triage` because it is part of reading that
+mail; it is not a second tool the model has to chain after the first.
 
 Every argument states **which kind of thing it is**, in its name and in its line of
 the catalogue: `message_id` is a message, `mailbox_id` a folder, `node_id` a
