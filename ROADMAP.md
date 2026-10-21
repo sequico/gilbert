@@ -54,6 +54,16 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   Stalwart writes, and the change log's own paging cap (the `owed:` markers in
   ADRs 0027, 0029 and 0030).
 
+- **Two models in the key: a small one for the cheap turns, a frontier one for the
+  work.** The installation chooses **one** model (ADR 0027) and every turn runs on
+  it, while the decision turn — one short JSON answer per change — costs the same
+  model as the run that plans and acts. Splitting them is a **cost and latency**
+  decision and not a correctness one: with the catalogue offered as the provider's
+  own tools and a refused answer ending on the budget, one frontier model is
+  enough for the loop. Not designed and not built: it needs a second provider and
+  key in the installation document (ADR 0009), the rule for which turn uses
+  which, and the administration's surface for the pair.
+
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier
   design and named by a client that spoke a different vocabulary; nothing in the
