@@ -863,22 +863,14 @@ export function MessageList({
           }
         >
           {list?.loading && ids.length === 0 ? (
-            <div className="skeleton-list">
-              {[...Array(12)].map((_, i) => (
-                <div
-                  key={i}
-                  className="row skeleton-row"
-                  style={{ height: rowHeight, padding: "0 12px", gap: 12 }}
-                >
-                  <span
-                    className="skeleton"
-                    style={{ width: 32, height: 32, borderRadius: 16 }}
-                  />
-                  <span className="skeleton" style={{ width: 140, height: 14 }} />
-                  <span className="skeleton grow" style={{ height: 14 }} />
-                  <span className="skeleton" style={{ width: 50, height: 12 }} />
-                </div>
-              ))}
+            /*
+             * Nothing to carry: a first load, an account being opened, or a
+             * folder that was empty. One spinner says the list is being read;
+             * a dozen skeleton rows said the same and read as black bars
+             * flashing through the pane.
+             */
+            <div className="list-loading-center">
+              <span className="spinner" aria-hidden="true" />
             </div>
           ) : ids.length === 0 && list && !list.loading ? (
             <Empty
@@ -930,6 +922,7 @@ export function MessageList({
                   return (
                     <div
                       key={id}
+                      className="row-placeholder"
                       style={{ position: "absolute", top: vi.start, height: vi.size }}
                     />
                   );
