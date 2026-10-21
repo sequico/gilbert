@@ -148,13 +148,16 @@ typed arguments, each acting on one of those objects.
 <!-- owed: model-provider-live -->
 - The catalogue is offered as **the provider's own tool definitions**, rendered
   from each tool's own `args`: `catalogueTools` is the one rendering, and the
-  prose list that repeated the same names, descriptions, arguments and bounds in
-  the system turn is gone — the choosing turn is the call every step of every run
-  makes, so those lines were paid for twice on every call. A call that carries
-  them asks the provider to check the kind and the bound of every argument, which
-  is what a hand-written JSON plan gets wrong — a live installation paid 110
-  refused answers for a numeric `id`, an over-long `fact` and an argument name no
-  tool takes. `required` is not stated, because a key is not a required key and
-  the tool's parser is the one door. The demanded JSON shape is still read as the
-  fallback of the same call; a gateway that refuses a `tools` field refuses the
-  call loudly, in a sentence that names the cause.
+  system turn carries no second list of the same names, descriptions, arguments
+  and bounds — the choosing turn is the call every step of every run makes, and
+  the same lines twice are paid twice on every call. A call that carries the
+  definitions asks the provider to check the kind and the bound of every
+  argument, which is what a hand-written JSON plan gets wrong: a live
+  installation paid refused answers for a numeric `id`, an over-long `fact` and
+  an argument name no tool takes. Every argument a tool names declares its kind,
+  and `defineTool` requires it — an argument published as a string because
+  nobody said otherwise refuses the value the tool actually takes. `required` is
+  not stated, because a key is not a required key and the tool's parser is the
+  one door. The demanded JSON shape is still read as the fallback of the same
+  call; a gateway that refuses a `tools` field refuses the call loudly, in a
+  sentence that names the cause where the provider's own answer names it.

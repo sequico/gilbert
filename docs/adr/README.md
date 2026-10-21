@@ -402,6 +402,6 @@ is, not what a user sees.
   read on a process's first pass and written after a batch that moved the
   reading — so a restart resumes where the last process stopped instead of
   anchoring at the present and losing the window in between. An unreadable
-  document is a gap the pass says out loud. **Built**
+  document is a gap the pass says out loud. **Built, Proposed**
   (`server/src/agent/cursors.ts`, `agent/loop.ts`, `agent/events.ts`).
 

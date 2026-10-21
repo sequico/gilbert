@@ -72,9 +72,10 @@ where the sentence sits.
 - **The correlation is the channel's own.** In mail, the thread
   (`In-Reply-To`/`References`); in chat, a `replyTo` on the node (ADR 0004),
   because a chat is a flat list and two runs may be waiting in it at once. A
-  question asked in the conversation therefore **says so**: the message carries
-  the one line that tells the person a reply is what answers it, because a live
-  question sat unanswered for hours beside a person who had no way of knowing.
+  question asked **in the chat** therefore says so: the message carries the one
+  line that tells the person a reply is what answers it, because a live question
+  sat unanswered for hours beside a person who had no way of knowing. In mail the
+  thread is the address, so the question is its own instruction to reply.
 - **A question has a deadline** — 72 hours from the ask, in the run's own wait
   (`QUESTION_TTL_MS`, `shared/run.ts`), never a timer in a process. The answer is
   still the conversation's own event; the deadline is what a run does about a

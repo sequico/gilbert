@@ -160,8 +160,11 @@ step that ended, and it spends a step, so the cap is what stops a run that keeps
 failing. **An ending is said, not only recorded**: a run that
 could not finish says so in the group's own conversation with the sentence its
 ending carries, a run that finished says so when a person woke it there, and a
-question or a stop (already words between the two) does not repeat itself —
-`endRun` in `server/src/agent/loop.ts`. **One claim per installation** keeps a
+question or a stop (already words between the two) does not repeat itself. The
+ending is written **before** it is said, so a run a person stopped during its
+last call says nothing, and the debt to speak is on the record until the words
+leave — an ending is said once, and a pass that finds the debt says it — `endRun`
+and `sayEnding` in `server/src/agent/loop.ts`. **One claim per installation** keeps a
 single agent working it: a document taken by compare-and-set that a holder
 renews, and a holder that died on this host is taken over at once — another host
 waits the lease — so a restart never leaves a document to delete by hand
@@ -427,7 +430,11 @@ A run ends as done, blocked on a person, out of budget or **cancelled**, and
 that is in flight — the one being worked and the one waiting on a person's
 answer, which nothing else moves — from the group's chat, where the runs tab is
 live, or from the administration page; a group's every run in flight can be
-stopped at once there, while another group's run is refused. A stopped run is
+stopped at once there, while another group's run is refused. A group-wide stop
+answers the runs it closed and how many were still moving when it finished, and
+the page removes exactly those: the sweep has a ceiling so one press meets the
+browser's deadline, and a run that moved under it stays on screen rather than
+being claimed closed. A stopped run is
 left exactly as the person put it: the pass that was working it does not write
 over the ending.
 The **facts** of the installation's memory are listed with the run or the person
@@ -1182,8 +1189,9 @@ unread-only, and composes the same query string.
   always given its threshold, and where no verdict was recorded none is invented.
   Where the installation's spam filter asks a **model of its own** (Stalwart's AI
   classification), the category it chose, its confidence and its explanation are
-  shown beside the score as **one of several signals the filter weighed** — the
-  filter's model, never the agent's, and the explanation only ever as text.
+  shown beside the score, in the shape the server wrote them, as **one of several
+  signals the filter weighed** — the filter's model, never the agent's, and the
+  explanation only ever as text.
 - **Message body theming** is off by default. One setting lets mail with no colours
   of its own follow the app's theme; a second setting, off unless the first is on,
   forces the theme over the sender's colours, telling a *sheet* from a *painted
@@ -1272,7 +1280,7 @@ minimisable and maximisable; full-screen on mobile.
   inserted into any draft, managed in Settings. Inserting one adds its
   recipients beside anyone already on the message — an address already there, in
   any field, is not added twice, and the Cc and Bcc rows open when the template
-  uses them. The subject and the body carry **placeholders** — `{{recipientName}}`,
+  adds someone to them. The subject and the body carry **placeholders** — `{{recipientName}}`,
   `{{recipientFirstName}}`, `{{recipientEmail}}`, `{{myName}}`, `{{myEmail}}`,
   `{{subject}}`, `{{date}}` and `{{time}}` — filled when the template is inserted,
   so what they came to is visible and editable before sending. Dates and times

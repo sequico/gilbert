@@ -1,28 +1,28 @@
 # ADR 0037 — The reading cursor is a document
 
-Status: Accepted
+Status: Proposed
 
 Implementation: Built. `server/src/agent/cursors.ts` — `readCursor`,
 `writeCursor` and the `gilbert/cursors.json` document in each group's own app
 folder — and `server/src/agent/loop.ts`, which restores it on a process's first
 pass (`restoreCursor`), writes it after a batch that moved the reading
-(`saveCursor`), and says an unreadable one in the pass's gaps. `events.ts` counts
-the document as the agent's own, so writing it wakes no rule.
+(`saveCursor`), and says an unreadable one in the pass's gaps. The write hands
+back the state it produced and the cursor takes it, so a quiet account writes
+nothing; `events.ts` counts the document as the agent's own, so writing it wakes
+no rule.
 
 ## Context
 
 A pass reads each account's change log from where the last one ended, and the
 cursor it keeps is the state the server answered for that read (ADR 0030, ADR
-0032). It lived in the loop's memory and nowhere else. A restart — a deployment,
-a crash, a container swapped under it — therefore began by anchoring at the state
-the server held **then**, which is not a resumption but a fresh start: every
-change that arrived while the process was down was never read, and never named as
-missed.
+0032). A cursor that exists only in the loop's memory is a cursor that begins
+each process by anchoring at the state the server holds **then**, which is not a
+resumption but a fresh start: every change that arrived while the process was
+down is never read, and never named as missed.
 
 The process is disposable by law (`IMMUTABLE=1`, ADR 0027): a cursor in memory is
-a cursor lost on every restart, and the deployments of one afternoon were two.
-The live symptom was a chat message that mentioned the agent, produced no run, and
-left nothing behind that could answer why.
+a cursor lost on every restart. The live symptom was a chat message that mentioned
+the agent, produced no run, and left nothing behind that could answer why.
 
 ## Decision
 

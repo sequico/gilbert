@@ -111,17 +111,23 @@ agent's durable state.
   in the group's own conversation, with the sentence its ending carries; a run
   that finished says so when a person woke it there **and it has not spoken
   there** — a report of its own is the word, and repeating the ending beside it
-  would be two messages for one piece of work. **One request, one answer**: the
-  notice is a reply in the thread that woke the run, and a mention that the
-  decision turn routes to no rule opens one run rather than one per rule that
-  watches the conversation (ADR 0031). A question it asked and a
-  stop a person took are already words between them, so those endings do not
-  repeat themselves, and a background run that finished keeps its record. The
-  notice is the ending's own `why`, so the conversation and the record cannot
-  tell two stories; a notice that cannot be posted is a failed step on the run
-  rather than a silence. A run that dies without a word is the defect this
-  closes: the person whose request woke it saw nothing, and the installation
-  looked like a queue that had stopped.
+  would be two messages for one piece of work. **The ending is written before it
+  is said**, so the record is the arbiter: a run a person stopped during its last
+  call says nothing at all, because its ending never landed. The debt to speak is
+  on the record (`said: false` until the words have left), so an ending is said
+  exactly once, and a pass that finds an unpaid debt says it. **One request, one
+  answer**: the notice is a reply in the thread that woke the run, and a mention
+  opens one run rather than one per rule that watches the conversation (ADR
+  0031). A question it asked and a stop a person took are already words between
+  them, so those endings do not repeat themselves, and a background run that
+  finished keeps its record. The notice is the ending's own `why`, so the
+  conversation and the record cannot tell two stories; a notice that cannot be
+  posted is a failed step on the run and a debt the next pass pays, rather than a
+  silence. A run that dies without a word is the defect this closes: the person
+  whose request woke it saw nothing, and the installation looked like a queue
+  that had stopped. A run woken by mail is said in the group's conversation too:
+  an answer to that person's message is mail sent outward, which only a rule that
+  declares it sends may do (ADR 0028).
 - **A member of the group reads its runs and stops one that is in flight** —
   the one being worked and the one waiting on a person's answer, which nothing
   else moves; a group's every run in flight can be stopped at once, because a

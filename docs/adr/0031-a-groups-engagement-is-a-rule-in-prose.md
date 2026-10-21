@@ -142,13 +142,15 @@ and **in prose, what should happen** when the rule is woken.
 - **An instruction from a person is a plan, not a rule** (ADR 0027, ADR 0029):
   a rule is what a group decided in advance, and a sentence in the chat or in
   the mail is what it decided now. **A mention is that sentence's address**: a
-  message in the conversation that names the agent opens **one** run — of the
-  first rule that watches the conversation — even when the decision turn names
-  none of them, because one address is one answer and a group with three chat
-  rules must not answer the same sentence three times. A mention no rule covers is
-  answered with that fact rather than left in silence. The decision turn still
-  chooses among every other change, and where it does name rules for a message
-  its routing stands: the address decides only what no rule was chosen for.
+  message in the conversation that names the agent opens **exactly one** run —
+  the rule the decision turn names among those that watch the conversation, or
+  the first of them when it names none — because one address is one answer and a
+  group with three chat rules must not answer the same sentence three times. The
+  decision turn names **which** rule answers a mention, never how many runs it
+  opens. A mention no rule covers is answered with that fact rather than left in
+  silence, and a mention whose change became no decision is told the agent found
+  nothing to do. The decision turn still chooses among every other change, and
+  where it names rules for a change that is not a mention its routing stands.
 
 ## Consequences
 
