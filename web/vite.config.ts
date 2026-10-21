@@ -157,11 +157,12 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     /*
-     * jsdom is the whole cost of this suite: the default pool builds and throws
-     * away a DOM for every **file**, and 321 files paid for 321 of them. A
-     * vm-thread worker keeps one per worker and still isolates file from file —
-     * the same tests, a fraction of the clock.
+     * The default pool is not a placeholder: `vmThreads` was measured here and
+     * refused. It hands its files a `globalThis` where `window` cannot be
+     * redefined and `sessionStorage`/`crypto.subtle` are missing, and the four
+     * suites that build a DOM or use WebCrypto die on it (staleBuild,
+     * smime/verify, crashRecovery, webpush — 46 tests). jsdom per file is the
+     * price of those tests meaning anything.
      */
-    pool: "vmThreads",
   },
 });
