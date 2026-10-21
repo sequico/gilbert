@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Email } from "@/jmap/types";
 import { setCatalog } from "@/lib/i18n";
-import { catalog as it } from "@/locales/it";
+import { catalog as itCatalog } from "@/locales/it";
 import { SpamModelOpinionRow } from "../SpamModelOpinion";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -66,7 +66,7 @@ describe("the spam filter's model on a message", () => {
   });
 
   it("is translated, with an adjective that agrees with confidence", async () => {
-    setCatalog("it", it);
+    setCatalog("it", itCatalog);
     const text = await render(mail("LLM_HAM_HIGH (Una risposta in un thread)"));
     expect(text).toContain("Confidenza: alta");
   });

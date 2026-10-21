@@ -21,34 +21,37 @@ export function TemplatesSettings() {
           "Canned responses you can insert into any message from the composer's template button.",
         )}
       </p>
-      {templates.map((t) => (
-        <div key={t.id} className="card clickable" onClick={() => setEditing(t)}>
-          <div className="card-head">
-            <h3>{t.name}</h3>
-            <button
-              className="icon-btn sm danger"
-              aria-label={translate("Delete template")}
-              onClick={(e) => {
-                e.stopPropagation();
-                update({ templates: templates.filter((x) => x.id !== t.id) });
-              }}
-            >
-              <Trash2 size={16} />
-            </button>
+      {templates.map((t) => {
+        const adds = templateAdds(t);
+        return (
+          <div key={t.id} className="card clickable" onClick={() => setEditing(t)}>
+            <div className="card-head">
+              <h3>{t.name}</h3>
+              <button
+                className="icon-btn sm danger"
+                aria-label={translate("Delete template")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  update({ templates: templates.filter((x) => x.id !== t.id) });
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+            {t.subject && (
+              <div className="hint">
+                {translate("Subject: {subject}", { subject: t.subject })}
+              </div>
+            )}
+            {adds && (
+              <div className="hint truncate">
+                {translate("Adds: {recipients}", { recipients: adds })}
+              </div>
+            )}
+            <div className="hint truncate">{htmlToText(t.html).slice(0, 140)}</div>
           </div>
-          {t.subject && (
-            <div className="hint">
-              {translate("Subject: {subject}", { subject: t.subject })}
-            </div>
-          )}
-          {templateAdds(t) && (
-            <div className="hint truncate">
-              {translate("Adds: {recipients}", { recipients: templateAdds(t)! })}
-            </div>
-          )}
-          <div className="hint truncate">{htmlToText(t.html).slice(0, 140)}</div>
-        </div>
-      ))}
+        );
+      })}
       <button
         className="btn"
         onClick={() =>
@@ -170,8 +173,10 @@ export function TemplatesSettings() {
 }
 
 /**
- * Who a template adds, as one line: the people insertion would put on the
- * message, each once, or nothing where it would add nobody.
+ * Who a template carries, each once, as one line: the people its To, Cc and Bcc
+ * name, or nothing when it names nobody. It is what the template holds rather
+ * than a promise that inserting it adds every one of them -- someone already on
+ * the message is not added twice.
  */
 function templateAdds(t: Template): string | null {
   const list = formatAddressList(

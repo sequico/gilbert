@@ -99,6 +99,31 @@ describe("collecting recipients when a message is sent", () => {
     expect(collect).not.toHaveBeenCalled();
   });
 
+  it("keeps the sending account's own addresses when the mailbox changes inside the undo window", async () => {
+    // The undo window is long enough to open a group mailbox, whose identities
+    // are its own: what is left out of the collected addresses is still the
+    // account Send was pressed under.
+    const key = useCompose.getState().open({
+      identityId: "i1",
+      to: [{ name: "Ann", email: "ann@example.com" }],
+      subject: "Hi",
+      html: "<div>Hi</div>",
+      text: "Hi",
+    });
+    void useCompose.getState().send(key);
+    useMail.setState({
+      accountId: "a2",
+      identities: [{ id: "i2", name: "Team", email: "team@example.org" }] as never,
+    });
+    await vi.advanceTimersByTimeAsync(UNDO_SEND_SECONDS * 1000);
+    await settle();
+
+    expect(collect).toHaveBeenCalledTimes(1);
+    const [, own, from] = collect.mock.calls[0]!;
+    expect(own).toEqual(["john@example.org"]);
+    expect(from).toBe("a1");
+  });
+
   it("does not when the send failed", async () => {
     vi.mocked(client.chain).mockRejectedValueOnce(new Error("no route to the server"));
     await send();
