@@ -144,7 +144,7 @@ export function directorySlice(
          */
         if (c.kind === "group") {
           const name = contactDisplayName(c);
-          const sc = score(name, "");
+          const sc = score(name, "", extra);
           if (sc < 99)
             candidates.push({
               name,

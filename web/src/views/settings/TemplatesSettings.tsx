@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { formatAddressList } from "@/lib/address";
+import { formatAddressList, uniqueAddresses } from "@/lib/address";
 import { t as translate } from "@/lib/i18n";
 import { PLACEHOLDER_NAMES } from "@/lib/templatePlaceholders";
 import { htmlToText } from "@/lib/text";
@@ -44,11 +44,9 @@ export function TemplatesSettings() {
           {recipientCount(t) > 0 && (
             <div className="hint truncate">
               {translate("Adds: {recipients}", {
-                recipients: formatAddressList([
-                  ...(t.to ?? []),
-                  ...(t.cc ?? []),
-                  ...(t.bcc ?? []),
-                ]),
+                recipients: formatAddressList(
+                  uniqueAddresses([...(t.to ?? []), ...(t.cc ?? []), ...(t.bcc ?? [])]),
+                ),
               })}
             </div>
           )}

@@ -186,10 +186,10 @@ export function spamReport(e: HeaderBag): SpamReport | null {
  * same way. The explanation may arrive as encoded words, which the JMAP
  * `asText` form decodes.
  *
- * **It is the spam filter's model, not the agent's** (ADR 0027): it is one
- * signal the filter weighed among the others in the report above, the surface
- * says so, and nothing here judges anything. The explanation is model output
- * and is only ever rendered as text.
+ * **It is the spam filter's model, not the agent's**: it is one signal the
+ * filter weighed among the others in the report above, the surface says so, and
+ * nothing here judges anything. The explanation is model output and is only
+ * ever rendered as text.
  */
 export interface SpamModelOpinion {
   /** The category as the server wrote it. */
@@ -216,7 +216,10 @@ export function parseSpamModelOpinion(
 ): SpamModelOpinion | null {
   const s = flatten(raw);
   // The category is one word -- letters, digits, `_` or `-` -- then optionally
-  // the explanation.
+  // the explanation. Combining marks are not in the class: a category is an
+  // identifier the administrator configured, which a deployment that needs a
+  // script with them would have to answer for first (the skill records the
+  // live question as owed).
   const m = /^([\p{L}\p{N}_-]+)(?:\s+(.*))?$/u.exec(s);
   if (!m) return null;
   const tag = m[1]!;

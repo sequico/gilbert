@@ -9,10 +9,9 @@ import { fakeJmapServer } from "@/test/jmapServer";
 /*
  * Saving the people you write to as contacts. What has to hold: only addresses
  * no card holds yet are added, never the sender's own; the book is created once
- * and remembered by id, and replaced when it has been deleted; and nothing is
- * collected while a group's mailbox is the account in view -- the books that
- * store holds are that account's, and a reader's correspondents belong in
- * their own.
+ * and remembered by id, adopted where one already has its name, and replaced
+ * when it has been deleted; and a message sent from a group's mailbox collects
+ * nothing -- the group's correspondents are not the reader's.
  */
 
 const SESSION = {
@@ -81,6 +80,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const collect = (
+  addrs: Array<{ name: string | null; email: string }>,
+  own: string[] = [],
+  from = "r",
+) => useContacts.getState().collectRecipients(addrs, own, from);
+
 describe("collecting the people written to", () => {
   it("adds only addresses no card holds, never the sender's own", async () => {
     const calls = server();
@@ -93,7 +98,7 @@ describe("collecting the people written to", () => {
       },
     });
 
-    const created = await useContacts.getState().collectRecipients(
+    const created = await collect(
       [
         { name: "New Person", email: "new@example.com" },
         { name: "Known", email: "known@example.com" },
@@ -117,39 +122,52 @@ describe("collecting the people written to", () => {
 
   it("creates the book once and remembers it in the synced settings", async () => {
     const calls = server();
-    await useContacts
-      .getState()
-      .collectRecipients([{ name: null, email: "new@example.com" }], []);
+    await collect([{ name: null, email: "new@example.com" }]);
     expect(useSettings.getState().settings.collectedBookId).toBe("bk-collected");
 
     useContacts.setState({
       books: { "bk-collected": { id: "bk-collected", name: "Collected" } } as never,
     });
-    await useContacts
-      .getState()
-      .collectRecipients([{ name: null, email: "another@example.com" }], []);
+    await collect([{ name: null, email: "another@example.com" }]);
     expect(calls.callsTo("AddressBook/set")).toHaveLength(1);
     expect(calls.callsTo("ContactCard/set")).toHaveLength(2);
   });
 
-  it("replaces a book that has been deleted", async () => {
+  it("adopts a book that already carries its name, rather than making a second", async () => {
+    const calls = server();
+    useContacts.setState({
+      books: { "bk-named": { id: "bk-named", name: "Collected" } } as never,
+    });
+    await collect([{ name: null, email: "new@example.com" }]);
+    expect(calls.callsTo("AddressBook/set")).toHaveLength(0);
+    expect(useSettings.getState().settings.collectedBookId).toBe("bk-named");
+  });
+
+  it("replaces a book whose remembered id is gone, even with others listed", async () => {
     const calls = server();
     useSettings.setState((s) => ({
       settings: { ...s.settings, collectedBookId: "bk-gone" },
     }));
-    await useContacts
-      .getState()
-      .collectRecipients([{ name: null, email: "new@example.com" }], []);
+    useContacts.setState({
+      books: { "bk-other": { id: "bk-other", name: "Work" } } as never,
+    });
+    await collect([{ name: null, email: "new@example.com" }]);
     expect(calls.callsTo("AddressBook/set")).toHaveLength(1);
     expect(useSettings.getState().settings.collectedBookId).toBe("bk-collected");
   });
 
-  it("collects nothing while a group's mailbox is the account in view", async () => {
+  it("collects nothing while the cards have not been read yet", async () => {
+    // A send just after the page opened: the list is not there, so every contact
+    // would look new and get a second card.
     const calls = server();
-    useContacts.setState({ accountId: "g" });
-    const created = await useContacts
-      .getState()
-      .collectRecipients([{ name: null, email: "new@example.com" }], []);
+    useContacts.setState({ loaded: false, loadAll: (async () => undefined) as never });
+    expect(await collect([{ name: null, email: "new@example.com" }])).toBe(0);
+    expect(calls.callsTo("ContactCard/set")).toHaveLength(0);
+  });
+
+  it("collects nothing for a message sent from a group's mailbox", async () => {
+    const calls = server();
+    const created = await collect([{ name: null, email: "new@example.com" }], [], "g");
     expect(created).toBe(0);
     expect(calls.callsTo("ContactCard/set")).toHaveLength(0);
   });

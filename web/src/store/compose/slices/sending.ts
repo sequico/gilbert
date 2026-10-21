@@ -102,11 +102,14 @@ export function sendingSlice(
           }
           // Everyone written to who is not a contact yet, so they are suggested
           // on every device and not only in the browser that sent the message.
+          // A scheduled message is submitted when Send is pressed, so it counts
+          // as sent here; the account is the one Send was pressed under, which
+          // is what keeps a group's correspondents out of the reader's book.
           if (useSettings.getState().settings.collectRecipients) {
             const own = useMail.getState().identities.map((i) => i.email);
             void useContacts
               .getState()
-              .collectRecipients([...d.to, ...d.cc, ...d.bcc], own)
+              .collectRecipients([...d.to, ...d.cc, ...d.bcc], own, target.accountId)
               .catch(() => undefined);
           }
           toast.success(

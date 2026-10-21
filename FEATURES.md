@@ -685,14 +685,15 @@ Contacts. A `shareWith` naming every account cannot work — Stalwart caps a sha
 account created later needs nothing added. Every reader sees it as the first row of
 the Contacts sidebar and merged in `All contacts`.
 
-Beside it, the reader's own **Collected** book: after every confirmed send, the
-recipients no card holds yet are saved there — never the sender's own addresses —
-so they are suggested by the composer on every device and not only in the browser
-that sent the message. It is an ordinary address book of the reader's own account
-(created on first use, remembered by id in the settings, emptied or deleted like
-any other) and the switch is Settings > Calendar & contacts > Contacts. Nothing is
-collected while a group's mailbox is the account in view: a reader's
-correspondents belong in their own account, not in a group's directory.
+Beside it, the reader's own **Collected** book: after a send the server accepts,
+the recipients no card holds yet are saved there — never the sender's own
+addresses — so they are suggested by the composer on every device and not only
+in the browser that sent the message. It is an ordinary address book of the
+reader's own account (created on first use, remembered by id in the settings,
+emptied or deleted like any other) and the switch is Settings > Calendar &
+contacts > Contacts. Nothing is collected while a group's mailbox is the account
+in view: a reader's correspondents belong in their own account, not in a group's
+directory.
 
 ---
 
@@ -1237,8 +1238,9 @@ minimisable and maximisable; full-screen on mobile.
   have added, the server directory and recent recipients; your own cards win a tie.
   The words typed match in any order and each starts a word of the name, a
   nickname, the organization or the address — "jane smi" finds "Smith, Jane",
-  "globex" finds the people at Globex — and someone written to lately ranks a
-  little above an equal match.
+  "globex" finds the people at Globex. A word can also match the middle of a
+  word, ranked below the ones that start one, and someone written to lately
+  ranks a little above an equal match.
   Free-form addresses parse leniently (`Ann <ann@x>, bob@y; "C, D" <c@z>`). A
   **group** is offered with them, marked with its size, and taking it adds those
   people — one address per member, the preferred one — with a note when a member

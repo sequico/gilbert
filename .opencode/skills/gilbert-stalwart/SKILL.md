@@ -340,7 +340,7 @@ note.
 OWED: that a live Stalwart with AI spam classification on writes `X-Spam-LLM`,
 and in which of the two shapes `lib/spamScore.ts` reads — `<Category>
 (<explanation>)`, or the filter's own `LLM_<category>_<confidence>` tag followed
-by the explanation. The mock reproduces both and pins them
+by the explanation in parentheses. The mock reproduces both and pins them
 (`server/src/mock/spam-model-header.test.ts`); what a live server writes has not
 been seen from here. Ask it by fetching one delivered message with `Email/get`
 and the property `header:X-Spam-LLM:asText`, then record the answer here with

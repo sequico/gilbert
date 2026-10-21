@@ -50,6 +50,11 @@ const emails = async (q: string) =>
   (await useContacts.getState().suggest(q)).map((s) => s.email);
 
 describe("recipient suggestions", () => {
+  it("offers nobody for an empty query", async () => {
+    expect(await emails("")).toEqual([]);
+    expect(await emails("   ")).toEqual([]);
+  });
+
   it("matches the words typed in any order", async () => {
     expect(await emails("jane smi")).toEqual(["jane@acme.test"]);
     expect(await emails("smi jan")).toEqual(["jane@acme.test"]);

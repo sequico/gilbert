@@ -237,9 +237,15 @@ export interface ContactsState {
   /**
    * Save the addresses written to that no card holds yet, in the reader's own
    * "Collected" book, so every device suggests them. `own` is the sender's own
-   * addresses, which are never collected. Answers how many cards were created.
+   * addresses, which are never collected, and `from` is the account the message
+   * goes out from: only the reader's own collects. Answers how many cards were
+   * created.
    */
-  collectRecipients(addrs: EmailAddress[], own: string[]): Promise<number>;
+  collectRecipients(
+    addrs: EmailAddress[],
+    own: string[],
+    from: Id | null,
+  ): Promise<number>;
   /**
    * Rename an address book, or patch it some other way.
    *

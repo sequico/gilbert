@@ -64,7 +64,7 @@ describe("inserting a template that remembers its recipients", () => {
     expect(d.cc.map((a) => a.email)).toEqual(["ann@example.com"]);
   });
 
-  it("fills the placeholders against the template's own recipients", () => {
+  it("fills the placeholders from the template's recipients when the message has no To yet", () => {
     const key = useCompose.getState().open();
     useCompose.getState().insertTemplate(key, {
       html: "<p>Dear {{recipientFirstName}}</p>",

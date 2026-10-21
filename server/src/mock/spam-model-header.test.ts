@@ -6,12 +6,12 @@ import { freePort, jmapCall, responseOf } from "../testkit.js";
  * What the spam filter's own model said, as the mock records it.
  *
  * The client reads `X-Spam-LLM` and shows it beside the filter's score
- * (`web/src/lib/spamScore.ts`, ADR 0027's vocabulary: this is the spam filter's
- * model, never the agent's). What a live Stalwart writes here is an assumption
- * this mock makes, so it is pinned next to the simulation: the two shapes the
- * client understands — a category with an explanation, and the filter's own
- * `LLM_<category>_<confidence>` tag — are both here, and mail this account wrote
- * carries neither.
+ * (`web/src/lib/spamScore.ts`): the spam filter's model, never the agent's, as
+ * the agent vocabulary keeps the two apart. What a live Stalwart writes here is
+ * an assumption this mock makes, so it is pinned next to the simulation: the two
+ * shapes the client understands — a category with an explanation, and the
+ * filter's own `LLM_<category>_<confidence>` tag — are both here, and mail this
+ * account wrote carries neither.
  */
 
 const PORT = await freePort();

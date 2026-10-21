@@ -79,15 +79,16 @@ async function send(): Promise<void> {
 }
 
 describe("collecting recipients when a message is sent", () => {
-  it("passes every recipient, and the sender's own addresses to leave out", async () => {
+  it("passes every recipient, the sender's own addresses to leave out, and the account it went out from", async () => {
     await send();
     expect(collect).toHaveBeenCalledTimes(1);
-    const [addrs, own] = collect.mock.calls[0]!;
+    const [addrs, own, from] = collect.mock.calls[0]!;
     expect((addrs as { email: string }[]).map((a) => a.email)).toEqual([
       "ann@example.com",
       "bob@example.com",
     ]);
     expect(own).toEqual(["john@example.org"]);
+    expect(from).toBe("a1");
   });
 
   it("does not when the reader turned it off", async () => {

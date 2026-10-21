@@ -87,7 +87,9 @@ export function identitySlice(
       // is why this happens on insert rather than on send: what the template is
       // filled with is visible and editable afterwards, instead of changing
       // under the message between writing it and sending it. The template's own
-      // recipients count, so {{recipientName}} can name the person it is for.
+      // recipients join what the placeholders read, after the draft's -- the
+      // message's own first To still wins -- which is what lets a message with
+      // no To yet address the person the template is for.
       const ident = d.identityId
         ? useMail.getState().identities.find((i) => i.id === d.identityId)
         : undefined;

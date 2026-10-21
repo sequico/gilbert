@@ -221,8 +221,8 @@ commit's added identifiers this tree already carries, where it was measured;
 ## Release `v2026.10.13-ge0e6aec`
 
 Between `v2026.10.11-g1b6b5d0` (`1b6b5d0`) and `v2026.10.13-ge0e6aec`
-(`e0e6aec`), upstream carries one commit — the release is a dependency bump —
-and its row records where the reading stands.
+(`e0e6aec`), upstream carries two commits — the dependency bump and its
+pull-request merge — and the work commit's row records where the reading stands.
 
 | upstream | disposition | overlap | subject |
 |---|---|---|---|
@@ -246,7 +246,7 @@ the row.
 | `60fd2be` | not taken (a change of product rather than a delta: several principals signed in at once changes the session model, what the account switcher means, and ADR 0014's one push row per device) | 91% | Account switcher: more than one account signed in at once |
 | `3576e8e` | already ours — the mailbox is classified by the `Mailbox/get` probe (`web/src/lib/mailAccounts.ts`), the account switcher and the announcement of the reader's own mail while another mailbox is in view exist, and Stalwart does not deliver mail folder sharing | 91% | Open a group's mailbox, or folders someone shared, from the account menu |
 | `6e78d74` | in (adapted: the reader's own account's book, and nothing collected while a group mailbox is in view) | 90% | Save the people you write to as contacts |
-| `d2b3fda` | in (adapted: read in `lib/spamScore.ts`, beside the other headers the filter writes, and named as the spam filter's model rather than "the language model") | 81% | Show the language model's opinion on a message |
+| `d2b3fda` | in (adapted: read in `lib/spamScore.ts`, beside the other headers the filter writes, and named as the spam filter's model rather than "the language model". The row in the message details is taken; the banner on mail in Junk is not, a Junk surface being a decision of its own) | 81% | Show the language model's opinion on a message |
 
 ## Keeping it current
 

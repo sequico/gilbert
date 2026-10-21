@@ -24,6 +24,13 @@ import {
 import type { ContactsGet, ContactsSet, ContactsState } from "../types";
 
 /**
+ * One collection at a time. Two sends in flight would otherwise both find the
+ * remembered book unset and create one each, and would both see an address as
+ * new before the other's card landed.
+ */
+let collecting: Promise<number> = Promise.resolve(0);
+
+/**
  * The reader's own address books: the list, the selection, and the writes that
  * change them.
  *
@@ -192,53 +199,72 @@ export function booksSlice(
      * book of their own, so every device suggests them and not only the browser
      * that sent the message.
      *
-     * It is the **reader's own** account's book, and only while that is the
-     * account this store is bound to: a group mailbox in view owns cards of its
-     * own, and filing somebody's correspondents into a group's directory would
-     * put them where the reader's other devices do not read. The book is created
-     * on first use and remembered by id, so its name can be anything and an
-     * emptied or deleted one is simply replaced. A deleted book is detected by
-     * its id no longer being in the list.
+     * `from` is the account the message goes out from, and only the reader's own
+     * collects: a message written from a group mailbox is the group's, and its
+     * correspondents belong in the group's directory rather than in the reader's
+     * personal book, where their other devices would read them.
+     *
+     * Nothing is collected until every card of the account is known: a card list
+     * that is not there yet would make every existing contact look new, and a
+     * duplicate card is worse than one send's worth of addresses left uncollected.
+     *
+     * The book is created on first use and remembered by id, so its name can be
+     * anything and an emptied or deleted one is simply replaced -- by another book
+     * of that name where there is one (a settings write the installation's policy
+     * refused leaves the id unset, and a second book per send is not the answer).
+     * One collection runs at a time, so two sends in flight cannot create two.
      */
-    async collectRecipients(addrs, own) {
-      const self = useSession.getState().ownAccountFor(CAP.contacts);
-      if (!self || get().accountId !== self) return 0;
-      if (!get().available) return 0;
-      // Every card has to be known, or someone already a contact gets a second card.
-      if (!get().loaded) await get().loadAll();
-      const ownSet = new Set(own.map((e) => e.toLowerCase()));
-      const fresh = uniqueAddresses(addrs).filter(
-        (a) =>
-          a.email && !ownSet.has(a.email.toLowerCase()) && !get().lookupByEmail(a.email),
-      );
-      if (!fresh.length) return 0;
-      const { settings, update } = useSettings.getState();
-      let bookId =
-        settings.collectedBookId && get().books[settings.collectedBookId]
-          ? settings.collectedBookId
-          : null;
-      if (!bookId) {
-        bookId = await get().createBook(t("Collected"));
-        update({ collectedBookId: bookId });
-      }
-      const create = Object.fromEntries(
-        fresh.map((a, i) => [
-          `c${i}`,
-          {
-            "@type": "Card",
-            version: "1.0",
-            uid: crypto.randomUUID(),
-            ...contactFromAddress(a),
-            addressBookIds: { [bookId!]: true },
-          },
-        ]),
-      );
-      const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
-        accountId: self,
-        create,
-      });
-      await get().syncCards();
-      return Object.keys(res.created ?? {}).length;
+    async collectRecipients(addrs, own, from) {
+      const run = async () => {
+        const self = useSession.getState().ownAccountFor(CAP.contacts);
+        if (!self || from !== self) return 0;
+        if (!get().available) return 0;
+        if (!get().loaded) await get().loadAll();
+        if (!get().loaded) return 0;
+        const ownSet = new Set(own.map((e) => e.toLowerCase()));
+        const fresh = uniqueAddresses(addrs).filter(
+          (a) =>
+            a.email &&
+            !ownSet.has(a.email.toLowerCase()) &&
+            !get().lookupByEmail(a.email),
+        );
+        if (!fresh.length) return 0;
+        const { settings, update } = useSettings.getState();
+        let bookId =
+          settings.collectedBookId && get().books[settings.collectedBookId]
+            ? settings.collectedBookId
+            : null;
+        if (!bookId) {
+          bookId =
+            Object.values(get().books).find((b) => b.name === t("Collected"))?.id ?? null;
+          if (bookId) update({ collectedBookId: bookId });
+        }
+        if (!bookId) {
+          bookId = await get().createBook(t("Collected"));
+          update({ collectedBookId: bookId });
+        }
+        const create = Object.fromEntries(
+          fresh.map((a, i) => [
+            `c${i}`,
+            {
+              "@type": "Card",
+              version: "1.0",
+              uid: crypto.randomUUID(),
+              ...contactFromAddress(a),
+              addressBookIds: { [bookId!]: true },
+            },
+          ]),
+        );
+        const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
+          accountId: self,
+          create,
+        });
+        await get().syncCards();
+        return Object.keys(res.created ?? {}).length;
+      };
+      const next = collecting.then(run, run);
+      collecting = next.catch(() => 0);
+      return next;
     },
 
     /**
