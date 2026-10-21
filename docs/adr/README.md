@@ -306,7 +306,7 @@ is, not what a user sees.
   runs from Administration → Agent, where the record is drawn as it is stored and
   a document this build cannot read is said rather than guessed at
   (`server/src/routes/agent.ts`, `web/src/views/admin/agents/GroupRuns.tsx`).
-- **0031 — A group's engagement is a rule in prose.** One rule is one
+- **0031 — A group's engagement is a rule in prose.** **Superseded by 0043.** One rule is one
   document in the group's own account, giving **each surface a mode** — the
   account's chat, mail, KB, workorders, Files and calendar — and saying **in
   prose what should happen** when the rule is woken. `watch` wakes the rule and

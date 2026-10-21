@@ -16,11 +16,15 @@ whole-answer refusal) and the five records written beside it on 2026-10-21
 
 **Kept, unchanged:** ADR 0028 (authority classes), 0029 (a question parks the run;
 a person answers), 0030 (the run is a document and the record is the product),
-0031 (a group's rules and their surface matrix), 0032 (one process holds the
-claim), 0033 (the memory), 0034 (a batched drop), 0037 (the reading cursor).
+0032 (one process holds the claim), 0033 (the memory), 0034 (a batched drop),
+0037 (the reading cursor, now the reconciliation path rather than a clock).
+
+**Replaced with it:** ADR 0031 in full (many rules per group, each with a surface
+matrix, and the route that picks one). A group has **one instruction**, and the
+change itself says which area it belongs to.
 
 ADR 0030's plan-as-the-normal-shape is amended in place: the common path is the
-workflow below, and a plan is what a rule asks for.
+workflow below, and a plan is what an instruction asks for.
 
 ## Context
 
@@ -117,9 +121,48 @@ The run ends when the report is written, whatever budget remains. A plan with
 dependencies and branches stays available and is used only when the rule declares
 it needs one.
 
-**The pass owns the clock.** A run gets a bounded slice of a pass and returns when
-it is spent; the next pass resumes it from the document. No group waits for another
-group's run.
+**A change is the trigger; nothing polls.** The server's stream says which account
+has a change and of what type; the agent reads that type's changes **once**, from
+where its cursor stands, and composes **one run per change** — the message that
+arrived, the mail that landed, the event that moved. The work starts within
+seconds, not on a ten- or thirty-second beat, and a quiet group costs nothing
+because nothing is asked of it.
+
+The interval survives as **reconciliation only**: when the stream drops or the
+process restarts, one read from the durable cursor covers what arrived while
+nobody was listening, and then the stream is the clock again. A cursor that missed
+a window says so (ADR 0037). A **dated** wake — a question's deadline — stays a
+timer, because a date coming due is itself an event.
+
+A run is composed, not scheduled: the change names its object, the group's
+instruction says how the group works, the knowledge base and the memory say what
+is known, and the areas are chosen from the change and the instruction. A change
+already answered by a run is not answered twice: the run's own key — the object
+and its state — is the deduplication.
+
+**A run gets a bounded slice of the work.** It returns when the slice is spent;
+the next change, or the reconciliation, resumes it from the document. No group
+waits for another group's run.
+
+### One instruction per group
+
+A group has **one instruction**: a briefing in the group's own words, read by
+every run of that group, saying what the group is for and how its work is done —
+*"you are the freight desk: file each booking's documents under its folder, tell
+the shipper, and ask before anything goes out"*. It is not a list of triggers: the
+**change** says what happened, and the instruction says what the group does about
+it.
+
+What a group may let the agent write is its **grants** — a matrix of surfaces, the
+authority classes and whether an outward message becomes a draft (ADR 0028, 0041).
+A grant is a permission, not a route: it never decides which run opens, only what
+a run may do.
+
+This replaces the rulebook: one instruction removes the routing questions (which
+rule fires, which of two rules answer one sentence, what a group with no matching
+rule is told) and the files it lived in. A group with no instruction has no agent,
+and a message addressed to it is told so once.
+
 
 **The log is a session.** The run document is the append-only record; the harness
 hands each turn a **bounded slice** of it — the recent steps, the ones the plan
