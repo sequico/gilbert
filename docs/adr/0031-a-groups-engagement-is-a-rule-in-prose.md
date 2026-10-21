@@ -100,18 +100,22 @@ and **in prose, what should happen** when the rule is woken.
   message it posted in the chat, and a document it wrote in its own app folder
   are the agent acting, not the group's activity: the server reports every write
   to a message as a change of that message, so a rule woken by the filing its own
-  run just made would answer the same mail a second time. The reading sets those
-  changes aside, once — a person's later change to the same message is activity
-  again.
+  run just made would answer the same mail a second time. A send and a draft are
+  creates outside the Inbox, and a filing or a mark is a change of a message
+  rather than an arrival; the bullet below is the rule that keeps both out.
 - **Mail wakes a rule on an arrival, and on nothing else.** The mail server
   reports every change of a message — read, flagged, filed, removed — as a change
   of that message, and a rule woken by them would work the group's own handling
   of its mail rather than mail it was asked to answer. So a mail event is a
   message that was **created and is in the account's Inbox**: reading, marking,
   filing and removing wake nothing, and neither does a draft a member saved or a
-  message the group sent, which are creates in Drafts and Sent Items. A message a
-  server-side filter files straight into a folder is not an arrival either
-  (`server/src/agent/events.ts`, `arrivalsOf`).
+  message the group sent, which are creates in Drafts and Sent Items. A message
+  that has left the Inbox has been handled by somebody, which is the whole of what
+  this rule is for: a person who reads and files a message has processed it
+  already, and the agent is not needed for mail a human has put away
+  (`server/src/agent/events.ts`, `arrivalsOf`). A server-side filter that files a
+  message on delivery is the same act done automatically — the group's own rule,
+  carried out before the agent ever sees the message.
 - The prose is the instruction. Nothing about a rule is compiled, and the matrix
   is not a list of actions: what bounds an act is the authority classes (ADR
   0028), not the rule.
