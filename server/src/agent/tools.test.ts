@@ -6,8 +6,9 @@
  * runs, a tool that writes is unreachable through the reading half, every
  * surface has a reading tool that reaches it, the guard asks the authority class
  * the tool **declares** and the act that authority is for, a read spends nothing
- * of the run's budget, and a question leaves the run waiting on a person with no
- * date. Beside them is the one write that leaves the group's account entirely —
+ * of the run's budget, and a question leaves the run waiting on a person with the
+ * deadline ADR 0029 gives it. Beside them is the one write that leaves the group's
+ * account entirely —
  * the memory tool, which records a fact into the installation's own store while
  * refusing the one a person holds. The catalogue's own shape is checked
  * beside them — no two tools take one
@@ -20,7 +21,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
-import type { RunDoc, RunWait } from "../shared/run.js";
+import { QUESTION_TTL_MS, type RunDoc, type RunWait } from "../shared/run.js";
 import { freePort, waitForPort } from "../testkit.js";
 import type { UpstreamSession } from "../upstream.js";
 
@@ -1084,7 +1085,11 @@ test("a mention in the chat is the local part, never the whole address", async (
   const question = await callTool<{ message: { text: string } }>("chat.read", {
     id: asked.id,
   });
-  assert.equal(question.message.text, "Is @sq happy with that?");
+  assert.equal(
+    question.message.text,
+    "Is @sq happy with that?\n\nReply to this message to answer it.",
+    "and the question carries the line that says a reply is the answer (ADR 0029)",
+  );
 
   /*
    * The words are the local part, and the stored mark is the roster's address:
@@ -1342,22 +1347,30 @@ test("the writing tools change the group's own account", async () => {
     text: question,
   });
   assert.deepEqual(
-    asked.wait,
+    { what: asked.wait.what, asked: asked.wait.asked },
     {
       // A mention is the local part, as the conversation reads it; the wait
       // carries the question exactly as it was written.
       what: "@sam is the delivery confirmed?",
       asked: { channel: "chat", id: asked.id },
-      until: null,
     },
-    "a question is a run waiting on a person, with no date (ADR 0030)",
+    "a question is a run waiting on a person (ADR 0030)",
+  );
+  /*
+   * …and it carries its deadline: ADR 0029 gives the question 72 hours, after
+   * which the work goes on without the answer rather than parking for ever.
+   */
+  const remaining = Date.parse(asked.wait.until ?? "") - Date.now();
+  assert.ok(
+    remaining > 70 * 60 * 60_000 && remaining <= QUESTION_TTL_MS,
+    "the deadline is the one ADR 0029 declares, not one the tool invented",
   );
   const askedBack = await writeTool<{ message: { text: string } }>("chat.read", {
     id: asked.id,
   });
   assert.equal(
     askedBack.message.text,
-    "@sam is the delivery confirmed?",
+    "@sam is the delivery confirmed?\n\nReply to this message to answer it.",
     "and the question is in the conversation, the mention by its local part",
   );
 });
