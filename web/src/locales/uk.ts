@@ -796,6 +796,7 @@ export const catalog: Catalog = {
     "New label": "Нова мітка",
     "Choose a group…": "Виберіть групу…",
     "Group labels": "Мітки групи",
+    Groups: "Групи",
     "Group mailbox": "Групова поштова скринька",
     "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
       "Мітки, які пропонує групова поштова скринька, належать групі й доступні всім її учасникам. Визначте або змініть їх тут; перейменування змінює лише назву — ключове слово на повідомленнях залишається тим самим.",

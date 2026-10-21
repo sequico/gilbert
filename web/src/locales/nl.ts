@@ -796,6 +796,7 @@ export const catalog: Catalog = {
     "New label": "Nieuw label",
     "Choose a group…": "Kies een groep…",
     "Group labels": "Groepslabels",
+    Groups: "Groepen",
     "Group mailbox": "Groepsmailbox",
     "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
       "De labels die een groepsmailbox aanbiedt, zijn van de groep en worden door alle leden gedeeld. Definieer of wijzig ze hier; een hernoeming verandert alleen de naam — het keyword op de berichten blijft hetzelfde.",

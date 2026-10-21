@@ -13,7 +13,6 @@ import {
   Pencil,
   Phone,
   Pin,
-  Plus,
   Search,
   StickyNote,
   Trash2,
@@ -817,16 +816,6 @@ export function ContactsView({ id }: { id?: string }) {
                 onChange={(e) => setQ(e.target.value)}
               />
             </div>
-            <button
-              className="icon-btn"
-              title={translate("New contact")}
-              onClick={() => {
-                setEditing({});
-                setEditingAccount(null);
-              }}
-            >
-              <Plus size={20} />
-            </button>
           </div>
         )}
         <div className={`contacts-scroll ${pickedRefs.length ? "has-selection" : ""}`}>

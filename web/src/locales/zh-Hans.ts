@@ -787,6 +787,7 @@ export const catalog: Catalog = {
     "New label": "新建标签",
     "Choose a group…": "选择群组…",
     "Group labels": "群组标签",
+    Groups: "群组",
     "Group mailbox": "群组邮箱",
     "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
       "群组邮箱提供的标签属于该群组，由所有成员共享。可在此定义或修改；重命名只会更改名称——消息上的关键字保持不变。",

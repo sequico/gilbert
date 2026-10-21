@@ -1,5 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { Calendar as CalIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Calendar as CalIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
@@ -407,11 +407,6 @@ export function CalendarView({
               </button>
             ))}
         </div>
-        {!isMobile && (
-          <button className="btn btn-primary btn-sm" onClick={() => openNew()}>
-            <Plus size={16} /> {translate("Event")}
-          </button>
-        )}
       </div>
       {(cal.error || cal.sharedError) && (
         <div className="error-box" style={{ margin: 12 }}>

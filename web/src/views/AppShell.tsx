@@ -576,11 +576,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               {section === "files" && <FilesTree />}
               {section === "kb" && <KnowledgeSidebar />}
             </Suspense>
-            {section === "settings" && (
-              <div className="nav-section">
-                <span>{t("Settings")}</span>
-              </div>
-            )}
           </div>
           {(section === "mail" || section === "search") && <QuotaBar />}
           <nav className="module-bar" aria-label={t("Go to")}>

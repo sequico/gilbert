@@ -590,14 +590,19 @@ export function KnowledgeSidebar() {
              an ordinary page at a glance. A page without a `draft.json` is one
              that exists but was never saved; the faint glyph says so. */
         a.template === "checklist" ? (
-          <ClipboardCheck size={16} className="kb-checklist-icon" aria-hidden="true" />
+          <span className="kb-checklist-mark" title={t("Checklist template")}>
+            <ClipboardCheck size={16} className="kb-checklist-icon" aria-hidden="true" />
+          </span>
         ) : (
           <FileText size={16} className={a.saved ? "" : "faint"} aria-hidden="true" />
         )}
         <span className="grow truncate">{a.title}</span>
-        {/* The in-force revision number, read-only: it belongs to the
-            lifecycle, not to the title anyone edits. */}
-        <KnowledgeRevBadge rev={a.kind === "article" ? a.rev : null} />
+        {/* The in-force revision number, read-only: it belongs to the lifecycle,
+            not to the title anyone edits. In the tree only a revision past the
+            first is news — "rev. 1" on every page is a column of noise. */}
+        <KnowledgeRevBadge
+          rev={a.kind === "article" && (a.rev ?? 0) > 1 ? a.rev : null}
+        />
         {a.pending && <span className="hint">{t("Pending")}</span>}
         {a.retired && <span className="hint">{t("Retired")}</span>}
         {tier.canApprove && (
@@ -848,7 +853,7 @@ export function KnowledgeSidebar() {
               <div className="nav-section">
                 <span title={tierLabel(tier)}>{tierLabel(tier)}</span>
                 {tier.canApprove && (
-                  <span className="row" style={{ gap: 2 }}>
+                  <span className="row" style={{ gap: 4 }}>
                     <button
                       className="icon-btn sm"
                       title={t("New page")}

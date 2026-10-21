@@ -704,45 +704,49 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         </div>
       )}
       {/*
-       * The bar is always there, counting zero when nothing is ticked.
+       * The bar is always there — it is what keeps the listing still.
        *
        * It used to be drawn only with a selection, and a bar that appears out of
        * nothing moves every row below it down by its own height: ticking one box
        * made the listing jump under the pointer, and the second click of a
-       * two-row selection landed somewhere other than the first. A bar that is
-       * always where it was costs an empty strip and buys a listing that never
-       * moves.
-       *
-       * What changes with the count is what can be done, not what is drawn: with
-       * nothing ticked the two buttons are there and inert.
+       * two-row selection landed somewhere other than the first. So the strip
+       * stays and only its contents change: with nothing ticked it says how many
+       * items the folder holds, and the actions appear the moment one is ticked.
        */}
       <div className="selection-bar">
         <span className="grow">
-          {plural(sel.length, {
-            one: "{n} item selected",
-            other: "{n} items selected",
-          })}
+          {sel.length
+            ? plural(sel.length, {
+                one: "{n} item selected",
+                other: "{n} items selected",
+              })
+            : plural(nodes.length, { one: "{n} item", other: "{n} items" })}
         </span>
         {/* The selection's actions, in one menu: the bar counts and offers
-            them, the rows are what gets ticked. */}
-        <button
-          className="btn btn-sm"
-          aria-label={t("Actions")}
-          title={t("Actions")}
-          disabled={sel.length === 0}
-          onClick={selMenu.open}
-        >
-          <MoreVertical size={16} /> {t("Actions")}
-        </button>
-        <button
-          className="icon-btn sm"
-          aria-label={t("Clear selection")}
-          title={t("Clear selection")}
-          disabled={sel.length === 0}
-          onClick={() => setSelection(new Set())}
-        >
-          <X size={16} />
-        </button>
+            them, the rows are what gets ticked. They are drawn only once there
+            is a selection — an inert pair over "0 items" is a control that
+            offers nothing. The bar keeps its height, so the listing still does
+            not move. */}
+        {sel.length > 0 && (
+          <>
+            <button
+              className="btn btn-sm"
+              aria-label={t("Actions")}
+              title={t("Actions")}
+              onClick={selMenu.open}
+            >
+              <MoreVertical size={16} /> {t("Actions")}
+            </button>
+            <button
+              className="icon-btn sm"
+              aria-label={t("Clear selection")}
+              title={t("Clear selection")}
+              onClick={() => setSelection(new Set())}
+            >
+              <X size={16} />
+            </button>
+          </>
+        )}
       </div>
       {files.error && (
         <div className="error-box" style={{ margin: 12 }}>

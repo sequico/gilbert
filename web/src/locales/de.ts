@@ -833,6 +833,7 @@ export const catalog: Catalog = {
     "New label": "Neues Label",
     "Choose a group…": "Gruppe auswählen…",
     "Group labels": "Gruppen-Labels",
+    Groups: "Gruppen",
     "Group mailbox": "Gruppen-Mailbox",
     "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
       "Die Labels einer Gruppen-Mailbox gehören der Gruppe und werden von allen Mitgliedern geteilt. Definiere oder ändere sie hier; eine Umbenennung ändert nur den Namen — das Keyword auf den Nachrichten bleibt gleich.",

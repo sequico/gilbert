@@ -127,7 +127,8 @@ export function AdminInstallation() {
 
   return (
     <div>
-      <p className="hint">
+      <h1>{t("Installation document")}</h1>
+      <p className="lead">
         {t(
           "One JSON document in the Master's Files; a publish applies at the next boot.",
         )}

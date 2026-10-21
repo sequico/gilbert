@@ -686,6 +686,7 @@ export const catalog: Catalog = {
     "Group contacts": "Grup kişileri",
     "Group identities": "Grup kimlikleri",
     "Group labels": "Grup etiketleri",
+    Groups: "Gruplar",
     "Group mailbox": "Grup posta kutusu",
     "Group messages from the same thread together.":
       "Aynı konudaki iletileri birlikte gruplandırın.",

@@ -801,6 +801,7 @@ export const catalog: Catalog = {
     "New label": "新しいラベル",
     "Choose a group…": "グループを選択…",
     "Group labels": "グループラベル",
+    Groups: "グループ",
     "Group mailbox": "グループメールボックス",
     "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
       "グループメールボックスが提供するラベルはグループのもので、すべてのメンバーが共有します。ここで定義または変更できます。名前の変更は表示名だけを変え、メッセージ上のキーワードは変わりません。",

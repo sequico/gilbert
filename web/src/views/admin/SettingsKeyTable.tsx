@@ -354,7 +354,7 @@ export function SettingsKeyTable() {
   );
 
   return (
-    <details>
+    <details className="doc-keys">
       <summary>{t("Settings keys")}</summary>
       <p className="hint">
         {t(
