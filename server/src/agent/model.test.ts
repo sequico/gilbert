@@ -41,7 +41,7 @@ const mock = await import("../mock/index.js");
 const { filesAccountId } = await import("../appFolder.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { appendStep, recordStep, startRun } = await import("../shared/run.js");
-const { MEMORY_VERSION } = await import("../shared/memory.js");
+const { MEMORY_VERSION, MEMORY_FACT_MAX } = await import("../shared/memory.js");
 const { RULE_VERSION } = await import("./rule.js");
 const { TOOLS } = await import("./tools.js");
 const {
@@ -582,6 +582,59 @@ test("the catalogue tells the turn what each argument is and how large", async (
     system,
     /`text ≤n` is at most n characters/,
     "and the notation itself is explained once, where the catalogue is",
+  );
+});
+
+test("the choosing turn offers the catalogue as tools, from the same argument specs", async () => {
+  /*
+   * A model writing a plan by hand guesses at each argument's kind, and one bad
+   * argument refuses the whole answer: 110 refused answers on the live
+   * installation. The same definition travels as the provider's own `tools`,
+   * rendered from the specs the parser checks, and the answer is not forced into
+   * JSON — a `json_object` response cannot carry a tool call.
+   */
+  seen = [];
+  answers = [];
+  answerWith({ done: "nothing to do" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
+
+  const body = seen[0]?.body as {
+    response_format?: unknown;
+    tools?: Array<{
+      type: string;
+      function: {
+        name: string;
+        parameters: {
+          type: string;
+          properties: Record<string, Record<string, unknown>>;
+          additionalProperties: boolean;
+        };
+      };
+    }>;
+  };
+  assert.equal(
+    body.response_format,
+    undefined,
+    "a tool-calling answer is not forced into JSON",
+  );
+  const tools = body.tools ?? [];
+  assert.equal(
+    tools.length,
+    TOOLS.length,
+    "every tool of the catalogue is offered, once",
+  );
+  const remember = tools.find((one) => one.function.name === "memory.remember");
+  assert.ok(remember, "the catalogue's own tools are the ones offered");
+  assert.equal(remember.function.parameters.type, "object");
+  assert.deepEqual(
+    remember.function.parameters.properties.fact,
+    { type: "string", maxLength: MEMORY_FACT_MAX },
+    "the bound in the schema is the bound the parser checks",
+  );
+  assert.equal(
+    remember.function.parameters.additionalProperties,
+    false,
+    "and a name no tool takes is refused by the provider, not paid for as a step",
   );
 });
 

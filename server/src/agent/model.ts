@@ -267,6 +267,15 @@ interface ModelRequest {
    * than to a guess. The bytes go as `data:` URLs in the user turn's parts.
    */
   images?: ModelImage[];
+  /**
+   * The catalogue as the provider's own tool definitions (ADR 0027).
+   *
+   * A call that carries them asks for a tool-calling answer instead of a JSON
+   * object: the provider checks the kind and the bound of every argument, which
+   * is what a hand-written plan gets wrong. The demanded JSON shape stays the
+   * fallback — a model that ignores the tools still answers a plan or a `done`.
+   */
+  tools?: readonly ToolDefinition[];
 }
 
 /** One image handed to the model: its type and its bytes. */
@@ -398,7 +407,13 @@ export async function callModel(
       body: JSON.stringify({
         model,
         temperature: 0,
-        response_format: { type: "json_object" },
+        /*
+         * A JSON answer is demanded only of a call that carries no tools: an
+         * answer forced into `json_object` cannot be a tool call, and the one
+         * kind of call that offers the catalogue asks for the provider's own.
+         */
+        ...(req.tools?.length ? {} : { response_format: { type: "json_object" } }),
+        ...(req.tools?.length ? { tools: req.tools } : {}),
         /*
          * The provider's own ceiling unless a call states one: a reasoning
          * model spends the budget before it writes the answer, and a ceiling
@@ -674,14 +689,10 @@ export function isNativeToolCalls(x: unknown): x is NativeToolCallsAnswer {
  * `deepseek-flash` is a reasoning model that sometimes answers an OpenAI
  * completion with native `tool_calls` and an empty or argument-shaped `content`
  * — the live run of 2026-10-20 wedged on "answered without a message" while the
- * call it meant sat in that field. The agent does not send a `tools` list, so a
- * call here is the model's own vocabulary, and the turns read it as the answer
- * it is rather than as a malformed one.
- *
- * ADR-0027 OWED: native-tool-calls -- offering a `tools` list of its own is the
- * decision the record leaves open: a second rendering of the catalogue is the
- * duplication the design avoids, and a `tools` field a gateway does not know is
- * a 400. Until it is taken, what is read here is a defensive shape.
+ * call it meant sat in that field. The choosing turn offers the catalogue as
+ * `tools` (ADR 0027), so a call here is the ordinary answer; the ones a model
+ * names anyway, with no `tools` offered, are read as the answer they are rather
+ * than as a malformed one.
  */
 export function nativeToolCalls(body: unknown): NativeToolCall[] | null {
   if (!isRecord(body)) return null;
@@ -1503,6 +1514,89 @@ export function catalogueLine(tool: {
 }
 
 /**
+ * One argument as a JSON Schema, from the same spec the line above renders.
+ *
+ * The bound a turn is told and the bound the parser checks come from one place
+ * (`ArgSpec`, `tools/define.ts`), so the schema the provider is handed and the
+ * prose beside it cannot disagree — and a provider that enforces the schema
+ * refuses a wrong type before the step is ever paid for.
+ */
+function argSchema(spec: ArgSpec): Record<string, unknown> {
+  switch (spec.type ?? "text") {
+    case "number":
+      return {
+        type: "integer",
+        ...(spec.max === undefined ? {} : { maximum: spec.max }),
+      };
+    case "boolean":
+      return { type: "boolean" };
+    case "list":
+      return { type: "array", items: { type: "string" } };
+    case "one of":
+      return {
+        type: "string",
+        ...(spec.values?.length ? { enum: [...spec.values] } : {}),
+      };
+    default:
+      return {
+        type: "string",
+        ...(spec.max === undefined ? {} : { maxLength: spec.max }),
+      };
+  }
+}
+
+/** One tool as an OpenAI-compatible completion takes it (ADR 0027). */
+export interface ToolDefinition {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      properties: Record<string, Record<string, unknown>>;
+      additionalProperties: false;
+    };
+  };
+}
+
+/**
+ * The catalogue as the provider's own tool definitions, from the same `args`.
+ *
+ * A model that writes a plan as JSON by hand is guessing at the shape of every
+ * argument, and one wrong argument refuses the whole answer (`model_answer_malformed`):
+ * a live installation paid 110 refused answers for it — `"id" must be text`,
+ * a `fact` over its bound, an argument name the tool does not take. The same
+ * definitions are therefore offered as `tools`, so the provider checks the kind
+ * and the bound itself (ADR 0027).
+ *
+ * Nothing is stated twice: the names, the descriptions, the argument names and
+ * their bounds are the catalogue's own, and this is a rendering of them beside
+ * the prose one (`catalogueLine`) — not a second catalogue. `required` is not
+ * set because a key is not the same as a required key (a source is either
+ * `from` or `message` with `attachment`), and the tool's parser is the one door
+ * that decides.
+ */
+export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] {
+  return catalogue.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: {
+        type: "object",
+        properties: Object.fromEntries(
+          tool.keys.map((key) => {
+            const spec = tool.args[key];
+            return [key, spec ? argSchema(spec) : { type: "string" }];
+          }),
+        ),
+        additionalProperties: false,
+      },
+    },
+  }));
+}
+
+/**
  * One choosing turn: given the run so far, the plan of steps to make or the
  * end of the work.
  *
@@ -1530,7 +1624,7 @@ export async function chooseStep(
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group, working one run in that group's own account.",
-    'Answer with one JSON object and nothing else: {"calls": [{"name": "<one of the tools below>", "arguments": {...}}, ...]} to take one or more steps, or {"done": "<what is finished>"} when the work of this run is finished.',
+    'Take the run\'s steps with the tools you are given: call one, several, or the same one twice in one answer, and each step is shown to you before you are asked again. When the work of this run is finished, answer {"done": "<what is finished>"} and nothing else. A plan written out as {"calls": [{"name": "<tool>", "arguments": {...}}, ...]} is read the same way, and a call whose arguments are not what the tool states is refused whole — there is no second spelling and no repair.',
     "Decide what this change needs and ask for it in one answer, as a small plan: name a tool and its arguments for each step — one tool, several, or the same tool twice. The steps whose dependencies have ended are carried out together, and each is shown to you before you are asked again.",
     'A step that has to follow another gives itself an "id" and waits on it: {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
     "A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run's record says which step and which outcome left it.",
@@ -1551,12 +1645,13 @@ export async function chooseStep(
     {
       system,
       user: stepData(question),
+      tools: catalogueTools(catalogue),
       ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
     },
     opts.meter,
   );
-  // A model that named its steps natively is planning: the same calls the
-  // demanded JSON would carry, validated by the same parser below.
+  // The provider's own tool calls are the plan: the same calls the JSON shape
+  // would carry, through the same validation below (ADR 0027).
   if (isNativeToolCalls(answer))
     answer = {
       calls: answer.nativeToolCalls.map((one) => ({

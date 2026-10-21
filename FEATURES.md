@@ -257,10 +257,14 @@ model may sit inside the deployment's own network
 turn** — given one change in a group's own account and the rules that watch it,
 which rules apply and what the facts are, looking the group's own state up first
 with the **reading tools** when it needs to — and the **choosing turn**, which is
-handed the catalogue as the catalogue describes itself and the run so far, and
+handed the catalogue as the catalogue describes itself — as prose and as the
+provider's own `tools`, both rendered from each tool's own argument specs — and
+the run so far, and
 answers with a **plan**: one or more steps, each a tool, its arguments and what it
 waits on, or that the work is finished — so what a run needs in several parts,
-and what follows from each outcome, is one turn. The decision turn's answer is facts and nothing else — one that
+and what follows from each outcome, is one turn. A provider that takes the tools
+checks the kind and the bound of every argument itself, which is the refusal a
+hand-written JSON plan used to pay for. The decision turn's answer is facts and nothing else — one that
 carries an authorisation, or names a tool that writes, is refused — and an
 installation that has chosen no model has no agent.
 
