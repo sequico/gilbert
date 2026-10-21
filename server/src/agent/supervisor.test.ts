@@ -494,17 +494,17 @@ test("a pass that throws is logged, and the next one still runs", async (t) => {
 
 test("a gap is said when it appears, and said again when it comes back", async (t) => {
   /*
-   * A gap is a fault the pass could not fix by itself: a rule sheet this build
+   * A gap is a fault the pass could not fix by itself: an instruction this build
    * cannot read, a change log that skipped. It is said when it appears — and not
    * on every beat, or one broken file would fill the log — and said again if it
    * goes and returns, because that is a new occurrence.
    */
   const { lines, log } = collector();
   const answers: string[][] = [
-    ["team@example.org: the rule at rules/x.json is not readable"],
-    ["team@example.org: the rule at rules/x.json is not readable"],
+    ["team@example.org: the instruction at instruction.json is not readable"],
+    ["team@example.org: the instruction at instruction.json is not readable"],
     [],
-    ["team@example.org: the rule at rules/x.json is not readable"],
+    ["team@example.org: the instruction at instruction.json is not readable"],
   ];
   let asked = 0;
   const process = supervise({

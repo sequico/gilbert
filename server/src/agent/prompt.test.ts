@@ -20,7 +20,7 @@ test("a lookup larger than the prompt's bound is clipped, and says so", () => {
     event: { source: "mail", change: "created", where: "m-1" },
   } as DecisionQuestion;
   const huge = "a".repeat(READ_IN_PROMPT_MAX + 500);
-  const prompt = turnData(question, [], [{ name: "files.read", result: { text: huge } }]);
+  const prompt = turnData(question, [{ name: "files.read", result: { text: huge } }]);
 
   assert.ok(prompt.length < huge.length, "the whole document is not in the prompt");
   assert.ok(prompt.includes("…"), "and the reader can see it was cut");

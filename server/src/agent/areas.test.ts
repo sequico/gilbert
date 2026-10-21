@@ -3,14 +3,13 @@ import { test } from "node:test";
 import {
   AREA_NAMES,
   areaOf,
+  areasOfRun,
   areasOfSurfaces,
-  catalogueFor,
   CONTEXT_TOOL_PREFIXES,
+  catalogueFor,
   declaredAreas,
   isAreaTool,
   MAX_DECLARED_AREAS,
-  selectAreas,
-  TRANSVERSAL_AREAS,
 } from "./areas.js";
 import { TOOLS } from "./tools.js";
 
@@ -55,24 +54,17 @@ test("a prefix that is not the area's name still lands in its area", () => {
   assert.ok(!isAreaTool("run.read"), "the harness's own tool is in no area");
 });
 
-test("the transversal areas are in every selection, whatever is declared", () => {
-  const picked = selectAreas("files", []);
-  for (const area of TRANSVERSAL_AREAS)
-    assert.ok(picked.includes(area), `${area} is always selectable`);
-  assert.ok(picked.includes("files"), "and the change's own area is there");
-  assert.ok(!picked.includes("calendar"), "and nothing else is");
-});
-
-test("the change's area and the declared ones are both selected", () => {
-  const picked = selectAreas("mail", ["files", "workorders"]);
-  assert.deepEqual([...picked].sort(), [
-    "chat",
-    "files",
-    "knowledge",
-    "mail",
-    "memory",
-    "workorders",
-  ]);
+test("the areas of a run are its instruction's and its matrix's, plus the three", () => {
+  const picked = areasOfRun(["workorders"], {
+    chat: "watch",
+    mail: "watch",
+    files: "off",
+    knowledge: "off",
+    workorder: "off",
+    calendar: "off",
+  });
+  assert.deepEqual(picked, ["mail", "knowledge", "workorders", "chat", "memory"]);
+  assert.equal(areasOfRun([], undefined), null, "a run with neither selects nothing");
 });
 
 test("a group cannot declare its way back to a catalogue of forty-five", () => {

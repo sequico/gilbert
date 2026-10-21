@@ -101,24 +101,28 @@ export interface RunMessageRef {
 export type RunAuthority = "destructive" | "outward" | "override";
 
 /**
- * What started a run (ADR 0027, 0031): a rule the group wrote in advance, or an
- * instruction from a person. Exactly one of the two is named.
+ * What started a run (ADR 0027, 0031, 0038): the group's standing instruction,
+ * which is woken by a change in its account, or a sentence a person wrote.
  */
 interface RunStart {
-  /** The rule's document name; null when an instruction started the run. */
+  /**
+   * The rule's document name: null in every run this build writes, since a group
+   * has one instruction and no rules. Kept because a run document already in an
+   * account names one, and the record is read as it was written.
+   */
   rule: string | null;
-  /** The sentence the instruction arrived in; null when a rule started the run. */
+  /** The sentence a person wrote; null when a change woke the instruction. */
   instruction: RunMessageRef | null;
   /**
-   * The change in the group's account that woke the rule, in the group's own
-   * words; null when an instruction started the run.
+   * The change in the group's account that woke the instruction, in the group's
+   * own words; null when a person's own sentence started the run.
    *
-   * A rule fires on activity, and the run has to say which activity, or a
+   * A change wakes the instruction, and the run has to say which change, or a
    * process that takes the run over cannot tell what it is answering. The words
    * are the loop's, composed from the event's own surface, change and address.
-   * A rule together with the change it names is also what the loop reads a
-   * change once by: a run already naming that pair is the change being worked or
-   * the answer it already has, never a reason for a second run (ADR 0031).
+   * The change a run names is also what the loop reads a change once by: a run
+   * already naming it is the change being worked or the answer it already has,
+   * never a reason for a second run (ADR 0038).
    */
   woke: string | null;
   /**
@@ -147,9 +151,9 @@ interface RunStart {
    */
   wakeFrom?: string | null;
   /**
-   * The surface matrix the rule carried when the run opened (ADR 0031): what it
-   * may write on, and what woke it. A run written before the matrix carries
-   * none, and may write where it did before.
+   * The surface matrix the group's instruction carried when the run opened
+   * (ADR 0038): what it may write on, and what woke it. A run written before the
+   * matrix carries none, and may write where it did before.
    */
   surfaces?: SurfaceMatrix;
   /**
@@ -520,11 +524,15 @@ function isStart(x: unknown): x is RunStart {
     return false;
   if ("about" in x && typeof (x as { about?: unknown }).about !== "string") return false;
   if ("by" in x && typeof (x as { by?: unknown }).by !== "string") return false;
-  // One of the two, and never both: a run that was started twice is not a run.
-  if ((rule === null) === (instruction === null)) return false;
-  // A rule is woken by a change in the group's account; an instruction **is**
-  // the change, so it names none beside it.
-  return (rule === null) === (woke === null);
+  // A run is started by one thing: a rule (the shape before ADR 0038), the
+  // sentence a person wrote, or the group's standing instruction — which names
+  // neither and is named by the change it answered.
+  const named = [rule !== null, instruction !== null].filter(Boolean).length;
+  if (named > 1) return false;
+  // A rule or the standing instruction is woken by a change in the group's
+  // account; a person's own sentence **is** the change, so it names none beside it.
+  if (instruction !== null) return woke === null;
+  return woke !== null;
 }
 
 function isStepState(x: unknown): x is RunStepState {
@@ -701,7 +709,8 @@ export function parseRunDocumentDetailed(
     return { problem: '"id" must be the run\'s name.' };
   if (!isStart(whole.startedBy))
     return {
-      problem: '"startedBy" must name the rule or the instruction that started the run.',
+      problem:
+        '"startedBy" must name the rule, the instruction or the change that started the run.',
     };
   /*
    * A run written before the field existed carries no `startedAt`. It reads as
@@ -1002,7 +1011,7 @@ export function recordAnswerRefusal(run: RunDoc, refusal: RunAnswerRefusal): Run
  * The one place the tally moves: the caller says which of the three counters a
  * turn touched — the step it took, the model call it made, the milliseconds it
  * cost — and the run carries the sum. What the sum is measured against is the
- * rule's ceiling, not the run's (ADR 0031).
+ * ceiling the run declares, not the rule's (ADR 0030, 0038).
  */
 export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
   mustBeRunning(run);

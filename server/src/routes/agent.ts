@@ -56,11 +56,9 @@ import {
   type Ctx,
   destroyAppNode,
   ensureAppFolder,
-  ensureFolderPath,
   filesAccountId,
   findAppFileAt,
   findAppFolder,
-  findFolderPath,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
@@ -686,7 +684,8 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   });
 
   /**
-   * A group's prose — its standing instruction and its rules (ADR 0031).
+   * A group's prose: its one standing instruction, with the areas it works
+   * (ADR 0038).
    *
    * The write path is here, behind the administrator door, and not in the
    * browser: a group's prose is decided by an installation administrator (owner
@@ -780,42 +779,6 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       } catch (err) {
         return proseFailure(c, err);
       }
-    },
-  );
-
-  api.put(
-    "/admin/groups/:name/prose/rules/:id",
-    requireSession,
-    requireAdmin,
-    async (c) => {
-      /*
-       * A group writes one instruction now, and the areas it works (ADR 0038):
-       * the per-rule editor and its endpoints are gone. The route is kept for one
-       * release so a client that still calls it is told where the document moved,
-       * rather than being met with a 404 that says nothing.
-       */
-      return c.json(
-        {
-          error:
-            "A group writes one instruction, at /admin/groups/:name/prose/instruction, with the areas it works. There are no rules.",
-        },
-        410,
-      );
-    },
-  );
-
-  api.delete(
-    "/admin/groups/:name/prose/rules/:id",
-    requireSession,
-    requireAdmin,
-    async (c) => {
-      return c.json(
-        {
-          error:
-            "A group writes one instruction, at /admin/groups/:name/prose/instruction, with the areas it works. There are no rules.",
-        },
-        410,
-      );
     },
   );
 

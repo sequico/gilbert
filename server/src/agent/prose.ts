@@ -25,8 +25,8 @@
  * prose a change is matched against (`model.ts`).
  */
 
-/** The three levels of prose, outermost first (ADR 0031). */
-export const PROSE_LEVELS = ["installation", "group", "rule"] as const;
+/** The two levels of prose, outermost first (ADR 0038). */
+export const PROSE_LEVELS = ["installation", "group"] as const;
 
 /** One level of prose, named by where it is written. */
 export type ProseLevel = (typeof PROSE_LEVELS)[number];
@@ -35,7 +35,6 @@ export type ProseLevel = (typeof PROSE_LEVELS)[number];
 const LEVEL_HEADINGS: Record<ProseLevel, string> = {
   installation: "The installation's own rules, from whoever runs it:",
   group: "The group's standing instruction, from its members:",
-  rule: "The rule's own instruction:",
 };
 
 /** One level's block, or "" when that level says nothing. */

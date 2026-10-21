@@ -74,15 +74,25 @@ test("a group's instruction is read from its own account, and no document is no 
     instruction: "Answer the shipper in the group's own words.",
     areas: ["mail", "files"],
   });
+  const held = await readInstruction(ctx, accountId);
   assert.deepEqual(
-    await readInstruction(ctx, accountId),
+    { ...held, surfaces: undefined },
     {
       v: INSTRUCTION_VERSION,
       instruction: "Answer the shipper in the group's own words.",
       areas: ["mail", "files"],
+      surfaces: undefined,
+      sends: false,
     },
     "and one it wrote is read whole, with the areas it works",
   );
+  assert.equal(held?.surfaces.chat, "watch", "with the conversation on");
+  assert.equal(
+    held?.surfaces.mail,
+    "off",
+    "and every other surface off until it is named",
+  );
+  assert.equal(held?.sends, false, "and sends nothing outward without a person's yes");
   await removeStored();
 });
 
@@ -91,15 +101,19 @@ test("an instruction written before the areas existed is still read, with none d
     v: 1,
     instruction: "Answer the shipper in the group's own words.",
   });
+  const held = await readInstruction(ctx, accountId);
   assert.deepEqual(
-    await readInstruction(ctx, accountId),
+    { ...held, surfaces: undefined },
     {
       v: INSTRUCTION_VERSION,
       instruction: "Answer the shipper in the group's own words.",
       areas: [],
+      surfaces: undefined,
+      sends: false,
     },
     "the prose it wrote is the instruction it was, and no area is invented for it",
   );
+  assert.equal(held?.surfaces.mail, "off", "and nothing but the conversation is on");
   await removeStored();
 });
 
@@ -129,54 +143,58 @@ test("an instruction this build cannot read is refused with its path, never carr
 });
 
 test("the parser takes the version this build writes and refuses every other shape", () => {
-  assert.deepEqual(
+  const doc = (areas: string[], extra: Record<string, unknown> = {}) =>
     parseInstructionDocumentDetailed(
       JSON.stringify({
         v: INSTRUCTION_VERSION,
         instruction: "Work by these words.",
-        areas: ["mail"],
+        areas,
+        ...extra,
       }),
-    ),
+    );
+  const parsed = doc(["mail"]);
+  assert.ok("instruction" in parsed, "the shape this build writes parses whole");
+  assert.deepEqual(
+    { ...parsed.instruction, surfaces: undefined },
     {
-      instruction: {
-        v: INSTRUCTION_VERSION,
-        instruction: "Work by these words.",
-        areas: ["mail"],
-      },
+      v: INSTRUCTION_VERSION,
+      instruction: "Work by these words.",
+      areas: ["mail"],
+      surfaces: undefined,
+      sends: false,
     },
-    "the shape this build writes parses whole",
   );
-  assert.deepEqual(
-    parseInstructionDocumentDetailed(
-      JSON.stringify({
-        v: INSTRUCTION_VERSION,
-        instruction: "Work by these words.",
-        areas: ["mail"],
-        retired: true,
-      }),
-    ),
-    {
-      instruction: {
-        v: INSTRUCTION_VERSION,
-        instruction: "Work by these words.",
-        areas: ["mail"],
-      },
-    },
+  assert.equal(parsed.instruction.surfaces.chat, "watch");
+  assert.equal(parsed.instruction.sends, false, "and nothing outward without a person");
+
+  const unknownKey = doc(["mail"], { retired: true });
+  assert.ok(
+    "instruction" in unknownKey,
     "a key this build does not know decides nothing and is dropped",
   );
-  assert.deepEqual(
-    parseInstructionDocumentDetailed(
-      JSON.stringify({ v: 1, instruction: "Work by these words." }),
-    ),
-    {
-      instruction: {
-        v: INSTRUCTION_VERSION,
-        instruction: "Work by these words.",
-        areas: [],
-      },
-    },
-    "a document written before the areas existed is the prose it was, with none declared",
+
+  const before = parseInstructionDocumentDetailed(
+    JSON.stringify({ v: 1, instruction: "Work by these words." }),
   );
+  assert.ok("instruction" in before);
+  assert.deepEqual(before.instruction.areas, [], "an older document declares no area");
+  assert.equal(before.instruction.surfaces.mail, "off", "and nothing but the chat is on");
+
+  const pinned = doc(["mail"], {
+    surfaces: {
+      chat: "watch",
+      mail: "watch",
+      files: "off",
+      knowledge: "off",
+      workorder: "off",
+      calendar: "off",
+    },
+    sends: true,
+  });
+  assert.ok("instruction" in pinned);
+  assert.equal(pinned.instruction.surfaces.mail, "watch", "a matrix it carries is read");
+  assert.equal(pinned.instruction.sends, true, "and so is a declared send");
+
   for (const raw of [
     "[]",
     JSON.stringify({ v: 2, instruction: "x" }),

@@ -66,7 +66,7 @@ export function declaredAreas(areas: readonly string[]): {
   areas: readonly AreaName[];
   problem: string | null;
 } {
-  const known = areas.filter((one): one is AreaName => isAreaName(one));
+  const known = [...new Set(areas.filter((one): one is AreaName => isAreaName(one)))];
   const unknown = areas.filter((one) => !isAreaName(one));
   if (unknown.length)
     return {

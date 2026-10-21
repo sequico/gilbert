@@ -12,13 +12,13 @@
 import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
 import { areaOfSource } from "../shared/areas.js";
-import type { SurfaceName } from "../shared/surfaces.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
+import type { SurfaceName } from "../shared/surfaces.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import {
@@ -27,9 +27,9 @@ import {
   type EventCursor,
   readAccountEvents,
 } from "./events.js";
+import type { InstructionDoc } from "./instruction.js";
 import type { AnsweredRun, PassSummary, RefusedAnswer } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
-import type { InstructionDoc } from "./instruction.js";
 import type { ModelAccess } from "./model.js";
 import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
@@ -51,7 +51,6 @@ export interface ChangesDeps {
   readingCall(
     accountId: string,
     event: AccountEvent,
-    instruction: InstructionDoc,
   ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader };
   runAnsweredBy(
     accountId: string,
@@ -148,32 +147,6 @@ export function chatWoken(woke: string | null | undefined): string | null {
 }
 
 /**
- * Which rule and which change a run is the answer to: its own `startedBy`.
- *
- * The change is named the way the run carries it (`wokeOf`), so the pair a run
- * is filed under and the pair a change is looked up by are one string and not
- * two spellings that could drift.
- */
-function startKey(woke: string): string {
-  return woke;
-}
-/**
- * The one rule a mention opens.
- *
- * The decision turn's own routing is honoured where it named a rule that watches
- * the conversation; otherwise the first of the chat-watching rules answers.
- * Either way it is **one** rule: every other rule the decision named for this
- * change stays unrun, because a second run would answer the same sentence again.
- */
-function mentionRoute(
-  named: readonly string[],
-  candidates: readonly { id: string }[],
-): string[] {
-  const watchers = candidates.map((rule) => rule.id);
-  const first = named.find((id) => watchers.includes(id)) ?? watchers[0];
-  return first ? [first] : [];
-}
-/**
  * The account's runs by the change that woke them: one entry per change.
  *
  * A run an instruction started names no rule and no change, and is not an answer
@@ -192,7 +165,7 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
   for (const { run } of records) {
     const { woke } = run.startedBy;
     if (!woke) continue;
-    const key = startKey(woke);
+    const key = woke;
     const held = byStart.get(key);
     if (!held || (held.state !== "running" && run.state === "running"))
       byStart.set(key, run);
@@ -211,7 +184,7 @@ const OFF_NOTICE = "AI agents are turned off.";
  * — the live defect was that only the conversation got the sentence, so a message
  * to a group with no mail rule was read and dropped without a word.
  */
-function noRuleNotice(
+function noInstructionNotice(
   surface: "chat" | "mail",
   about: { from?: string | null; subject?: string | null } = {},
 ): string {
@@ -223,11 +196,13 @@ function noRuleNotice(
 
 /**
  * Whether the group's instruction names this change: its area is one the
- * instruction declares, or the surface is one its matrix does not turn off.
+ * instruction declares, or the surface is one its matrix wakes it on.
  *
  * The instruction is the whole of the routing (ADR 0038): a group that wrote no
  * area for mail is not woken by mail, and the notice above says so rather than
- * leaving the change unanswered in silence.
+ * leaving the change unanswered in silence. `watch` is what wakes; `ondemand`
+ * says the surface may be written inside a run something else opened, and `off`
+ * says nothing may (ADR 0031's three modes, which the instruction carries).
  */
 function coversChange(instruction: InstructionDoc, event: AccountEvent): boolean {
   const area = areaOfSource(event.source);
@@ -236,7 +211,7 @@ function coversChange(instruction: InstructionDoc, event: AccountEvent): boolean
   const surface = (
     event.source === "workorder" ? "workorder" : event.source
   ) as SurfaceName;
-  return instruction.surfaces[surface] !== "off";
+  return instruction.surfaces[surface] === "watch";
 }
 
 /**
@@ -467,8 +442,8 @@ export async function workChanges(
         : null;
     /*
      * The agent's own words are not activity to answer: its own status message
-     * would otherwise wake every rule that watches chat and pay a model call to
-     * read itself, each reply opening the next round.
+     * would otherwise wake the instruction and pay a model call to read itself,
+     * each reply opening the next round.
      */
     if (message && message.from.toLowerCase() === deps.ctx.username.toLowerCase())
       continue;
@@ -518,17 +493,16 @@ export async function workChanges(
         continue;
       }
     }
-    const coversIt = instruction !== null && coversChange(instruction, event);
-    /*
-     * A change the group's instruction does not name costs no model call and no
-     * step (ADR 0038) — but a person addressing the agent in the conversation is
-     * not such a change. The address is the mention, so a message that names the
-     * agent is answered even when the instruction says nothing about the
-     * conversation: silence was the live ending (a mention produced no run and no
-     * word, and nothing said why), and a person who typed a question is owed an
-     * answer or a reason.
-     */
-    if (!coversIt) {
+    if (!instruction || !coversChange(instruction, event)) {
+      /*
+       * A change the group's instruction does not name costs no model call and no
+       * step (ADR 0038) — but a person addressing the agent in the conversation is
+       * not such a change. The address is the mention, so a message that names the
+       * agent is answered even when the instruction says nothing about the
+       * conversation: silence was the live ending (a mention produced no run and no
+       * word, and nothing said why), and a person who typed a question is owed an
+       * answer or a reason.
+       */
       /*
        * A person who addressed the agent gets an answer or a reason on **every**
        * surface it can arrive on. A chat mention had its notice; a mail had
@@ -546,7 +520,7 @@ export async function workChanges(
           deps.ctx,
           accountId,
           deps.ctx.username,
-          noRuleNotice("chat"),
+          noInstructionNotice("chat"),
           {
             ...(message.id ? { replyTo: message.id } : {}),
           },
@@ -560,14 +534,11 @@ export async function workChanges(
           deps.ctx,
           accountId,
           deps.ctx.username,
-          noRuleNotice("mail", { from: mail.from, subject: mail.subject }),
+          noInstructionNotice("mail", { from: mail.from, subject: mail.subject }),
         );
       continue;
     }
     const woke = wokeOf(event);
-    /* The branch above returns when there is none, so the group's instruction is
-       here: the change is its work. */
-    const instructionHeld = instruction as InstructionDoc;
     /*
      * What the change said and who set it off, captured now: the record is the
      * arbiter of what happened, so a message edited next week does not rewrite
@@ -576,10 +547,8 @@ export async function workChanges(
      */
     const said = await aboutOf(deps.ctx, accountId, event, message, mail);
     /*
-     * What the installation holds and the group wrote above the rule: the
-     * installation's own line and the group's standing instruction reach the
-     * decision turn too, because which rules apply is asked of the same agent
-     * (ADR 0031).
+     * The installation's own line and the group's standing instruction reach the
+     * decision turn: the turn reads the change against both (ADR 0038).
      */
     const detail = message
       ? {
@@ -611,7 +580,7 @@ export async function workChanges(
         ...(detail ? { detail } : {}),
         ...(document ? { document } : {}),
       },
-      deps.readingCall(accountId, event, instructionHeld),
+      deps.readingCall(accountId, event),
       // A file event carries its document above, so the turn needs few lookups
       // at most; the other surfaces keep the full allowance.
       { meter, ...(event.source === "files" ? { maxReads: 2 } : {}) },
@@ -646,7 +615,7 @@ export async function workChanges(
      * otherwise — the record is what says the change was answered, so a pass that
      * re-reads it does not answer it twice.
      */
-    const key = startKey(woke);
+    const key = woke;
     if (!held) {
       /*
        * The working listing says a document it cannot read and hands the
@@ -674,7 +643,7 @@ export async function workChanges(
     const run = await deps.openRun(
       accountId,
       event,
-      instructionHeld,
+      instruction,
       message?.from ?? null,
       said.about,
       said.by,

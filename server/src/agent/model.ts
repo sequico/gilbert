@@ -941,23 +941,18 @@ export interface ReadMade {
 }
 
 /**
- * One decision turn: given a change and the group's rules, which rules apply
- * and what are the facts.
+ * One decision turn: given a change in the group's account, what is it about.
  *
- * The candidates are the rules whose watch covers the change (`ruleApplies`) and
- * nothing else, so the watch a rule declares is enforced here rather than
- * trusted to the model. A change no rule watches is decided without a call at
- * all — and without a bill. Every candidate that fits the change is named and
- * runs: a change two rules cover is the group's own decision, so the model
- * chooses between no two of them (ADR 0031).
+ * The change reaches this turn only when the group's instruction names it
+ * (`changes.ts`, `coversChange`), so a change nobody declared costs no call at
+ * all — and no bill.
  *
  * The model may look the group's own state up with the **reading tools** before
  * it answers, up to `DECISION_READS_MAX` times; each read is run through
  * `runTool` over `READING_TOOLS`, so a tool that changes the account is not in
  * the catalogue to be named and the authority guard (`mayRun`) is the one that
  * answers every call. The answer is validated before it is returned: a malformed
- * answer, or one naming a rule the group did not write, is refused rather than
- * guessed at.
+ * answer is refused rather than guessed at.
  */
 export async function decideEvent(
   access: ModelAccess,

@@ -295,7 +295,7 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
   const cases: Array<[unknown, string]> = [
     ["not an object", "must be a JSON object"],
     [{ summary: "I decided something" }, "exactly one of"],
-    [{ rules: ["shipper-answer"] }, 'A decision carries "facts"'],
+    [{ rules: ["shipper-answer"] }, 'exactly one of "facts", "read", or "reply"'],
     [{ facts: { shipper: 42 } }, "values are text"],
     // An answer cannot produce an authorisation: naming a writing tool, or a
     // capability, is refused as the shape it is not.
@@ -434,7 +434,7 @@ test("the standing prose reaches the system turn unfenced, and the change is fen
   answerWith({ done: "nothing more to do" });
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
   assert.ok(
-    SYSTEM(0).includes("The group's standing instruction:"),
+    SYSTEM(0).includes("The group's standing instruction, from its members:"),
     "the group's instruction reaches the choosing turn's system turn",
   );
   assert.ok(!SYSTEM(0).includes("--- BEGIN DATA"), "and it is not fenced there either");
@@ -594,23 +594,6 @@ test("the surfaces a run's rule keeps off are said, and nothing off says nothing
   );
 });
 
-test("a change no rule watches is decided without a call, and without a bill", async () => {
-  const decision = await decideEvent(
-    { model, allowPrivateProvider: true },
-    {
-      event: { source: "files", change: "created", where: "Documents/a.pdf" },
-      prose,
-    },
-    toolCall(),
-  );
-  assert.deepEqual(decision, { kind: "decision", facts: {} });
-  assert.equal(
-    seen.length,
-    0,
-    "the watch a rule declares is enforced before the model is asked",
-  );
-});
-
 test("an installation that has chosen no model has no agent", () => {
   const none = parseInstallationDocumentDetailed(JSON.stringify({ secret: "a-secret" }));
   assert.ok("doc" in none, "an empty document is readable");
@@ -702,7 +685,7 @@ function stepQuestion(
   return {
     woke: "mail created: m-1",
     plan,
-    prose: {},
+    prose,
     facts: { shipper: "Maersk" },
   };
 }

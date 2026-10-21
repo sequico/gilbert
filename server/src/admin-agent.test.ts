@@ -145,7 +145,7 @@ test("a claim nobody holds again is not answered as one", async () => {
   assert.equal((res.body as { agent: { claim: unknown } }).agent.claim, null);
 });
 
-test("an administrator writes a group's prose through the route, and reads it back", async () => {
+test("an administrator writes a group's instruction through the route, and reads it back", async () => {
   /*
    * The first write of a new group is the case the route's token has to survive:
    * the folder is made by the write itself, and a token read before that is
@@ -157,61 +157,52 @@ test("an administrator writes a group's prose through the route, and reads it ba
   assert.equal(opened.status, 200);
   const first = (opened.body as { state: string }).state;
 
-  const rule = {
-    v: 1,
-    id: "shipper",
-    watches: ["mail"],
-    instruction: "Answer the shipper.",
-    sends: false,
-  };
-  const wroteRule = await call(`${base}/rules/shipper`, {
+  const wrote = await call(`${base}/instruction`, {
     method: "PUT",
-    body: JSON.stringify({ rule, ifInState: first }),
+    body: JSON.stringify({
+      instruction: "Answer the shipper.",
+      areas: ["mail"],
+      ifInState: first,
+    }),
   });
-  assert.equal(wroteRule.status, 200, JSON.stringify(wroteRule.body));
+  assert.equal(wrote.status, 200, JSON.stringify(wrote.body));
 
   const second = (await call(base)).body as { state: string };
   const wroteLine = await call(`${base}/instruction`, {
     method: "PUT",
-    body: JSON.stringify({ instruction: "Be brief.", ifInState: second.state }),
+    body: JSON.stringify({
+      instruction: "Be brief.",
+      areas: ["mail", "files"],
+      ifInState: second.state,
+    }),
   });
   assert.equal(wroteLine.status, 200, JSON.stringify(wroteLine.body));
 
   const prose = (await call(base)).body as {
     instruction: string;
-    rules: Array<{ id: string; instruction: string }>;
+    areas: string[];
   };
   assert.equal(prose.instruction, "Be brief.", "the line is read back as written");
-  assert.equal(
-    prose.rules.find((one) => one.id === "shipper")?.instruction,
-    "Answer the shipper.",
-    "and so is the rule",
-  );
+  assert.deepEqual(prose.areas, ["mail", "files"], "and so are the areas it works");
 });
 
-test("a rule name that is not a file name is refused as the caller's, not upstream's", async () => {
+test("an area nobody has is refused as the caller's, not upstream's", async () => {
   /*
-   * The id is the rule's file name; "All freight" has a space in it. That is a
-   * 400 with the rule's own sentence — the caller typed it and can fix it — not
-   * the 502 an unmatched error becomes.
+   * "All freight" is not an area. That is a 400 with the document's own sentence
+   * — the caller typed it and can fix it — not the 502 an unmatched error becomes.
    */
   const base = `/api/admin/groups/${encodeURIComponent(TEAM)}/prose`;
   const state = ((await call(base)).body as { state: string }).state;
-  const res = await call(`${base}/rules/${encodeURIComponent("All freight")}`, {
+  const res = await call(`${base}/instruction`, {
     method: "PUT",
     body: JSON.stringify({
-      rule: {
-        v: 1,
-        id: "All freight",
-        watches: ["mail"],
-        instruction: "Answer the shipper.",
-        sends: false,
-      },
+      instruction: "Answer the shipper.",
+      areas: ["All freight"],
       ifInState: state,
     }),
   });
   assert.equal(res.status, 400);
-  assert.equal((res.body as { error: string }).error, "rule_id_invalid");
+  assert.match((res.body as { error: string }).error, /no area called "All freight"/);
 });
 
 test("the runs a group worked are drawn as the record carries them", async () => {

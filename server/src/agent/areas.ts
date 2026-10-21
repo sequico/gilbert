@@ -3,9 +3,9 @@
  *
  * Each area is a module of tools with one concern: posta, files, calendario,
  * contatti, conoscenza, workorder, chat, memoria. A run is handed **the areas its
- * change and its instruction declare**, plus the three that every run needs —
- * chat (the interface), conoscenza (the shared library) and memoria (what the
- * installation knows).
+ * instruction declares and its surface matrix names**, plus the three that every
+ * run needs — chat (the interface), conoscenza (the shared library) and memoria
+ * (what the installation knows).
  *
  * This file is the one place that says which area a tool belongs to: a new tool
  * names its area here, and nothing else in the tree repeats the mapping. The
@@ -13,7 +13,12 @@
  * forty-five names to use four.
  */
 
-import { AREA_NAMES, type AreaName, TRANSVERSAL_AREAS } from "../shared/areas.js";
+import {
+  AREA_NAMES,
+  type AreaName,
+  isAreaName,
+  TRANSVERSAL_AREAS,
+} from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
 
 export {
@@ -39,14 +44,18 @@ function prefixOf(toolName: string): string | null {
   return dot > 0 ? toolName.slice(0, dot) : null;
 }
 
+/** The area a tool names, or null when its name is not `area.action`. */
+function areaOrNull(toolName: string): AreaName | null {
+  const prefix = prefixOf(toolName);
+  if (prefix === null) return null;
+  const alias = AREA_ALIASES[prefix];
+  if (alias !== undefined) return alias;
+  return isAreaName(prefix) ? prefix : null;
+}
+
 /** Whether a tool belongs to an area rather than to the harness. */
 export function isAreaTool(toolName: string): boolean {
-  const prefix = prefixOf(toolName);
-  if (prefix === null) return false;
-  return (
-    AREA_ALIASES[prefix] !== undefined ||
-    (AREA_NAMES as readonly string[]).includes(prefix)
-  );
+  return areaOrNull(toolName) !== null;
 }
 
 /**
@@ -58,30 +67,30 @@ export function isAreaTool(toolName: string): boolean {
  * every run.
  */
 export function areaOf(toolName: string): AreaName {
-  const prefix = prefixOf(toolName);
-  if (prefix === null)
+  const found = areaOrNull(toolName);
+  if (found === null)
     throw new Error(
       `The tool "${toolName}" names no area: its name must be area.action, with area one of ${AREA_NAMES.join(", ")}.`,
-    );
-  const alias = AREA_ALIASES[prefix];
-  if (alias !== undefined) return alias;
-  const found = AREA_NAMES.find((area) => area === prefix);
-  if (!found)
-    throw new Error(
-      `The tool "${toolName}" names no area: its name must start with one of ${AREA_NAMES.join(", ")}.`,
     );
   return found;
 }
 
 /**
- * The areas one run may use: its change's, its instruction's, and the transversal
- * three. Ordered, deduplicated, and never empty.
+ * The areas one run may use: what its group's instruction declares and what the
+ * run's own surface matrix named, plus the transversal three.
+ *
+ * Two declarations while the matrix is still in the tree: the instruction names
+ * the areas, and the matrix says where it may act. A run with neither has nothing
+ * to select from and is handed the whole catalogue, which is what every run got
+ * before the areas existed.
  */
-export function selectAreas(
-  change: AreaName,
+export function areasOfRun(
   declared: readonly AreaName[],
-): readonly AreaName[] {
-  const held = new Set<AreaName>([change, ...declared, ...TRANSVERSAL_AREAS]);
+  surfaces: SurfaceMatrix | undefined,
+): readonly AreaName[] | null {
+  if (!declared.length && !surfaces) return null;
+  const held = new Set<AreaName>([...TRANSVERSAL_AREAS, ...declared]);
+  if (surfaces) for (const area of areasOfSurfaces(surfaces)) held.add(area);
   return AREA_NAMES.filter((area) => held.has(area));
 }
 

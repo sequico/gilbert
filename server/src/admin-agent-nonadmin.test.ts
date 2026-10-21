@@ -61,26 +61,15 @@ test("a non-admin cannot read or write a group's prose", async () => {
   /*
    * The decision is the administrator's (owner decision 2026-10-18), and the
    * boundary is this door: a member who can write the group's account still
-   * cannot change its rules through the product.
+   * cannot change its instruction through the product.
    */
   const read = await call("/api/admin/groups/team@example.org/prose");
   assert.equal(read.status, 403);
   const instruction = await call("/api/admin/groups/team@example.org/prose/instruction", {
     method: "PUT",
-    body: JSON.stringify({ instruction: "do as I say" }),
+    body: JSON.stringify({ instruction: "do as I say", areas: ["mail"] }),
   });
   assert.equal(instruction.status, 403);
-  const rule = await call("/api/admin/groups/team@example.org/prose/rules/mine", {
-    method: "PUT",
-    body: JSON.stringify({
-      rule: { v: 1, id: "mine", watches: ["mail"], instruction: "x", sends: false },
-    }),
-  });
-  assert.equal(rule.status, 403);
-  const gone = await call("/api/admin/groups/team@example.org/prose/rules/mine", {
-    method: "DELETE",
-  });
-  assert.equal(gone.status, 403);
 });
 
 test("a non-admin cannot correct or remove a fact", async () => {

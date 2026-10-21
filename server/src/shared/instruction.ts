@@ -59,6 +59,13 @@ const CHAT_ONLY: SurfaceMatrix = {
 };
 
 /**
+ * The matrix of an instruction that names none: the conversation, and nothing
+ * else. A group that writes an instruction and declares no area has told the
+ * agent about the chat and about nothing more, and the matrix says exactly that
+ * rather than handing it every surface the account has.
+ */
+
+/**
  * Parse one stored instruction.
  *
  * Strict JSON, an object at the top, then the fields checked: a `v` this build

@@ -122,7 +122,7 @@ import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
 import type { AreaName } from "./areas.js";
-import { areasOfSurfaces, catalogueFor } from "./areas.js";
+import { areasOfRun, catalogueFor } from "./areas.js";
 import {
   chatWoken,
   offPath,
@@ -133,6 +133,7 @@ import {
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
 import { NOTICE_CURSOR_FILE, readCursor, writeCursor } from "./cursors.js";
 import type { AccountEvents, EventCursor } from "./events.js";
+import type { InstructionDoc } from "./instruction.js";
 import { readInstruction } from "./instruction.js";
 import { forgetMemoryStores, listFacts, type MemoryStore } from "./memory.js";
 import {
@@ -154,7 +155,6 @@ import {
   dueDrops as dropsDue,
   noteFile,
 } from "./queue.js";
-import type { InstructionDoc } from "./instruction.js";
 import {
   createRun,
   listRunsForWorking,
@@ -450,11 +450,9 @@ export class AgentLoop {
    */
   private readonly above = new Map<string, Partial<Record<ProseLevel, string>>>();
   /**
-   * The areas a group's instruction declares, by account, as this pass read them
-   * (ADR 0038). Read beside the prose, so the document is opened once per pass.
+   * The group's instruction itself, by account, as this pass read it: one
+   * document opened once and shared by the prose, the run's matrix and the areas.
    */
-  private readonly declared = new Map<string, readonly AreaName[]>();
-  /** The group's instruction itself, by account, as this pass read it. */
   private readonly instructions = new Map<string, InstructionDoc | null>();
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
@@ -568,7 +566,6 @@ export class AgentLoop {
   private async workPass(now: Date): Promise<PassSummary> {
     this.reading = null;
     this.above.clear();
-    this.declared.clear();
     this.instructions.clear();
     const summary: PassSummary = {
       claimed: false,
@@ -1090,7 +1087,7 @@ export class AgentLoop {
           proseAbove: (a) => this.proseAbove(a),
           instructionOf: (a) => this.instructionOf(a),
           memory: () => this.memory(),
-          readingCall: (a, e, c) => this.readingCall(a, e, c),
+          readingCall: (a, e) => this.readingCall(a, e),
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
           workRun: (a, r, f, oq) => this.workRun(a, r, f, undefined, oq),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
@@ -1127,7 +1124,6 @@ export class AgentLoop {
   private readingCall(
     accountId: string,
     event: AccountEvent,
-    instruction: InstructionDoc,
   ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader } {
     return {
       ctx: this.ctx,
@@ -1615,7 +1611,7 @@ export class AgentLoop {
           token,
         );
       }
-      const prose = await this.proseOf(accountId, current, above);
+      const prose = above;
       const startedMs = Date.now();
       const question = {
         woke: current.startedBy.woke ?? "the run was started by an instruction",
@@ -2420,19 +2416,10 @@ export class AgentLoop {
   /**
    * The areas one run may change: what its group's instruction declares and what
    * the run's own surface matrix named (ADR 0038).
-   *
-   * Two declarations, not one, while the matrix is still in the tree: the
-   * instruction is the new word and the matrix the old, and a group that has
-   * written neither has nothing to select from — the whole catalogue, which is
-   * what every run got before the areas existed.
    */
   private areasOfRun(accountId: string, run: RunDoc): readonly AreaName[] | null {
-    const declared = this.declared.get(accountId) ?? [];
-    const surfaces = run.startedBy.surfaces
-      ? areasOfSurfaces(run.startedBy.surfaces)
-      : [];
-    if (!declared.length && !run.startedBy.surfaces) return null;
-    return [...new Set([...surfaces, ...declared])];
+    const held = this.instructions.get(accountId);
+    return areasOfRun(held?.areas ?? [], run.startedBy.surfaces);
   }
 
   /**
@@ -2444,7 +2431,6 @@ export class AgentLoop {
     if (held !== undefined) return held;
     const doc = await readInstruction(this.ctx, accountId);
     this.instructions.set(accountId, doc);
-    this.declared.set(accountId, doc?.areas ?? []);
     return doc;
   }
 
@@ -2461,15 +2447,6 @@ export class AgentLoop {
     };
     this.above.set(accountId, levels);
     return levels;
-  }
-
-  /** The prose a run's call carries: the two levels above, and nothing else. */
-  private async proseOf(
-    accountId: string,
-    _run: RunDoc,
-    above: Partial<Record<ProseLevel, string>>,
-  ): Promise<Partial<Record<ProseLevel, string>>> {
-    return above;
   }
 
   /**
