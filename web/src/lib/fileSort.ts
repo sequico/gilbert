@@ -31,18 +31,29 @@ import { useSession } from "@/store/session";
  * nothing. Within each of the two groups the column decides, and a tie on the
  * column falls back to the name, so the order is the same on two devices.
  */
-export function sortFiles(nodes: FileNode[], sort: FilesSort): FileNode[] {
+export function sortFiles(
+  nodes: FileNode[],
+  sort: FilesSort,
+  /**
+   * What a folder holds, when the caller has counted it: the Size column shows
+   * that number for a folder, so it is what the column sorts by — a column whose
+   * value and sort key disagree orders by something the reader cannot see.
+   */
+  folderCounts?: Readonly<Record<string, number>>,
+): FileNode[] {
   const rank = (n: FileNode) => (n.nodeType === "directory" ? 0 : 1);
   const byName = (a: FileNode, b: FileNode) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
   /* `UTCDate` is an ISO-8601 instant in UTC (`jmap/types.ts`), so the strings
      compare in time order and no parsing is needed to order two of them. */
   const stamp = (n: FileNode) => n.modified ?? n.created;
+  const size = (n: FileNode) =>
+    n.nodeType === "directory" ? (folderCounts?.[n.id] ?? 0) : (n.size ?? 0);
   return [...nodes].sort((a, b) => {
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     let by: number;
     if (sort.key === "name") by = byName(a, b);
-    else if (sort.key === "size") by = (a.size ?? 0) - (b.size ?? 0);
+    else if (sort.key === "size") by = size(a) - size(b);
     else by = stamp(a).localeCompare(stamp(b));
     if (by === 0) return byName(a, b);
     return sort.desc ? -by : by;

@@ -171,4 +171,36 @@ describe("collecting the people written to", () => {
     expect(created).toBe(0);
     expect(calls.callsTo("ContactCard/set")).toHaveLength(0);
   });
+
+  it("trusts the server about a remembered book the cache does not hold", async () => {
+    const calls = server().on("AddressBook/get", (call) => {
+      const ids = (call.args.ids ?? []) as string[];
+      return {
+        accountId: "r",
+        state: "1",
+        list: ids.map((id) => ({ id, name: "Collected" })),
+        notFound: [],
+      };
+    });
+    useSettings.setState((s) => ({
+      settings: { ...s.settings, collectedBookId: "bk-collected" },
+    }));
+    await collect([{ name: null, email: "new@example.com" }]);
+    expect(calls.callsTo("AddressBook/set")).toHaveLength(0);
+    const set = calls.callsTo("ContactCard/set")[0]!;
+    const create = set.args.create as Record<
+      string,
+      { addressBookIds: Record<string, true> }
+    >;
+    expect(Object.values(create)[0]!.addressBookIds).toEqual({ "bk-collected": true });
+  });
+
+  it("creates one book for two collections in flight at once", async () => {
+    const calls = server();
+    await Promise.all([
+      collect([{ name: null, email: "one@example.com" }]),
+      collect([{ name: null, email: "two@example.com" }]),
+    ]);
+    expect(calls.callsTo("AddressBook/set")).toHaveLength(1);
+  });
 });

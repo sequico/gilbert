@@ -228,7 +228,13 @@ export function booksSlice(
         const self = useSession.getState().ownAccountFor(CAP.contacts);
         if (!self || from !== self) return 0;
         if (!get().available) return 0;
+        // The session a collection was started in: a sign-out or another
+        // account's sign-in between two awaits leaves books, cards and the write
+        // target belonging to two accounts, and the neighbours in this slice all
+        // refuse that rather than write across it.
+        const epoch = sessionEpoch;
         if (!get().loaded) await get().loadAll();
+        if (epoch !== sessionEpoch || get().accountId !== self) return 0;
         if (!get().loaded) return 0;
         const ownSet = new Set(own.map((e) => e.toLowerCase()));
         const fresh = uniqueAddresses(addrs).filter(
@@ -239,10 +245,25 @@ export function booksSlice(
         );
         if (!fresh.length) return 0;
         const { settings, update } = useSettings.getState();
-        let bookId =
-          settings.collectedBookId && get().books[settings.collectedBookId]
-            ? settings.collectedBookId
-            : null;
+        let bookId: Id | null = null;
+        const remembered = settings.collectedBookId;
+        if (remembered) {
+          if (get().books[remembered]) bookId = remembered;
+          else {
+            /*
+             * The books this store holds can be older than the account — a create
+             * whose list read failed, or a second device — so a remembered id the
+             * cache does not carry is asked for rather than assumed deleted.
+             * Assuming costs a second book of the same name, every send.
+             */
+            const answered = await client.call<GetResponse<AddressBook>>(
+              "AddressBook/get",
+              { accountId: self, ids: [remembered] },
+            );
+            if (epoch !== sessionEpoch || get().accountId !== self) return 0;
+            if (answered.list.length) bookId = remembered;
+          }
+        }
         if (!bookId) {
           bookId =
             Object.values(get().books).find((b) => b.name === t("Collected"))?.id ?? null;
@@ -250,6 +271,7 @@ export function booksSlice(
         }
         if (!bookId) {
           bookId = await get().createBook(t("Collected"));
+          if (epoch !== sessionEpoch || get().accountId !== self) return 0;
           update({ collectedBookId: bookId });
         }
         const create = Object.fromEntries(

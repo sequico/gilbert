@@ -268,6 +268,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const nodes = sortFiles(
     ids.map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n)),
     sort,
+    folderCounts,
   );
   const path = files.pathTo(parentId);
 

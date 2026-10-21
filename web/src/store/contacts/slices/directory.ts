@@ -72,12 +72,15 @@ export function directorySlice(
        * Words in any order: "jane smi" finds "Smith, Jane", and a nickname or
        * the organization counts as much as the name. Each word typed has to
        * start a word of the person's name, nickname, organization or address.
+       * The query is split by the same rule as the words it is matched against:
+       * typed with punctuation ("Smith, Jane", "anne-mari") it has to find what
+       * the card's own display name says.
        */
-      const tokens = q.split(/\s+/).filter(Boolean);
       const wordsOf = (parts: Array<string | null | undefined>) =>
         parts
           .flatMap((p) => (p ?? "").toLowerCase().split(/[\s,.;:@_+()<>"'-]+/))
           .filter(Boolean);
+      const tokens = wordsOf([q]);
       const score = (
         name: string | null,
         email: string,

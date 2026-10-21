@@ -47,6 +47,7 @@ beforeEach(() => {
         members: { u1: true },
         nicknames: { n: { name: "Logistics Crew" } },
       } as Partial<ContactCard>),
+      c6: card("c6", "Anne-Marie Dupont", "am@dupont.test"),
     },
   });
 });
@@ -85,6 +86,11 @@ describe("recipient suggestions", () => {
   it("still ranks a match at the start above a word inside the name", async () => {
     // "jo" starts Jones's surname word; it starts no other card's name or address.
     expect(await emails("jo")).toEqual(["rj@corp.test"]);
+  });
+
+  it("finds a card typed with the punctuation its own name carries", async () => {
+    expect(await emails("Smith, Jane")).toEqual(["jane@acme.test"]);
+    expect(await emails("anne-mari")).toEqual(["am@dupont.test"]);
   });
 
   it("offers a group by its nickname as well as its name", async () => {
