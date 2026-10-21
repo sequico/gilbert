@@ -150,6 +150,22 @@ function startKey(rule: string, woke: string): string {
   return `${rule}\n${woke}`;
 }
 /**
+ * The one rule a mention opens.
+ *
+ * The decision turn's own routing is honoured where it named a rule that watches
+ * the conversation; otherwise the first of the chat-watching rules answers.
+ * Either way it is **one** rule: every other rule the decision named for this
+ * change stays unrun, because a second run would answer the same sentence again.
+ */
+function mentionRoute(
+  named: readonly string[],
+  candidates: readonly { id: string }[],
+): string[] {
+  const watchers = candidates.map((rule) => rule.id);
+  const first = named.find((id) => watchers.includes(id)) ?? watchers[0];
+  return first ? [first] : [];
+}
+/**
  * The account's runs by what started them: one entry per rule-and-change pair.
  *
  * A run an instruction started names no rule and no change, and is not an answer
@@ -187,6 +203,18 @@ const OFF_NOTICE = "AI agents are turned off.";
  */
 const NO_RULE_NOTICE =
   "This group has no rule for the conversation, so your message has woken nothing. An administrator can write one in Administration → Agent → Rules.";
+
+/**
+ * What a person is told when their mention reached the agent and it found
+ * nothing to do.
+ *
+ * Distinct from the notice above because it says something else: the rules are
+ * there and the agent read the words, and it chose no act. A person who asked
+ * for something is owed that answer rather than the silence of a decision that
+ * was never made.
+ */
+const NOTHING_TO_DO_NOTICE =
+  "The agent read your message and found nothing in it to act on. Say what you need it to do, and it will take that as the work.";
 
 /**
  * A pass with the agent off: nothing is decided, nothing is modelled, and the
@@ -547,21 +575,34 @@ export async function workChanges(
         );
       continue;
     }
-    if (decision.kind !== "decision") continue;
     /*
-     * Which rules this change opens. A person addressing the agent in the
-     * conversation is answered even when the decision turn names no rule: the
-     * mention is the address, and the rule it reaches is the **first** that watches
-     * the conversation — one address is one answer, and a group with three chat
-     * rules does not answer the same sentence three times. Where the decision turn
-     * does name rules, its routing stands unchanged (ADR 0031). Its facts — empty
-     * when it named nothing — are what the runs are told.
+     * A mention is an address, and an address is answered once (ADR 0031). The
+     * decision turn names **which** rule answers it, never how many runs it opens
+     * — a group with two chat rules answering one sentence twice is the same
+     * defect as answering it never — so a mention narrows to one rule whichever
+     * way the decision went. Its facts — empty when it named nothing — are what
+     * the run is told.
      */
-    const chosen = decision.rules.length
-      ? decision.rules
-      : message && addressesAgent(message, deps.ctx.username)
-        ? candidates.slice(0, 1).map((rule) => rule.id)
-        : [];
+    const mentioned = message !== null && addressesAgent(message, deps.ctx.username);
+    if (decision.kind !== "decision") {
+      /*
+       * A mention whose change never became a decision is still somebody asking
+       * something: the same notice a group with no chat rule gets, because the
+       * alternative is a question nobody answered and nobody told why.
+       */
+      if (mentioned && message)
+        await postChatMessage(
+          deps.ctx,
+          accountId,
+          deps.ctx.username,
+          NOTHING_TO_DO_NOTICE,
+          {
+            ...(message.id ? { replyTo: message.id } : {}),
+          },
+        );
+      continue;
+    }
+    const chosen = mentioned ? mentionRoute(decision.rules, candidates) : decision.rules;
     /*
      * The runs by (rule, change) for this event, grown once and rebuilt only
      * after a named rule changes a run's state: a decision naming three rules
