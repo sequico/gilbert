@@ -131,18 +131,19 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
   // A date that came while no process was running is not lost: it is armed at
   // once, because the document is the source and not the alarm.
   await arm("past", new Date(now - 60_000).toISOString())();
-  // A question left for a person carries no date, and the answer arrives as an
-  // event rather than as a timer (ADR 0029).
+  // A question left for a person carries its deadline (ADR 0029): the answer
+  // arrives as an event, and the date is what continues the run without it.
   await arm("person", null)();
-  // A run that ended stopped waiting: a date it kept beside a blocking question
-  // is not a wait to fire, or the end of the run would start itself again.
-  await createRun(
-    ctx,
-    accountId,
-    finishRun(
+  /*
+   * A parked run **is** armed at its deadline: without it a question nobody
+   * answers parks the work for ever. What is never armed is a run that has
+   * ended — a date a stopped run kept beside its question would start it again.
+   */
+  await createRun(ctx, accountId, {
+    ...finishRun(
       waitUntil(
         startRun({
-          id: "blocked",
+          id: "cancelled",
           startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
         }),
         {
@@ -151,11 +152,17 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
           until: new Date(now - 60_000).toISOString(),
         },
       ),
-      "blocked",
-      { at: new Date().toISOString(), why: "only a person can answer" },
+      "cancelled",
+      { at: new Date().toISOString(), why: "stopped by a person" },
     ),
-  );
-
+    // A document from another build may carry one; the state is what decides.
+    waiting: {
+      what: "the answer",
+      asked: { channel: "mail", id: "m-1" },
+      until: new Date(now - 60_000).toISOString(),
+    },
+  });
+  await arm("parked", new Date(now - 60_000).toISOString())();
   const fired: Array<{ runId: string; at: number }> = [];
   const timers = new WaitTimers((wait) =>
     fired.push({ runId: wait.runId, at: Date.now() }),
@@ -164,7 +171,8 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
   assert.ok(armed.includes("soon"), "the dated wait is armed");
   assert.ok(armed.includes("past"), "a date that already came is armed, not skipped");
   assert.ok(!armed.includes("person"), "a wait with no date is never armed");
-  assert.ok(!armed.includes("blocked"), "a run that ended is never armed");
+  assert.ok(armed.includes("parked"), "a run in flight is armed at its deadline");
+  assert.ok(!armed.includes("cancelled"), "a run that ended is never armed");
 
   await until(
     () => fired.some((f) => f.runId === "past") && fired.some((f) => f.runId === "soon"),
@@ -178,7 +186,7 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
   assert.ok(soon[0]!.at >= Date.parse(dueAt), "and not before its date");
   assert.ok(!fired.some((f) => f.runId === "hour"), "a wait still ahead has not fired");
   assert.ok(!fired.some((f) => f.runId === "person"), "the dateless wait never fired");
-  assert.ok(!fired.some((f) => f.runId === "blocked"), "the ended run never fired");
+  assert.ok(!fired.some((f) => f.runId === "cancelled"), "the ended run never fired");
   timers.stop();
 });
 

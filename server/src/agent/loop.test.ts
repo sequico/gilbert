@@ -721,7 +721,7 @@ test("a wave asks the server for at most four calls at once", async () => {
   let inFlight = 0;
   let peak = 0;
   const slow = defineTool<{ path: string }>({
-    name: "files.list",
+    name: "files.probe",
     description: "A listing slow enough to see how many of them run together.",
     authority: "reversible",
     writes: false,
@@ -743,7 +743,7 @@ test("a wave asks the server for at most four calls at once", async () => {
   answerWith({ rules: [id], facts: {} });
   answerWith({
     calls: Array.from({ length: 9 }, (_, at) => ({
-      name: "files.list",
+      name: "files.probe",
       arguments: { path: `MS2/${at}` },
     })),
   });
@@ -865,12 +865,7 @@ test("a mention opens one run even when the decision names no rule", async () =>
 
   onCall = (system) =>
     isDecision(system) ? { rules: [], facts: {} } : { done: "answered the mention" };
-  await postChatMessage(
-    ctx,
-    accountId,
-    "sam@example.org",
-    "@gilbert what is the status?",
-  );
+  await postChatMessage(ctx, accountId, "sam@example.org", "@demo what is the status?");
   await agent.pass();
 
   const run = await runOf(id);
@@ -902,7 +897,7 @@ test("a mention no rule covers is answered rather than left in silence", async (
    */
   const agent = loop();
   await agent.start();
-  await postChatMessage(ctx, accountId, "sam@example.org", "@gilbert anybody there?");
+  await postChatMessage(ctx, accountId, "sam@example.org", "@demo anybody there?");
   await agent.pass();
 
   const said = await findChatMessages(ctx, accountId, "no rule for the conversation", 5);
@@ -928,7 +923,7 @@ test("a run that already answered in the conversation does not repeat its ending
       ? { calls: [{ name: "chat.say", arguments: { text: "the files are filed" } }] }
       : { done: "all filed" };
   };
-  await postChatMessage(ctx, accountId, "sam@example.org", "@gilbert file them");
+  await postChatMessage(ctx, accountId, "sam@example.org", "@demo file them");
   await agent.pass();
 
   assert.equal(
@@ -2204,7 +2199,11 @@ test("a wait in an answer is honoured after it, with the other calls on the reco
     "the run parks on the person's answer after the answer is worked out",
   );
   assert.equal(run.waiting?.what, "which folder should this go in?");
-  assert.equal(run.waiting?.until, null, "with no date: a person answers when they do");
+  const until = Date.parse(run.waiting?.until ?? "");
+  assert.ok(
+    until > Date.now() + 70 * 60 * 60_000,
+    "and its deadline: ADR 0029 gives the question 72 hours",
+  );
   assert.equal(run.waiting?.asked.channel, "chat", "and where it asked");
 });
 

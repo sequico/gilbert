@@ -1524,12 +1524,6 @@ export class AgentLoop {
     this.opts.log?.(`[gilbert] agent: run ${run.id} — working it in ${accountId}`);
     /** The message a person wrote, when one woke this run: what a report replies to. */
     const woke = chatWoken(run.startedBy.woke);
-    /**
-     * What this run posted in the conversation, so a reply to its own message is
-     * a reply in the same thread the person opened. The relation is recorded,
-     * never guessed by comparing text.
-     */
-    const posted = new Set<string>();
     let current = run;
     /*
      * A step left `open` by an earlier process is an act whose outcome was
@@ -1861,34 +1855,18 @@ export class AgentLoop {
           const result = settled[which];
           if (result?.status === "fulfilled") {
             /*
-             * Whether this step answered the message that woke the run: the fact
-             * `spoke` reads. A `chat.say` that replies to that message — or to a
-             * message **this run itself posted** in that thread, which is a reply
-             * one level deeper and the same answer — is a report to the person
-             * who asked; a `chat.ask` asks something, and a say about anything
-             * else is the group's, so neither makes the run heard by the person
-             * who woke it.
+             * Whether this step said something in the group's conversation: the
+             * fact `spoke` reads. A `chat.say` that ended done has been heard by
+             * the people who asked, whether or not it threaded its answer to the
+             * waking message; a `chat.ask` asks a question and says nothing about
+             * what was done, so it does not make the run a report (ADR 0030).
              */
-            const replyTo = (call.args as { replyTo?: unknown } | null)?.replyTo;
-            const repliedToWake =
-              call.name === "chat.say" &&
-              woke !== null &&
-              (replyTo === woke || (typeof replyTo === "string" && posted.has(replyTo)));
-            const put = result.value;
-            const postedId =
-              put !== null && typeof put === "object"
-                ? (put as { id?: unknown }).id
-                : undefined;
+            const said = call.name === "chat.say";
             current = recordStep(current, at, {
               state: "done",
               outcome: boundedText(result.value),
-              ...(repliedToWake ? { repliedToWake: true } : {}),
+              ...(said ? { spoke: true } : {}),
             });
-            if (
-              (call.name === "chat.say" || call.name === "chat.ask") &&
-              typeof postedId === "string"
-            )
-              posted.add(postedId);
             // Each call spends what its tool declares; the wave's own wall time
             // is spent once below, because the calls ran together.
             const tool = this.catalogue.find((one) => one.name === call.name);
@@ -1999,7 +1977,7 @@ export class AgentLoop {
      * piece of work. What a `done` run has to say is said when it said nothing —
      * which is the live case this closes (files saved, no line at all).
      */
-    const spoke = run.plan.some((step) => step.repliedToWake === true);
+    const spoke = run.plan.some((step) => step.spoke === true);
     const owed =
       ending === "out-of-budget" || (ending === "done" && woke !== null && !spoke);
     const ended = finishRun(current, ending, owed ? { ...end, said: false } : end);

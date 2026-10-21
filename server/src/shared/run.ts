@@ -179,12 +179,15 @@ export interface RunStep {
   /** What it waits on, or null when it is ready as soon as the run reaches it. */
   needs: RunStepNeeds | null;
   /**
-   * Whether this step answered **the message that woke the run**, when it spoke
-   * in the conversation. It is what `spoke` reads: a run has been heard by the
-   * person who asked only when a step replied to *their* message, not when some
-   * step said something in the chat about something else (ADR 0030).
+   * Whether this step said something in the group's conversation.
+   *
+   * It is what `spoke` reads: a `chat.say` that ended done has been heard by the
+   * people who asked, and repeating the ending beside it would be two messages
+   * for one piece of work. A `chat.ask` asks something and says nothing about
+   * what was done, so it does not count — which is the difference between a run
+   * that reported and one that only has a question open (ADR 0030).
    */
-  repliedToWake?: boolean;
+  spoke?: boolean;
 }
 
 /** What a run waits for, where it asked, and until when (ADR 0029, 0030). */
@@ -494,7 +497,7 @@ function isStep(x: unknown): x is RunStep {
     isStepState(x.state) &&
     typeof x.outcome === "string" &&
     (x.needs === null || isStepNeeds(x.needs)) &&
-    (x.repliedToWake === undefined || typeof x.repliedToWake === "boolean")
+    (x.spoke === undefined || typeof x.spoke === "boolean")
   );
 }
 
@@ -802,7 +805,7 @@ export function recordStep(
   ended: {
     state: RunStepOutcome | "skipped";
     outcome: string;
-    repliedToWake?: boolean;
+    spoke?: boolean;
   },
 ): RunDoc {
   mustBeRunning(run);
@@ -814,7 +817,7 @@ export function recordStep(
     state: ended.state,
     outcome: ended.outcome,
     needs: step.needs,
-    ...((ended.repliedToWake ?? step.repliedToWake) ? { repliedToWake: true } : {}),
+    ...((ended.spoke ?? step.spoke) ? { spoke: true } : {}),
   };
   return { ...run, plan };
 }

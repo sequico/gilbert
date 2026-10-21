@@ -547,7 +547,7 @@ test("a group-wide stop says what it closed, what it could not, and what it neve
   for (const id of ["stop-me-1", "stop-me-2"]) {
     const run = startRun({
       id,
-      startedBy: { rule: null, instruction: null, woke: "chat created: c-1" },
+      startedBy: { rule: "intake", instruction: null, woke: "chat created: c-1" },
       plan: ["say something"],
     });
     await writeAppFileAt(master, teamAccount, runPath(run.id), run);

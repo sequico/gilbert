@@ -558,11 +558,11 @@ export async function dismissProposal(
   ctx: Ctx,
   accountId: string,
   id: string,
-  store: MemoryStore,
+  seen: MemoryStore,
 ): Promise<FactDoc> {
   return await oneAtATime(
     accountId,
-    async () => store,
+    () => listFacts(ctx, accountId),
     async (held) => {
       const fact = held.facts.find((one) => one.id === id);
       if (!fact)
@@ -571,6 +571,9 @@ export async function dismissProposal(
           `The memory holds no fact called "${id}", so there is no proposal to dismiss. It was removed, or it was never there.`,
           404,
         );
+      // The sheet the person read, against the sheet the memory holds now: this
+      // write is decided on **this** sheet, not on the account's state.
+      if (movedSheet(seen, fact)) throw movedError();
       if (fact.proposal === undefined) return fact;
       const { proposal: _dismissed, ...rest } = fact;
       const state = await conditional((onState) =>
@@ -579,7 +582,12 @@ export async function dismissProposal(
           onState,
         }),
       );
-      if (state) memoryStores.set(accountId, { ...held, state });
+      if (state)
+        memoryStores.set(accountId, {
+          ...held,
+          state,
+          facts: held.facts.map((one) => (one.id === fact.id ? rest : one)),
+        });
       return rest;
     },
   );
@@ -629,13 +637,53 @@ async function conditional(
     });
   } catch (err) {
     if (!isStateMismatch(err)) throw err;
-    throw new MemoryError(
-      "fact_moved",
-      "The memory changed after it was read, so nothing was written: read it again and say what you mean to change.",
-      409,
-    );
+    throw movedError();
   }
   return produced;
+}
+
+/** The 409 a write answers when the sheet it was decided on is not the one there. */
+function movedError(): MemoryError {
+  return new MemoryError(
+    "fact_moved",
+    "The memory changed after it was read, so nothing was written: read it again and say what you mean to change.",
+    409,
+  );
+}
+
+/**
+ * Whether the sheet a person acted on is not the sheet the memory holds now.
+ *
+ * The account's FileNode state cannot answer this: it moves with **any** write,
+ * including one to a sheet the person never looked at — which is how a correction
+ * was refused with "read it again" about nothing the person had done. What is
+ * compared is the one sheet, by its content; a sheet the caller did not read is
+ * not compared, because there is nothing to compare it with.
+ */
+function movedSheet(seen: MemoryStore, held: FactDoc | undefined): boolean {
+  if (!held) return true;
+  const before = seen.facts.find((fact) => fact.id === held.id);
+  if (!before) return false;
+  return canonical(before) !== canonical(held);
+}
+
+/**
+ * A value as text, with its object keys in one order.
+ *
+ * Two copies of one sheet are built by two code paths — the parser that reads it
+ * back, and the cache a write leaves — and `JSON.stringify` says they differ when
+ * they only spell the same fields in a different order. A sheet "moved" means a
+ * field changed, so the comparison is on the content.
+ */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    );
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 /** What a person says a fact is, correcting the sheet that is there. */
@@ -668,12 +716,13 @@ interface PersonCorrection {
  * agent's next conclusion about the subject is a proposal rather than a
  * correction.
  *
- * The write is made against the **store's reading**, exactly as the agent's own
- * is: the token that reading carries is the compare-and-set, so a correction
- * made against a stale list is refused rather than landing over a fact the
- * writer never saw — and refused in this store's own code, `fact_moved` at 409,
- * because a person's write has no step to report the raw upstream refusal on.
- * The graph is left as it was — links, the standing mark and the group it is
+ * The write is decided on **the sheet the person read**: that sheet is compared
+ * with the one the memory holds now, and a correction made against a stale copy
+ * is refused (`fact_moved`, 409) rather than landing over a fact the writer never
+ * saw. The account's state is not the test — it moves with writes to sheets
+ * nobody looked at, and refusing on it answered "read it again" about work the
+ * person had not done. The graph is left as it was — links, the standing mark and
+ * the group it is
  * about — because those are the agent's bookkeeping and a person correcting what
  * is held true is not re-deciding where it hangs from; a subject that names a
  * subject already held is refused rather than making the memory hold two
@@ -683,11 +732,11 @@ export async function correctFactByPerson(
   ctx: Ctx,
   accountId: string,
   edit: PersonCorrection,
-  store: MemoryStore,
+  seen: MemoryStore,
 ): Promise<FactDoc> {
   return await oneAtATime(
     accountId,
-    async () => store,
+    () => listFacts(ctx, accountId),
     async (opening) => {
       const held = opening.facts.find((fact) => fact.id === edit.id);
       if (!held)
@@ -696,6 +745,8 @@ export async function correctFactByPerson(
           `The memory holds no fact called "${edit.id}", so there is nothing to correct. It was removed, or it was never there.`,
           404,
         );
+      // The sheet this correction was written against, not the account's state.
+      if (movedSheet(seen, held)) throw movedError();
       if (!edit.who.trim())
         throw new MemoryError("fact_invalid", "A correction says who made it.", 400);
       const { subject, sentence } = checkedText(edit.subject, edit.fact, edit.at);
@@ -726,7 +777,12 @@ export async function correctFactByPerson(
           onState,
         }),
       );
-      if (state) memoryStores.set(accountId, { ...opening, state });
+      if (state)
+        memoryStores.set(accountId, {
+          ...opening,
+          state,
+          facts: opening.facts.map((fact) => (fact.id === doc.id ? doc : fact)),
+        });
       return doc;
     },
   );
@@ -748,11 +804,11 @@ export async function forgetFact(
   ctx: Ctx,
   accountId: string,
   id: string,
-  store: MemoryStore,
+  seen: MemoryStore,
 ): Promise<void> {
   return await oneAtATime(
     accountId,
-    async () => store,
+    () => listFacts(ctx, accountId),
     async (opening) => {
       const { file } = await findAppFileAt(ctx, accountId, factPath(id));
       if (!file?.id)
@@ -761,13 +817,26 @@ export async function forgetFact(
           `The memory holds no fact called "${id}", so there is nothing to remove. It was removed, or it was never there.`,
           404,
         );
+      // The sheet the person read, against what the memory holds now.
+      if (
+        movedSheet(
+          seen,
+          opening.facts.find((fact) => fact.id === id),
+        )
+      )
+        throw movedError();
       const state = await conditional((onState) =>
         destroyAppNode(ctx, accountId, String(file.id), {
           ifInState: opening.state,
           onState,
         }),
       );
-      if (state) memoryStores.set(accountId, { ...opening, state });
+      if (state)
+        memoryStores.set(accountId, {
+          ...opening,
+          state,
+          facts: opening.facts.filter((fact) => fact.id !== id),
+        });
     },
   );
 }

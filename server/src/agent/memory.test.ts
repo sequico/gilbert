@@ -255,14 +255,14 @@ test("a write whose reading was overtaken is decided again, against one sheet", 
   );
 });
 
-test("a person's correction and removal are refused when the memory moved under them", async () => {
+test("a person's correction and removal are refused when the sheet they saw moved", async () => {
   /*
-   * Both of a person's writes carry the token of the reading the surface showed
-   * them (`ifInState`), so a correction or a removal decided against a list that
-   * has moved since is refused rather than landing over what somebody else
-   * wrote. The store here moves between the read and the write, which is the
-   * only case the token decides: a test whose store never moves writes the same
-   * bytes with or without it.
+   * A person's write is decided on **the sheet the surface showed them**. If that
+   * sheet moves between the read and the write, the correction or the removal is
+   * refused (`fact_moved`, 409) rather than landing over what somebody else
+   * wrote — which is the case the comparison exists for. The write that moves it
+   * here is the agent concluding again about the same subject, which lands as a
+   * proposal beside the person's sentence.
    */
   const first = await rememberFact(
     ctx,
@@ -278,22 +278,20 @@ test("a person's correction and removal are refused when the memory moved under 
   );
   written.push(first.id);
 
-  // The reading the person's surface holds, and a write that lands after it:
-  // the account's FileNode state has moved past this reading.
   const stale = await store();
-  const other = await rememberFact(
+  const moved = await rememberFact(
     ctx,
     accountId,
     {
-      subject: "Cargo 88",
-      fact: "the client that books on Fridays",
-      run: "r-1",
+      subject: "Oltremare",
+      fact: "what the agent now concludes about the northern route",
+      run: "r-2",
       at: AT,
       group: accountId,
     },
     await store(),
   );
-  written.push(other.id);
+  written.push(moved.id);
 
   const refused = (err: unknown) => err instanceof MemoryError && err.status === 409;
   await assert.rejects(
@@ -311,22 +309,78 @@ test("a person's correction and removal are refused when the memory moved under 
         stale,
       ),
     refused,
-    "the correction loses the compare-and-set and is refused, not applied",
+    "the correction is decided on a sheet that moved, and is refused",
   );
   assert.equal(
     (await readFact(ctx, accountId, first.id))?.fact.fact,
-    "the usual shipper for the northern route",
-    "and the sheet the stale correction meant to change is left as it was",
+    "what the agent now concludes about the northern route",
+    "and the sheet the stale correction meant to change is left as the memory holds it",
   );
 
   await assert.rejects(
     () => forgetFact(ctx, accountId, first.id, stale),
     refused,
-    "and the removal, decided against the same stale reading, is refused too",
+    "and the removal, decided on the same stale sheet, is refused too",
   );
   assert.ok(
     await readFact(ctx, accountId, first.id),
     "so the fact is still in the memory",
+  );
+});
+
+test("a write to another sheet does not refuse a person's correction", async () => {
+  /*
+   * The account's FileNode state moves with **any** write, and the one a person
+   * never looked at is not their business: a correction decided on a sheet that
+   * has not changed lands, even though the account moved under it. Deciding on
+   * the account's state instead answered "read it again" about work the person
+   * had not done.
+   */
+  const held = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Cargo 88",
+      fact: "the client that books on Fridays",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
+    await store(),
+  );
+  written.push(held.id);
+
+  const seen = await store();
+  const elsewhere = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Cargo 99",
+      fact: "the client that books on Mondays",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
+    await store(),
+  );
+  written.push(elsewhere.id);
+
+  const corrected = await correctFactByPerson(
+    ctx,
+    accountId,
+    {
+      id: held.id,
+      subject: "Cargo 88",
+      fact: "the client that books on Fridays, as the office reads it",
+      who: "admin@example.com",
+      at: AT,
+    },
+    seen,
+  );
+  assert.equal(
+    corrected.fact,
+    "the client that books on Fridays, as the office reads it",
+    "the sheet the person saw had not moved, so the correction lands",
   );
 });
 

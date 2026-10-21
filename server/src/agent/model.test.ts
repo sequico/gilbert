@@ -1046,15 +1046,29 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
   );
 
   const system = SYSTEM(0);
-  const chatSay = TOOLS.find((tool) => tool.name === "chat.say");
-  assert.ok(chatSay, "the catalogue holds the tool");
-  assert.ok(
-    system.includes(`- chat.say(${chatSay.keys.join(", ")}): ${chatSay.description}`),
-    "the description reaches the model as the catalogue states it, not as a copy",
-  );
-  assert.ok(
-    system.includes("chat.ask"),
-    "and the tool that writes is among them: the model may always propose an act",
+  /*
+   * The catalogue reaches the turn **once**, as the provider's own `tools` (ADR
+   * 0027): the system turn carries no second list of the same names,
+   * descriptions and bounds, and the duplicate was the largest part of a prompt
+   * paid on every step. What the test has to hold is that the definition the
+   * provider sees is the catalogue's own words, not a copy written beside it.
+   */
+  const sent = (seen[0]?.body as { tools?: unknown }).tools as
+    | Array<{ function: { name: string; description: string } }>
+    | undefined;
+  assert.ok(Array.isArray(sent) && sent.length > 0, "the call carries the tools");
+  for (const tool of TOOLS) {
+    const definition = sent.find((one) => one.function.name === tool.name);
+    assert.equal(
+      definition?.function.description,
+      tool.description,
+      `"${tool.name}" reaches the model as the catalogue states it, not as a copy`,
+    );
+  }
+  assert.equal(
+    system.includes("- chat.say("),
+    false,
+    "and the same lines are not paid for twice in the system turn",
   );
   assert.ok(
     system.includes("refused rather than run"),
