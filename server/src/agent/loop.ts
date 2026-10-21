@@ -1522,8 +1522,6 @@ export class AgentLoop {
     const access = this.access;
     if (!access) return null;
     this.opts.log?.(`[gilbert] agent: run ${run.id} — working it in ${accountId}`);
-    /** The message a person wrote, when one woke this run: what a report replies to. */
-    const woke = chatWoken(run.startedBy.woke);
     let current = run;
     /*
      * A step left `open` by an earlier process is an act whose outcome was
