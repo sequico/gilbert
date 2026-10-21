@@ -112,16 +112,7 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] })
             .join(" · ")}
         </p>
       )}
-      {plan.length > 0 && (
-        <ol className="run-plan">
-          {plan.map((step, index) => (
-            <li key={index} className={`run-step run-step-${step.state}`}>
-              <span className="run-dot" aria-hidden="true" />
-              <Step step={step} />
-            </li>
-          ))}
-        </ol>
-      )}
+      {plan.length > 0 && <RunPlan steps={plan} />}
       <div className="run-foot">
         <div className="run-foot-chips">
           <span>
@@ -196,8 +187,39 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] })
   );
 }
 
+/**
+ * A plan with each step's state, from the header a live list carries.
+ *
+ * The same list a run's own card draws, so a step that is "open" here and
+ * "Worked" there cannot be two different marks: the live views feed it the plan
+ * the server summarised, and the card feeds it the document's own.
+ */
+export function RunPlan({
+  steps,
+}: {
+  steps: ReadonlyArray<Pick<RunStep, "what" | "state" | "outcome">>;
+}) {
+  if (!steps.length) return null;
+  return (
+    <ol className="run-plan">
+      {steps.map((step, index) => (
+        <li key={index} className={`run-step run-step-${step.state}`}>
+          <span className="run-dot" aria-hidden="true" />
+          <Step step={step} />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /** One step: what it is, what it waited on, and how it left the plan. */
-function Step({ step }: { step: RunStep }) {
+function Step({
+  step,
+}: {
+  step: Pick<RunStep, "what" | "state" | "outcome"> & {
+    needs?: RunStep["needs"];
+  };
+}) {
   const label = t(STEP_STATE_LABELS[step.state]);
   const folded = step.outcome.length > OUTCOME_INLINE_MAX || step.outcome.includes("\n");
   return (

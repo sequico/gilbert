@@ -542,6 +542,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               accountId={openAccountId ?? undefined}
               facts={NO_FACTS}
               live
+              runningOnly
             />
           </div>
         ) : searchOpen ? (

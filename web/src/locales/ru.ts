@@ -2155,6 +2155,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "Workorder, ставший преемником",
     "Load earlier messages": "Загрузить более ранние сообщения",
     "Runs in flight": "Выполняемые запуски",
+    "Nothing is running": "Ничего не выполняется",
+    "{what} — from {who}": "{what} — от {who}",
     "Stop all": "Остановить всё",
     "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
       "Последний проход был {when}: изменений — {changes}, запусков — {runs}, к сроку — {due}, за {ms} мс.",

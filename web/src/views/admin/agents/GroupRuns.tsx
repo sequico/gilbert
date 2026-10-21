@@ -1,5 +1,6 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { isInFlight } from "@gilbert/shared/run";
+import { Bot } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { push } from "@/jmap/push";
 import {
@@ -16,8 +17,10 @@ import {
   stopAllRuns,
   stopRun,
 } from "@/lib/agentAdmin";
+import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { RUN_STATE_LABELS, RunCard } from "@/views/admin/agent/RunCard";
+import { Empty } from "@/ui/misc";
+import { RUN_STATE_LABELS, RunCard, RunPlan } from "@/views/admin/agent/RunCard";
 import { metricsOf, sameRunHeader } from "./metrics";
 
 /** How many runs one page of the listing shows, one row each. */
@@ -248,12 +251,53 @@ function RunRow({
   );
 }
 
-/** The runs one group has worked, as its own account carries them. */
-export function GroupRuns({
+/**
+ * One run in flight, in a conversation: what woke it, who set it off, when, and
+ * the plan with the step it is on.
+ *
+ * The same marks the run's own card draws (`RunPlan`), fed by the header the
+ * live list carries: a step that turns from open to done is the thing the person
+ * watching the agent came for.
+ */
+function LiveRun({
+  group,
+  row,
+  onStopped,
+}: {
+  group: string;
+  row: RunSummary;
+  onStopped: () => void;
+}) {
+  const line = row.about ?? row.woke;
+  return (
+    <div className="run-current" style={{ marginBottom: 6 }}>
+      <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span className={`run-state run-state-${row.state}`}>
+          {row.state && t(RUN_STATE_LABELS[row.state])}
+        </span>
+        <span className="run-row-id">{row.id}</span>
+        {row.rule && <span className="run-row-meta">{row.rule}</span>}
+        {row.startedAt && (
+          <span className="run-row-meta">{formatFullDate(row.startedAt)}</span>
+        )}
+        <StopRun group={group} id={row.id} onStopped={onStopped} />
+      </div>
+      {line && (
+        <p className="hint" style={{ margin: "4px 0 0" }} title={line}>
+          {row.by ? t("{what} — from {who}", { what: line, who: row.by }) : line}
+        </p>
+      )}
+      <RunPlan steps={row.plan ?? []} />
+    </div>
+  );
+}
+
+/** The runs one group has worked, as its own account carries them. */ export function GroupRuns({
   group,
   accountId,
   facts,
   live = false,
+  runningOnly = false,
 }: {
   group: string;
   /** The group's own account, for the push stream that wakes the live list. */
@@ -261,6 +305,15 @@ export function GroupRuns({
   facts: readonly FactDoc[];
   /** Keep the list current while it is on screen, for a run still in flight. */
   live?: boolean;
+  /**
+   * Draw the runs in flight and nothing else — the chat's panel.
+   *
+   * A conversation asks "what is the agent doing with us", not "what did it do
+   * last month": the history is the administration page's, and here the past is
+   * noise beside the message being written. The list keeps the live rhythm and
+   * shows each run's opening line and plan, so a step that moves is seen.
+   */
+  runningOnly?: boolean;
 }) {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -418,12 +471,14 @@ export function GroupRuns({
    */
   const whenOf = (listed: RunSummary) => listed.startedAt ?? listed.ended?.at ?? "";
   const sorted = [...(runs ?? [])].sort((a, b) => whenOf(b).localeCompare(whenOf(a)));
-  const ordered = live
-    ? [
-        ...sorted.filter((one) => one.state === "running"),
-        ...sorted.filter((one) => one.state !== "running"),
-      ]
-    : sorted;
+  const ordered = runningOnly
+    ? sorted.filter((one) => one.state != null && isInFlight(one.state))
+    : live
+      ? [
+          ...sorted.filter((one) => one.state === "running"),
+          ...sorted.filter((one) => one.state !== "running"),
+        ]
+      : sorted;
   const pages = Math.max(1, Math.ceil(ordered.length / RUNS_PAGE));
   /*
    * A poll can reload a shorter list (a run ended, or an archive month changed):
@@ -438,8 +493,8 @@ export function GroupRuns({
 
   return (
     <section>
-      <h2>{t("Runs")}</h2>
-      {metrics && (
+      <h2>{runningOnly ? t("Runs in flight") : t("Runs")}</h2>
+      {metrics && !runningOnly && (
         <p className="hint">
           {t(
             "{runs} runs · {calls} model calls · {failed} failed steps · {tokens} tokens",
@@ -452,36 +507,47 @@ export function GroupRuns({
           )}
         </p>
       )}
-      <label className="run-archive">
-        <span className="hint">{t("Archived")}</span>
-        <input
-          type="month"
-          value={month}
-          aria-label={t("Archived")}
-          onChange={(event) => setMonth(event.target.value)}
-        />
-        {month && (
-          <button type="button" className="btn btn-ghost" onClick={() => setMonth("")}>
-            {t("Current runs")}
-          </button>
-        )}
-      </label>
+      {!runningOnly && (
+        <label className="run-archive">
+          <span className="hint">{t("Archived")}</span>
+          <input
+            type="month"
+            value={month}
+            aria-label={t("Archived")}
+            onChange={(event) => setMonth(event.target.value)}
+          />
+          {month && (
+            <button type="button" className="btn btn-ghost" onClick={() => setMonth("")}>
+              {t("Current runs")}
+            </button>
+          )}
+        </label>
+      )}
       {error && <div className="error-box">{error}</div>}
       {!error && !runs && <p className="hint">{t("Loading…")}</p>}
-      {runs && runs.length === 0 && <p className="hint">{t("Nothing here yet.")}</p>}
+      {runs && ordered.length === 0 && (
+        <Empty
+          icon={<Bot size={40} />}
+          title={runningOnly ? t("Nothing is running") : t("Nothing here yet.")}
+        />
+      )}
       <div style={{ marginTop: 12 }}>
-        {shown.map((row) => (
-          <RunRow
-            key={row.id}
-            group={group}
-            row={row}
-            month={month}
-            facts={facts}
-            onStopped={() => void load()}
-          />
-        ))}
+        {shown.map((row) =>
+          runningOnly ? (
+            <LiveRun key={row.id} group={group} row={row} onStopped={() => void load()} />
+          ) : (
+            <RunRow
+              key={row.id}
+              group={group}
+              row={row}
+              month={month}
+              facts={facts}
+              onStopped={() => void load()}
+            />
+          ),
+        )}
       </div>
-      {pages > 1 && (
+      {pages > 1 && !runningOnly && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
           <button
             type="button"

@@ -152,6 +152,26 @@ interface RunStart {
    * none, and may write where it did before.
    */
   surfaces?: SurfaceMatrix;
+  /**
+   * What woke it, in the words of the thing that woke it (ADR 0031).
+   *
+   * `woke` names the change; this says what the change *said* — the chat message
+   * a person typed, the subject of the mail that arrived, the files a drop
+   * brought, the event a calendar change renamed. It is captured **when the run
+   * opens**, from what that pass read: the record is the arbiter of what
+   * happened, and a message edited a week later does not rewrite the reason a run
+   * exists. A document written before this field carries none, and its readers
+   * fall back to `woke`.
+   */
+  about?: string;
+  /**
+   * Who set that change off, when the change names a person.
+   *
+   * The sender of the message that woke the rule. The change log names no actor
+   * for a FileNode or a calendar write, so a files or calendar run carries none:
+   * the field says who, and never guesses at a name the event did not state.
+   */
+  by?: string;
 }
 
 /**
@@ -403,6 +423,23 @@ export interface RunSummary {
   rule: string | null;
   /** The change that woke it, in the run's own words. */
   woke: string | null;
+  /**
+   * What the change said when it woke the run — the message, the subject, the
+   * files — or null for a document written before that line existed.
+   */
+  about: string | null;
+  /** Who set the change off, when the change names a person; null otherwise. */
+  by: string | null;
+  /**
+   * The plan, with each step's state, when the caller asked for it.
+   *
+   * The history list draws a header per run and leaves the plan to the one-row
+   * read; the live view draws what is happening **now**, and a step that turns
+   * from open to done is the thing a reader is watching. So the plan travels
+   * only when the caller asks for it, and a page of a hundred past runs keeps its
+   * size.
+   */
+  plan?: ReadonlyArray<{ what: string; state: RunStepState; outcome: string }>;
   /** Steps the run has, and the failed ones among them. */
   steps: number;
   /** Plan entries that ended failed — not the steps the run spent. */
@@ -411,7 +448,10 @@ export interface RunSummary {
 }
 
 /** The header of one listed run: the list's one shape, in both tiers. */
-export function summarizeRun(listed: RunListing): RunSummary {
+export function summarizeRun(
+  listed: RunListing,
+  opts: { steps?: boolean } = {},
+): RunSummary {
   const run = listed.run;
   return {
     id: listed.id,
@@ -421,6 +461,17 @@ export function summarizeRun(listed: RunListing): RunSummary {
     ended: run?.ended ?? null,
     rule: run?.startedBy.rule ?? null,
     woke: run?.startedBy.woke ?? null,
+    about: run?.startedBy.about ?? null,
+    by: run?.startedBy.by ?? null,
+    ...(opts.steps && run
+      ? {
+          plan: run.plan.map((step) => ({
+            what: step.what,
+            state: step.state,
+            outcome: step.outcome,
+          })),
+        }
+      : {}),
     steps: run?.plan.length ?? 0,
     failed: run?.plan.filter((step) => step.state === "failed").length ?? 0,
     spent: run?.spent ?? { steps: 0, calls: 0, ms: 0 },
@@ -467,6 +518,8 @@ function isStart(x: unknown): x is RunStart {
     return false;
   if ("surfaces" in x && !isSurfaceMatrix((x as { surfaces?: unknown }).surfaces))
     return false;
+  if ("about" in x && typeof (x as { about?: unknown }).about !== "string") return false;
+  if ("by" in x && typeof (x as { by?: unknown }).by !== "string") return false;
   // One of the two, and never both: a run that was started twice is not a run.
   if ((rule === null) === (instruction === null)) return false;
   // A rule is woken by a change in the group's account; an instruction **is**

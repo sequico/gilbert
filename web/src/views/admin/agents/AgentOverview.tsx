@@ -15,7 +15,7 @@ import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
-import { RUN_STATE_LABELS } from "@/views/admin/agent/RunCard";
+import { RUN_STATE_LABELS, RunPlan } from "@/views/admin/agent/RunCard";
 import { StopAll, StopRun } from "./GroupRuns";
 import {
   addMetrics,
@@ -354,28 +354,58 @@ export function AgentOverview({
               <div style={{ display: "grid", gap: 6 }}>
                 {entry.rows.map(({ listed }) => (
                   <div key={listed.id} className="run-current">
-                    <span className={`run-state run-state-${listed.state}`}>
-                      {listed.state && t(RUN_STATE_LABELS[listed.state])}
-                    </span>
-                    <span className="run-row-id">{listed.id}</span>
-                    {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
-                    {listed.woke && <span className="run-row-meta">{listed.woke}</span>}
-                    <StopRun
-                      group={entry.group}
-                      id={listed.id}
-                      onStopped={() =>
-                        setLive((held) =>
-                          held.map((row) =>
-                            row.group === entry.group
-                              ? {
-                                  ...row,
-                                  runs: row.runs.filter((one) => one.id !== listed.id),
-                                }
-                              : row,
-                          ),
-                        )
-                      }
-                    />
+                    <div
+                      className="row"
+                      style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}
+                    >
+                      <span className={`run-state run-state-${listed.state}`}>
+                        {listed.state && t(RUN_STATE_LABELS[listed.state])}
+                      </span>
+                      <span className="run-row-id">{listed.id}</span>
+                      {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
+                      {listed.startedAt && (
+                        <span className="run-row-meta">
+                          {formatFullDate(listed.startedAt)}
+                        </span>
+                      )}
+                      <StopRun
+                        group={entry.group}
+                        id={listed.id}
+                        onStopped={() =>
+                          setLive((held) =>
+                            held.map((row) =>
+                              row.group === entry.group
+                                ? {
+                                    ...row,
+                                    runs: row.runs.filter((one) => one.id !== listed.id),
+                                  }
+                                : row,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    {/*
+                     * Why the run exists, in the words of the thing that woke
+                     * it, and who set it off: the header a person reads before
+                     * deciding whether to stop it. The plan under it is drawn
+                     * live, with the same marks the run's own card uses.
+                     */}
+                    {(listed.about ?? listed.woke) && (
+                      <p
+                        className="hint"
+                        style={{ margin: "4px 0 0" }}
+                        title={listed.about ?? listed.woke ?? undefined}
+                      >
+                        {listed.by
+                          ? t("{what} — from {who}", {
+                              what: listed.about ?? listed.woke ?? "",
+                              who: listed.by,
+                            })
+                          : (listed.about ?? listed.woke)}
+                      </p>
+                    )}
+                    <RunPlan steps={listed.plan ?? []} />
                   </div>
                 ))}
               </div>

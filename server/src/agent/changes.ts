@@ -83,6 +83,10 @@ export interface ChangesDeps {
     rule: RuleDoc,
     /** The sender the waking message named, or null when the change names none. */
     from: string | null,
+    /** What the change said, in its own words, as this pass read it. */
+    about?: string,
+    /** Who set it off, when the change names a person. */
+    by?: string,
   ): Promise<RunDoc>;
 }
 
@@ -505,6 +509,13 @@ export async function workChanges(
     }
     const woke = wokeOf(event);
     /*
+     * What the change said and who set it off, captured now: the record is the
+     * arbiter of what happened, so a message edited next week does not rewrite
+     * why this run exists. Everything here comes from what the pass already read
+     * — except a calendar event's title, which the change log names by id alone.
+     */
+    const said = await aboutOf(deps.ctx, accountId, event, message, mail);
+    /*
      * What the installation holds and the group wrote above the rule: the
      * installation's own line and the group's standing instruction reach the
      * decision turn too, because which rules apply is asked of the same agent
@@ -620,7 +631,14 @@ export async function workChanges(
         }
         continue;
       }
-      const run = await deps.openRun(accountId, event, rule, message?.from ?? null);
+      const run = await deps.openRun(
+        accountId,
+        event,
+        rule,
+        message?.from ?? null,
+        said.about,
+        said.by,
+      );
       summary.runs += 1;
       const worked = await deps.workRun(
         accountId,
@@ -643,4 +661,74 @@ export async function workChanges(
   // half-way is read again rather than lost as silence.
   deps.cursors.set(accountId, read.cursor);
   return held;
+}
+
+/** The longest opening line a run carries: a row has one line, not a document. */
+const ABOUT_MAX = 240;
+
+/**
+ * What woke a run, and who set it off — in the words the change carried.
+ *
+ * `woke` names the change (`chat created: <path>`, `mail created: <id>`); this is
+ * what lies behind the name: the sentence a person typed, the subject of the mail
+ * that arrived, the files a drop brought, the title of the event a calendar
+ * change renamed. It is written on the run **once**, when it opens, from what the
+ * pass already read — so a message edited later does not rewrite the reason the
+ * run exists.
+ *
+ * `by` is the person the event names. A FileNode or a calendar change states no
+ * actor in the change log, so those carry none: the field says who, and never
+ * guesses at a name the event did not give.
+ */
+async function aboutOf(
+  ctx: Ctx,
+  accountId: string,
+  event: AccountEvent,
+  message: { text?: string; from?: string | null } | null,
+  mail: { subject?: string | null; from?: string | null } | null,
+): Promise<{ about?: string; by?: string }> {
+  if (message?.text) {
+    const about = clipAbout(message.text);
+    return {
+      ...(about ? { about } : {}),
+      ...(message.from ? { by: message.from } : {}),
+    };
+  }
+  if (event.source === "mail" && mail) {
+    const about = clipAbout(mail.subject ?? "");
+    return {
+      ...(about ? { about } : {}),
+      ...(mail.from ? { by: mail.from } : {}),
+    };
+  }
+  if (event.source === "files") {
+    const about = clipAbout([event.where, ...(event.also ?? [])].join(", "));
+    return about ? { about } : {};
+  }
+  if (event.source === "calendar" && event.change !== "destroyed") {
+    /*
+     * The one read this asks for that the pass did not make: a change log names
+     * the event by id, and "calendar updated: <id>" says nothing to a reader. A
+     * read that fails leaves the line absent, and the surface falls back to the
+     * change's own words.
+     */
+    const found = await clientOf(ctx)
+      .call<{ list?: Array<Record<string, unknown>> }>(
+        "CalendarEvent/get",
+        { accountId, ids: [event.where] },
+        [CAPABILITIES.calendars],
+      )
+      .catch(() => null);
+    const title = found?.list?.[0]?.title;
+    const about = typeof title === "string" ? clipAbout(title) : undefined;
+    if (about) return { about };
+  }
+  return {};
+}
+
+/** One line: whitespace collapsed, bounded, and nothing when there is nothing. */
+function clipAbout(text: string): string | undefined {
+  const line = text.replace(/\s+/g, " ").trim();
+  if (!line) return undefined;
+  return line.length > ABOUT_MAX ? `${line.slice(0, ABOUT_MAX - 1)}…` : line;
 }

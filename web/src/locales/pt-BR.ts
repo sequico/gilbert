@@ -2174,6 +2174,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "A ordem que sucedeu esta",
     "Load earlier messages": "Carregar mensagens anteriores",
     "Runs in flight": "Execuções em andamento",
+    "Nothing is running": "Nada em execução",
+    "{what} — from {who}": "{what} — de {who}",
     "Stop all": "Parar tudo",
     "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
       "A última passagem foi em {when}: {changes} mudanças, {runs} execuções e {due} vencidas, em {ms} ms.",

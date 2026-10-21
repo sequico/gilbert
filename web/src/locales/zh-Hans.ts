@@ -2089,6 +2089,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "接替此工单的工单",
     "Load earlier messages": "加载更早的消息",
     "Runs in flight": "进行中的运行",
+    "Nothing is running": "没有正在运行的任务",
+    "{what} — from {who}": "{what} — 来自 {who}",
     "Stop all": "全部停止",
     "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
       "上一次运行在 {when}：{changes} 项更改、{runs} 次执行、{due} 项到期，用时 {ms} 毫秒。",

@@ -2214,6 +2214,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "Der Auftrag, der diesen abgelöst hat",
     "Load earlier messages": "Ältere Nachrichten laden",
     "Runs in flight": "Laufende Läufe",
+    "Nothing is running": "Nichts läuft",
+    "{what} — from {who}": "{what} — von {who}",
     "Stop all": "Alle stoppen",
     "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.":
       "Der letzte Durchlauf war am {when}: {changes} Änderungen, {runs} Läufe und {due} fällig, in {ms} ms.",

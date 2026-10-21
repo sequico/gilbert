@@ -110,6 +110,12 @@ import {
 /** The most runs one group-wide Stop closes, so its answer fits the browser's deadline. */
 const STOP_ALL_MAX = 20;
 
+/** A run's header without its plan: what a history list draws, at its size. */
+function headerOf(summary: RunSummary): RunSummary {
+  const { plan: _plan, ...header } = summary;
+  return header;
+}
+
 /** The answer to a fact this surface could not read or write, or upstream's. */
 const memoryFailure = failureFor(MemoryError);
 
@@ -343,8 +349,8 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           need: "agent documents",
         });
         if (!access.ok) continue;
-        const rows = (await listRunsForReading(access.ctx, access.accountId)).map(
-          summarizeRun,
+        const rows = (await listRunsForReading(access.ctx, access.accountId)).map((one) =>
+          summarizeRun(one),
         );
         groups.push({ name, metrics: metricsOf(rows, since) });
       }
@@ -553,7 +559,9 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         Date.now() - held.at < RUNS_READING_TTL_MS;
       const rows: RunSummary[] = fresh
         ? held.rows
-        : (await listRunsForReading(access.ctx, access.accountId)).map(summarizeRun);
+        : (await listRunsForReading(access.ctx, access.accountId)).map((one) =>
+            summarizeRun(one, { steps: true }),
+          );
       if (!fresh)
         runsReadings.set(access.accountId, {
           state: token,
@@ -582,9 +590,16 @@ export function registerAgentRoutes(api: Hono<Env>): void {
               rows.filter((one) => one.state === "running" || one.state === "blocked")
             : rows;
       const page = filtered.slice(offset, offset + limit);
+      /*
+       * The history list is a header per run; the plan travels only to the
+       * surface that watches a run, where a step turning from open to done is
+       * the thing being watched. A page of a hundred past runs carrying every
+       * step of all of them is weight nobody reads.
+       */
+      const runs = state === undefined ? page.map(headerOf) : page;
       return c.json({
         group: name,
-        runs: page,
+        runs,
         more: offset + page.length < filtered.length,
       });
     } catch (err) {
@@ -624,7 +639,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           `${RUNS_ARCHIVE_DIR}/${month}`,
         )
       )
-        .map(summarizeRun)
+        .map((one) => summarizeRun(one))
         .sort((a, b) => {
           const when = (one: RunSummary) => one.startedAt ?? one.ended?.at ?? "";
           return when(b).localeCompare(when(a)) || a.id.localeCompare(b.id);

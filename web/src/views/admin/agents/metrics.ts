@@ -43,6 +43,17 @@ export function sameRunHeader(a: RunSummary, b: RunSummary): boolean {
     a.spent.steps === b.spent.steps &&
     a.spent.ms === b.spent.ms &&
     a.failed === b.failed &&
-    a.steps === b.steps
+    a.steps === b.steps &&
+    /*
+     * A step that turned from open to done is a new answer on the same numbers:
+     * the live list draws what the run is doing, so the plan is part of what
+     * "the same run" means.
+     */
+    planKey(a.plan) === planKey(b.plan)
   );
+}
+
+/** A plan as one comparable string: each step's words and where it stands. */
+function planKey(plan: RunSummary["plan"]): string {
+  return (plan ?? []).map((step) => `${step.state}\u0000${step.what}`).join("\u0001");
 }

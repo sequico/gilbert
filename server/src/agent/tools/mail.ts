@@ -503,6 +503,14 @@ export async function readMessageForAnswer(
   word: boolean;
   /** Why it is not a person's word, or null when it is. */
   refusal: TrustRefusal | null;
+  /**
+   * The message's subject, as the server states it.
+   *
+   * Read beside the rest and not only for a run's label: the subject is what a
+   * person recognises a message by, and the run the message opened carries it in
+   * `startedBy.about`.
+   */
+  subject: string | null;
 } | null> {
   const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
     "Email/get",
@@ -554,6 +562,7 @@ export async function readMessageForAnswer(
           : null,
     word: decision.word,
     refusal: decision.refusal,
+    subject: typeof message.subject === "string" ? message.subject : null,
   };
 }
 

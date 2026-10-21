@@ -1074,7 +1074,7 @@ export class AgentLoop {
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
           workRun: (a, r, f, oq) => this.workRun(a, r, f, undefined, oq),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
-          openRun: (a, e, r, from) => this.openRun(a, e, r, from),
+          openRun: (a, e, r, from, about, by) => this.openRun(a, e, r, from, about, by),
           recordRefusal: (a, refused) => this.recordRefusal(a, refused),
           noteDrop: (a, path, at) => noteFile(this.ctx, a, path, at),
           dueDrops: (a, at) => dropsDue(this.ctx, a, at),
@@ -1130,6 +1130,9 @@ export class AgentLoop {
     event: AccountEvent,
     rule: RuleDoc,
     wakeFrom: string | null,
+    /** What the change said, and who set it off (the pass read both). */
+    about?: string,
+    by?: string,
   ): Promise<RunDoc> {
     const run = startRun({
       id: randomUUID(),
@@ -1137,6 +1140,10 @@ export class AgentLoop {
         rule: rule.id,
         instruction: null,
         woke: wokeOf(event),
+        // What the change said, in its own words, as the pass read it: the run
+        // says why it exists without reading the source again.
+        ...(about ? { about } : {}),
+        ...(by ? { by } : {}),
         // The rule's own declaration, carried by the run: the guard reads it,
         // and so does the correspondent it answers.
         sends: rule.sends,
