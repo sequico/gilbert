@@ -92,7 +92,8 @@ export interface AnyTool {
    */
   readonly act: (args: unknown) => RunAuthorityAct | null;
   /**
-   * The argument names the tool takes, and the only ones it takes.
+   * The argument names the tool takes, and the only ones it takes — its
+   * `args`' own keys, derived where the tool is defined.
    *
    * A call naming anything else is refused rather than read as if the field it
    * meant were missing: a `files.list` asked for `folder` while it reads `path`
@@ -120,7 +121,9 @@ export interface AnyTool {
  */
 export interface ArgSpec {
   /** The kind of value: text, a whole number, a boolean, a list, or one of a set. */
-  type?: "text" | "number" | "boolean" | "list" | "one of";
+  type: "text" | "number" | "boolean" | "list" | "one of";
+  /** The least a `number` may be. */
+  min?: number;
   /** The most characters a `text` may be (and each entry of a `list`). */
   max?: number;
   /** The values a `one of` accepts. */
@@ -142,12 +145,15 @@ interface ToolSpec<Args> {
   waits?: boolean;
   spend?: Partial<RunSpent>;
   act?: (args: Args) => RunAuthorityAct | null;
-  /** The argument names this tool takes; anything else is refused. */
-  keys: readonly string[];
   /**
-   * What each argument is, for the turn that has to fill it in. Every key the
-   * tool takes is declared here: the catalogue renders this as the provider's
-   * own `tools`, and an argument it says nothing about would be guessed at.
+   * The arguments this tool takes, and what each one is.
+   *
+   * **The one list**: the names it takes (anything else is refused), the kind
+   * and the bound the turn is told, and the names the prompt shows are all read
+   * from here. A second list of the same names was a list that could disagree
+   * with this one — a key taken and never described, or described and never
+   * taken — and the catalogue had to refuse itself at run time to catch it. There
+   * is nothing to disagree now.
    */
   args: Readonly<Record<string, ArgSpec>>;
   parse: (raw: unknown) => Args;
@@ -156,7 +162,8 @@ interface ToolSpec<Args> {
 
 /** The one place a tool is defined, so every field above has one spelling. */
 export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
-  const keys = new Set(spec.keys);
+  const keys = Object.keys(spec.args);
+  const known = new Set(keys);
   return {
     name: spec.name,
     description: spec.description,
@@ -166,7 +173,7 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     waits: spec.waits === true,
     spend: spec.spend ?? {},
     act: spec.act ? (args) => spec.act!(args as Args) : () => null,
-    keys: spec.keys,
+    keys,
     args: spec.args,
     parse: (raw) => {
       /*
@@ -177,11 +184,11 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
       if (raw !== undefined && raw !== null && !isRecord(raw))
         throw new ToolError("bad_arguments", "The arguments must be an object.");
       const held = isRecord(raw) ? Object.keys(raw) : [];
-      const unknown = held.filter((one) => !keys.has(one));
+      const unknown = held.filter((one) => !known.has(one));
       if (unknown.length)
         throw new ToolError(
           "bad_arguments",
-          `"${spec.name}" takes ${spec.keys.length ? spec.keys.map((one) => `"${one}"`).join(", ") : "no arguments"}, not ${unknown.map((one) => `"${one}"`).join(", ")}.`,
+          `"${spec.name}" takes ${keys.length ? keys.map((one) => `"${one}"`).join(", ") : "no arguments"}, not ${unknown.map((one) => `"${one}"`).join(", ")}.`,
         );
       return spec.parse(raw);
     },

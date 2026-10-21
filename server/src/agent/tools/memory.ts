@@ -105,7 +105,6 @@ export const rememberFactTool = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
-  keys: ["fact", "links", "standing", "subject"],
   args: {
     subject: { type: "text", max: MEMORY_SUBJECT_MAX },
     fact: { type: "text", max: MEMORY_FACT_MAX },

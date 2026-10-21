@@ -80,7 +80,6 @@ export const readChat = defineTool({
     "text, and the message it answers.",
   authority: "reversible",
   writes: false,
-  keys: ["id"],
   args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
@@ -98,8 +97,10 @@ export const findChat = defineTool({
     "the messages it found, newest first; read one with chat.read.",
   authority: "reversible",
   writes: false,
-  keys: ["limit", "query"],
-  args: { query: { type: "text" }, limit: { type: "number", max: CHAT_FIND_MAX } },
+  args: {
+    query: { type: "text" },
+    limit: { type: "number", min: 1, max: CHAT_FIND_MAX },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const query = textArg(args, "query");
@@ -201,7 +202,6 @@ export const sayInChat = defineTool({
   writes: true,
   surface: "chat",
   spend: { steps: 1 },
-  keys: ["replyTo", "text"],
   args: { text: { type: "text", max: CHAT_MAX_TEXT }, replyTo: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -230,7 +230,6 @@ export const askInChat = defineTool({
   surface: "chat",
   waits: true,
   spend: { steps: 1 },
-  keys: ["text"],
   args: { text: { type: "text", max: ASK_TEXT_MAX } },
   parse: (raw: unknown) => ({ text: chatText(argsRecord(raw), ASK_TEXT_MAX) }),
   run: async ({ ctx, accountId, run }, { text }) => {

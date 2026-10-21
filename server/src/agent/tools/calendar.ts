@@ -92,7 +92,6 @@ export const listCalendars = defineTool({
     "answer rather than guessing a name.",
   authority: "reversible",
   writes: false,
-  keys: [],
   args: {},
   parse: () => ({}),
   run: async ({ ctx, accountId }) => ({ calendars: await calendarsOf(ctx, accountId) }),
@@ -106,7 +105,6 @@ export const findEvents = defineTool({
     `occurrence in the window is a row and carries the id that answers it. At most ${FIND_MAX} rows.`,
   authority: "reversible",
   writes: false,
-  keys: ["from", "to"],
   args: { from: { type: "text" }, to: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -147,7 +145,6 @@ export const readEvent = defineTool({
     "the calendar it is on.",
   authority: "reversible",
   writes: false,
-  keys: ["id"],
   args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
@@ -214,7 +211,6 @@ export const createEvent = defineTool({
   writes: true,
   surface: "calendar",
   spend: { steps: 1 },
-  keys: ["calendar", "description", "duration", "start", "timeZone", "title"],
   args: {
     calendar: { type: "text" },
     title: { type: "text" },
@@ -299,7 +295,6 @@ export const updateEvent = defineTool({
   surface: "calendar",
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
-  keys: ["description", "duration", "id", "start", "timeZone", "title"],
   args: {
     id: { type: "text" },
     title: { type: "text" },
@@ -382,7 +377,6 @@ export const deleteEvent = defineTool({
   surface: "calendar",
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
-  keys: ["id"],
   args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {

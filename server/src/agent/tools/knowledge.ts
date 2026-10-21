@@ -70,8 +70,10 @@ export const listKnowledge = defineTool({
     "`total` and `truncated` say whether the base holds more.",
   authority: "reversible",
   writes: false,
-  keys: ["limit", "offset"],
-  args: { limit: { type: "number" }, offset: { type: "number" } },
+  args: {
+    limit: { type: "number", min: 1 },
+    offset: { type: "number", min: 0 },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -114,8 +116,7 @@ export const searchKnowledge = defineTool({
     "`total` and `truncated` say whether more matched.",
   authority: "reversible",
   writes: false,
-  keys: ["limit", "query"],
-  args: { query: { type: "text" }, limit: { type: "number" } },
+  args: { query: { type: "text" }, limit: { type: "number", min: 1 } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -185,11 +186,10 @@ export const readKnowledgePage = defineTool({
     "the last answer ended.",
   authority: "reversible",
   writes: false,
-  keys: ["folder", "offset", "title"],
   args: {
     folder: { type: "text" },
     title: { type: "text" },
-    offset: { type: "number" },
+    offset: { type: "number", min: 0 },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -231,7 +231,6 @@ export const proposePage = defineTool({
   writes: true,
   surface: "knowledge",
   spend: { steps: 1 },
-  keys: ["folder", "text", "title"],
   args: { folder: { type: "text" }, title: { type: "text" }, text: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);

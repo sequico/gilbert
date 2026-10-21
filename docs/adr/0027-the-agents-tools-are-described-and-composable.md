@@ -155,9 +155,14 @@ typed arguments, each acting on one of those objects.
   argument, which is what a hand-written JSON plan gets wrong: a live
   installation paid refused answers for a numeric `id`, an over-long `fact` and
   an argument name no tool takes. Every argument a tool names declares its kind,
-  and `defineTool` requires it — an argument published as a string because
-  nobody said otherwise refuses the value the tool actually takes. `required` is
+  and the kind cannot be left out: an argument's names are its `args`, and
+  `ArgSpec.type` is required — a key and its description are one list, so there
+  is nothing to disagree with, and an argument published as a string because
+  nobody said otherwise cannot be written. `required` is
   not stated, because a key is not a required key and the tool's parser is the
   one door. The demanded JSON shape is still read as the fallback of the same
-  call; a gateway that refuses a `tools` field refuses the call loudly, in a
-  sentence that names the cause where the provider's own answer names it.
+  call, and a call that branches is written in that shape, because a native call
+  is one linear step with the tool's own arguments and nothing of the step's
+  structure in them; a gateway that refuses a `tools` field is asked once more
+  without the catalogue, and a second refusal is reported in a sentence that says
+  the catalogue was withheld.

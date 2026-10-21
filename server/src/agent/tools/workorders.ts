@@ -72,8 +72,7 @@ export const listWorkorders = defineTool({
     "workorder.read, by the uid this answers.",
   authority: "reversible",
   writes: false,
-  keys: ["limit"],
-  args: { limit: { type: "number", max: WORKORDER_LIST_MAX } },
+  args: { limit: { type: "number", min: 1, max: WORKORDER_LIST_MAX } },
   parse: (raw: unknown) => ({
     limit:
       countArg(argsRecord(raw), "limit", WORKORDER_LIST_MAX) ?? WORKORDER_LIST_DEFAULT,
@@ -169,7 +168,6 @@ export const readWorkorder = defineTool({
     "are the installation's, read beside the part this account holds.",
   authority: "reversible",
   writes: false,
-  keys: ["uid"],
   args: { uid: { type: "text" } },
   parse: (raw: unknown) => ({ uid: textArg(argsRecord(raw), "uid") }),
   run: async ({ ctx, accountId }, { uid }) => {
@@ -211,7 +209,6 @@ export const settleStep = defineTool({
   writes: true,
   surface: "workorder",
   spend: { steps: 1 },
-  keys: ["note", "path", "state", "uid"],
   args: {
     uid: { type: "text" },
     path: { type: "text" },

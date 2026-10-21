@@ -205,18 +205,6 @@ const NO_RULE_NOTICE =
   "This group has no rule for the conversation, so your message has woken nothing. An administrator can write one in Administration → Agent → Rules.";
 
 /**
- * What a person is told when their mention reached the agent and it found
- * nothing to do.
- *
- * Distinct from the notice above because it says something else: the rules are
- * there and the agent read the words, and it chose no act. A person who asked
- * for something is owed that answer rather than the silence of a decision that
- * was never made.
- */
-const NOTHING_TO_DO_NOTICE =
-  "The agent read your message and found nothing in it to act on. Say what you need it to do, and it will take that as the work.";
-
-/**
  * A pass with the agent off: nothing is decided, nothing is modelled, and the
  * one thing that happens is an answer to the people who wrote.
  *
@@ -584,24 +572,12 @@ export async function workChanges(
      * the run is told.
      */
     const mentioned = message !== null && addressesAgent(message, deps.ctx.username);
-    if (decision.kind !== "decision") {
-      /*
-       * A mention whose change never became a decision is still somebody asking
-       * something: the same notice a group with no chat rule gets, because the
-       * alternative is a question nobody answered and nobody told why.
-       */
-      if (mentioned && message)
-        await postChatMessage(
-          deps.ctx,
-          accountId,
-          deps.ctx.username,
-          NOTHING_TO_DO_NOTICE,
-          {
-            ...(message.id ? { replyTo: message.id } : {}),
-          },
-        );
-      continue;
-    }
+    /*
+     * What is left here is a decision: a `reply` answered above and continued,
+     * and `decideEvent` answers with nothing else, so there is no third kind to
+     * meet — a mention the model chose no act for is still routed, to the rule
+     * that answers it, and the run's own record says what it did with it.
+     */
     const chosen = mentioned ? mentionRoute(decision.rules, candidates) : decision.rules;
     /*
      * The runs by (rule, change) for this event, grown once and rebuilt only

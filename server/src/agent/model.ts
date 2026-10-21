@@ -393,9 +393,17 @@ export async function callModel(
   const { provider, model, baseUrl, apiKey } = access.model;
   const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const timeoutMs = req.timeoutMs ?? MODEL_TIMEOUT_MS;
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  /*
+   * The request the provider is asked, with the catalogue or without it.
+   *
+   * The second form is the JSON-plan channel: `chooseStep` prompts for both
+   * shapes, so an OpenAI-compatible provider that refuses `tools` is served by
+   * asking once more without them instead of failing every choosing turn of the
+   * installation for ever. Whether that second form is taken is decided by the
+   * *provider's own body* naming tools or functions — never by a guess.
+   */
+  const send = (carryTools: boolean) =>
+    fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -414,8 +422,10 @@ export async function callModel(
          * answer forced into `json_object` cannot be a tool call, and the one
          * kind of call that offers the catalogue asks for the provider's own.
          */
-        ...(req.tools?.length ? {} : { response_format: { type: "json_object" } }),
-        ...(req.tools?.length ? { tools: req.tools } : {}),
+        ...(carryTools && req.tools?.length ? { tools: req.tools } : {}),
+        ...(carryTools && req.tools?.length
+          ? {}
+          : { response_format: { type: "json_object" } }),
         /*
          * The provider's own ceiling unless a call states one: a reasoning
          * model spends the budget before it writes the answer, and a ceiling
@@ -443,6 +453,10 @@ export async function callModel(
       }),
       signal: AbortSignal.timeout(timeoutMs),
     });
+  const carrying = Boolean(req.tools?.length);
+  let res: Response;
+  try {
+    res = await send(carrying);
   } catch (err) {
     /*
      * The platform's own abort is a name and a message a developer reads, not a
@@ -476,25 +490,52 @@ export async function callModel(
       );
     throw err;
   }
+  /*
+   * The catalogue was refused: ask once more without it.
+   *
+   * An OpenAI-compatible provider that does not accept `tools` answers 400 or
+   * 422 and names the field — "unknown field: tools", "invalid function" — and
+   * the same turn without the catalogue is the JSON-plan channel the prompt
+   * already describes. This is not a retry around a wrong request: it is the
+   * second channel, taken only when the provider's body names tools or
+   * functions, so a 400 from a context that is too long or a model nobody serves
+   * is still the failure it is.
+   */
+  let withheld = false;
+  if (
+    !res.ok &&
+    carrying &&
+    (res.status === 400 || res.status === 422) &&
+    /tool|function/i.test(raw)
+  ) {
+    withheld = true;
+    try {
+      res = await send(false);
+      raw = await readAnswer(res, provider);
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        (err.name === "TimeoutError" || err.name === "AbortError")
+      )
+        throw new ModelError(
+          "model_call_failed",
+          `${provider} stopped answering after its body began, so the call's time ran out.`,
+        );
+      throw err;
+    }
+  }
   if (!res.ok)
     throw new ModelError(
       "model_call_failed",
       /*
-       * A call that carried the catalogue and was refused is the one failure a
-       * person can act on: an OpenAI-compatible provider that does not accept
-       * `tools` answers 400 (or 422), and every choosing turn of the installation
-       * fails for it while the runs look like a model that cannot plan. The
-       * sentence names the cause where the provider's own body names it, and
-       * offers the way out either way — a 400 can also be a context that is too
-       * long or a model name nobody serves, and blaming the catalogue for those
-       * sends an operator to change provider for nothing. The installation has no
-       * switch to turn the catalogue off (ADR 0027).
+       * What is known, and no more: the status, the provider's own first line,
+       * and — when the catalogue is what was refused — the fact that it was
+       * withheld and the request asked again, so a person can tell a provider
+       * without tool calling from a request that is wrong for another reason.
        */
       `${provider} answered ${res.status}: ${firstLine(raw)}${
-        req.tools?.length && (res.status === 400 || res.status === 422)
-          ? /tool|function/i.test(raw)
-            ? ` The choosing turn sends the catalogue as tool definitions, and this provider refused them: choose a provider that speaks tool calling, or check that "${model}" is a chat model that takes tools.`
-            : ` The choosing turn sends the catalogue as tool definitions. If this provider does not accept them, choose one that speaks tool calling, or check that "${model}" is a chat model that takes tools.`
+        withheld
+          ? " The choosing turn sent the catalogue as tool definitions, this provider refused them, and the same request without them was refused too."
           : ""
       }`,
     );
@@ -1510,26 +1551,37 @@ export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
  *
  * The bound a turn is told and the bound the parser checks come from one place
  * (`ArgSpec`, `tools/define.ts`) — the schema *is* what the turn is told — and a
- * provider that enforces it refuses a wrong type before the step is ever paid
- * for.
+ * provider that enforces it refuses a wrong type or a value out of its bounds
+ * before the step is ever paid for. Every bound the spec states is rendered:
+ * a `min` the parser enforces and the schema omitted was a refusal the run paid
+ * for (a count of 0, an offset below zero), which is the whole cost this exists
+ * to avoid. The `type` is required, so there is no fallback here: an argument
+ * nobody described cannot reach this function.
  */
 function argSchema(spec: ArgSpec): Record<string, unknown> {
-  switch (spec.type ?? "text") {
+  switch (spec.type) {
     case "number":
       return {
         type: "integer",
+        ...(spec.min === undefined ? {} : { minimum: spec.min }),
         ...(spec.max === undefined ? {} : { maximum: spec.max }),
       };
     case "boolean":
       return { type: "boolean" };
     case "list":
-      return { type: "array", items: { type: "string" } };
+      return {
+        type: "array",
+        items: {
+          type: "string",
+          ...(spec.max === undefined ? {} : { maxLength: spec.max }),
+        },
+      };
     case "one of":
       return {
         type: "string",
         ...(spec.values?.length ? { enum: [...spec.values] } : {}),
       };
-    default:
+    case "text":
       return {
         type: "string",
         ...(spec.max === undefined ? {} : { maxLength: spec.max }),
@@ -1581,13 +1633,14 @@ export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] 
           tool.keys.map((key) => {
             const spec = tool.args[key];
             /*
-             * Every argument a tool takes is declared. One that is not would be
-             * guessed at here — `string` for a boolean, `string` for a count —
-             * and a guess is what the schema is for not doing: published as a
-             * string, `mail.keyword`'s `on` refused the only value it accepts.
-             * A tool that names a key and describes no spec is a defect in the
-             * tool, so the catalogue refuses to be built rather than hand the
-             * model something untrue.
+             * Every argument a tool takes is described, and the product's
+             * catalogue cannot say otherwise: a tool's keys **are** its `args`
+             * (`defineTool`, `tools/define.ts`), so a key with no spec is a
+             * shape that cannot be written. A catalogue built by hand — a test's
+             * fixture, a caller's narrower one — is the one that can, and it is
+             * refused here rather than handed to the model as a type nobody
+             * described: published as a string, `mail.keyword`'s `on` refused the
+             * only value it accepts.
              */
             if (!spec)
               throw new Error(
@@ -1641,9 +1694,8 @@ export async function chooseStep(
     "You are the agent of one group, working one run in that group's own account.",
     'Take the run\'s steps with the tools you are given: call one, several, or the same one twice in one answer, and each step is shown to you before you are asked again. When the work of this run is finished, answer {"done": "<what is finished>"} and nothing else. A plan written out as {"calls": [{"name": "<tool>", "arguments": {...}}, ...]} is read the same way, and a call whose arguments are not what the tool states is refused whole — there is no second spelling and no repair.',
     "Decide what this change needs and ask for it in one answer, as a small plan: name a tool and its arguments for each step — one tool, several, or the same tool twice. The steps whose dependencies have ended are carried out together, and each is shown to you before you are asked again.",
-    'A step that has to follow another gives itself an "id" and waits on it: {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
-    'In a tool call, "id" and "needs" travel in the call\'s own arguments object beside the tool\'s arguments: they are the step\'s structure, and they are read out before the tool sees the arguments it knows.',
-    "A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run's record says which step and which outcome left it.",
+    'A plan that branches is written in the shape above: a step that has to follow another gives itself an "id" and waits on it — {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
+    'A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run\'s record says which step and which outcome left it. A call made through the tools is taken in the order you give it, and its arguments are exactly the tool\'s own: an "id" or a "needs" typed into a tool call is an argument the tool does not take, and the answer is refused whole.',
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
     "The tools you may take a step with are the tool definitions this call carries: each states the tool's name, what it is for, and the exact arguments and bounds it takes. An argument name a tool does not state is refused whole — there is no second spelling.",
@@ -1671,22 +1723,23 @@ export async function chooseStep(
      */
     { allowText: true },
   );
-  // The provider's own tool calls are the plan: the same calls the JSON shape
-  // would carry, through the same validation below (ADR 0027). `id` and `needs`
-  // are read out of the call's arguments first: they are the step's own
-  // structure, not the tool's, and a tool refuses every argument it does not
-  // take — which is what made a dependent step unwritable through this channel.
+  /*
+   * The provider's own tool calls are the plan: the same calls the JSON shape
+   * would carry, through the same validation below (ADR 0027). The call's
+   * arguments are the tool's own, **whole**: nothing is read out of them first,
+   * because there is nowhere else for a tool's argument to live — `id` is an
+   * argument of `mail.read`, `mail.trash`, `calendar.updateEvent` and ten other
+   * tools, and taking it for the step's own name left those tools callable only
+   * by the JSON shape. A sequence of native calls is linear, which is the
+   * structure the protocol gives; a plan that branches is written as the plan
+   * shape above, which is the one that carries `id` and `needs`.
+   */
   if (isNativeToolCalls(answer))
     answer = {
-      calls: answer.nativeToolCalls.map((one) => {
-        const { id, needs, ...args } = one.arguments;
-        return {
-          name: one.name,
-          arguments: args,
-          ...(id === undefined ? {} : { id }),
-          ...(needs === undefined ? {} : { needs }),
-        };
-      }),
+      calls: answer.nativeToolCalls.map((one) => ({
+        name: one.name,
+        arguments: one.arguments,
+      })),
     };
   // Text with no call is the other answer the protocol gives, and it is the
   // ending: the words are the run's own sentence.

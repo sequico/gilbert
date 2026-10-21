@@ -52,8 +52,7 @@ export const listFiles = defineTool({
     "); `total` and `truncated` say whether the folder holds more.",
   authority: "reversible",
   writes: false,
-  keys: ["limit", "path"],
-  args: { path: { type: "text" }, limit: { type: "number" } },
+  args: { path: { type: "text" }, limit: { type: "number", min: 1 } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -107,7 +106,6 @@ export const readNode = defineTool({
     "build cannot read says so rather than answering bytes.",
   authority: "reversible",
   writes: false,
-  keys: ["path"],
   args: { path: { type: "text" } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId, readImage }, { path }) => {
@@ -219,7 +217,6 @@ export const writeDocument = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  keys: ["path", "text"],
   args: { path: { type: "text" }, text: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -260,7 +257,6 @@ export const saveFile = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  keys: ["attachment", "from", "message", "path"],
   args: {
     path: { type: "text" },
     from: { type: "text" },
@@ -407,7 +403,6 @@ export const overwriteDocument = defineTool({
   surface: "files",
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
-  keys: ["path", "text"],
   args: { path: { type: "text" }, text: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -444,7 +439,6 @@ export const deleteDocument = defineTool({
   surface: "files",
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
-  keys: ["path"],
   args: { path: { type: "text" } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
@@ -475,7 +469,6 @@ export const createFileFolder = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  keys: ["path"],
   args: { path: { type: "text" } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
@@ -495,7 +488,6 @@ export const moveFile = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  keys: ["folder", "path"],
   args: { path: { type: "text" }, folder: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -530,7 +522,6 @@ export const renameFile = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  keys: ["name", "path"],
   args: { path: { type: "text" }, name: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
