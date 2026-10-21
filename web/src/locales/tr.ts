@@ -1512,6 +1512,11 @@ export const catalog: Catalog = {
     Subject: "Konu",
     "Subject (optional)": "Konu (isteğe bağlı)",
     "Subject: {subject}": "Konu: {subject}",
+    "To (optional)": "Kime (isteğe bağlı)",
+    "Cc (optional)": "Bilgi (Cc) (isteğe bağlı)",
+    "Adds: {recipients}": "Ekler: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Şablonu eklediğinizde mesaja, hâlihazırda yazılı olanların yanına eklenir.",
     "Subscribe to a calendar": "Bir takvime abone ol",
     "Subscribed calendar": "Abone olunan takvim",
     "Subscribed calendars": "Abone olunan takvimler",

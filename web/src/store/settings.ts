@@ -28,6 +28,7 @@ import {
 import { pendingSettingsKeys, queueSettingsPush } from "@/lib/settingsSync";
 import { hasCachedJson, isDeviceTrusted, loadJson, saveJson } from "@/lib/storage";
 import type { SwipeAction } from "@/lib/swipe";
+import type { EmailAddress } from "@/jmap/types";
 import { useSession } from "@/store/session";
 
 /**
@@ -75,6 +76,10 @@ export interface Template {
   name: string;
   subject: string;
   html: string;
+  /** Recipients added to the message when the template is inserted. Older templates have none. */
+  to?: EmailAddress[];
+  cc?: EmailAddress[];
+  bcc?: EmailAddress[];
 }
 
 /** A signer remembered for an address. See `knownSigners`. */

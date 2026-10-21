@@ -623,6 +623,11 @@ export const catalog: Catalog = {
     "Insert template": "Вставити шаблон",
     "Template text…": "Текст шаблону…",
     "Subject: {subject}": "Тема: {subject}",
+    "To (optional)": "Кому (необов'язково)",
+    "Cc (optional)": "Копія (необов'язково)",
+    "Adds: {recipients}": "Додає: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Додаються до листа, коли ви вставляєте шаблон, поруч із тими, хто вже в ньому.",
     "Filters & rules": "Фільтри та правила",
     "Filters unavailable": "Фільтри недоступні",
     Rules: "Правила",

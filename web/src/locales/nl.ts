@@ -622,6 +622,11 @@ export const catalog: Catalog = {
     "Insert template": "Sjabloon invoegen",
     "Template text…": "Sjabloontekst…",
     "Subject: {subject}": "Onderwerp: {subject}",
+    "To (optional)": "Aan (optioneel)",
+    "Cc (optional)": "Cc (optioneel)",
+    "Adds: {recipients}": "Voegt toe: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Toegevoegd aan het bericht wanneer je de sjabloon invoegt, naast iedereen die er al op staat.",
     "Filters & rules": "Filters en regels",
     "Filters unavailable": "Filters niet beschikbaar",
     Rules: "Regels",

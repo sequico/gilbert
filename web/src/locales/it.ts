@@ -993,6 +993,15 @@ export const catalog: Catalog = {
 
     "Subject: {subject}": "Oggetto: {subject}",
 
+    "To (optional)": "A (facoltativo)",
+
+    "Cc (optional)": "Cc (facoltativo)",
+
+    "Adds: {recipients}": "Aggiunge: {recipients}",
+
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Aggiunti al messaggio quando inserisci il modello, accanto a chi c'è già.",
+
     "Filters & rules": "Filtri e regole",
 
     "Filters unavailable": "Filtri non disponibili",

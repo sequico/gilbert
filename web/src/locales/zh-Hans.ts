@@ -614,6 +614,11 @@ export const catalog: Catalog = {
     "Insert template": "插入模板",
     "Template text…": "模板内容…",
     "Subject: {subject}": "主题：{subject}",
+    "To (optional)": "收件人（可选）",
+    "Cc (optional)": "抄送（可选）",
+    "Adds: {recipients}": "添加：{recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "插入模板时，会添加到邮件中，位于已有收件人之后。",
     "Filters & rules": "过滤器与规则",
     "Filters unavailable": "过滤器不可用",
     Rules: "规则",

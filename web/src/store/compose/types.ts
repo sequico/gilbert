@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand";
 import type { Email, EmailAddress, Id, Identity } from "@/jmap/types";
 import type { SharedContent } from "@/lib/shareTarget";
+import type { Template } from "@/store/settings";
 
 export interface ComposeAttachment {
   id: string;
@@ -209,5 +210,8 @@ export interface ComposeState {
   send(key: string): Promise<void>;
   undoSend(key: string): void;
   setIdentity(key: string, identityId: Id): void;
-  insertTemplate(key: string, html: string, subject?: string): void;
+  insertTemplate(
+    key: string,
+    template: Pick<Template, "html" | "to" | "cc" | "bcc"> & { subject?: string },
+  ): void;
 }

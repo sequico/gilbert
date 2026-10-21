@@ -624,6 +624,11 @@ export const catalog: Catalog = {
     "Insert template": "テンプレートを挿入",
     "Template text…": "テンプレートの本文…",
     "Subject: {subject}": "件名: {subject}",
+    "To (optional)": "宛先（省略可）",
+    "Cc (optional)": "Cc（省略可）",
+    "Adds: {recipients}": "追加: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "テンプレートを挿入したときに、すでに入っている宛先に加えてメッセージに追加されます。",
     "Filters & rules": "フィルターとルール",
     "Filters unavailable": "フィルターは利用できません",
     Rules: "ルール",

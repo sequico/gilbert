@@ -1,6 +1,8 @@
+import { sameAddress, uniqueAddresses } from "@/lib/address";
 import { sanitizeEditorHtml } from "@/lib/html";
 import { fillPlaceholders, type PlaceholderContext } from "@/lib/templatePlaceholders";
 import { htmlToText } from "@/lib/text";
+import type { EmailAddress } from "@/jmap/types";
 import { useMail } from "../../mail";
 import { identityBcc, signatureBlock, stillTheIdentitys } from "../draft";
 import type { ComposeGet, ComposeSet, ComposeState, Draft } from "../types";
@@ -62,18 +64,35 @@ export function identitySlice(
       };
       get().update(key, { identityId, html, text, signatureHtml: newSig, ...carried });
     },
-    insertTemplate(key, html, subject) {
+    insertTemplate(key, { html, subject, to = [], cc = [], bcc = [] }) {
       const d = get().drafts.find((x) => x.key === key);
       if (!d) return;
+      // The template's recipients join the ones already there. An address that
+      // is already on the message, in any field, stays where it is rather than
+      // appearing twice.
+      const present = [...d.to, ...d.cc, ...d.bcc];
+      const added = (list: EmailAddress[]) => {
+        const fresh = uniqueAddresses(list).filter(
+          (a) => !present.some((p) => sameAddress(p.email, a.email)),
+        );
+        present.push(...fresh);
+        return fresh;
+      };
+      const recipients = {
+        to: [...d.to, ...added(to)],
+        cc: [...d.cc, ...added(cc)],
+        bcc: [...d.bcc, ...added(bcc)],
+      };
       // Placeholders are filled against the draft as it stands right now, which
       // is why this happens on insert rather than on send: what the template is
       // filled with is visible and editable afterwards, instead of changing
-      // under the message between writing it and sending it.
+      // under the message between writing it and sending it. The template's own
+      // recipients count, so {{recipientName}} can name the person it is for.
       const ident = d.identityId
         ? useMail.getState().identities.find((i) => i.id === d.identityId)
         : undefined;
       const ctx: PlaceholderContext = {
-        to: d.to,
+        to: recipients.to,
         from: ident ? { name: ident.name, email: ident.email } : null,
         subject: d.subject,
       };
@@ -86,6 +105,11 @@ export function identitySlice(
       };
       if (subject && !d.subject)
         patch.subject = fillPlaceholders(subject, ctx, { html: false });
+      if (recipients.to.length !== d.to.length) patch.to = recipients.to;
+      if (recipients.cc.length !== d.cc.length)
+        Object.assign(patch, { cc: recipients.cc, showCc: true });
+      if (recipients.bcc.length !== d.bcc.length)
+        Object.assign(patch, { bcc: recipients.bcc, showBcc: true });
       get().update(key, patch);
     },
   };

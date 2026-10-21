@@ -1243,8 +1243,11 @@ minimisable and maximisable; full-screen on mobile.
   HTML and, where it still will not fit, stores the full signature in the account's
   Files and leaves a marker plus a plain-text fallback in the identity. Signature
   images live in Files and become inline `cid:` parts at send.
-- **Templates**: named subject + body, inserted into any draft, managed in
-  Settings. Both carry **placeholders** — `{{recipientName}}`,
+- **Templates**: named subject + body, and the To, Cc and Bcc they are for,
+  inserted into any draft, managed in Settings. Inserting one adds its
+  recipients beside anyone already on the message — an address already there, in
+  any field, is not added twice, and the Cc and Bcc rows open when the template
+  uses them. The subject and the body carry **placeholders** — `{{recipientName}}`,
   `{{recipientFirstName}}`, `{{recipientEmail}}`, `{{myName}}`, `{{myEmail}}`,
   `{{subject}}`, `{{date}}` and `{{time}}` — filled when the template is inserted,
   so what they came to is visible and editable before sending. Dates and times
@@ -1714,7 +1717,7 @@ mail store because they *are* in the mail store.
 | **Out of office** | Vacation response |
 | **Folders** | Create, rename, colour, subscribe |
 | **Labels** | Keyword, display name, colour |
-| **Templates** | Named subject + body |
+| **Templates** | Named subject + body, and the recipients it is for |
 | **Calendar & contacts** | Colour categories, working hours, default view, default duration, default reminder |
 | **Notifications** | In-tab notifications, notify-when-closed (Web Push), sound |
 | **Security & sessions** | Password, two-factor state, app passwords, active webmail sessions |

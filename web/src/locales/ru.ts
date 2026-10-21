@@ -627,6 +627,11 @@ export const catalog: Catalog = {
     "Insert template": "Вставить шаблон",
     "Template text…": "Текст шаблона…",
     "Subject: {subject}": "Тема: {subject}",
+    "To (optional)": "Кому (необязательно)",
+    "Cc (optional)": "Копия (необязательно)",
+    "Adds: {recipients}": "Добавляет: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Добавляются в письмо при вставке шаблона, рядом с теми, кто уже в нём указан.",
     "Filters & rules": "Фильтры и правила",
     "Filters unavailable": "Фильтры недоступны",
     Rules: "Правила",

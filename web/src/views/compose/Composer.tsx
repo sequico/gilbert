@@ -839,7 +839,7 @@ export function Composer({ draft }: { draft: Draft }) {
                 <MenuItem
                   key={t.id}
                   label={t.name}
-                  onClick={() => insertTemplate(key, t.html, t.subject)}
+                  onClick={() => insertTemplate(key, t)}
                 />
               ))}
             </Popover>
@@ -908,6 +908,9 @@ export function Composer({ draft }: { draft: Draft }) {
                           name,
                           subject: d.subject,
                           html: d.format === "html" ? d.html : textToHtml(d.text),
+                          to: d.to,
+                          cc: d.cc,
+                          bcc: d.bcc,
                         },
                       ],
                     });

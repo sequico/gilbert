@@ -630,6 +630,11 @@ export const catalog: Catalog = {
     "Insert template": "Inserir um modelo",
     "Template text…": "Texto do modelo…",
     "Subject: {subject}": "Assunto: {subject}",
+    "To (optional)": "Para (opcional)",
+    "Cc (optional)": "Cc (opcional)",
+    "Adds: {recipients}": "Adiciona: {recipients}",
+    "Added to the message when you insert the template, beside anyone already on it.":
+      "Adicionados à mensagem quando você insere o modelo, ao lado de quem já está nela.",
     "Filters & rules": "Filtros e regras",
     "Filters unavailable": "Filtros indisponíveis",
     Rules: "Regras",
