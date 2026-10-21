@@ -1018,9 +1018,6 @@ export const catalog: Catalog = {
     "Standing instruction": "Istruzione permanente",
     "How the group wants its agent to work, on every call it makes.":
       "Come il gruppo vuole che il suo agente lavori, a ogni chiamata che fa.",
-    "No rules yet.": "Ancora nessuna regola.",
-    "What should happen": "Cosa deve succedere",
-    "May send": "Può inviare",
 
     "Rule name": "Nome della regola",
 

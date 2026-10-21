@@ -643,9 +643,6 @@ export const catalog: Catalog = {
     "Standing instruction": "常設の指示",
     "How the group wants its agent to work, on every call it makes.":
       "グループのエージェントが、呼び出しのたびにどう動くか。",
-    "No rules yet.": "ルールはまだありません。",
-    "What should happen": "何をするか",
-    "May send": "送信を許可",
     "Rule name": "ルール名",
     "New rule": "新しいルール",
     "Delete rule": "ルールを削除",

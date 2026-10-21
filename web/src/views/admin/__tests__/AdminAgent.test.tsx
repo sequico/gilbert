@@ -129,7 +129,7 @@ describe("the agent's administration surface", () => {
       )
         return answer({ group: GROUP, run: RUN });
       if (url.startsWith("/api/admin/groups/") && url.endsWith("/prose"))
-        return answer({ instruction: "", rules: [], state: "state-1" });
+        return answer({ instruction: "", areas: [], state: "state-1" });
       if (url === "/api/admin/groups")
         return answer({ groups: [{ id: "t1", name: GROUP }], enumeration: true });
       if (url === "/api/admin/memory") return answer({ facts, problems: [] });
@@ -177,7 +177,7 @@ describe("the agent's administration surface", () => {
 
   async function render() {
     // The groups the page tabs are the session's group mailboxes, as the
-    // composer and the rules editor read them.
+    // composer and the instruction panel read them.
     useMail.setState({
       mailAccounts: [{ accountId: "m1", name: GROUP, kind: "group" }],
     });

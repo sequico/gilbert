@@ -642,9 +642,6 @@ export const catalog: Catalog = {
     "Standing instruction": "Vaste instructie",
     "How the group wants its agent to work, on every call it makes.":
       "Hoe de groep wil dat zijn agent werkt, bij elke aanroep die hij doet.",
-    "No rules yet.": "Nog geen regels.",
-    "What should happen": "Wat er moet gebeuren",
-    "May send": "Mag verzenden",
     "Rule name": "Naam van de regel",
     "New rule": "Nieuwe regel",
     "Delete rule": "Regel verwijderen",
