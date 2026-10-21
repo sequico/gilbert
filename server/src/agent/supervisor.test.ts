@@ -440,7 +440,9 @@ test("a pass that worked and found nothing to do writes nothing", async (t) => {
   const { lines, log } = collector();
   const process = supervise({ loop: stand.loop, intervalMs: 10, log });
   t.after(() => process.stop());
-  await sleep(60);
+  // Waited for on the passes themselves, never on a duration: a full-suite run
+  // is a loaded box, and a fixed window there is an assertion about the machine.
+  await waitFor(() => stand.passes >= 3);
   assert.ok(stand.passes >= 3, `the interval kept asking (${stand.passes} passes)`);
   assert.deepEqual(passLinesIn(lines), [], "no pass wrote a line");
 });
@@ -480,12 +482,13 @@ test("a pass that throws is logged, and the next one still runs", async (t) => {
   stand.failNext(2);
   const process = supervise({ loop: stand.loop, intervalMs: 10, log });
   t.after(() => process.stop());
-  await sleep(80);
+  await waitFor(() => failuresIn(lines).length >= 2);
   assert.ok(
     failuresIn(lines).length >= 2,
     `every failure is on the log (${failuresIn(lines).length})`,
   );
   assert.match(failuresIn(lines)[0] ?? "", /the mail server did not answer/);
+  await waitFor(() => stand.passes >= 4);
   assert.ok(stand.passes >= 4, "and the schedule went on asking");
 });
 
