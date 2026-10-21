@@ -76,4 +76,11 @@ describe("the spam filter's model on a message", () => {
     expect(await render(mail(null))).toBe("");
     expect(await render(mail(""))).toBe("");
   });
+
+  it("renders the model's explanation as text, never as markup", async () => {
+    await render(mail("Unsolicited (<b>bold</b> and <img src=x onerror=alert(1)>)"));
+    expect(host.querySelector("b")).toBeNull();
+    expect(host.querySelector("img")).toBeNull();
+    expect(host.textContent).toContain("<b>bold</b>");
+  });
 });

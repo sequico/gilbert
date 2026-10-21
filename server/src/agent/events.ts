@@ -76,6 +76,7 @@ import {
   FILENODE_GET,
   FOLDER_PROPS,
 } from "../shared/appFolder.js";
+import { PASS_STATUS_FILE } from "../shared/agent.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
@@ -284,6 +285,7 @@ function isAgentPath(path: string): boolean {
     rel === INSTRUCTION_FILE ||
     rel === PENDING_FILE ||
     rel === CURSOR_FILE ||
+    rel === PASS_STATUS_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
     rel.startsWith(`${RULES_DIR}/`) ||
     // Read markers sit beside the messages and are the agent's bookkeeping.

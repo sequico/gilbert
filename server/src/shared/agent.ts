@@ -97,13 +97,12 @@ export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
     isRecord(x) &&
     x.v === 1 &&
     isInstant(x.at) &&
-    typeof x.ms === "number" &&
-    Number.isFinite(x.ms) &&
+    isFiniteNumber(x.ms) &&
     typeof x.claimed === "boolean" &&
-    typeof x.accounts === "number" &&
-    typeof x.changes === "number" &&
-    typeof x.runs === "number" &&
-    typeof x.due === "number" &&
+    isCount(x.accounts) &&
+    isCount(x.changes) &&
+    isCount(x.runs) &&
+    isCount(x.due) &&
     Array.isArray(x.gaps) &&
     x.gaps.every((one) => typeof one === "string") &&
     (ended === undefined ||
@@ -113,6 +112,16 @@ export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
         isRunEnding(ended.ending) &&
         typeof ended.why === "string"))
   );
+}
+
+/** A finite number, whole or not: a duration in milliseconds. */
+function isFiniteNumber(x: unknown): x is number {
+  return typeof x === "number" && Number.isFinite(x);
+}
+
+/** A whole, finite count: what every tally on the pass's own document is. */
+function isCount(x: unknown): x is number {
+  return typeof x === "number" && Number.isInteger(x) && x >= 0;
 }
 
 /** Whether a value is a claim this build reads. */
