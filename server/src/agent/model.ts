@@ -1549,15 +1549,15 @@ export interface ToolDefinition {
  *
  * A model that writes a plan as JSON by hand is guessing at the shape of every
  * argument, and one wrong argument refuses the whole answer (`model_answer_malformed`):
- * a live installation paid 110 refused answers for it — `"id" must be text`,
- * a `fact` over its bound, an argument name the tool does not take. The same
- * definitions are therefore offered as `tools`, so the provider checks the kind
- * and the bound itself (ADR 0027).
+ * a live installation paid refused answers for exactly that — `"id" must be
+ * text`, a `fact` over its bound, an argument name the tool does not take. The
+ * same definitions are therefore offered as `tools`, so the provider checks the
+ * kind and the bound itself (ADR 0027).
  *
  * Nothing is stated twice: the names, the descriptions, the argument names and
  * their bounds are the catalogue's own, and this is the **one** rendering of them
- * the model is given — the prose list that used to repeat it in the system turn
- * is gone, because the same lines were being paid for twice on every call.
+ * the model is given — the system turn carries no second list of the same
+ * lines, which were paid for twice on every call.
  * `required` is not set because a key is not the same as a required key (a source
  * is either `from` or `message` with `attachment`), and the tool's parser is the
  * one door that decides.
@@ -1573,7 +1573,20 @@ export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] 
         properties: Object.fromEntries(
           tool.keys.map((key) => {
             const spec = tool.args[key];
-            return [key, spec ? argSchema(spec) : { type: "string" }];
+            /*
+             * Every argument a tool takes is declared. One that is not would be
+             * guessed at here — `string` for a boolean, `string` for a count —
+             * and a guess is what the schema is for not doing: published as a
+             * string, `mail.keyword`'s `on` refused the only value it accepts.
+             * A tool that names a key and describes no spec is a defect in the
+             * tool, so the catalogue refuses to be built rather than hand the
+             * model something untrue.
+             */
+            if (!spec)
+              throw new Error(
+                `${tool.name} names the argument "${key}" and declares no spec for it.`,
+              );
+            return [key, argSchema(spec)];
           }),
         ),
         additionalProperties: false,

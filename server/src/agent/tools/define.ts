@@ -145,11 +145,11 @@ interface ToolSpec<Args> {
   /** The argument names this tool takes; anything else is refused. */
   keys: readonly string[];
   /**
-   * What each argument is, for the turn that has to fill it in. A key left out
-   * is listed by its name alone, which is what every tool said before this
-   * existed — a tool adopts a spec one argument at a time.
+   * What each argument is, for the turn that has to fill it in. Every key the
+   * tool takes is declared here: the catalogue renders this as the provider's
+   * own `tools`, and an argument it says nothing about would be guessed at.
    */
-  args?: Readonly<Record<string, ArgSpec>>;
+  args: Readonly<Record<string, ArgSpec>>;
   parse: (raw: unknown) => Args;
   run: (call: ToolCall, args: Args) => Promise<unknown>;
 }
@@ -167,7 +167,7 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     spend: spec.spend ?? {},
     act: spec.act ? (args) => spec.act!(args as Args) : () => null,
     keys: spec.keys,
-    args: spec.args ?? {},
+    args: spec.args,
     parse: (raw) => {
       /*
        * A key this tool does not take is refused whole, before the run: the

@@ -108,6 +108,7 @@ export const readNode = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["path"],
+  args: { path: { type: "text" } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId, readImage }, { path }) => {
     const held = await findVisibleFile(ctx, accountId, path);
@@ -219,6 +220,7 @@ export const writeDocument = defineTool({
   surface: "files",
   spend: { steps: 1 },
   keys: ["path", "text"],
+  args: { path: { type: "text" }, text: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), text: textArg(args, "text") };
@@ -406,6 +408,7 @@ export const overwriteDocument = defineTool({
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
   keys: ["path", "text"],
+  args: { path: { type: "text" }, text: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), text: textArg(args, "text") };
@@ -442,6 +445,7 @@ export const deleteDocument = defineTool({
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
   keys: ["path"],
+  args: { path: { type: "text" } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
     const held = await findVisibleNode(ctx, accountId, path);
@@ -472,6 +476,7 @@ export const createFileFolder = defineTool({
   surface: "files",
   spend: { steps: 1 },
   keys: ["path"],
+  args: { path: { type: "text" } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
     const id = await ensureRootFolderPath(ctx, accountId, path);
@@ -491,6 +496,7 @@ export const moveFile = defineTool({
   surface: "files",
   spend: { steps: 1 },
   keys: ["folder", "path"],
+  args: { path: { type: "text" }, folder: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), folder: optionalTextArg(args, "folder") ?? "" };
@@ -525,6 +531,7 @@ export const renameFile = defineTool({
   surface: "files",
   spend: { steps: 1 },
   keys: ["name", "path"],
+  args: { path: { type: "text" }, name: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), name: textArg(args, "name") };

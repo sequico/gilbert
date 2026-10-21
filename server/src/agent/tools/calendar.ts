@@ -93,6 +93,7 @@ export const listCalendars = defineTool({
   authority: "reversible",
   writes: false,
   keys: [],
+  args: {},
   parse: () => ({}),
   run: async ({ ctx, accountId }) => ({ calendars: await calendarsOf(ctx, accountId) }),
 });
@@ -106,6 +107,7 @@ export const findEvents = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["from", "to"],
+  args: { from: { type: "text" }, to: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { from: textArg(args, "from"), to: textArg(args, "to") };
@@ -146,6 +148,7 @@ export const readEvent = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["id"],
+  args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const res = await clientOf(ctx).call<{ list?: unknown[]; notFound?: string[] }>(
@@ -212,6 +215,14 @@ export const createEvent = defineTool({
   surface: "calendar",
   spend: { steps: 1 },
   keys: ["calendar", "description", "duration", "start", "timeZone", "title"],
+  args: {
+    calendar: { type: "text" },
+    title: { type: "text" },
+    start: { type: "text" },
+    duration: { type: "text" },
+    timeZone: { type: "text" },
+    description: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -289,6 +300,14 @@ export const updateEvent = defineTool({
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["description", "duration", "id", "start", "timeZone", "title"],
+  args: {
+    id: { type: "text" },
+    title: { type: "text" },
+    start: { type: "text" },
+    duration: { type: "text" },
+    timeZone: { type: "text" },
+    description: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -364,6 +383,7 @@ export const deleteEvent = defineTool({
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["id"],
+  args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const client = clientOf(ctx);

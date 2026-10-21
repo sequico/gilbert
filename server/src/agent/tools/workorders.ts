@@ -73,7 +73,7 @@ export const listWorkorders = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["limit"],
-  args: { limit: { type: "number" } },
+  args: { limit: { type: "number", max: WORKORDER_LIST_MAX } },
   parse: (raw: unknown) => ({
     limit:
       countArg(argsRecord(raw), "limit", WORKORDER_LIST_MAX) ?? WORKORDER_LIST_DEFAULT,
@@ -170,6 +170,7 @@ export const readWorkorder = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["uid"],
+  args: { uid: { type: "text" } },
   parse: (raw: unknown) => ({ uid: textArg(argsRecord(raw), "uid") }),
   run: async ({ ctx, accountId }, { uid }) => {
     const name = workorderFileName(uid);

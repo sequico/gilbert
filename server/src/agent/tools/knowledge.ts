@@ -232,6 +232,7 @@ export const proposePage = defineTool({
   surface: "knowledge",
   spend: { steps: 1 },
   keys: ["folder", "text", "title"],
+  args: { folder: { type: "text" }, title: { type: "text" }, text: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { ...pageTarget(args), text: textArg(args, "text") };

@@ -145,6 +145,7 @@ export const readMessage = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["id"],
+  args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
@@ -174,6 +175,7 @@ export const readAttachment = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["id", "name"],
+  args: { id: { type: "text" }, name: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), name: textArg(args, "name") };
@@ -231,6 +233,7 @@ export const listMailboxes = defineTool({
   authority: "reversible",
   writes: false,
   keys: [],
+  args: {},
   parse: () => ({}),
   run: async ({ ctx, accountId }) => {
     const boxes = await mailboxesOf(ctx, accountId);
@@ -305,6 +308,7 @@ export const fileMessage = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["folder", "id"],
+  args: { id: { type: "text" }, folder: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), folder: textArg(args, "folder") };
@@ -332,6 +336,7 @@ export const trashMessage = defineTool({
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["id"],
+  args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) =>
     moveMessage(ctx, accountId, id, "trash", { allowTrash: true }),
@@ -348,6 +353,7 @@ export const untrashMessage = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["id"],
+  args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "inbox"),
 });
@@ -365,6 +371,11 @@ export const setKeyword = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["id", "keyword", "on"],
+  args: {
+    id: { type: "text" },
+    keyword: { type: "text" },
+    on: { type: "boolean" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const keyword = textArg(args, "keyword");
@@ -591,6 +602,7 @@ export const draftReply = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["id", "text"],
+  args: { id: { type: "text" }, text: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), text: textArg(args, "text") };
@@ -739,6 +751,13 @@ export const editDraft = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["cc", "id", "subject", "text", "to"],
+  args: {
+    id: { type: "text" },
+    text: { type: "text" },
+    subject: { type: "text" },
+    to: { type: "text" },
+    cc: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -981,6 +1000,11 @@ export const sendOutward = defineTool({
     };
   },
   keys: ["subject", "text", "to"],
+  args: {
+    to: { type: "text" },
+    subject: { type: "text" },
+    text: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -1008,6 +1032,11 @@ export const askByMail = defineTool({
   waits: true,
   spend: { steps: 1 },
   keys: ["subject", "text", "to"],
+  args: {
+    to: { type: "text" },
+    subject: { type: "text" },
+    text: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -1052,6 +1081,11 @@ export const defineLabel = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["color", "keyword", "name"],
+  args: {
+    keyword: { type: "text" },
+    name: { type: "text" },
+    color: { type: "text" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const keyword = textArg(args, "keyword");
@@ -1095,6 +1129,7 @@ export const renameMailFolder = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["name", "to"],
+  args: { name: { type: "text" }, to: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { name: textArg(args, "name"), to: textArg(args, "to") };
@@ -1133,6 +1168,7 @@ export const deleteMailFolder = defineTool({
   spend: { steps: 1 },
   act: (args: { name: string }) => ({ target: args.name, content: null }),
   keys: ["name"],
+  args: { name: { type: "text" } },
   parse: (raw: unknown) => ({ name: textArg(argsRecord(raw), "name") }),
   run: async ({ ctx, accountId }, { name }) => {
     const boxes = await mailboxesOf(ctx, accountId);
@@ -1177,6 +1213,7 @@ export const createMailFolder = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   keys: ["name", "parent"],
+  args: { name: { type: "text" }, parent: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { name: textArg(args, "name"), parent: optionalTextArg(args, "parent") };

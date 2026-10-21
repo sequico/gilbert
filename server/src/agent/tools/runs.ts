@@ -18,6 +18,7 @@ export const readRunTool = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["id"],
+  args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     // A reader never writes the run, so it needs no compare-and-set token: the

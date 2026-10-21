@@ -24,6 +24,7 @@ export const findContacts = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["query"],
+  args: { query: { type: "text" } },
   parse: (raw: unknown) => ({ query: textArg(argsRecord(raw), "query") }),
   run: async ({ ctx }, { query }) => {
     const wanted = query.trim().toLowerCase();

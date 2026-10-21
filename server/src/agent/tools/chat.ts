@@ -81,6 +81,7 @@ export const readChat = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["id"],
+  args: { id: { type: "text" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const message = await readChatMessageBy(ctx, accountId, id);
@@ -98,6 +99,7 @@ export const findChat = defineTool({
   authority: "reversible",
   writes: false,
   keys: ["limit", "query"],
+  args: { query: { type: "text" }, limit: { type: "number", max: CHAT_FIND_MAX } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const query = textArg(args, "query");
@@ -145,7 +147,14 @@ const ANSWER_WITH_A_REPLY = "Reply to this message to answer it.";
  * is a message the reader would not render, so it is refused here rather than
  * written and silently cut.
  */
-function chatText(args: Record<string, unknown>): string {
+/**
+ * The most a question may be: the conversation's ceiling, less the line the
+ * question carries and the blank line before it, so what is posted is inside
+ * the ceiling the tool itself refuses.
+ */
+const ASK_TEXT_MAX = CHAT_MAX_TEXT - ANSWER_WITH_A_REPLY.length - 2;
+
+function chatText(args: Record<string, unknown>, max = CHAT_MAX_TEXT): string {
   /*
    * A mention is `@` and the local part, which is what the conversation reads
    * (`mentionsName`). The model is given whole addresses and prefixes them
@@ -155,11 +164,8 @@ function chatText(args: Record<string, unknown>): string {
     /@([^\s@]+)@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
     "@$1",
   );
-  if (text.length > CHAT_MAX_TEXT)
-    throw new ToolError(
-      "bad_arguments",
-      `"text" must be at most ${CHAT_MAX_TEXT} characters.`,
-    );
+  if (text.length > max)
+    throw new ToolError("bad_arguments", `"text" must be at most ${max} characters.`);
   return text;
 }
 
@@ -196,6 +202,7 @@ export const sayInChat = defineTool({
   surface: "chat",
   spend: { steps: 1 },
   keys: ["replyTo", "text"],
+  args: { text: { type: "text", max: CHAT_MAX_TEXT }, replyTo: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { text: chatText(args), replyTo: optionalTextArg(args, "replyTo") };
@@ -224,7 +231,8 @@ export const askInChat = defineTool({
   waits: true,
   spend: { steps: 1 },
   keys: ["text"],
-  parse: (raw: unknown) => ({ text: chatText(argsRecord(raw)) }),
+  args: { text: { type: "text", max: ASK_TEXT_MAX } },
+  parse: (raw: unknown) => ({ text: chatText(argsRecord(raw), ASK_TEXT_MAX) }),
   run: async ({ ctx, accountId, run }, { text }) => {
     /*
      * A question already open on a person is not asked twice: a second run that
