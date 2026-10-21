@@ -74,7 +74,13 @@ import {
 } from "../groupAccess.js";
 import { WRITE_ATTEMPTS } from "../jmap.js";
 import type { LiveSession } from "../sessions.js";
-import { type AgentStatus, isClaimDoc } from "../shared/agent.js";
+import {
+  type AgentStatus,
+  isClaimDoc,
+  isPassStatusDoc,
+  PASS_STATUS_FILE,
+  type PassStatusDoc,
+} from "../shared/agent.js";
 import {
   addMetrics,
   emptyMetrics,
@@ -239,13 +245,29 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    */
   api.get("/admin/agent", requireSession, requireAdmin, async (c) => {
     try {
-      const stored = await readClaim(await masterCtx(c.get("session")));
+      const ctx = await masterCtx(c.get("session"));
+      const stored = await readClaim(ctx);
+      /*
+       * The last pass is read beside the claim and answers the same question
+       * about the process itself: whether the pump is turning. A document this
+       * build cannot read is `null` — the claim's own sentence — rather than a
+       * refusal that would hide the agent's state with it.
+       */
+      let lastPass: PassStatusDoc | null = null;
+      try {
+        const found = await readAppFileAt(ctx, filesAccountId(ctx), PASS_STATUS_FILE);
+        const parsed = found ? (JSON.parse(found.text) as unknown) : null;
+        if (isPassStatusDoc(parsed)) lastPass = parsed;
+      } catch {
+        lastPass = null;
+      }
       const agent: AgentStatus = {
         claim:
           stored && isClaimDoc(stored) && Date.parse(stored.expires) > Date.now()
             ? stored
             : null,
         passSeconds: Math.round(AGENT_PASS_INTERVAL_MS / 1000),
+        lastPass,
       };
       return c.json({ agent });
     } catch (err) {

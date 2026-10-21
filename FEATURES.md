@@ -401,9 +401,14 @@ instant it opened and the instant it ended; the list is most recent first.
 
 **Where the agent is, and what it did, is in Administration → AI Agents**
 (`web/src/views/admin/agents/AgentsView.tsx`): the claim the installation holds — who
-holds it and until when it is believed — with the ten-second pass beside it, and
+holds it and until when it is believed — with the ten-second pass beside it, the
+**last pass** with how long it took, what it read and what it could not cover
+(`gilbert/agent/status.json`, written after a pass that worked something and at
+most once a minute otherwise), and
 the model named with a link to the section that chooses it rather than a second
-set of fields. **Nothing on that page starts or stops the agent**: it is part of
+set of fields. A pass slower than thirty seconds also writes one line to the
+journal, so a stall is read while it is still happening. **Nothing on that page
+starts or stops the agent**: it is part of
 the server, and the boot starts it. Each group's **runs** are drawn as the record
 carries them, since the record is the product (ADR 0030): the change that woke
 the run, the rule or the instruction that answered, every step with what it waited

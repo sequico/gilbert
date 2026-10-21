@@ -79,7 +79,7 @@ async function waitFor(done: () => boolean, timeoutMs = 2_000): Promise<void> {
 
 /** A pass of the loop, with nothing claimed unless the stand-in says otherwise. */
 function passSummary(claimed: boolean, accounts = 1): PassSummary {
-  return { claimed, accounts, changes: 0, runs: 0, due: 0, gaps: [] };
+  return { claimed, accounts, changes: 0, runs: 0, due: 0, ms: 1, gaps: [] };
 }
 
 interface StandIn {
@@ -621,4 +621,30 @@ test("stop gives up the schedule and the loop's alarms", async (t) => {
     stand.passes - before <= 1,
     `no pass is asked after the stop (${stand.passes - before} more)`,
   );
+});
+
+test("a pass slower than an ordinary one is one line, with what it worked", async (t) => {
+  /*
+   * A pass is not an event and writes no log line, which is how an installation
+   * whose agent was working looked like one whose agent had stopped: a pass that
+   * took minutes left a person reading "nothing happened". A slow pass is a line,
+   * and it says what the pass worked.
+   */
+  const { lines, log } = collector();
+  const process = supervise({
+    loop: {
+      async pass(): Promise<PassSummary> {
+        return { ...passSummary(true), ms: 42_000, changes: 2, runs: 1, due: 3 };
+      },
+      stop(): void {},
+    },
+    intervalMs: 5,
+    log,
+  });
+  t.after(() => process.stop());
+
+  await waitFor(() => passLinesIn(lines).some((line) => line.includes("a pass took")));
+  const said = passLinesIn(lines).find((line) => line.includes("a pass took"));
+  assert.match(said ?? "", /42 s/, "the line says how long it took");
+  assert.match(said ?? "", /2 change\(s\), 1 run\(s\), 3 due/, "and what it worked");
 });

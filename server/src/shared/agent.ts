@@ -41,6 +41,55 @@ export interface ClaimDoc {
   expires: string;
 }
 
+/**
+ * The last pass, as the loop leaves it for a reader (`agent/status.json`).
+ *
+ * A pass is not an event and writes no log line, which is how an installation
+ * whose agent was working looked exactly like one whose agent had stopped: the
+ * runs in flight said what was moving, and nothing said whether anything had
+ * been read at all. The document is written after a pass that worked something
+ * or found a gap, and at most once a minute otherwise, so a reader has an
+ * answer that is fresh and a quiet installation still pays almost nothing.
+ */
+export interface PassStatusDoc {
+  v: 1;
+  /** When the pass ended, ISO 8601. */
+  at: string;
+  /** How long it took, in milliseconds. */
+  ms: number;
+  /** Whether this process held the installation's claim and worked at all. */
+  claimed: boolean;
+  /** The accounts it resolved. */
+  accounts: number;
+  /** Changes it read; runs it opened; waits that had come due. */
+  changes: number;
+  runs: number;
+  due: number;
+  /** What it could not cover, named (ADR 0030). */
+  gaps: string[];
+}
+
+/** The app-folder path of the last pass's document. */
+export const PASS_STATUS_FILE = "agent/status.json";
+
+/** Whether a value is a pass-status document this build reads. */
+export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
+  return (
+    isRecord(x) &&
+    x.v === 1 &&
+    isInstant(x.at) &&
+    typeof x.ms === "number" &&
+    Number.isFinite(x.ms) &&
+    typeof x.claimed === "boolean" &&
+    typeof x.accounts === "number" &&
+    typeof x.changes === "number" &&
+    typeof x.runs === "number" &&
+    typeof x.due === "number" &&
+    Array.isArray(x.gaps) &&
+    x.gaps.every((one) => typeof one === "string")
+  );
+}
+
 /** Whether a value is a claim this build reads. */
 export function isClaimDoc(x: unknown): x is ClaimDoc {
   return (
@@ -74,6 +123,14 @@ export interface AgentStatus {
   claim: ClaimDoc | null;
   /** How often the supervisor asks the loop for a pass, in seconds. */
   passSeconds: number;
+  /**
+   * What the last pass did, or null when the document is absent or unreadable.
+   *
+   * The pump's own answer: an installation whose agent is working and one whose
+   * agent has stopped look the same from the runs alone, and this is the line
+   * that tells them apart.
+   */
+  lastPass: PassStatusDoc | null;
 }
 
 /**

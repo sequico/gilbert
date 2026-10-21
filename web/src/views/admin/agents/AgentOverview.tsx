@@ -177,6 +177,28 @@ export function AgentOverview({
               })
             : t("Nobody holds the agent.")}
           {status ? ` ${t("A pass every {n} s.", { n: status.passSeconds })}` : ""}
+          {/*
+           * What the last pass actually did. A pass is not an event and the log
+           * does not carry one, so without this line an agent that is working and
+           * one that has stopped look the same.
+           */}
+          {status?.lastPass
+            ? ` ${t(
+                "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.",
+                {
+                  when: formatFullDate(status.lastPass.at),
+                  changes: status.lastPass.changes,
+                  runs: status.lastPass.runs,
+                  due: status.lastPass.due,
+                  ms: status.lastPass.ms,
+                },
+              )}`
+            : ""}
+          {status?.lastPass?.gaps.length
+            ? ` ${t("It could not cover: {gaps}", {
+                gaps: status.lastPass.gaps.join("; "),
+              })}`
+            : ""}
         </span>
       </section>
       {on === false && (

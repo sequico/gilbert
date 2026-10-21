@@ -102,6 +102,17 @@ export const AGENT_PASS_INTERVAL_MS = 10_000;
  */
 export const AGENT_PASS_INTERVAL_WITH_WAKE_MS = 30_000;
 
+/**
+ * How long a pass may take before it is worth a line.
+ *
+ * A pass is not an event and writes no log line, which is how an installation
+ * whose agent was working looked like one whose agent had stopped: a pass that
+ * took minutes left a person reading "nothing happened" in the journal. Thirty
+ * seconds is several times an ordinary pass with a model call in it, and short
+ * enough that a stall is read while it is still happening.
+ */
+export const SLOW_PASS_MS = 30_000;
+
 /** How long pushes are gathered before one pass is asked for. */
 const KICK_COALESCE_MS = 500;
 
@@ -196,6 +207,10 @@ export function supervise(options: SupervisorOptions): AgentProcess {
       try {
         const summary = await options.loop.pass(now());
         if (summary.claimed) {
+          if (summary.ms > SLOW_PASS_MS)
+            log(
+              `[gilbert] agent: a pass took ${Math.round(summary.ms / 1000)} s — ${summary.changes} change(s), ${summary.runs} run(s), ${summary.due} due; what came after it waited`,
+            );
           if (heldByPeer) {
             heldByPeer = false;
             log("[gilbert] agent: the installation's claim is this process's again");

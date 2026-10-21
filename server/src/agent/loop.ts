@@ -69,6 +69,7 @@ import {
   filesAccountId,
   readAppFileAt,
   readVisibleFileBytes,
+  writeAppFileAt,
 } from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt, postChatMessage } from "../groupChat.js";
@@ -76,6 +77,7 @@ import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
+import { PASS_STATUS_FILE, type PassStatusDoc } from "../shared/agent.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { mapLimit } from "../shared/concurrency.js";
 import { errorMessage } from "../shared/errors.js";
@@ -215,6 +217,8 @@ const ARCHIVE_PER_PASS = 50;
 const ARCHIVE_EVERY_MS = 60 * 60_000;
 /** How stale the off path's reading may be before it starts from now instead. */
 const OFF_READING_FRESH_MS = 60 * 60_000;
+/** How often a pass that worked nothing rewrites the last pass it left. */
+const STATUS_EVERY_MS = 60_000;
 /** How long a run left running without a wait waits before it is tried again. */
 const STUCK_RETRY_MS = 60_000;
 
@@ -236,6 +240,8 @@ export interface PassSummary {
   runs: number;
   /** The runs whose wait had come due and were picked up again. */
   due: number;
+  /** How long the pass took, in milliseconds. */
+  ms: number;
   /**
    * What a change log could not cover, named rather than read as silence
    * (`events.ts`): the pages before the gap were worked, and what fell in it is
@@ -325,6 +331,8 @@ export class AgentLoop {
   private readonly cursors = new Map<string, EventCursor>();
   /** The cursor each account's document already carries, as last written. */
   private readonly savedCursor = new Map<string, string>();
+  /** When the last pass's document was written, so a quiet one is not a write. */
+  private statusAt = 0;
   /**
    * When each account's change cursor was last advanced, by either path.
    *
@@ -436,6 +444,23 @@ export class AgentLoop {
   }
 
   /**
+   * One pass, timed, with what it did left where a person can read it.
+   *
+   * `workPass` is the pass; this is the boundary that says how long it took and
+   * writes the last one into the installation's own `agent/status.json`
+   * (ADR 0030's record, read by the administration). A pass is not an event and
+   * writes no log line, which is exactly how an installation whose agent is
+   * working looked like one whose agent had stopped.
+   */
+  async pass(now = new Date()): Promise<PassSummary> {
+    const started = Date.now();
+    const summary = await this.workPass(now);
+    summary.ms = Date.now() - started;
+    await this.recordStatus(summary);
+    return summary;
+  }
+
+  /**
    * One pass: claim the installation, then work every account's runs and
    * changes.
    *
@@ -448,7 +473,7 @@ export class AgentLoop {
    * (ADR 0027): what the Master works is what Stalwart's directory says at this
    * moment, so a grant added or withdrawn needs no restart.
    */
-  async pass(now = new Date()): Promise<PassSummary> {
+  private async workPass(now: Date): Promise<PassSummary> {
     this.reading = null;
     this.above.clear();
     const summary: PassSummary = {
@@ -457,6 +482,7 @@ export class AgentLoop {
       changes: 0,
       runs: 0,
       due: 0,
+      ms: 0,
       gaps: [],
     };
     const claim = await takeClaim(this.ctx, this.opts.holder, now);
@@ -1161,6 +1187,39 @@ export class AgentLoop {
     if (this.savedCursor.get(accountId) === reached) return;
     await writeCursor(this.ctx, accountId, cursor, now);
     this.savedCursor.set(accountId, reached);
+  }
+
+  /**
+   * Leave the last pass where a person can read it.
+   *
+   * Written after a pass that worked something or found a gap, and otherwise at
+   * most once a minute: a quiet pass is not an event, but a reader still needs to
+   * know the pump is turning, and a write every thirty seconds would be one the
+   * installation pays for saying nothing. A document that cannot be written is
+   * the pass's gap, never a failed pass.
+   */
+  private async recordStatus(summary: PassSummary): Promise<void> {
+    const at = new Date();
+    const worked =
+      summary.changes + summary.runs + summary.due > 0 || summary.gaps.length > 0;
+    if (!worked && at.getTime() - this.statusAt < STATUS_EVERY_MS) return;
+    const doc: PassStatusDoc = {
+      v: 1,
+      at: at.toISOString(),
+      ms: summary.ms,
+      claimed: summary.claimed,
+      accounts: summary.accounts,
+      changes: summary.changes,
+      runs: summary.runs,
+      due: summary.due,
+      gaps: summary.gaps,
+    };
+    try {
+      await writeAppFileAt(this.ctx, filesAccountId(this.ctx), PASS_STATUS_FILE, doc);
+      this.statusAt = at.getTime();
+    } catch (err) {
+      summary.gaps.push(`status: ${errorMessage(err)}`);
+    }
   }
 
   /**
