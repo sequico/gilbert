@@ -235,6 +235,12 @@ export interface ContactsState {
   /** Create an address book; pass `accountId` to create it in a group account, owned by the group. */
   createBook(name: string, accountId?: Id): Promise<Id>;
   /**
+   * Save the addresses written to that no card holds yet, in the reader's own
+   * "Collected" book, so every device suggests them. `own` is the sender's own
+   * addresses, which are never collected. Answers how many cards were created.
+   */
+  collectRecipients(addrs: EmailAddress[], own: string[]): Promise<number>;
+  /**
    * Rename an address book, or patch it some other way.
    *
    * `accountId` is the account that holds it, and a caller that knows it must

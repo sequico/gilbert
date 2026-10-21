@@ -685,6 +685,15 @@ Contacts. A `shareWith` naming every account cannot work — Stalwart caps a sha
 account created later needs nothing added. Every reader sees it as the first row of
 the Contacts sidebar and merged in `All contacts`.
 
+Beside it, the reader's own **Collected** book: after every confirmed send, the
+recipients no card holds yet are saved there — never the sender's own addresses —
+so they are suggested by the composer on every device and not only in the browser
+that sent the message. It is an ordinary address book of the reader's own account
+(created on first use, remembered by id in the settings, emptied or deleted like
+any other) and the switch is Settings > Calendar & contacts > Contacts. Nothing is
+collected while a group's mailbox is the account in view: a reader's
+correspondents belong in their own account, not in a group's directory.
+
 ---
 
 # The knowledge base
@@ -1726,7 +1735,7 @@ mail store because they *are* in the mail store.
 | **Folders** | Create, rename, colour, subscribe |
 | **Labels** | Keyword, display name, colour |
 | **Templates** | Named subject + body, and the recipients it is for |
-| **Calendar & contacts** | Colour categories, working hours, default view, default duration, default reminder |
+| **Calendar & contacts** | Colour categories, working hours, default view, default duration, default reminder, saving the people you write to as contacts |
 | **Notifications** | In-tab notifications, notify-when-closed (Web Push), sound |
 | **Security & sessions** | Password, two-factor state, app passwords, active webmail sessions |
 | **Keyboard shortcuts** | The full list, grouped |

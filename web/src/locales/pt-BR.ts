@@ -1396,6 +1396,11 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Enviar para fora da sua organização?",
     "Send to {count} people?": "Enviar para {count} pessoas?",
     "Show birthdays from your contacts": "Exibir aniversários dos seus contatos",
+    "Save people you write to as contacts":
+      "Salvar como contatos as pessoas para quem você escreve",
+    Collected: "Coletados",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Todos para quem você escreve e que ainda não são contatos são adicionados à agenda Coletados, para serem sugeridos em todos os dispositivos. Seus próprios endereços nunca são adicionados.",
     "Show in the sidebar": "Exibir na barra lateral",
     "Show keyboard shortcuts": "Exibir atalhos de teclado",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":

@@ -1429,6 +1429,10 @@ export const catalog: Catalog = {
       "Kişilerimden gelenlerde otomatik olarak göster",
     "Show avatars in the message list.": "İleti listesinde avatarları göster.",
     "Show birthdays from your contacts": "Kişilerinizdeki doğum günlerini göster",
+    "Save people you write to as contacts": "Yazdığınız kişileri kişi olarak kaydet",
+    Collected: "Toplananlar",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Henüz kişi olmayan tüm alıcılar Toplananlar adres defterine eklenir; böylece her cihazda önerilirler. Kendi adresleriniz hiçbir zaman eklenmez.",
     "Show details": "Ayrıntıları göster",
     "Show headers": "Üstbilgileri göster",
     "Show images": "Görselleri göster",

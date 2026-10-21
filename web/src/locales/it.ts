@@ -2252,6 +2252,13 @@ export const catalog: Catalog = {
 
     "Show birthdays from your contacts": "Mostra i compleanni dei contatti",
 
+    "Save people you write to as contacts": "Salva come contatti le persone a cui scrivi",
+
+    Collected: "Raccolti",
+
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Tutti coloro a cui scrivi e che non sono ancora contatti vengono aggiunti alla rubrica Raccolti, così vengono suggeriti su ogni dispositivo. I tuoi indirizzi non vengono mai aggiunti.",
+
     "Show in the sidebar": "Mostra nella barra laterale",
 
     "Show keyboard shortcuts": "Mostra le scorciatoie da tastiera",

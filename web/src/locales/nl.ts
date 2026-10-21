@@ -1382,6 +1382,11 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Buiten uw organisatie verzenden?",
     "Send to {count} people?": "Naar {count} personen verzenden?",
     "Show birthdays from your contacts": "Verjaardagen van uw contacten tonen",
+    "Save people you write to as contacts":
+      "Mensen aan wie u schrijft als contact opslaan",
+    Collected: "Verzameld",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Iedereen aan wie u schrijft en nog geen contact is, wordt toegevoegd aan het adresboek Verzameld, zodat ze op elk apparaat worden voorgesteld. Uw eigen adressen worden nooit toegevoegd.",
     "Show in the sidebar": "In de zijbalk tonen",
     "Show keyboard shortcuts": "Sneltoetsen tonen",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":

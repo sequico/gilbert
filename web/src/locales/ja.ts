@@ -1389,6 +1389,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "組織の外に送信しますか？",
     "Send to {count} people?": "{count} 人に送信しますか？",
     "Show birthdays from your contacts": "連絡先の誕生日を表示する",
+    "Save people you write to as contacts": "メールを送った相手を連絡先に保存",
+    Collected: "収集した連絡先",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "まだ連絡先になっていない送信先は「収集した連絡先」に追加され、どの端末でも候補に表示されます。ご自身のアドレスが追加されることはありません。",
     "Show in the sidebar": "サイドバーに表示する",
     "Show keyboard shortcuts": "キーボードショートカットを表示",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":

@@ -1349,6 +1349,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "发送到组织外部吗？",
     "Send to {count} people?": "发送给 {count} 个人吗？",
     "Show birthdays from your contacts": "显示联系人的生日",
+    "Save people you write to as contacts": "将您写信的联系人保存为联系人",
+    Collected: "已收集",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "尚未成为联系人的收件人会加入「已收集」通讯录，以便在所有设备上被建议。您自己的地址永远不会被加入。",
     "Show in the sidebar": "在侧边栏中显示",
     "Show keyboard shortcuts": "显示键盘快捷键",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":

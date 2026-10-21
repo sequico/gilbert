@@ -1377,6 +1377,10 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Надіслати за межі організації?",
     "Send to {count} people?": "Надіслати {count} одержувачам?",
     "Show birthdays from your contacts": "Показувати дні народження з контактів",
+    "Save people you write to as contacts": "Зберігати адресатів як контакти",
+    Collected: "Зібрані",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Усі, кому ви пишете і хто ще не є контактом, додаються до адресної книги «Зібрані», щоб вони пропонувалися на кожному пристрої. Ваші власні адреси не додаються ніколи.",
     "Show in the sidebar": "Показувати на бічній панелі",
     "Show keyboard shortcuts": "Показати клавіатурні скорочення",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":

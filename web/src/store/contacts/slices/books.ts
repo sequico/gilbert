@@ -8,6 +8,9 @@ import type {
   SetResponse,
 } from "@/jmap/types";
 import { refuseDirectoryWrite } from "@/lib/globalContactsAdmin";
+import { uniqueAddresses } from "@/lib/address";
+import { contactFromAddress } from "@/lib/contacts";
+import { t } from "@/lib/i18n";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { sharedKey } from "@/lib/sharedKey";
 import { useSession } from "../../session";
@@ -37,6 +40,7 @@ export function booksSlice(
   | "select"
   | "setBookSubscribed"
   | "emptyBook"
+  | "collectRecipients"
   | "createBook"
   | "updateBook"
   | "destroyBook"
@@ -181,6 +185,60 @@ export function booksSlice(
       } finally {
         await get().syncCards();
       }
+    },
+
+    /**
+     * Save the addresses written to that are not on any card yet, in an address
+     * book of their own, so every device suggests them and not only the browser
+     * that sent the message.
+     *
+     * It is the **reader's own** account's book, and only while that is the
+     * account this store is bound to: a group mailbox in view owns cards of its
+     * own, and filing somebody's correspondents into a group's directory would
+     * put them where the reader's other devices do not read. The book is created
+     * on first use and remembered by id, so its name can be anything and an
+     * emptied or deleted one is simply replaced. A deleted book is detected by
+     * its id no longer being in the list.
+     */
+    async collectRecipients(addrs, own) {
+      const self = useSession.getState().ownAccountFor(CAP.contacts);
+      if (!self || get().accountId !== self) return 0;
+      if (!get().available) return 0;
+      // Every card has to be known, or someone already a contact gets a second card.
+      if (!get().loaded) await get().loadAll();
+      const ownSet = new Set(own.map((e) => e.toLowerCase()));
+      const fresh = uniqueAddresses(addrs).filter(
+        (a) =>
+          a.email && !ownSet.has(a.email.toLowerCase()) && !get().lookupByEmail(a.email),
+      );
+      if (!fresh.length) return 0;
+      const { settings, update } = useSettings.getState();
+      let bookId =
+        settings.collectedBookId && get().books[settings.collectedBookId]
+          ? settings.collectedBookId
+          : null;
+      if (!bookId) {
+        bookId = await get().createBook(t("Collected"));
+        update({ collectedBookId: bookId });
+      }
+      const create = Object.fromEntries(
+        fresh.map((a, i) => [
+          `c${i}`,
+          {
+            "@type": "Card",
+            version: "1.0",
+            uid: crypto.randomUUID(),
+            ...contactFromAddress(a),
+            addressBookIds: { [bookId!]: true },
+          },
+        ]),
+      );
+      const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
+        accountId: self,
+        create,
+      });
+      await get().syncCards();
+      return Object.keys(res.created ?? {}).length;
     },
 
     /**

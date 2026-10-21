@@ -1424,6 +1424,11 @@ export const catalog: Catalog = {
     "Send outside your organisation?": "Nach außerhalb Ihrer Organisation senden?",
     "Send to {count} people?": "An {count} Personen senden?",
     "Show birthdays from your contacts": "Geburtstage aus Ihren Kontakten anzeigen",
+    "Save people you write to as contacts":
+      "Personen, denen Sie schreiben, als Kontakte speichern",
+    Collected: "Gesammelt",
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.":
+      "Alle, denen Sie schreiben und die noch kein Kontakt sind, werden dem Adressbuch „Gesammelt“ hinzugefügt, damit sie auf jedem Gerät vorgeschlagen werden. Ihre eigenen Adressen werden nie hinzugefügt.",
     "Show in the sidebar": "In der Seitenleiste anzeigen",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
       "Jemand anderes hat diese Datei gespeichert, während sie geöffnet war. Kopieren Sie Ihre Änderungen, schließen Sie die Datei und beginnen Sie erneut.",
