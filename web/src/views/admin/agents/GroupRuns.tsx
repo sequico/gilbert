@@ -12,6 +12,7 @@ import {
   type RunMetrics,
   type RunSummary,
   stopAllRuns,
+  type StopAllAnswer,
   stopRun,
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
@@ -79,7 +80,13 @@ export function StopRun({
  * parked on a question is the one nothing else will move — a person who wants the
  * agent to stop must be able to say so once.
  */
-export function StopAll({ group, onStopped }: { group: string; onStopped?: () => void }) {
+export function StopAll({
+  group,
+  onStopped,
+}: {
+  group: string;
+  onStopped?: (answer: StopAllAnswer) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
@@ -94,7 +101,7 @@ export function StopAll({ group, onStopped }: { group: string; onStopped?: () =>
           setBusy(true);
           setError(null);
           void stopAllRuns(group)
-            .then(() => onStopped?.())
+            .then((answer) => onStopped?.(answer))
             .catch((err) => setError(errorMessage(err)))
             .finally(() => setBusy(false));
         }}

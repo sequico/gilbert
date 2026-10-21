@@ -107,6 +107,9 @@ import {
   requireSession,
 } from "./shared.js";
 
+/** The most runs one group-wide Stop closes, so its answer fits the browser's deadline. */
+const STOP_ALL_MAX = 20;
+
 /** The answer to a fact this surface could not read or write, or upstream's. */
 const memoryFailure = failureFor(MemoryError);
 
@@ -425,10 +428,21 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       });
       if (!access.ok) return groupDenial(c, access);
       const rows = await listRunsForReading(access.ctx, access.accountId);
-      let stopped = 0;
-      for (const row of rows) {
-        const run = row.run;
-        if (!run || (run.state !== "running" && run.state !== "blocked")) continue;
+      const inFlight = rows
+        .map((row) => row.run)
+        .filter(
+          (run): run is RunDoc =>
+            Boolean(run) && (run!.state === "running" || run!.state === "blocked"),
+        );
+      /*
+       * A sweep has a ceiling, and it is the browser's: one press must answer
+       * inside the client's own deadline, and each run is a read and a
+       * conditional write. A group with more runs in flight than this keeps the
+       * rest, and the answer says how many are still moving rather than closing
+       * the page on a promise.
+       */
+      const runs: string[] = [];
+      for (const run of inFlight.slice(0, STOP_ALL_MAX)) {
         const result = await stopRun(
           access.ctx,
           access.accountId,
@@ -438,9 +452,17 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         // The listing was read before the writes: a run that ended between them
         // is handed back as it is, and is not one this request stopped.
         if (result === "not_found" || result === "moved") continue;
-        if (result.state === "cancelled") stopped += 1;
+        if (result.state === "cancelled") runs.push(run.id);
       }
-      return c.json({ stopped });
+      /*
+       * Read again rather than counted: a run can move under a sweep, and "left"
+       * is what a person sees if they look, so it is asked of the documents.
+       */
+      const after = await listRunsForReading(access.ctx, access.accountId);
+      const left = after.filter(
+        (row) => row.run && (row.run.state === "running" || row.run.state === "blocked"),
+      ).length;
+      return c.json({ stopped: runs.length, runs, left });
     } catch (err) {
       return doorFailure(c, err);
     }

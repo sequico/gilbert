@@ -320,10 +320,23 @@ export function AgentOverview({
                 <h3 style={{ margin: "8px 0 6px" }}>{entry.group}</h3>
                 <StopAll
                   group={entry.group}
-                  onStopped={() =>
+                  onStopped={(answer) =>
+                    /*
+                     * Only the rows the server says it closed leave the list: a
+                     * sweep can leave one moving, and a page that blanked the
+                     * group would be claiming an outcome nobody observed. The
+                     * next read settles whatever is left.
+                     */
                     setLive((held) =>
                       held.map((row) =>
-                        row.group === entry.group ? { ...row, runs: [] } : row,
+                        row.group === entry.group
+                          ? {
+                              ...row,
+                              runs: row.runs.filter(
+                                (listed) => !answer.runs.includes(listed.id),
+                              ),
+                            }
+                          : row,
                       ),
                     )
                   }
