@@ -106,6 +106,16 @@ export interface ListQuery {
 
 export interface ListState extends ListQuery {
   ids: Id[];
+  /**
+   * The window this one replaced, drawn only while the new one is being read.
+   *
+   * A folder switch is not a list that lost its mail: emptying it for every
+   * read is the empty pane and the skeleton bars that flash on each click. The
+   * previous window is carried for the length of one query and never named by
+   * an action — the selection is cleared when a query starts, so nothing can be
+   * done to a row that belongs to somewhere else.
+   */
+  previousIds?: Id[];
   total: number;
   queryState: string | null;
   loading: boolean;

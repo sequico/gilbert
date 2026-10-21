@@ -81,6 +81,9 @@ export function releaseHeld(
 ): Pick<MailState, "emails" | "fullIds" | "threads"> {
   const held = new Set<Id>(keep);
   for (const id of s.list?.ids ?? []) held.add(id);
+  // The window a running read replaced is still on screen: it is drawn until
+  // that read lands, so its messages must not be released under it.
+  for (const id of s.list?.previousIds ?? []) held.add(id);
   for (const id of s.lastThreadEmailIds) held.add(id);
   for (const id of Object.keys(s.selected)) held.add(id);
   const open = s.openThreadId ? s.threads[s.openThreadId] : undefined;

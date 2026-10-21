@@ -195,6 +195,14 @@ export function listingSlice(
           ...q,
           key,
           ids: reuse ? cur.ids : [],
+          /*
+           * What the rows showed until this read: drawn by the list while the
+           * answer is in flight (`MessageList`), so a folder switch never
+           * empties the pane. Actions cannot reach it — the selection is
+           * cleared below and the rows are made inert while the window is
+           * being replaced.
+           */
+          previousIds: reuse ? [] : (cur?.ids ?? []),
           total: reuse ? cur.total : 0,
           queryState: null,
           loading: true,
@@ -228,18 +236,25 @@ export function listingSlice(
           void get().refreshList();
           return;
         }
-        set((s) => ({
-          list: s.list
-            ? {
-                ...s.list,
-                ids,
-                total,
-                queryState,
-                loading: false,
-                exhausted: ids.length >= total,
-              }
-            : s.list,
-        }));
+        set((s) => {
+          if (!s.list) return {};
+          /*
+           * The answer replaces the window. The rows the query carried are on
+           * screen no longer, so the messages behind them are let go with them:
+           * the carried window is a place to look while waiting, never a second
+           * list kept afterwards.
+           */
+          const list = {
+            ...s.list,
+            ids,
+            previousIds: [],
+            total,
+            queryState,
+            loading: false,
+            exhausted: ids.length >= total,
+          };
+          return { ...releaseHeld({ ...s, list }, ids), list };
+        });
       } catch (err) {
         if (get().list?.key !== key) return;
         set((s) => ({

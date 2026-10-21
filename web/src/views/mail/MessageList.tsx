@@ -213,7 +213,30 @@ export function MessageList({
     live: false,
   });
 
-  const ids = list?.ids ?? [];
+  /*
+   * The rows to draw: the window being read, or the one it replaced while that
+   * read is in flight. A folder switch is not a list that lost its mail, and
+   * emptying it for each one is the pane that flashes black on every click.
+   * Only the drawing reads this — every action reads `list.ids`, which is empty
+   * until the answer lands, and the carried rows are made inert below.
+   */
+  const ids = list
+    ? list.ids.length
+      ? list.ids
+      : list.loading
+        ? (list.previousIds ?? [])
+        : []
+    : [];
+  /** Rows of another folder, drawn while this one is read. */
+  const carrying = Boolean(list?.loading && !list.ids.length && ids.length);
+  /*
+   * A window opens at its own top. The rows of the folder being left stay on
+   * screen while the next one is read, and carrying the offset they were read
+   * at would open the new folder halfway down.
+   */
+  useEffect(() => {
+    if (scrollEl) scrollEl.scrollTop = 0;
+  }, [list?.key, scrollEl]);
   const selCount = Object.keys(selected).length;
   const mailbox = mailboxId ? mailboxes[mailboxId] : undefined;
   /*
@@ -786,9 +809,16 @@ export function MessageList({
           parentRef.current = el;
           setScrollEl(el);
         }}
-        className={`mail-list ${selCount ? "has-selection" : ""} ${twoLine ? "two-line" : ""} ${settings.density === "compact" ? "compact" : ""}`}
+        className={`mail-list ${selCount ? "has-selection" : ""} ${twoLine ? "two-line" : ""} ${settings.density === "compact" ? "compact" : ""} ${carrying ? "busy" : ""}`}
+        aria-busy={carrying}
         tabIndex={-1}
       >
+        {/*
+          A folder being read under rows that belong to the one before it: a
+          two-pixel bar says the answer is on its way, where an empty pane and
+          twelve skeleton rows used to say the mail had gone.
+        */}
+        {carrying && <div className="list-loading" aria-hidden="true" />}
         {/*
           The pull dial. Zero-height and sticky, so it rides the top of the
           scroller without taking a row's worth of space from the list when
@@ -833,12 +863,12 @@ export function MessageList({
           }
         >
           {list?.loading && ids.length === 0 ? (
-            <div style={{ padding: 8 }}>
+            <div className="skeleton-list">
               {[...Array(12)].map((_, i) => (
                 <div
                   key={i}
-                  className="row"
-                  style={{ height: rowHeight, padding: "0 8px", gap: 12 }}
+                  className="row skeleton-row"
+                  style={{ height: rowHeight, padding: "0 12px", gap: 12 }}
                 >
                   <span
                     className="skeleton"

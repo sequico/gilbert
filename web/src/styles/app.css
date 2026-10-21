@@ -1236,6 +1236,15 @@ a.menu-item:hover { color: var(--fg); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .skeleton { background: linear-gradient(90deg, var(--bg-sunken) 25%, var(--bg-hover) 37%, var(--bg-sunken) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 6px; }
 @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+/* The placeholder rows stand for message rows, so they wear a row's own
+   surface: drawn bare, the shimmer bars sit straight on the page and read as
+   dark bands filling the list. */
+.skeleton-list { padding: 8px 0; }
+.mail-list .skeleton-row { background: var(--read-bg); border-bottom: 1px solid var(--border); }
+/* The rows on screen belong to the folder being left; this is the read that is
+   replacing them. A row of a folder nobody is looking at opens nothing. */
+.list-loading { position: sticky; top: 0; z-index: 3; height: 2px; margin-bottom: -2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 200% 100%; animation: shimmer 1.2s ease infinite; }
+.mail-list.busy .msg-row { pointer-events: none; }
 .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 48px 24px; color: var(--fg-muted); text-align: center; }
 .empty svg { color: var(--fg-faint); }
 .empty h3 { margin: 8px 0 0; font-weight: 600; color: var(--fg); }

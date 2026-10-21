@@ -39,6 +39,15 @@ export function accountSlice(
       if (accountId === get().accountId) return;
       // Nothing held in full belongs to the account being left behind.
       resetBodyOrder();
+      /*
+       * The folder tree of the account being opened, when this session has
+       * already read it: kept in `accountTrees` for exactly this. The probe
+       * refreshes it a moment later, but the sidebar is that account's own
+       * column -- blanking it for the round trip is the whole left side of the
+       * window disappearing and drawing itself again on every switch. A first
+       * visit has no tree yet and waits, which is honest.
+       */
+      const cachedTree = accountId ? get().accountTrees[accountId] : undefined;
       set({
         accountId,
         /* The per-account state below belongs to whichever account is active.
@@ -51,9 +60,9 @@ export function accountSlice(
               accountTrees: get().accountTrees,
             }
           : { ownAccountId: null, mailAccounts: [], accountTrees: {} }),
-        mailboxes: {},
+        mailboxes: cachedTree ?? {},
         mailboxState: null,
-        mailboxesLoaded: false,
+        mailboxesLoaded: Boolean(cachedTree),
         emails: {},
         fullIds: {},
         emailState: null,
