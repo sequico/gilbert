@@ -133,9 +133,9 @@ interface FactRecord {
  * (`agent/loop.ts`), so a store of many thousands of facts is not walked again
  * for every change in the pass, nor again for every write. What that costs is
  * written down where it is paid: a fact written during a pass is visible to the
- * **next** pass and not to the pass that wrote it, and a second write of the same
- * pass carries the same token, so it loses the compare-and-set and says so on its
- * step rather than overwriting what the first one wrote.
+ * **next** pass and not to the pass that wrote it, and the writes of one
+ * process are made one at a time (`rememberFact`), so the token a write carries
+ * is the one the write before it produced.
  */
 export interface MemoryStore {
   state: string;
@@ -342,21 +342,50 @@ export async function rememberFact(
   write: FactWrite,
   store: MemoryStore,
 ): Promise<FactDoc> {
-  try {
-    return await writeFact(ctx, accountId, write, store);
-  } catch (err) {
-    if (!isStateMismatch(err)) throw err;
-    const fresh = await listFacts(ctx, accountId);
-    /*
-     * A person's sheet is never written against words this call did not read:
-     * the memory moved because a person corrected it, and the agent's proposal
-     * is concluded against the correction — the fresh reading carries it, and
-     * `writeFact` records the proposal beside it rather than over it. Anything
-     * else that moved (a subject another call of this pass created, a sheet of
-     * the agent's own) is decided again against the fresh reading the same way.
-     */
-    return await writeFact(ctx, accountId, write, fresh);
-  }
+  return await oneAtATime(accountId, async () => {
+    try {
+      return await writeFact(ctx, accountId, write, store);
+    } catch (err) {
+      if (!isStateMismatch(err)) throw err;
+      const fresh = await listFacts(ctx, accountId);
+      /*
+       * A person's sheet is never written against words this call did not read:
+       * the memory moved because a person corrected it, and the agent's proposal
+       * is concluded against the correction — the fresh reading carries it, and
+       * `writeFact` records the proposal beside it rather than over it. Anything
+       * else that moved (a subject another process wrote) is decided again
+       * against the fresh reading the same way.
+       */
+      return await writeFact(ctx, accountId, write, fresh);
+    }
+  });
+}
+
+/**
+ * The memory's own writes, one at a time.
+ *
+ * The store is one document per subject in the Master's account, and a pass
+ * works every group at once (`agent/loop.ts`): two runs of two groups
+ * remembering a fact in the same second carried the same account state, and one
+ * of them lost the compare-and-set and paid a failed step for it. There is no
+ * lock to take — JMAP offers none — and none is needed: one process is the
+ * installation's agent (ADR 0032), so chaining this process's writes is the
+ * whole of the contention. A person's own correction is still guarded by the
+ * state its reading saw, which is what the retry above is for.
+ */
+const memoryWrites = new Map<string, Promise<unknown>>();
+
+function oneAtATime<T>(accountId: string, work: () => Promise<T>): Promise<T> {
+  const previous = memoryWrites.get(accountId) ?? Promise.resolve();
+  const next = previous.then(work, work);
+  memoryWrites.set(
+    accountId,
+    next.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return next;
 }
 
 async function writeFact(

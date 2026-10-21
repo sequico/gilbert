@@ -23,6 +23,7 @@
  * - a turn's plan is executed together — three independent calls are three steps,
  *   a refused call leaves its siblings' steps beside it, the ready calls run at
  *   once, and a wait is honoured after them;
+ * - a wave asks the server for at most four calls at once;
  * - a step that waits on an earlier one runs the branch that step's outcome
  *   names and is left unrun when no branch does, and the record says which step
  *   and which outcome left it;
@@ -39,8 +40,7 @@
  * - every call is told the installation's line and the group's standing
  *   instruction, in the record's order, above the rule's own;
  * - two `memory.remember` calls in one answer leave one sheet for the subject:
- *   the call that lost the compare-and-set reads the memory again and updates
- *   the sheet, so neither is a refused step.
+ *   the writes of one process are chained, so neither is a refused step.
  */
 
 import assert from "node:assert/strict";
@@ -683,6 +683,59 @@ test("no mark on a message is activity a rule answers, its own or a person's", a
   );
   const third = await agent.pass();
   assert.equal(third.runs, 0, "a person's mark on it wakes nothing either");
+});
+
+test("a wave asks the server for at most four calls at once", async () => {
+  /*
+   * A live answer listed the same folder thirteen times and the thirteen calls
+   * went to Stalwart together; it answered `400` — "The request exceeds the
+   * maximum number of concurrent requests" — and the run paid a failed step for
+   * each. The wave is a burst of independent calls, so it is bounded here, and
+   * every step still runs.
+   */
+  const id = "intake-wave";
+  await putRule(id);
+  let inFlight = 0;
+  let peak = 0;
+  const slow = defineTool<{ path: string }>({
+    name: "files.list",
+    description: "A listing slow enough to see how many of them run together.",
+    authority: "reversible",
+    writes: false,
+    surface: "files",
+    spend: { steps: 1 },
+    keys: ["path"],
+    parse: (raw: unknown) => raw as { path: string },
+    run: async (_call, args) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      inFlight -= 1;
+      return { path: args.path };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, slow] });
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: Array.from({ length: 9 }, (_, at) => ({
+      name: "files.list",
+      arguments: { path: `MS2/${at}` },
+    })),
+  });
+  answerWith({ done: "nine listings, and never more than four at once" });
+  await deliver("nine folders to list");
+  await agent.pass();
+
+  assert.equal(peak, 4, "the wave is bounded, and the bound is the server's ceiling");
+  const run = await runOf(id);
+  assert.equal(run.state, "done");
+  assert.equal(
+    run.plan.filter((step) => step.state === "done").length,
+    9,
+    "and bounding the burst did not lose a step of the answer",
+  );
 });
 
 test("every rule that fits one change opens its own run", async () => {
@@ -2558,12 +2611,12 @@ test("a fact one run learns is handed to the next change's call, and the record 
 
 test("two memories of one answer leave one sheet, and neither step is refused", async () => {
   /*
-   * A `memory.remember` repeated in one answer is two steps of one wave
-   * (`Promise.allSettled`), and both decide against the pass's **one** reading of
-   * the store (ADR 0033): each finds the subject absent and each asks for a
-   * sheet. The first lands and moves the state; the second loses the
-   * compare-and-set, reads the memory again, finds the sheet, and updates it —
-   * one subject stays one sheet, and the fact is not lost to a refusal.
+   * A `memory.remember` repeated in one answer is two steps of one wave, and
+   * both decide against the pass's **one** reading of the store (ADR 0033): each
+   * finds the subject absent and each asks for a sheet. The writes of one
+   * process are chained, so the first lands and moves the state and the second
+   * writes against that state — one subject stays one sheet, and the fact is not
+   * lost to a refusal.
    */
   const id = "intake-remember-twice";
   await putRule(id);

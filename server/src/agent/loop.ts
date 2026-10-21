@@ -77,6 +77,7 @@ import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
+import { mapLimit } from "../shared/concurrency.js";
 import { errorMessage } from "../shared/errors.js";
 import {
   INSTALLATION_FILE,
@@ -168,6 +169,19 @@ import {
  */
 const RUN_CALLS_MAX = 40;
 const RUN_MS_MAX = 5 * 60_000;
+
+/**
+ * How many steps of one wave run at once.
+ *
+ * A model's answer that reaches for the same folder thirteen times is one
+ * delivery of six files, and the thirteen calls went to the server together:
+ * Stalwart answered `400` — *"The request exceeds the maximum number of
+ * concurrent requests"* (`maxConcurrentRequests`) — and a run paid a failed
+ * step for each. The wave is a burst of independent calls, so a bound is what
+ * makes it a burst the server can take; four keeps every one of them under
+ * that ceiling and still turns a round trip each into a handful.
+ */
+const TOOL_WAVE_MAX = 4;
 
 /**
  * How close to lapsing the claim is renewed.
@@ -1389,10 +1403,11 @@ export class AgentLoop {
           wave.push({ at, call });
         }
         /*
-         * A wave runs together: the steps that are ready at one moment wait on
-         * nothing that is still to end, so they are made at once and each is
-         * awaited by its own step. `allSettled` never rejects, so one call's
-         * refusal is its own failed step and its siblings' steps are on the
+         * A wave runs together, up to the server's own ceiling: the steps that
+         * are ready at one moment wait on nothing that is still to end, so they
+         * are made together and each is awaited by its own step, and never more
+         * than `TOOL_WAVE_MAX` of them at once. A refusal never rejects the
+         * wave — it is its own failed step, and its siblings' steps are on the
          * record beside it.
          */
         const ranMs = Date.now();
@@ -1403,22 +1418,27 @@ export class AgentLoop {
          * (ADR 0033).
          */
         const store = await this.memory();
-        const settled = await Promise.allSettled(
-          wave.map(({ call }) =>
-            runTool(
-              this.catalogue,
-              {
-                ctx: this.ctx,
-                accountId,
-                run: current,
-                memory: store,
-                readImage: this.eyes,
-              },
-              call.name,
-              call.args,
-            ),
-          ),
-        );
+        const settled = await mapLimit(wave, TOOL_WAVE_MAX, async ({ call }) => {
+          try {
+            return {
+              status: "fulfilled" as const,
+              value: await runTool(
+                this.catalogue,
+                {
+                  ctx: this.ctx,
+                  accountId,
+                  run: current,
+                  memory: store,
+                  readImage: this.eyes,
+                },
+                call.name,
+                call.args,
+              ),
+            };
+          } catch (reason) {
+            return { status: "rejected" as const, reason };
+          }
+        });
         const elapsedMs = Date.now() - ranMs;
         let worked = false;
         for (const [which, { at, call }] of wave.entries()) {

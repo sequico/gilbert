@@ -332,11 +332,10 @@ test("a person's correction and removal are refused when the memory moved under 
 
 test("two writes of one reading leave one sheet for one subject", async () => {
   /*
-   * Two `memory.remember` calls in one answer run **together** (the loop's wave,
-   * `Promise.allSettled`) and both are made against the pass's one reading
-   * (ADR 0033), so each finds the subject absent and each asks for a sheet. The
-   * first lands and moves the state; the second loses the compare-and-set, reads
-   * the memory again, finds the sheet the other call made, and updates it. One
+   * Two `memory.remember` calls in one answer are made against the pass's one
+   * reading (ADR 0033), so each finds the subject absent and each asks for a
+   * sheet. The writes of one process are chained (`rememberFact`), so the first
+   * lands and moves the state and the second writes against that state — one
    * subject stays one sheet, and neither call is refused.
    */
   const reading = await store();
@@ -378,6 +377,39 @@ test("two writes of one reading leave one sheet for one subject", async () => {
     sheets[0]?.fact,
     "the same shipper, said again",
     "the later sentence stands",
+  );
+});
+
+test("writes made at once are made one at a time, so none loses the race", async () => {
+  /*
+   * A pass works every group at once (`agent/loop.ts`), and two runs of two
+   * groups remembering a fact in the same second carried the same account state:
+   * one of them lost the compare-and-set and paid a failed step for it. One
+   * process is the installation's agent (ADR 0032), so this process's writes are
+   * chained — six at once, three subjects each said twice, all land.
+   */
+  const reading = await store();
+  const writes = ["Hapag", "CMA CGM", "MSC"].flatMap((subject) => [
+    { subject, fact: `${subject} books here`, run: "r-burst", at: AT, group: accountId },
+    {
+      subject,
+      fact: `${subject} books here, as the office says`,
+      run: "r-burst",
+      at: AT,
+      group: accountId,
+    },
+  ]);
+  const docs = await Promise.all(
+    writes.map((write) => rememberFact(ctx, accountId, write, reading)),
+  );
+  for (const doc of docs) if (!written.includes(doc.id)) written.push(doc.id);
+  const held = (await store()).facts.filter((fact) =>
+    writes.some((write) => sameSubject(fact.subject, write.subject)),
+  );
+  assert.equal(
+    held.length,
+    3,
+    "one sheet per subject, whatever order the six writes were made in",
   );
 });
 
