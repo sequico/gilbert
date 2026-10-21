@@ -894,6 +894,39 @@ test("a mention no rule covers is answered rather than left in silence", async (
   assert.ok(said[0]?.replyTo, "in the thread they wrote in");
 });
 
+test("a run that already answered in the conversation does not repeat its ending", async () => {
+  /*
+   * A run whose own report is on the conversation has been heard: saying the
+   * ending beside it would be two messages for one piece of work. What a `done`
+   * run must say is said when it said nothing.
+   */
+  const id = "intake-spoke";
+  await putRule(id, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  onCall = (system) => {
+    if (isDecision(system)) return { rules: [id], facts: {} };
+    const turns = seen.filter((call) => !isDecision(call.system)).length;
+    return turns < 2
+      ? { calls: [{ name: "chat.say", arguments: { text: "the files are filed" } }] }
+      : { done: "all filed" };
+  };
+  await postChatMessage(ctx, accountId, "sam@example.org", "@gilbert file them");
+  await agent.pass();
+
+  assert.equal(
+    (await findChatMessages(ctx, accountId, "the files are filed", 5)).length,
+    1,
+    "the run's own report is the word",
+  );
+  assert.equal(
+    (await findChatMessages(ctx, accountId, "Done: all filed", 5)).length,
+    0,
+    "and the ending is not said a second time",
+  );
+});
+
 test("every rule that fits one change opens its own run", async () => {
   // Two rules a group wrote over the same surface. Both are its decision, so
   // neither is set aside for the other: the change is put to the decision turn

@@ -72,12 +72,12 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
-import { readChatMessage, readChatMessageAt, postChatMessage } from "../groupChat.js";
+import { postChatMessage, readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
-import { CAPABILITIES } from "../shared/capabilities.js";
 import { PASS_STATUS_FILE, type PassStatusDoc } from "../shared/agent.js";
+import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { mapLimit } from "../shared/concurrency.js";
 import { errorMessage } from "../shared/errors.js";
@@ -544,6 +544,15 @@ export class AgentLoop {
       if (master && !offAccounts.includes(master)) offAccounts.push(master);
       await Promise.all(
         offAccounts.map(async (accountId) => {
+          const problems: string[] = [];
+          /*
+           * The cursor the last process left is restored **before** the age
+           * question below, so a boot while the agent is off answers the mentions
+           * that arrived while it was down, and the hour's rule still applies to
+           * a cursor that is genuinely old.
+           */
+          const unreadable = await this.restoreCursor(accountId);
+          if (unreadable) problems.push(unreadable);
           /*
            * A notice is for what has just arrived. A cursor nobody has advanced
            * for an hour would answer every mention of that time: past the hour,
@@ -553,9 +562,6 @@ export class AgentLoop {
            */
           if (now.getTime() - (this.cursorAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
             this.cursors.delete(accountId);
-          const problems: string[] = [];
-          const held = await this.restoreCursor(accountId);
-          if (held) problems.push(held);
           await offPath(
             { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
             accountId,
@@ -1199,6 +1205,9 @@ export class AgentLoop {
    * the pass's gap, never a failed pass.
    */
   private async recordStatus(summary: PassSummary): Promise<void> {
+    // A peer's installation is not this process's to write about: the one that
+    // holds the claim says what the last pass did.
+    if (!summary.claimed) return;
     const at = new Date();
     const worked =
       summary.changes + summary.runs + summary.due > 0 || summary.gaps.length > 0;
@@ -1634,8 +1643,9 @@ export class AgentLoop {
    * **What speaks.** Every run that ends otherwise than `done`, `blocked` and
    * `cancelled`: a question it asked and a stop a person took are already words
    * between them, and a failure is news nobody else carries. A `done` run speaks
-   * when a person woke it in the conversation — the person asked, so the person
-   * hears the answer — and a background run keeps its record.
+   * when a person woke it in the conversation **and it has not spoken there** —
+   * the person asked, so the person hears the answer; a run whose own report is
+   * on the conversation has been heard, and a background run keeps its record.
    *
    * The saying is a message of the group's own conversation (`groupChat.ts`),
    * a reply to the message that woke it when there is one. A saying that cannot
@@ -1651,7 +1661,16 @@ export class AgentLoop {
   ): Promise<RunDoc | null> {
     let current = run;
     const woke = chatWoken(run.startedBy.woke);
-    if (ending === "out-of-budget" || (ending === "done" && woke)) {
+    /*
+     * A run that already spoke in the conversation is heard: its own report is
+     * the word, and repeating the ending beside it would be two messages for one
+     * piece of work. What a `done` run has to say is said when it said nothing —
+     * which is the live case this closes (files saved, no line at all).
+     */
+    const spoke = run.plan.some(
+      (step) => step.state === "done" && /^chat\.(say|ask) /.test(step.what),
+    );
+    if (ending === "out-of-budget" || (ending === "done" && woke && !spoke)) {
       const text =
         ending === "done"
           ? `Done: ${end.why}`
