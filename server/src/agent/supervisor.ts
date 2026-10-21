@@ -105,11 +105,12 @@ export const AGENT_PASS_INTERVAL_WITH_WAKE_MS = 30_000;
 /**
  * How long a pass may take before it is worth a line.
  *
- * A pass is not an event and writes no log line, which is how an installation
- * whose agent was working looked like one whose agent had stopped: a pass that
- * took minutes left a person reading "nothing happened" in the journal. Thirty
- * seconds is several times an ordinary pass with a model call in it, and short
- * enough that a stall is read while it is still happening.
+ * A pass is not an event, and its own line is written **when it returns**: this
+ * one says a pass finished late, with what it worked. A pass that never returns
+ * writes nothing here, and that is read from the loop's progress lines instead —
+ * it names the account and the run it started and never finished (`loop.ts`,
+ * its `log`). Thirty seconds is several times an ordinary pass with a model call
+ * in it.
  */
 export const SLOW_PASS_MS = 30_000;
 
@@ -393,6 +394,7 @@ export async function startAgent(
       ...(boot.installation.agent.instruction
         ? { installation: boot.installation.agent.instruction }
         : {}),
+      log,
     });
     return supervise({ loop, intervalMs: options.intervalMs, log });
   } catch (err) {

@@ -53,6 +53,7 @@ export interface ClaimDoc {
  * answer that is fresh and a quiet installation still pays almost nothing.
  */
 export interface PassStatusDoc {
+  /** The version this build writes. A reader does not insist on it. */
   v: 1;
   /** When the pass ended, ISO 8601. */
   at: string;
@@ -90,12 +91,20 @@ export interface PassStatusDoc {
 /** The app-folder path of the last pass's document. */
 export const PASS_STATUS_FILE = "agent/status.json";
 
-/** Whether a value is a pass-status document this build reads. */
+/**
+ * Whether a value is a pass-status document this build reads.
+ *
+ * A **report**, not a contract: the version is not insisted on, so a document
+ * written by a build that bumped it — with a field this one does not know, or a
+ * version number it has never seen — is still read rather than turned into the
+ * silence the document exists to cure. Every field the surface draws must be
+ * there and sane; anything else is ignored.
+ */
 export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
   const ended = isRecord(x) ? (x as { lastEnded?: unknown }).lastEnded : undefined;
   return (
     isRecord(x) &&
-    x.v === 1 &&
+    (x.v === undefined || typeof x.v === "number") &&
     isInstant(x.at) &&
     isFiniteNumber(x.ms) &&
     typeof x.claimed === "boolean" &&

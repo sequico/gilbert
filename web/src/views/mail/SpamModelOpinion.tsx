@@ -1,5 +1,5 @@
 import type { Email } from "@/jmap/types";
-import { t as translate, tc } from "@/lib/i18n";
+import { tc, t as translate } from "@/lib/i18n";
 import { spamModelOpinion } from "@/lib/spamScore";
 
 /**

@@ -178,6 +178,13 @@ export interface RunStep {
   outcome: string;
   /** What it waits on, or null when it is ready as soon as the run reaches it. */
   needs: RunStepNeeds | null;
+  /**
+   * Whether this step answered **the message that woke the run**, when it spoke
+   * in the conversation. It is what `spoke` reads: a run has been heard by the
+   * person who asked only when a step replied to *their* message, not when some
+   * step said something in the chat about something else (ADR 0030).
+   */
+  repliedToWake?: boolean;
 }
 
 /** What a run waits for, where it asked, and until when (ADR 0029, 0030). */
@@ -486,7 +493,8 @@ function isStep(x: unknown): x is RunStep {
     !!x.what &&
     isStepState(x.state) &&
     typeof x.outcome === "string" &&
-    (x.needs === null || isStepNeeds(x.needs))
+    (x.needs === null || isStepNeeds(x.needs)) &&
+    (x.repliedToWake === undefined || typeof x.repliedToWake === "boolean")
   );
 }
 
@@ -791,7 +799,11 @@ export function startRun(input: {
 export function recordStep(
   run: RunDoc,
   index: number,
-  ended: { state: RunStepOutcome | "skipped"; outcome: string },
+  ended: {
+    state: RunStepOutcome | "skipped";
+    outcome: string;
+    repliedToWake?: boolean;
+  },
 ): RunDoc {
   mustBeRunning(run);
   const step = run.plan[index];
@@ -802,6 +814,7 @@ export function recordStep(
     state: ended.state,
     outcome: ended.outcome,
     needs: step.needs,
+    ...((ended.repliedToWake ?? step.repliedToWake) ? { repliedToWake: true } : {}),
   };
   return { ...run, plan };
 }

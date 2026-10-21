@@ -37,6 +37,7 @@ export {
   readChildren,
   withoutAppFolder,
 } from "./shared";
+
 useSession.subscribe((s) => {
   if (s.status !== "authenticated")
     useFiles.setState({ accountId: null, nodes: {}, children: {}, listingShown: null });

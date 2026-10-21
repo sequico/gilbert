@@ -462,7 +462,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const left = after.filter(
         (row) => row.run && (row.run.state === "running" || row.run.state === "blocked"),
       ).length;
-      return c.json({ stopped: runs.length, runs, left });
+      return c.json({ stopped: runs.length, runs, left, max: STOP_ALL_MAX });
     } catch (err) {
       return doorFailure(c, err);
     }

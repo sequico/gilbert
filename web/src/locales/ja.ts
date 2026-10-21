@@ -2156,6 +2156,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "これを引き継いだワークオーダー",
     "Load earlier messages": "以前のメッセージを読み込む",
     "Runs in flight": "進行中の実行",
+    "{left} still moving: one press closes {max} runs.":
+      "残り {left} 件が進行中です。1 回で {max} 件まで停止します。",
     "Waiting on a person": "担当者の回答待ち",
     "Nobody holds the agent.": "エージェントを保持しているプロセスはありません。",
   },

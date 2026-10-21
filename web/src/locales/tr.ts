@@ -2079,6 +2079,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "Bunun yerine geçen iş emri",
     "Load earlier messages": "Önceki iletileri yükle",
     "Runs in flight": "Sürmekte olan çalışmalar",
+    "{left} still moving: one press closes {max} runs.":
+      "{left} hâlâ sürüyor: bir basış {max} çalışmayı kapatır.",
     "Waiting on a person": "Bir kişi bekleniyor",
     "Nobody holds the agent.": "Aracıyı tutan yok.",
   },

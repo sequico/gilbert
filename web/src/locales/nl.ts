@@ -2160,6 +2160,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "De werkorder die deze heeft opgevolgd",
     "Load earlier messages": "Eerdere berichten laden",
     "Runs in flight": "Lopende uitvoeringen",
+    "{left} still moving: one press closes {max} runs.":
+      "{left} nog in beweging: één druk sluit {max} uitvoeringen.",
     "Waiting on a person": "Wacht op een persoon",
     "Nobody holds the agent.": "Niemand houdt de agent.",
   },

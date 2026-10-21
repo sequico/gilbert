@@ -253,6 +253,8 @@ export interface StopAllAnswer {
   stopped: number;
   runs: string[];
   left: number;
+  /** The most runs one press closes, which is what a partial answer is measured against. */
+  max: number;
 }
 
 /**
@@ -264,6 +266,7 @@ export async function stopAllRuns(group: string): Promise<StopAllAnswer> {
     stopped?: number;
     runs?: string[];
     left?: number;
+    max?: number;
   }>(`/api/groups/${encodeURIComponent(group)}/runs/stop`, { method: "POST" });
   return {
     stopped: typeof answer.stopped === "number" ? answer.stopped : 0,
@@ -271,5 +274,6 @@ export async function stopAllRuns(group: string): Promise<StopAllAnswer> {
       ? answer.runs.filter((id): id is string => typeof id === "string")
       : [],
     left: typeof answer.left === "number" ? answer.left : 0,
+    max: typeof answer.max === "number" ? answer.max : 0,
   };
 }

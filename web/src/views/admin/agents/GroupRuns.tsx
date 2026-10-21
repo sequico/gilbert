@@ -11,8 +11,8 @@ import {
   type RunListing,
   type RunMetrics,
   type RunSummary,
-  stopAllRuns,
   type StopAllAnswer,
+  stopAllRuns,
   stopRun,
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
@@ -89,6 +89,13 @@ export function StopAll({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * What the sweep could not close, said rather than left to the page: a person
+   * who pressed Stop all and still sees rows is owed the reason, or the rows read
+   * as a command that did nothing. The count is the server's, the ceiling is the
+   * server's, and neither is guessed here.
+   */
+  const [left, setLeft] = useState<{ left: number; max: number } | null>(null);
   return (
     <>
       <button
@@ -100,8 +107,12 @@ export function StopAll({
           event.stopPropagation();
           setBusy(true);
           setError(null);
+          setLeft(null);
           void stopAllRuns(group)
-            .then((answer) => onStopped?.(answer))
+            .then((answer) => {
+              onStopped?.(answer);
+              if (answer.left > 0) setLeft({ left: answer.left, max: answer.max });
+            })
             .catch((err) => setError(errorMessage(err)))
             .finally(() => setBusy(false));
         }}
@@ -109,6 +120,14 @@ export function StopAll({
         {t("Stop all")}
       </button>
       {error && <span className="hint">{error}</span>}
+      {left && (
+        <span className="hint">
+          {t("{left} still moving: one press closes {max} runs.", {
+            left: left.left,
+            max: left.max,
+          })}
+        </span>
+      )}
     </>
   );
 }

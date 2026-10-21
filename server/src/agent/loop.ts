@@ -319,6 +319,18 @@ export interface AgentLoopOptions {
    * offered.
    */
   catalogue?: readonly AnyTool[];
+  /**
+   * Where the loop says what it is doing, one line as it starts an account and a
+   * run.
+   *
+   * A pass is not an event and used to write nothing: a pass that hung in a model
+   * call or a folder read was indistinguishable from an agent that had stopped,
+   * because the only line there was came **after** the pass returned. Progress
+   * recorded as it happens is what a stall is read from — the last line names the
+   * account and run that never finished — and it needs no watchdog: a missing end
+   * line is the fact.
+   */
+  log?: (line: string) => void;
 }
 
 /**
@@ -663,6 +675,7 @@ export class AgentLoop {
      */
     await Promise.all(
       accounts.map(async (accountId) => {
+        this.opts.log?.(`[gilbert] agent: working ${accountId}`);
         let records: RunRecord[] | null = null;
         /*
          * One account that cannot be read is not the installation failing: a
@@ -777,6 +790,7 @@ export class AgentLoop {
         } catch (err) {
           summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
         }
+        this.opts.log?.(`[gilbert] agent: finished ${accountId}`);
       }),
     );
     /*
@@ -884,7 +898,19 @@ export class AgentLoop {
       let due = record.run;
       if (due.state === "blocked") {
         if (!isRunDue(due, now)) continue;
-        due = answerOverdue(due, now.toISOString());
+        const overdue = answerOverdue(due, now.toISOString());
+        /*
+         * The transition is **written before the run is worked**: the step it
+         * adds and the budget it spends are then what the record holds, and a
+         * model call whose spend never landed would make the declared ceiling a
+         * number the loop can pass — which is what an overdue run paid for on
+         * every pass that failed. A write that does not land leaves the run
+         * blocked and still due, and the next pass tries again.
+         */
+        const stored = await this.store(accountId, overdue, record.state);
+        if (!stored) continue;
+        due = overdue;
+        if (index !== undefined) records[index] = { ...record, run: overdue };
       } else if (due.state !== "running") continue;
       summary.due += 1;
       /*
@@ -1348,6 +1374,9 @@ export class AgentLoop {
   ): Promise<RunDoc | null> {
     const access = this.access;
     if (!access) return null;
+    this.opts.log?.(`[gilbert] agent: run ${run.id} — working it in ${accountId}`);
+    /** The message a person wrote, when one woke this run: what a report replies to. */
+    const woke = chatWoken(run.startedBy.woke);
     let current = run;
     /*
      * A step left `open` by an earlier process is an act whose outcome was
@@ -1677,9 +1706,21 @@ export class AgentLoop {
         for (const [which, { at, call }] of wave.entries()) {
           const result = settled[which];
           if (result?.status === "fulfilled") {
+            /*
+             * Whether this step answered the message that woke the run: the fact
+             * `spoke` reads. A `chat.say` that replies to that message is a report
+             * to the person who asked; a `chat.ask` asks something, and a say
+             * about anything else is the group's, so neither makes the run heard
+             * by the person who woke it.
+             */
+            const repliedToWake =
+              call.name === "chat.say" &&
+              woke !== null &&
+              (call.args as { replyTo?: unknown } | null)?.replyTo === woke;
             current = recordStep(current, at, {
               state: "done",
               outcome: boundedText(result.value),
+              ...(repliedToWake ? { repliedToWake: true } : {}),
             });
             // Each call spends what its tool declares; the wave's own wall time
             // is spent once below, because the calls ran together.
@@ -1716,16 +1757,28 @@ export class AgentLoop {
        */
       if (wait) {
         current = waitUntil(current, wait);
-        current = finishRun(current, "blocked", {
-          at: new Date().toISOString(),
-          why: `waiting on a person: ${wait.what}`,
-        });
+        /*
+         * The park is an ending like the others and takes the one exit they all
+         * take (ADR 0030): it owes no words — the question it left is the words —
+         * but it is written by the same function, so what the loop last ended is
+         * the whole truth of the loop's last act, a run waiting on a person
+         * included.
+         */
+        return await this.endRun(
+          accountId,
+          current,
+          "blocked",
+          {
+            at: new Date().toISOString(),
+            why: `waiting on a person: ${wait.what}`,
+          },
+          token,
+        );
       }
       // The outcomes are written on the document the wave ran against, whole.
       const settledWrite = await this.store(accountId, current, token);
       if (!settledWrite) return null;
       token = settledWrite;
-      if (wait) return current;
     }
   }
 
@@ -1770,9 +1823,7 @@ export class AgentLoop {
      * piece of work. What a `done` run has to say is said when it said nothing —
      * which is the live case this closes (files saved, no line at all).
      */
-    const spoke = run.plan.some(
-      (step) => step.state === "done" && /^chat\.(say|ask) /.test(step.what),
-    );
+    const spoke = run.plan.some((step) => step.repliedToWake === true);
     const owed =
       ending === "out-of-budget" || (ending === "done" && woke !== null && !spoke);
     const ended = finishRun(current, ending, owed ? { ...end, said: false } : end);

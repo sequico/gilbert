@@ -286,12 +286,20 @@ export function booksSlice(
             },
           ]),
         );
-        const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
+        /*
+         * The cards go out through the store's one batching door: a send to a
+         * few hundred people is more objects than one `/set` may carry, and a
+         * single call would have been refused whole — the feature promising to
+         * save them and saving nothing. A refusal is answered as the count it
+         * managed, so a caller can say how many.
+         */
+        const written = await batchedSet<ContactCard>({
+          method: "ContactCard",
           accountId: self,
           create,
         });
         await get().syncCards();
-        return Object.keys(res.created ?? {}).length;
+        return written.created;
       };
       const next = collecting.then(run, run);
       collecting = next.catch(() => 0);

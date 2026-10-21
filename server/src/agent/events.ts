@@ -70,13 +70,13 @@ import {
 } from "../appFolder.js";
 import { JmapError, type JmapResult } from "../jmap.js";
 import { cachedMail } from "../mailCache.js";
+import { PASS_STATUS_FILE } from "../shared/agent.js";
 import {
   APP_FOLDER_NAME,
   FILENODE_CHANGES,
   FILENODE_GET,
   FOLDER_PROPS,
 } from "../shared/appFolder.js";
-import { PASS_STATUS_FILE } from "../shared/agent.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
