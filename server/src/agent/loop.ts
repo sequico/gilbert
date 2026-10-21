@@ -121,6 +121,7 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upst
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
+import type { AreaName } from "./areas.js";
 import { areasOfSurfaces, catalogueFor } from "./areas.js";
 import {
   chatWoken,
@@ -449,6 +450,11 @@ export class AgentLoop {
    * edited is in force at the next pass with no restart.
    */
   private readonly above = new Map<string, Partial<Record<ProseLevel, string>>>();
+  /**
+   * The areas a group's instruction declares, by account, as this pass read them
+   * (ADR 0038). Read beside the prose, so the document is opened once per pass.
+   */
+  private readonly declared = new Map<string, readonly AreaName[]>();
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
@@ -561,6 +567,7 @@ export class AgentLoop {
   private async workPass(now: Date): Promise<PassSummary> {
     this.reading = null;
     this.above.clear();
+    this.declared.clear();
     const summary: PassSummary = {
       claimed: false,
       accounts: 0,
@@ -1625,12 +1632,7 @@ export class AgentLoop {
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
         choice = await chooseStep(
-          catalogueFor(
-            this.catalogue,
-            current.startedBy.surfaces
-              ? areasOfSurfaces(current.startedBy.surfaces)
-              : null,
-          ),
+          catalogueFor(this.catalogue, this.areasOfRun(accountId, current)),
           access,
           question,
           { meter },
@@ -2412,6 +2414,24 @@ export class AgentLoop {
     }
   }
 
+  /**
+   * The areas one run may change: what its group's instruction declares and what
+   * the run's own surface matrix named (ADR 0038).
+   *
+   * Two declarations, not one, while the matrix is still in the tree: the
+   * instruction is the new word and the matrix the old, and a group that has
+   * written neither has nothing to select from — the whole catalogue, which is
+   * what every run got before the areas existed.
+   */
+  private areasOfRun(accountId: string, run: RunDoc): readonly AreaName[] | null {
+    const declared = this.declared.get(accountId) ?? [];
+    const surfaces = run.startedBy.surfaces
+      ? areasOfSurfaces(run.startedBy.surfaces)
+      : [];
+    if (!declared.length && !run.startedBy.surfaces) return null;
+    return [...new Set([...surfaces, ...declared])];
+  }
+
   /** The two prose levels above a rule's own, as this pass read them (ADR 0031). */
   private async proseAbove(
     accountId: string,
@@ -2419,6 +2439,7 @@ export class AgentLoop {
     const held = this.above.get(accountId);
     if (held) return held;
     const group = await readInstruction(this.ctx, accountId);
+    this.declared.set(accountId, group?.areas ?? []);
     const levels: Partial<Record<ProseLevel, string>> = {
       ...(this.installation ? { installation: this.installation } : {}),
       ...(group ? { group: group.instruction } : {}),

@@ -2478,6 +2478,39 @@ test("a run is handed the areas its group works, not the whole catalogue", async
   );
 });
 
+test("an area the group's instruction declares is offered, even when the matrix turned it off", async () => {
+  const id = "intake-areas-declared";
+  const doc = rule(id);
+  doc.surfaces.calendar = "off";
+  await createRule(ctx, accountId, doc);
+  written.push(id);
+  await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
+    v: INSTRUCTION_VERSION,
+    instruction: "Keep the group's calendar in order.",
+    areas: ["calendar"],
+  });
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ done: "nothing to schedule" });
+  await deliver("a change the group works in mail");
+  await agent.pass();
+
+  const choosing = seen.filter(({ user }) =>
+    user.includes("The change that woke this run"),
+  );
+  assert.ok(choosing.length > 0, "the run was handed a turn of its own");
+  assert.ok(
+    choosing.some(({ system, user }) => `${system}${user}`.includes("calendar.")),
+    "the area the instruction declares is in the catalogue the turn reads",
+  );
+
+  const held = await readAppFileAt(ctx, accountId, INSTRUCTION_FILE);
+  if (typeof held?.file.id === "string")
+    await destroyAppNode(ctx, accountId, held.file.id, {});
+});
+
 test("a malformed answer costs a step and is asked again, not the run", async () => {
   /*
    * A model stuck on one malformed answer repeats it, and every repeat is a
