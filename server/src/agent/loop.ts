@@ -1651,18 +1651,19 @@ export class AgentLoop {
       /*
        * A wait is honoured after the whole answer, not instead of it: every step
        * the plan reached has run and is on the record, and the run then waits. A
-       * question parks the run on the person it asked (ADR 0029) and carries its
-       * own deadline, which is a date like any other: `wait.until` is what the
-       * alarm arms, and a question with no date at all is one written by an older
-       * build, which only an answer moves.
+       * question parks the run on the person it asked (ADR 0029): the run is
+       * `blocked` because it is waiting for somebody, which is what every reader
+       * of an answer asks of it. Its deadline is a second fact -- `wait.until` is
+       * what the alarm arms -- and it never decides whether the run is parked: a
+       * question with a date is still a question, and one with no date at all was
+       * written by an older build and only an answer moves it.
        */
       if (wait) {
         current = waitUntil(current, wait);
-        if (wait.until === null)
-          current = finishRun(current, "blocked", {
-            at: new Date().toISOString(),
-            why: `waiting on a person: ${wait.what}`,
-          });
+        current = finishRun(current, "blocked", {
+          at: new Date().toISOString(),
+          why: `waiting on a person: ${wait.what}`,
+        });
       }
       // The outcomes are written on the document the wave ran against, whole.
       const settledWrite = await this.store(accountId, current, token);

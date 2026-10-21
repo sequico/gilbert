@@ -1266,7 +1266,7 @@ test("a step that asks a person parks the run on the answer it left", async () =
   const run = await runOf(id);
   assert.equal(run.state, "blocked", "the run stopped on a person");
   assert.equal(run.waiting?.what, "which booking is this?", "keeping the question");
-  assert.equal(run.waiting?.until, null, "with no date: a person answers when they do");
+  assert.ok(run.waiting?.until, "carrying the deadline the question was given");
   assert.equal(run.waiting?.asked.channel, "chat", "and where it asked");
   assert.ok(run.waiting?.asked.id, "with the sentence's own id");
   assert.equal(run.plan[0]?.state, "done", "the question was delivered");
@@ -1274,12 +1274,14 @@ test("a step that asks a person parks the run on the answer it left", async () =
 
 test("a person's answer continues the run that asked for it", async () => {
   /*
-   * A run parked on a person has no alarm and no due date, so the answer is the
-   * only thing that can pick it up — and it arrives in the chat as a message of
-   * its own, which the change log reports at a path of its own, so nothing about
-   * the change names the run. What ties the two together is the question: the
+   * A run parked on a person is picked up by the answer, because the answer is
+   * what it waits for — and it arrives in the chat as a message of its own,
+   * which the change log reports at a path of its own, so nothing about the
+   * change names the run. What ties the two together is the question: the
    * message replies to the sentence the run recorded as its wait, and somebody
-   * other than the agent wrote it (ADR 0029, 0030).
+   * other than the agent wrote it (ADR 0029, 0030). The deadline the question
+   * carries is an alarm for a question nobody answers, never the thing that
+   * picks it up.
    */
   const id = "intake-answer";
   // The question, and the run that parked on it, are both there before the loop
