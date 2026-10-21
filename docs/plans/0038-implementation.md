@@ -44,7 +44,8 @@ whether the work is accepted and what it cost in calls and refusals.
 
 - The **eval set** (ADR 0038): the 15–20 tasks taken from the 171 measured runs
   are not written yet, so no block above has a score.
-- The **judge on `done`** and the `refused` ending (ADR 0038, 0030): the record
-  can carry `refused`; nothing writes it yet.
+- The **judge on `done`** and the guardrails that write `refused` (ADR 0038,
+  0030): the record reads and draws `refused`; nothing writes it yet, and a
+  credential in a tool's answer is not filtered out of what the model sees.
 - The **job-shaped catalogue** (ADR 0038): the tools are still the endpoint
   catalogue under area prefixes; the eight job-shaped tools are not written.

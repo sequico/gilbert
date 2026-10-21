@@ -76,7 +76,13 @@ type RunStepOutcome = "done" | "failed";
 
 /** The three ways a run ends (ADR 0030): done, a person is needed, or the budget is spent. */
 /** The three ways a run is finished, and the two that are not an ending. */
-export type RunEnding = "done" | "blocked" | "out-of-budget" | "cancelled";
+export type RunEnding =
+  | "done"
+  | "blocked"
+  | "out-of-budget"
+  | "cancelled"
+  /** A guardrail fired: the run stopped itself, and the record says which check. */
+  | "refused";
 
 /** A run's state: in flight, or one of the three endings. */
 export type RunState = "running" | RunEnding;
@@ -663,7 +669,13 @@ function isEnd(x: unknown): x is RunEnd {
 
 /** Whether a value is one of the four endings. */
 export function isRunEnding(x: unknown): x is RunEnding {
-  return x === "done" || x === "blocked" || x === "out-of-budget" || x === "cancelled";
+  return (
+    x === "done" ||
+    x === "blocked" ||
+    x === "out-of-budget" ||
+    x === "cancelled" ||
+    x === "refused"
+  );
 }
 
 /** Whether a value is a run state. */
@@ -762,7 +774,8 @@ export function parseRunDocumentDetailed(
     };
   if (!isRunState(whole.state))
     return {
-      problem: '"state" must be "running", "done", "blocked" or "out-of-budget".',
+      problem:
+        '"state" must be "running", "done", "blocked", "out-of-budget", "cancelled" or "refused".',
     };
   if (whole.ended !== null && !isEnd(whole.ended))
     return { problem: '"ended" must be null or how the run ended.' };

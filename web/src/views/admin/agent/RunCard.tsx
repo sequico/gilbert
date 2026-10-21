@@ -26,6 +26,7 @@ export const RUN_STATE_LABELS: Record<RunState, string> = {
   blocked: "Blocked on a person",
   "out-of-budget": "Out of budget",
   cancelled: "Stopped",
+  refused: "Refused",
 };
 
 /** How long an outcome is drawn inline before it moves behind a fold. */

@@ -444,6 +444,27 @@ test("the run answers when its wait is due, and a stopped wait has no date", () 
   assert.equal(waitDueAt(stopped), null, "and its date is no longer a wait");
 });
 
+test("a run a guardrail stopped ends refused, and the record says which check", () => {
+  /*
+   * A guardrail is not the clock: a run stopped because a check fired says
+   * `refused`, with the check and what it found, so a reader is not told it ran
+   * out of budget (ADR 0030, 0038).
+   */
+  const running = startRun({
+    id: "guardrail",
+    startedBy: { rule: null, instruction: null, woke: "mail created: m-1" },
+  });
+  const stopped = finishRun(running, "refused", {
+    at: AT,
+    why: "the tool answer carried a credential, so it was not handed to the model",
+  });
+  assert.equal(stopped.state, "refused");
+  assert.match(stopped.ended?.why ?? "", /carried a credential/);
+  const read = parseRunDocumentDetailed(JSON.stringify(stopped));
+  assert.ok("run" in read, "and a document carrying it is still read by this build");
+  assert.equal(read.run.state, "refused");
+});
+
 test("a question carries a deadline, and coming due sends the run on without the answer", () => {
   /*
    * The one case nothing else covers: a person who never answers. The question's
