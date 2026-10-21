@@ -125,7 +125,7 @@ export function AgentOverview({
   const running = live
     .flatMap((entry) =>
       entry.runs
-        .filter((listed) => listed.state !== undefined && isInFlight(listed.state))
+        .filter((listed) => listed.state != null && isInFlight(listed.state))
         .map((listed) => ({ group: entry.group, listed })),
     )
     .sort((a, b) => (b.listed.startedAt ?? "").localeCompare(a.listed.startedAt ?? ""));

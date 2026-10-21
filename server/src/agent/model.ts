@@ -814,6 +814,17 @@ type ModelAnswer =
   | { kind: "reply"; text: string };
 
 /**
+ * What a decision turn answers its caller: the rules that take the change, or
+ * the words to send.
+ *
+ * A `read` is the turn's own and never leaves `decideEvent` — the loop makes it,
+ * tells the model what it found, and asks again — so it is not part of the answer
+ * the callers read, and the type says so rather than leaving every reader to
+ * narrow a variant that cannot arrive.
+ */
+export type DecisionAnswer = Exclude<ModelAnswer, { kind: "read" }>;
+
+/**
  * Read one answer from the model, or say what is wrong with it.
  *
  * Strict: an object, exactly the fields of one of the two shapes, and nothing
@@ -971,7 +982,7 @@ export async function decideEvent(
   question: DecisionQuestion,
   call: ToolCall,
   opts: { maxReads?: number; timeoutMs?: number; meter?: UsageMeter } = {},
-): Promise<ModelAnswer> {
+): Promise<DecisionAnswer> {
   const candidates = question.rules.filter((rule) => ruleApplies(rule, question.event));
   if (!candidates.length) return { kind: "decision", rules: [], facts: {} };
 

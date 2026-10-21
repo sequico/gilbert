@@ -320,7 +320,7 @@ test("a person's correction and removal are refused when the memory moved under 
   );
 
   await assert.rejects(
-    () => forgetFact(ctx, accountId, first.id, stale.state),
+    () => forgetFact(ctx, accountId, first.id, stale),
     refused,
     "and the removal, decided against the same stale reading, is refused too",
   );

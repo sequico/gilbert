@@ -154,7 +154,6 @@ function countingTool(spec: {
     authority: spec.authority,
     writes: spec.writes,
     act: spec.act,
-    keys: ["ok", "to", "text"],
     args: { ok: { type: "boolean" }, to: { type: "text" }, text: { type: "text" } },
     parse: (raw: unknown) => {
       if (!(raw && typeof raw === "object" && "ok" in raw))

@@ -727,7 +727,6 @@ test("a wave asks the server for at most four calls at once", async () => {
     writes: false,
     surface: "files",
     spend: { steps: 1 },
-    keys: ["path"],
     args: { path: { type: "text" } },
     parse: (raw: unknown) => raw as { path: string },
     run: async (_call, args) => {
@@ -1196,7 +1195,6 @@ test("an act the run carries no authority for is refused, and the refusal is on 
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
-    keys: ["id"],
     args: { id: { type: "text" } },
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => {
@@ -1527,7 +1525,6 @@ test("a run stopped while the agent works it is not overwritten, and no step fol
     authority: "reversible",
     writes: true,
     spend: { steps: 1 },
-    keys: [],
     args: {},
     parse: () => ({}),
     run: async ({ ctx: toolCtx, accountId: account, run }) => {
@@ -1629,7 +1626,6 @@ test("a person's answer is the word an outward act asks for, recorded for that a
       target: args.to,
       content: args.text,
     }),
-    keys: ["to", "text"],
     args: { to: { type: "text" }, text: { type: "text" } },
     parse: (raw: unknown) => {
       const one = raw as { to?: unknown; text?: unknown };
@@ -2067,7 +2063,6 @@ test("the steps of one answer that are ready run together, not one after another
     description: "a call that is in flight for a moment, so two can overlap",
     authority: "reversible",
     writes: false,
-    keys: [],
     args: {},
     parse: () => ({}),
     run: async () => {
@@ -2114,7 +2109,6 @@ test("a run whose document disappears is not written back by the closing step", 
     authority: "reversible",
     writes: true,
     spend: { steps: 1 },
-    keys: [],
     args: {},
     parse: (raw: unknown) => raw as Record<string, never>,
     run: async (call) => {
@@ -2149,7 +2143,6 @@ test("a refused call in a wave leaves its siblings' steps on the record", async 
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
-    keys: ["id"],
     args: { id: { type: "text" } },
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => {
@@ -2233,7 +2226,6 @@ test("a step that waits on an earlier one runs the branch that step's outcome na
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
-    keys: ["id"],
     args: { id: { type: "text" } },
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => {
@@ -2341,7 +2333,6 @@ test("a step whose dependency was left unrun is left unrun too, and the record s
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
-    keys: ["id"],
     args: { id: { type: "text" } },
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => ({ id: args.id }),
@@ -2478,7 +2469,6 @@ test("a call the account refuses spends a step of the run's budget", async () =>
     authority: "reversible",
     writes: false,
     spend: { steps: 0 },
-    keys: ["n"],
     args: { n: { type: "number" } },
     parse: (raw: unknown) => raw as { n: number },
     run: async () => {
@@ -2567,7 +2557,6 @@ test("an answer cannot run past the steps a run has left", async () => {
     authority: "reversible",
     writes: false,
     spend: { steps: 1 },
-    keys: [],
     args: {},
     parse: (raw: unknown) => raw as Record<string, never>,
     run: async () => {
@@ -2640,7 +2629,6 @@ test("the groups are worked together, not one after another", async () => {
     authority: "reversible",
     writes: false,
     spend: { steps: 1 },
-    keys: [],
     args: {},
     parse: (raw: unknown) => raw as Record<string, never>,
     run: async () => {
@@ -3013,7 +3001,6 @@ test("the plan is on the run before the first act of the answer runs", async () 
     authority: "reversible",
     writes: false,
     spend: { steps: 1 },
-    keys: [],
     args: {},
     parse: () => ({}),
     run: async (call) => {

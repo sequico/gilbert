@@ -29,7 +29,7 @@ import type { ContactsGet, ContactsSet, ContactsState } from "../types";
  * remembered book unset and create one each, and would both see an address as
  * new before the other's card landed.
  */
-let collecting: Promise<number> = Promise.resolve(0);
+let collecting: Promise<unknown> = Promise.resolve();
 
 /**
  * The reader's own address books: the list, the selection, and the writes that
@@ -271,7 +271,7 @@ export function booksSlice(
         }
         if (!bookId) {
           bookId = await get().createBook(t("Collected"));
-          if (epoch !== sessionEpoch || get().accountId !== self) return 0;
+          if (epoch !== sessionEpoch || get().accountId !== self) return { written: 0 };
           update({ collectedBookId: bookId });
         }
         const create = Object.fromEntries(

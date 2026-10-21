@@ -36,6 +36,7 @@ export function treeSlice(
   | "loadTree"
   | "loadChildren"
   | "refresh"
+  | "setFolderCount"
   | "pathTo"
   | "setListingShown"
   | "applyChanges"
