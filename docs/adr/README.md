@@ -232,7 +232,7 @@ is, not what a user sees.
   form builder. The workorder side materialises the applicable steps by **path**,
   with the four step states. **Built.**
 - **0027 — The agent's tools are described and composable.** **Superseded by
-  0043.** The
+  0038.** The
   agent's capabilities are a small catalogue of **tools**, each one a task over an
   object Stalwart offers, and the **model chooses** which to call and in what
   order — **one or more in a single answer, together where independent** — never a
@@ -306,7 +306,7 @@ is, not what a user sees.
   runs from Administration → Agent, where the record is drawn as it is stored and
   a document this build cannot read is said rather than guessed at
   (`server/src/routes/agent.ts`, `web/src/views/admin/agents/GroupRuns.tsx`).
-- **0031 — A group's engagement is a rule in prose.** **Superseded by 0043.** One rule is one
+- **0031 — A group's engagement is a rule in prose.** **Superseded by 0038.** One rule is one
   document in the group's own account, giving **each surface a mode** — the
   account's chat, mail, KB, workorders, Files and calendar — and saying **in
   prose what should happen** when the rule is woken. `watch` wakes the rule and
@@ -405,16 +405,17 @@ is, not what a user sees.
   anchoring at the present and losing the window in between. An unreadable
   document is a gap the pass says out loud. **Built, Proposed**
   (`server/src/agent/cursors.ts`, `agent/loop.ts`, `agent/events.ts`).
-- **0043 — The agent is roles, jobs, and a person's yes.** The whole shape of the
-  agent in one record: two roles (correspondence with documents; agenda with
-  workorders) read from the rule's surface matrix, knowledge and the conversation
-  transversal; a catalogue of job-shaped tools per role (eight, not forty-five)
-  with arguments that say which kind of id they take and results distilled rather
-  than forwarded; three beats — read, act, report — as the common path, a plan only
-  when the rule asks for one; a pass that gives each run a slice and returns; the
-  run document as the session, read by the harness in bounded slices; an outward
-  message as a draft a person sends; a second cheap call that judges a `done`
-  against the ask and its evidence; an evaluation set taken from the runs that
-  failed; and no credential inside a document the agent can read. Replaces 0027
-  and withdraws 0038–0042 into one decision. **Not built, Proposed.**
+- **0038 — The agent is areas, jobs, and a person's yes.** The whole shape of the
+  agent in one record: independent areas (mail, calendar, contacts, files,
+  knowledge, workorders, chat, memory) whose actions a run is handed by
+  **selection** — the areas the group's **one instruction** declares, plus chat,
+  knowledge and memory — with job-shaped tools (eight, not forty-five) whose
+  arguments say which kind of id they take and whose results are distilled rather
+  than forwarded; three beats — read, act, report — as the common path and a plan
+  only when the instruction asks for one; **the change as the trigger**, the stream
+  as the clock and the cursor as reconciliation; a run document that is the session,
+  read by the harness in bounded slices; an outward message as a draft a person
+  sends; a second cheap call that judges a `done` against the ask and its evidence;
+  an evaluation set taken from the runs that failed; and no credential inside a
+  document the agent can read. Replaces 0027 and 0031. **Not built, Proposed.**
 

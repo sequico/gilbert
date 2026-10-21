@@ -78,7 +78,7 @@ agent's durable state.
   acts and the question being one answer, whose wait begins once they are done.
 - **A plan carries order and conditions, and it is the exception.** The common
   path is the role's workflow — read, act, report — and a run takes a plan only
-  when its rule declares that it needs one (ADR 0043). When it does: the model may
+  when its rule declares that it needs one (ADR 0038). When it does: the model may
   ask for a step that
   waits on an earlier one, and for a later step to depend on how an earlier one
   ended — if that call filed the message, do this; if it was refused, do that —

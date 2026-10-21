@@ -9,7 +9,7 @@ folder, and the switched-off pass's own `gilbert/notices.json` — and
 has just taken (`restoreCursor`, `restoreNotice`), writes each after a batch that
 moved that reading (`saveCursor`, `saveNotice`), and says an unreadable one in the
 pass's gaps without writing over it. **Its timing is reconciliation, not a clock**
-(ADR 0043): the stream says there is a change and the cursor says from where to
+(ADR 0038): the stream says there is a change and the cursor says from where to
 read it; a pass on an interval exists only when the stream is down. The write
 hands back the state it produced
 and the cursor takes it, so a quiet account writes nothing, and it verifies the

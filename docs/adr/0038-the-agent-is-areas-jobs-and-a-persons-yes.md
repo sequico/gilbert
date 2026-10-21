@@ -1,4 +1,4 @@
-# ADR 0043 — The agent is areas, jobs, and a person's yes
+# ADR 0038 — The agent is areas, jobs, and a person's yes
 
 Status: Proposed
 
@@ -11,8 +11,8 @@ as they are.
 ## What this replaces, and what it keeps
 
 **Replaced:** ADR 0027 in full (one catalogue, the model as its own planner, the
-whole-answer refusal) and the five records written beside it on 2026-10-21
-(0038–0042), which are withdrawn as separate decisions and carried here.
+whole-answer refusal) and the five short records written beside it on 2026-10-21,
+withdrawn as separate decisions and carried here.
 
 **Kept, unchanged:** ADR 0028 (authority classes), 0029 (a question parks the run;
 a person answers), 0030 (the run is a document and the record is the product),

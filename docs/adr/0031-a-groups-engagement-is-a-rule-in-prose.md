@@ -1,6 +1,6 @@
 # ADR 0031 — A group's engagement is a rule in prose
 
-Status: Superseded by 0043.
+Status: Superseded by 0038.
 
 Implementation: Partly built.
 `server/src/agent/rule.ts` — the shape, the parser and the test of what wakes a

@@ -1,6 +1,6 @@
 # ADR 0027 — The agent's tools are described and composable
 
-Status: Superseded by 0043.
+Status: Superseded by 0038.
 
 Implementation: Built.
 each tool names its arguments, its authority class, the surface it writes and
