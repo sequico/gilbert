@@ -1204,14 +1204,32 @@ export class AgentLoop {
    * A quiet account writes nothing: the document is rewritten only when the
    * reading moved, which is what keeps a pass that worked nothing to its reads
    * (ADR 0032's claim economy, and the reason a cursor is not a heartbeat).
+   *
+   * **The write is itself a change**, in the account it lands in, so the state
+   * it produced is where this process's reading has now reached: it is taken
+   * back into the cursor, and the next pass starts past our own document
+   * instead of finding it. Without that the document records the state the read
+   * ended at, the write moves that state, and every pass rewrites the file — a
+   * change that kicks the next pass through the same switch every other write
+   * does. The claim is renewed before the write, like every other write of this
+   * process's: a claim that has lapsed leaves the account to its holder rather
+   * than letting this one overwrite a newer cursor.
    */
   private async saveCursor(accountId: string, now: Date): Promise<void> {
     const cursor = this.cursors.get(accountId);
     if (!cursor) return;
     const reached = JSON.stringify(cursor);
     if (this.savedCursor.get(accountId) === reached) return;
-    await writeCursor(this.ctx, accountId, cursor, now);
-    this.savedCursor.set(accountId, reached);
+    await this.keepClaim();
+    let produced: string | null = null;
+    await writeCursor(this.ctx, accountId, cursor, now, (state) => {
+      produced = state;
+    });
+    if (produced) {
+      cursor.files = produced;
+      this.cursors.set(accountId, cursor);
+    }
+    this.savedCursor.set(accountId, JSON.stringify(cursor));
   }
 
   /**

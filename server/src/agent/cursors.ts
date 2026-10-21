@@ -114,19 +114,34 @@ export async function readCursor(
   return { cursor: { mail, files, calendar, seen: { ...seen } }, at: Date.parse(at) };
 }
 
-/** Write the cursor this account's reading has reached, and when. */
+/**
+ * Write the cursor this account's reading has reached, and when.
+ *
+ * The write moves the account's own FileNode state, so the state the write
+ * produced is handed back through `onState`: that is where this process's
+ * reading has now reached, and the caller takes it into the cursor. Without it
+ * the next pass finds our own document as a change and rewrites it, which is a
+ * change of its own.
+ */
 export async function writeCursor(
   ctx: Ctx,
   accountId: string,
   cursor: EventCursor,
   at: Date,
+  onState?: (state: string) => void,
 ): Promise<void> {
-  await writeAppFileAt(ctx, accountId, CURSOR_FILE, {
-    v: CURSOR_VERSION,
-    mail: cursor.mail,
-    files: cursor.files,
-    calendar: cursor.calendar,
-    seen: Object.fromEntries(Object.entries(cursor.seen).slice(-SEEN_STORED_MAX)),
-    at: at.toISOString(),
-  });
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    CURSOR_FILE,
+    {
+      v: CURSOR_VERSION,
+      mail: cursor.mail,
+      files: cursor.files,
+      calendar: cursor.calendar,
+      seen: Object.fromEntries(Object.entries(cursor.seen).slice(-SEEN_STORED_MAX)),
+      at: at.toISOString(),
+    },
+    onState ? { onState } : {},
+  );
 }

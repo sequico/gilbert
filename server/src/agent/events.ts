@@ -557,7 +557,16 @@ function rememberPaths(
   found: Map<string, string>,
 ): Record<string, string> {
   const next: Record<string, string> = { ...previous };
-  for (const [id, path] of found) next[id] = path;
+  for (const [id, path] of found) {
+    /*
+     * Re-set rather than written in place: a node read again moves to the end,
+     * so the trim below drops the paths nobody has read for longest. Written in
+     * place, a node reported in every page kept the position of its first
+     * sighting and could be evicted while an idle one it overtook survived.
+     */
+    delete next[id];
+    next[id] = path;
+  }
   const keys = Object.keys(next);
   for (const key of keys.slice(0, Math.max(0, keys.length - MAX_SEEN_NODES)))
     delete next[key];
