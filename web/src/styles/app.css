@@ -1603,6 +1603,10 @@ a.menu-item:hover { color: var(--fg); }
 .attachment .att-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent-soft-fg); flex: 0 0 auto; overflow: hidden; }
 .attachment .att-icon img { width: 100%; height: 100%; object-fit: cover; }
 .attachment .att-text { flex: 1; min-width: 0; }
+/* An attachment that opens the preview says so the same way wherever it sits:
+   on the message (the whole chip is the link) and in the composer (the chip
+   but its remove button). One cursor for one behaviour. */
+.attachment.viewable { cursor: zoom-in; }
 /* Everything in the chip but the remove button is one control: clicking it
    looks at the file that is about to go out. A button, laid out like the chip
    it sits in, so a keyboard reaches it too. */

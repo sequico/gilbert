@@ -10,8 +10,8 @@ import {
   Download,
   ExternalLink,
   Eye,
-  FileUp,
   Filter,
+  FolderDown,
   Image as ImageIcon,
   Mail,
   MailPlus,
@@ -1621,7 +1621,7 @@ function AttachmentList({
           return (
             <a
               key={a.blobId ?? i}
-              className="attachment"
+              className={`attachment ${viewable(a) ? "viewable" : ""}`}
               href={url}
               download={name ?? undefined}
               title={`${name ?? translate("attachment")} (${formatSize(a.size)})`}
@@ -1719,7 +1719,7 @@ function AttachmentList({
             style={{ alignSelf: "center" }}
             onClick={() => setSaveToFiles(true)}
           >
-            <FileUp size={14} />{" "}
+            <FolderDown size={14} />{" "}
             {attachments.length > 1
               ? translate("Download all to Files")
               : translate("Save to Files")}
