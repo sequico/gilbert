@@ -105,11 +105,13 @@ import { installationDefaults, PLACEHOLDER_APP_SECRET } from "./shared/installat
  * The secret is not this resolver's to demand. A process that boots takes it
  * from the installation's own document, which is where a deployment states it
  * now; one started without a boot has no document to read and mints an
- * ephemeral secret, loudly. The refusal a production deployment needs is "this
- * process serves on a secret that will not survive its restart", and that is
- * not decidable here: an import cannot know whether a boot is coming, so the
- * refusal belongs after one — `config.ts`'s `assertServable`, called by
- * `index.ts` where a refusal is a boot failure rather than an import crash.
+ * ephemeral secret. Nothing is said here: an import cannot know whether a boot
+ * is coming, every process that serves does boot, and a line at this point would
+ * be about a value the boot is about to replace. The refusal a production
+ * deployment needs is "this process serves on a secret that will not survive its
+ * restart", and that belongs after the boot — `config.ts`'s `assertServable`,
+ * called by `index.ts` where a refusal is a boot failure rather than an import
+ * crash.
  * What is decidable here is where the value came from, which is what that
  * refusal reads: `"environment"` for a secret the deployment stated,
  * `"ephemeral"` for one minted here.
@@ -119,18 +121,13 @@ import { installationDefaults, PLACEHOLDER_APP_SECRET } from "./shared/installat
  * reason they are decided in one place: a placeholder marked "environment"
  * would let a production process serve on a secret of exactly that name.
  */
-function resolveAppSecret(
-  environment: InstallationEnvironment,
-  production: boolean,
-): { appSecret: string; appSecretSource: AppSecretSource } {
+function resolveAppSecret(environment: InstallationEnvironment): {
+  appSecret: string;
+  appSecretSource: AppSecretSource;
+} {
   const stated = environment.APP_SECRET ?? "";
   if (stated && stated !== PLACEHOLDER_APP_SECRET)
     return { appSecret: stated, appSecretSource: "environment" };
-  console.warn(
-    production
-      ? "[gilbert] APP_SECRET not set - using an ephemeral secret until the installation's own document supplies one"
-      : "[gilbert] APP_SECRET not set - using an ephemeral secret (persisted sessions will not survive restarts)",
-  );
   return {
     appSecret: randomBytes(32).toString("base64"),
     appSecretSource: "ephemeral",
@@ -178,7 +175,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
    * reads it, to refuse production on a secret no restart would find again.
    */
   const production = environment.NODE_ENV === "production";
-  const { appSecret, appSecretSource } = resolveAppSecret(environment, production);
+  const { appSecret, appSecretSource } = resolveAppSecret(environment);
 
   const stalwartUrl = readEnv(
     environment,
