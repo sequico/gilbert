@@ -109,7 +109,9 @@ agent's durable state.
   in, so the answer that comes back can be recognised as addressed to it. The
   one a person stopped is `cancelled` with the words it was stopped with, and the
   pass that was working it leaves that ending alone rather than writing its step
-  over it.
+  over it. A guardrail that fires ends the run as `refused`, with the check that
+  fired and what it found (ADR 0038): it is not an out-of-budget, which would blame
+  the clock for a decision.
 - **An ending is said, not only recorded.** A run that could not finish says so
   in the group's own conversation, with the sentence its ending carries; a run
   that finished says so when a person woke it there **and it has not spoken
