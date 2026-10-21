@@ -561,27 +561,28 @@ test("the standing prose reaches the system turn unfenced, and a rule's own inst
  * from a refusal: the reported failures were a value one character too long and
  * a field named `text` where the tool takes `fact`.
  */
-test("the catalogue tells the turn what each argument is and how large", async () => {
+test("the catalogue reaches the turn once, as the tools it may call", async () => {
+  /*
+   * The same names, descriptions, arguments and bounds used to travel twice in one
+   * request — prose in the system turn and the tool definitions beside it — and the
+   * choosing turn is the call every step of every run makes. The tools are the one
+   * rendering now, so the system turn must not repeat them.
+   */
   seen = [];
   answers = [];
   answerWith({ done: "nothing to do" });
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
   const system = SYSTEM(0);
 
-  assert.match(
+  assert.doesNotMatch(
     system,
-    /- memory\.remember\(fact: text ≤400, links: list, standing: boolean, subject: text ≤200\)/,
-    "a tool's arguments are named with their type and their bound",
+    /- memory\.remember\(/,
+    "the catalogue lines are not repeated beside the tools",
   );
   assert.match(
     system,
-    /- workorder\.settle\(note: text, path: text, state: one of open\|done\|skipped\|not-applicable, uid: text\)/,
-    "an enumerated argument names the values it takes",
-  );
-  assert.match(
-    system,
-    /`text ≤n` is at most n characters/,
-    "and the notation itself is explained once, where the catalogue is",
+    /are the tool definitions this call carries/,
+    "and the turn is told where they are",
   );
 });
 
@@ -1406,14 +1407,21 @@ test("prose is not a decision on any other surface", async () => {
 test("the choosing turn lists each tool's own argument names", async () => {
   answerWith({ done: "nothing" });
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
-  assert.match(
-    SYSTEM(0),
-    /- mail\.read\(id\)/,
+  const request = seen[0]?.body as {
+    tools?: Array<{
+      function: { name: string; parameters: { properties: Record<string, unknown> } };
+    }>;
+  };
+  const read = request.tools?.find((one) => one.function.name === "mail.read");
+  assert.deepEqual(
+    Object.keys(read?.function.parameters.properties ?? {}),
+    ["id"],
     "the arguments are the tool's own, so a name is not guessed",
   );
-  assert.match(
-    SYSTEM(0),
-    /- memory\.remember\(fact: text ≤400, links: list, standing: boolean, subject: text ≤200\)/,
+  const remember = request.tools?.find((one) => one.function.name === "memory.remember");
+  assert.deepEqual(
+    remember?.function.parameters.properties.fact,
+    { type: "string", maxLength: MEMORY_FACT_MAX },
     "and each one carries the kind and the bound the parser checks",
   );
 });

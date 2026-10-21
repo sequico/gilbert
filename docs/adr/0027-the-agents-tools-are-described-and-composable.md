@@ -6,12 +6,12 @@ Implementation: Built.
 each tool names its arguments, its authority class, the surface it writes and
 what it spends, the
 arguments are validated before its executor runs, and the half a reading caller
-is handed (`readingTools`) is the one that cannot write. The catalogue is handed
-to the choosing turn twice over **one definition**: as prose (`catalogueLine`) and
-as the provider's own `tools` (`catalogueTools`), both rendered from each tool's
-`args` spec — the schema carries the kind and the bound the parser checks, so a
-provider that accepts tools refuses a wrong argument before a step is paid for,
-and a model that ignores them still answers the demanded JSON. The installation's one
+is handed (`readingTools`) is the one that cannot write. The catalogue reaches the
+choosing turn **once**: as the provider's own `tools` (`catalogueTools`), each
+rendered from the tool's `args` spec, so the schema carries the kind and the bound
+the parser checks and a provider that accepts tools refuses a wrong argument
+before a step is paid for; the demanded JSON plan is still read, and a call whose
+arguments do not fit is refused whole. The installation's one
 model is `server/src/agent/model.ts`, and it is chosen at Administration →
 Installation (`web/src/views/admin/AdminInstallation.tsx`, whose fields write
 the document's `agent.provider`): the key is write-only in the installation's
@@ -146,15 +146,15 @@ typed arguments, each acting on one of those objects.
 - The provider's contract is pinned against a stub, and **no real provider has
   answered it**: the first live call is owed before the model path is trusted.
 <!-- owed: model-provider-live -->
-- The catalogue is offered as **prose and the provider's own tool definitions**,
-  both rendered from each tool's own `args`: `catalogueLine` and
-  `catalogueTools` are two renderings of one definition, never a second
-  catalogue. A call that carries them asks the provider to check the kind and
-  the bound of every argument, which is what a hand-written JSON plan gets
-  wrong — a live installation paid 110 refused answers for a numeric `id`, an
-  over-long `fact` and an argument name no tool takes. `required` is not stated,
-  because a key is not a required key and the tool's parser is the one door.
-  The demanded JSON shape stays the answer of every call that carries no tools
-  and the fallback of the one that does; a gateway that refuses a `tools` field
-  refuses the call loudly, and the provider it names is the sentence a person
-  reads.
+- The catalogue is offered as **the provider's own tool definitions**, rendered
+  from each tool's own `args`: `catalogueTools` is the one rendering, and the
+  prose list that repeated the same names, descriptions, arguments and bounds in
+  the system turn is gone — the choosing turn is the call every step of every run
+  makes, so those lines were paid for twice on every call. A call that carries
+  them asks the provider to check the kind and the bound of every argument, which
+  is what a hand-written JSON plan gets wrong — a live installation paid 110
+  refused answers for a numeric `id`, an over-long `fact` and an argument name no
+  tool takes. `required` is not stated, because a key is not a required key and
+  the tool's parser is the one door. The demanded JSON shape is still read as the
+  fallback of the same call; a gateway that refuses a `tools` field refuses the
+  call loudly, in a sentence that names the cause.

@@ -1499,39 +1499,12 @@ export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
 }
 
 /**
- * One line of the catalogue: the tool, its arguments as the model fills them,
- * and what the tool is for.
- *
- * An argument is rendered from the tool's own `args` spec, so the bound the
- * turn reads is the bound the parser checks (`text ≤400` is `MEMORY_FACT_MAX`
- * at the door, not a second copy in prose). A key with no spec is its name
- * alone, which is what the catalogue said before specs existed.
- */
-export function catalogueLine(tool: {
-  name: string;
-  description: string;
-  keys: readonly string[];
-  args: Readonly<Record<string, ArgSpec>>;
-}): string {
-  if (!tool.keys.length) return `- ${tool.name}(): ${tool.description}`;
-  const shaped = tool.keys.map((key) => {
-    const spec = tool.args[key];
-    if (!spec) return key;
-    const type = spec.type ?? "text";
-    if (type === "one of" && spec.values?.length)
-      return `${key}: one of ${spec.values.join("|")}`;
-    return spec.max === undefined ? `${key}: ${type}` : `${key}: ${type} ≤${spec.max}`;
-  });
-  return `- ${tool.name}(${shaped.join(", ")}): ${tool.description}`;
-}
-
-/**
- * One argument as a JSON Schema, from the same spec the line above renders.
+ * One argument as a JSON Schema, from the tool's own `args` spec.
  *
  * The bound a turn is told and the bound the parser checks come from one place
- * (`ArgSpec`, `tools/define.ts`), so the schema the provider is handed and the
- * prose beside it cannot disagree — and a provider that enforces the schema
- * refuses a wrong type before the step is ever paid for.
+ * (`ArgSpec`, `tools/define.ts`) — the schema *is* what the turn is told — and a
+ * provider that enforces it refuses a wrong type before the step is ever paid
+ * for.
  */
 function argSchema(spec: ArgSpec): Record<string, unknown> {
   switch (spec.type ?? "text") {
@@ -1582,11 +1555,12 @@ export interface ToolDefinition {
  * and the bound itself (ADR 0027).
  *
  * Nothing is stated twice: the names, the descriptions, the argument names and
- * their bounds are the catalogue's own, and this is a rendering of them beside
- * the prose one (`catalogueLine`) — not a second catalogue. `required` is not
- * set because a key is not the same as a required key (a source is either
- * `from` or `message` with `attachment`), and the tool's parser is the one door
- * that decides.
+ * their bounds are the catalogue's own, and this is the **one** rendering of them
+ * the model is given — the prose list that used to repeat it in the system turn
+ * is gone, because the same lines were being paid for twice on every call.
+ * `required` is not set because a key is not the same as a required key (a source
+ * is either `from` or `message` with `attachment`), and the tool's parser is the
+ * one door that decides.
  */
 export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] {
   return catalogue.map((tool) => ({
@@ -1633,6 +1607,15 @@ export async function chooseStep(
   opts: { timeoutMs?: number; meter?: UsageMeter } = {},
 ): Promise<StepChoice> {
   const heads = proseForModel(question.prose);
+  const tools = catalogueTools(catalogue);
+  /*
+   * The catalogue reaches the model **once**: as the tools this call carries.
+   * It used to travel twice — the same names, descriptions, arguments and bounds
+   * as prose in the system turn *and* as the tools — and the choosing turn is the
+   * one call every step of every run makes: the duplicate was the largest part of
+   * the prompt on a busy installation, paid again on every call. The prose list
+   * and its notation are gone with it; the definitions are the catalogue.
+   */
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group, working one run in that group's own account.",
@@ -1641,11 +1624,8 @@ export async function chooseStep(
     'A step that has to follow another gives itself an "id" and waits on it: {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
     "A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run's record says which step and which outcome left it.",
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
-    "The tools below say what each one is for and what arguments it takes.",
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
-    "The tools you may take a step with:",
-    ...catalogue.map((tool) => catalogueLine(tool)),
-    "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling. `text ≤n` is at most n characters, `one of a|b` is exactly one of them, `list` is more than one value, and `number` is a whole number.",
+    "The tools you may take a step with are the tool definitions this call carries: each states the tool's name, what it is for, and the exact arguments and bounds it takes. An argument name a tool does not state is refused whole — there is no second spelling.",
     ...surfaceLines(question.surfaces),
     ...heads,
   ]
@@ -1657,7 +1637,7 @@ export async function chooseStep(
     {
       system,
       user: stepData(question),
-      tools: catalogueTools(catalogue),
+      tools,
       ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
     },
     opts.meter,

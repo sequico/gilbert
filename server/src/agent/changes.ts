@@ -551,15 +551,16 @@ export async function workChanges(
     /*
      * Which rules this change opens. A person addressing the agent in the
      * conversation is answered even when the decision turn names no rule: the
-     * mention is the address, and the rules that watch the conversation are the
-     * ones it reaches (ADR 0029). The decision turn still chooses among every
-     * other change, and its facts — empty when it named nothing — are what the
-     * runs are told.
+     * mention is the address, and the rule it reaches is the **first** that watches
+     * the conversation — one address is one answer, and a group with three chat
+     * rules does not answer the same sentence three times. Where the decision turn
+     * does name rules, its routing stands unchanged (ADR 0031). Its facts — empty
+     * when it named nothing — are what the runs are told.
      */
     const chosen = decision.rules.length
       ? decision.rules
       : message && addressesAgent(message, deps.ctx.username)
-        ? candidates.map((rule) => rule.id)
+        ? candidates.slice(0, 1).map((rule) => rule.id)
         : [];
     /*
      * The runs by (rule, change) for this event, grown once and rebuilt only

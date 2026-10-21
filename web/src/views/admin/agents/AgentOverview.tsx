@@ -14,6 +14,7 @@ import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
+import { RUN_STATE_LABELS } from "@/views/admin/agent/RunCard";
 import { StopAll, StopRun } from "./GroupRuns";
 import {
   addMetrics,
@@ -177,30 +178,44 @@ export function AgentOverview({
               })
             : t("Nobody holds the agent.")}
           {status ? ` ${t("A pass every {n} s.", { n: status.passSeconds })}` : ""}
-          {/*
-           * What the last pass actually did. A pass is not an event and the log
-           * does not carry one, so without this line an agent that is working and
-           * one that has stopped look the same.
-           */}
-          {status?.lastPass
-            ? ` ${t(
-                "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.",
-                {
-                  when: formatFullDate(status.lastPass.at),
-                  changes: status.lastPass.changes,
-                  runs: status.lastPass.runs,
-                  due: status.lastPass.due,
-                  ms: status.lastPass.ms,
-                },
-              )}`
-            : ""}
-          {status?.lastPass?.gaps.length
+        </span>
+      </section>
+      {/*
+       * What the pump did, on its own line: a pass is not an event and the log
+       * does not carry one, so without this an agent that is working and one that
+       * has stopped look the same. The last ending is the answer to "what was its
+       * last act" without opening a group's list; its sentence is the hover.
+       */}
+      {status?.lastPass && (
+        <p className="hint" style={{ marginTop: 0 }}>
+          {t(
+            "The last pass was at {when}: {changes} changes, {runs} runs and {due} due, in {ms} ms.",
+            {
+              when: formatFullDate(status.lastPass.at),
+              changes: status.lastPass.changes,
+              runs: status.lastPass.runs,
+              due: status.lastPass.due,
+              ms: status.lastPass.ms,
+            },
+          )}
+          {status.lastPass.gaps.length
             ? ` ${t("It could not cover: {gaps}", {
                 gaps: status.lastPass.gaps.join("; "),
               })}`
             : ""}
-        </span>
-      </section>
+          {status.lastPass.lastEnded ? (
+            <span title={status.lastPass.lastEnded.why}>
+              {" "}
+              {t("Last run ended: {ending} ({id}).", {
+                ending: t(RUN_STATE_LABELS[status.lastPass.lastEnded.ending]),
+                id: status.lastPass.lastEnded.id.slice(0, 8),
+              })}
+            </span>
+          ) : (
+            ""
+          )}
+        </p>
+      )}
       {on === false && (
         <p className="hint">
           {t(

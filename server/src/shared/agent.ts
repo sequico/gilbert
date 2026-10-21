@@ -16,6 +16,7 @@
  */
 
 import { isInstant, isRecord } from "./json.js";
+import { isRunEnding, type RunEnding } from "./run.js";
 
 /** The claim's document, in the app folder's own top level. */
 export const CLAIM_FILE = "agent-claim.json";
@@ -67,6 +68,20 @@ export interface PassStatusDoc {
   due: number;
   /** What it could not cover, named (ADR 0030). */
   gaps: string[];
+  /**
+   * The last run the loop ended, or absent when it has ended none since it
+   * started.
+   *
+   * Kept from pass to pass, unlike the counts beside it: a reader wants to know
+   * what the agent's last act was without opening a group's list, and a quiet
+   * pass that wiped it would leave the answer "nothing" where there was a run.
+   */
+  lastEnded?: {
+    id: string;
+    ending: RunEnding;
+    /** The ending's own sentence, as the conversation has it. */
+    why: string;
+  };
 }
 
 /** The app-folder path of the last pass's document. */
@@ -74,6 +89,7 @@ export const PASS_STATUS_FILE = "agent/status.json";
 
 /** Whether a value is a pass-status document this build reads. */
 export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
+  const ended = isRecord(x) ? (x as { lastEnded?: unknown }).lastEnded : undefined;
   return (
     isRecord(x) &&
     x.v === 1 &&
@@ -86,7 +102,13 @@ export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
     typeof x.runs === "number" &&
     typeof x.due === "number" &&
     Array.isArray(x.gaps) &&
-    x.gaps.every((one) => typeof one === "string")
+    x.gaps.every((one) => typeof one === "string") &&
+    (ended === undefined ||
+      (isRecord(ended) &&
+        typeof ended.id === "string" &&
+        !!ended.id &&
+        isRunEnding(ended.ending) &&
+        typeof ended.why === "string"))
   );
 }
 

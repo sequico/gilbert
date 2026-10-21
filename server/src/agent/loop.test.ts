@@ -40,8 +40,10 @@
  *   loses nothing to; a question's own deadline is one of those dates.
  * - a restart resumes from the cursor the last process left, so a change that
  *   arrived while the agent was down is still worked.
- * - a mention opens the rules that watch the conversation even when the decision
- *   names none, and a mention no rule covers is answered rather than ignored.
+ * - a mention opens one run even when the decision names none, and a mention no
+ *   rule covers is answered rather than ignored.
+ * - a pass leaves what it did, and the last run it ended, in a document a person
+ *   reads.
  * - a fact one run learned is handed to the next change's call, and the run's
  *   record names what it recalled — while a change the memory holds nothing
  *   about is worked exactly as it was before the memory existed;
@@ -102,6 +104,7 @@ const { INSTRUCTION_FILE, INSTRUCTION_VERSION, readInstruction } = await import(
 );
 const { takeClaim, releaseClaim } = await import("./claim.js");
 const { CURSOR_FILE } = await import("./cursors.js");
+const { isPassStatusDoc, PASS_STATUS_FILE } = await import("../shared/agent.js");
 const { RULE_VERSION } = await import("./rule.js");
 const { defineTool, TOOLS } = await import("./tools.js");
 const { administratorAt, AgentLoop, RUN_STEPS_MAX } = await import("./loop.js");
@@ -844,15 +847,19 @@ test("a restart resumes from the cursor the last process left", async () => {
   assert.equal(run.state, "done");
 });
 
-test("a mention opens a run even when the decision names no rule", async () => {
+test("a mention opens one run even when the decision names no rule", async () => {
   /*
    * A person addressing the agent in the conversation is answered even when the
-   * decision turn names no rule: the mention is the address, and the rules that
-   * watch the conversation are the ones it reaches (ADR 0029). The live ending it
-   * replaces was a mention that opened no run and said nothing.
+   * decision turn names no rule: the mention is the address, and the rule it
+   * reaches is the first that watches the conversation — **one address is one
+   * answer**, so a group with two chat rules does not answer the same sentence
+   * twice. The live ending it replaces was a mention that opened no run and said
+   * nothing.
    */
   const id = "intake-mentioned";
+  const beside = "intake-mentioned-beside";
   await putRule(id, ["chat"]);
+  await putRule(beside, ["chat"]);
   const agent = loop();
   await agent.start();
 
@@ -873,6 +880,13 @@ test("a mention opens a run even when the decision names no rule", async () => {
     "the message is what woke it",
   );
   assert.equal(run.state, "done", "and the rule that watches the conversation worked it");
+  assert.equal(
+    (await listRuns(ctx, accountId)).filter(
+      (record) => record.run.startedBy.rule === beside,
+    ).length,
+    0,
+    "the second chat rule is not woken by the same sentence",
+  );
   assert.equal(
     (await findChatMessages(ctx, accountId, "Done: answered the mention", 5)).length,
     1,
@@ -3135,4 +3149,32 @@ test("every call is told the installation's line and the group's instruction, in
       at(choosing, "Answer the shipper within the day.") > at(choosing, standing),
     "and the choosing turn adds the rule's own instruction after both",
   );
+});
+
+test("a pass leaves what it did, and the last run it ended, where a person reads it", async () => {
+  /*
+   * A pass is not an event and writes no log line, so an installation whose agent
+   * is working and one whose agent has stopped looked the same. The last pass is a
+   * document (`gilbert/agent/status.json`), and the last ending is on it, so a
+   * reader does not open a group's list to answer "what was its last act".
+   */
+  const id = "intake-status";
+  await putRule(id, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  onCall = (system) =>
+    isDecision(system) ? { rules: [id], facts: {} } : { done: "worked it and said so" };
+  await postChatMessage(ctx, accountId, "sam@example.org", "@gilbert file the booking");
+  await agent.pass();
+
+  const found = await readAppFileAt(ctx, memoryAccountId, PASS_STATUS_FILE);
+  const doc = found ? (JSON.parse(found.text) as unknown) : null;
+  assert.ok(isPassStatusDoc(doc), "the last pass is a document this build reads");
+  assert.equal(doc.claimed, true, "it says the pass held the installation");
+  assert.ok(doc.runs >= 1, "and how many runs it opened");
+  const run = await runOf(id);
+  assert.equal(doc.lastEnded?.id, run.id, "the last ending names the run");
+  assert.equal(doc.lastEnded?.ending, "done", "and how it ended");
+  assert.equal(doc.lastEnded?.why, "worked it and said so", "with its own sentence");
 });

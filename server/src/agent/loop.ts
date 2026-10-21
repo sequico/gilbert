@@ -76,7 +76,11 @@ import { postChatMessage, readChatMessage, readChatMessageAt } from "../groupCha
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
-import { PASS_STATUS_FILE, type PassStatusDoc } from "../shared/agent.js";
+import {
+  isPassStatusDoc,
+  PASS_STATUS_FILE,
+  type PassStatusDoc,
+} from "../shared/agent.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { mapLimit } from "../shared/concurrency.js";
@@ -334,6 +338,10 @@ export class AgentLoop {
   private readonly savedCursor = new Map<string, string>();
   /** When the last pass's document was written, so a quiet one is not a write. */
   private statusAt = 0;
+  /** The last run this process ended, for the status document a person reads. */
+  private lastEnded: PassStatusDoc["lastEnded"] | null = null;
+  /** Whether the previous process's last ending has been carried over, once. */
+  private lastEndedLoaded = false;
   /**
    * When each account's change cursor was last advanced, by either path.
    *
@@ -1224,6 +1232,21 @@ export class AgentLoop {
     // account would add a sentence about a folder nobody has.
     const accountId = filesAccountId(this.ctx);
     if (!accountId) return;
+    /*
+     * The ending a previous process left is carried over once, so a deploy does
+     * not blank the line a reader came for. One read per process, never per pass.
+     */
+    if (!this.lastEndedLoaded) {
+      this.lastEndedLoaded = true;
+      try {
+        const held = await readAppFileAt(this.ctx, accountId, PASS_STATUS_FILE);
+        const parsed = held ? (JSON.parse(held.text) as unknown) : null;
+        if (!this.lastEnded && isPassStatusDoc(parsed) && parsed.lastEnded)
+          this.lastEnded = parsed.lastEnded;
+      } catch {
+        // A document this build cannot read is one the pass writes over below.
+      }
+    }
     const at = new Date();
     const worked =
       summary.changes + summary.runs + summary.due > 0 || summary.gaps.length > 0;
@@ -1238,6 +1261,7 @@ export class AgentLoop {
       runs: summary.runs,
       due: summary.due,
       gaps: summary.gaps,
+      ...(this.lastEnded ? { lastEnded: this.lastEnded } : {}),
     };
     try {
       await writeAppFileAt(this.ctx, accountId, PASS_STATUS_FILE, doc);
@@ -1627,9 +1651,10 @@ export class AgentLoop {
       /*
        * A wait is honoured after the whole answer, not instead of it: every step
        * the plan reached has run and is on the record, and the run then waits. A
-       * wait with a date is the clock's, and the alarm picks it up; a wait with
-       * none is a person's, and the run ends parked on the answer it left
-       * (ADR 0029, 0030).
+       * question parks the run on the person it asked (ADR 0029) and carries its
+       * own deadline, which is a date like any other: `wait.until` is what the
+       * alarm arms, and a question with no date at all is one written by an older
+       * build, which only an answer moves.
        */
       if (wait) {
         current = waitUntil(current, wait);
@@ -1708,7 +1733,14 @@ export class AgentLoop {
       }
     }
     const ended = finishRun(current, ending, end);
-    return (await this.store(accountId, ended, token)) ? ended : null;
+    if (!(await this.store(accountId, ended, token))) return null;
+    /*
+     * What a reader sees without opening a group's list: the last run this
+     * process ended, written into the pass's own document below. Kept here rather
+     * than on the summary because the notice above and this ending are one act.
+     */
+    this.lastEnded = { id: ended.id, ending, why: end.why };
+    return ended;
   }
 
   /**

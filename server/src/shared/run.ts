@@ -576,8 +576,8 @@ function isEnd(x: unknown): x is RunEnd {
   return isRecord(x) && isInstant(x.at) && typeof x.why === "string";
 }
 
-/** Whether a value is one of the three endings. */
-function isRunEnding(x: unknown): x is RunEnding {
+/** Whether a value is one of the four endings. */
+export function isRunEnding(x: unknown): x is RunEnding {
   return x === "done" || x === "blocked" || x === "out-of-budget" || x === "cancelled";
 }
 

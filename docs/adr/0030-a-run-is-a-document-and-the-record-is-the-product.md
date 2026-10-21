@@ -111,7 +111,10 @@ agent's durable state.
   in the group's own conversation, with the sentence its ending carries; a run
   that finished says so when a person woke it there **and it has not spoken
   there** — a report of its own is the word, and repeating the ending beside it
-  would be two messages for one piece of work. A question it asked and a
+  would be two messages for one piece of work. **One request, one answer**: the
+  notice is a reply in the thread that woke the run, and a mention that the
+  decision turn routes to no rule opens one run rather than one per rule that
+  watches the conversation (ADR 0031). A question it asked and a
   stop a person took are already words between them, so those endings do not
   repeat themselves, and a background run that finished keeps its record. The
   notice is the ending's own `why`, so the conversation and the record cannot

@@ -260,8 +260,9 @@ model may sit inside the deployment's own network
 turn** — given one change in a group's own account and the rules that watch it,
 which rules apply and what the facts are, looking the group's own state up first
 with the **reading tools** when it needs to — and the **choosing turn**, which is
-handed the catalogue as the catalogue describes itself — as prose and as the
-provider's own `tools`, both rendered from each tool's own argument specs — and
+handed the catalogue as the catalogue describes itself — the provider's own
+`tools`, each rendered from the tool's own argument specs, once per call and never
+repeated as prose — and
 the run so far, and
 answers with a **plan**: one or more steps, each a tool, its arguments and what it
 waits on, or that the work is finished — so what a run needs in several parts,
@@ -405,11 +406,13 @@ instant it opened and the instant it ended; the list is most recent first.
 **Where the agent is, and what it did, is in Administration → AI Agents**
 (`web/src/views/admin/agents/AgentsView.tsx`): the claim the installation holds — who
 holds it and until when it is believed — with the ten-second pass beside it, the
-**last pass** with how long it took, what it read and what it could not cover
-(`gilbert/agent/status.json`, written after a pass that worked something and at
-most once a minute otherwise), and
-the model named with a link to the section that chooses it rather than a second
-set of fields. A pass slower than thirty seconds also writes one line to the
+**last pass** with how long it took, what it read, what it could not cover and
+**the last run it ended**, whose own sentence is on hover, so the agent's last act
+is answered without opening a group's list. The last pass is
+`gilbert/agent/status.json`, written after a pass that worked something and at
+most once a minute otherwise, and the model is named with a link to the section
+that chooses it rather than a second set of fields. A pass slower than thirty
+seconds also writes one line to the
 journal, so a stall is read while it is still happening. **Nothing on that page
 starts or stops the agent**: it is part of
 the server, and the boot starts it. Each group's **runs** are drawn as the record
