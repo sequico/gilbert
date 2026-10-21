@@ -13,34 +13,17 @@
  * forty-five names to use four.
  */
 
+import { AREA_NAMES, type AreaName, TRANSVERSAL_AREAS } from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
 
-/** The areas the agent works in. */
-export const AREA_NAMES = [
-  "mail",
-  "files",
-  "calendar",
-  "contacts",
-  "knowledge",
-  "workorders",
-  "chat",
-  "memory",
-] as const;
-
-export type AreaName = (typeof AREA_NAMES)[number];
-
-/**
- * How many areas one group's instruction may declare.
- *
- * Three is the ceiling that keeps a turn's catalogue small: an instruction that
- * names five is thirty tools in one answer, which is the failure ADR 0038 exists
- * to undo. A group that needs more writes two instructions' worth of work as two
- * groups, or narrows the one it has.
- */
-export const MAX_DECLARED_AREAS = 3;
-
-/** The areas every run gets, whatever its change and instruction say. */
-export const TRANSVERSAL_AREAS: readonly AreaName[] = ["chat", "knowledge", "memory"];
+export {
+  AREA_NAMES,
+  type AreaName,
+  declaredAreas,
+  isAreaName,
+  MAX_DECLARED_AREAS,
+  TRANSVERSAL_AREAS,
+} from "../shared/areas.js";
 
 /** A tool's prefix where the area's own name differs from it. */
 const AREA_ALIASES: Readonly<Record<string, AreaName>> = { workorder: "workorders" };
@@ -88,35 +71,6 @@ export function areaOf(toolName: string): AreaName {
       `The tool "${toolName}" names no area: its name must start with one of ${AREA_NAMES.join(", ")}.`,
     );
   return found;
-}
-
-/**
- * What a group declares, or the sentence that refuses it.
- *
- * The declared areas are what an instruction states its group works; a change
- * that lands in an area nobody declared is still worked if its own area is the
- * change's (the change is the trigger, ADR 0038) — this is the ceiling, not the
- * routing.
- */
-export function declaredAreas(areas: readonly string[]): {
-  areas: readonly AreaName[];
-  problem: string | null;
-} {
-  const known = areas.filter((one): one is AreaName =>
-    (AREA_NAMES as readonly string[]).includes(one),
-  );
-  const unknown = areas.filter((one) => !(AREA_NAMES as readonly string[]).includes(one));
-  if (unknown.length)
-    return {
-      areas: known,
-      problem: `There is no area called ${unknown.map((one) => `"${one}"`).join(", ")}. The areas are: ${AREA_NAMES.join(", ")}.`,
-    };
-  if (known.length > MAX_DECLARED_AREAS)
-    return {
-      areas: known,
-      problem: `An instruction may declare at most ${MAX_DECLARED_AREAS} areas, and this one declares ${known.length}: ${known.join(", ")}. Split the work into two groups, or narrow what this one does.`,
-    };
-  return { areas: known, problem: null };
 }
 
 /**
