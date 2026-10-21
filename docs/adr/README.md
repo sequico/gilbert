@@ -404,4 +404,28 @@ is, not what a user sees.
   anchoring at the present and losing the window in between. An unreadable
   document is a gap the pass says out loud. **Built, Proposed**
   (`server/src/agent/cursors.ts`, `agent/loop.ts`, `agent/events.ts`).
+- **0038 — The agent is roles, not one catalogue.** A run belongs to one role —
+  correspondence and documents (mail with files), agenda and workflow (calendar
+  with workorders) — and is handed only that role's catalogue plus the transversal
+  knowledge and conversation tools. The conversation is the interface and the KB
+  crosses every role; the role is read from the rule's surface matrix, never
+  inferred by the model. **Not built, Proposed.**
+- **0039 — Tools are shaped by the work, not by the endpoint.** A role's tools are
+  named after its jobs and carry the sequence inside them (`mail.triage`,
+  `booking.file`…), from forty-five endpoint wrappers to about eight per role; every
+  argument states which kind of thing it is (`message_id`, `mailbox_id`, `node_id`)
+  and a refusal carries the catalogue's names and a valid example. **Not built,
+  Proposed.**
+- **0040 — The common path is a workflow, and a plan is the exception.** A run runs
+  the role's three beats — read, act, report — and the model decides inside a beat;
+  a plan with dependencies and branches is used only when the rule declares it
+  needs one. **Not built, Proposed.**
+- **0041 — What leaves waits for a person.** An outward message is a draft the
+  product records as the run's outcome and a person sends; `sends` stops being a
+  licence the model reads, and a `done` over a refused step is checked once against
+  that step. **Not built, Proposed.**
+- **0042 — The agent is measured on tasks it has already failed.** An evaluation
+  set taken from the run corpus, with two measures — outcome accepted and cost in
+  calls and refusals — judged whenever a tool, a role or the prompt changes; not
+  the release gate. **Partly built (the corpus and its counts), Proposed.**
 
