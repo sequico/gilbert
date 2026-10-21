@@ -30,6 +30,7 @@ import {
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { errorMessage } from "../shared/errors.js";
 import { refusalOf } from "../shared/jmap.js";
+import { isInFlight } from "../shared/run.js";
 import { RUNS_DIR, type RunRecord, runPath } from "./runs.js";
 
 /** The drawer the archived runs sit in, under the runs folder. */
@@ -59,7 +60,7 @@ export function archiveMonth(run: RunRecord["run"]): string | null {
   // A run still working, or one parked on a person, is not closed: the answer
   // that comes back is recognised against the working set, and a drawer has no
   // reader for it.
-  if (run.state === "running" || run.state === "blocked") return null;
+  if (isInFlight(run.state)) return null;
   const at = run.ended?.at;
   if (typeof at !== "string") return null;
   const ended = new Date(at);

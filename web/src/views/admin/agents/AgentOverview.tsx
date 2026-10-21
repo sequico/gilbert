@@ -1,4 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import { isInFlight } from "@gilbert/shared/run";
 import { useEffect, useMemo, useState } from "react";
 import { push } from "@/jmap/push";
 import {
@@ -124,7 +125,7 @@ export function AgentOverview({
   const running = live
     .flatMap((entry) =>
       entry.runs
-        .filter((listed) => listed.state === "running" || listed.state === "blocked")
+        .filter((listed) => listed.state !== undefined && isInFlight(listed.state))
         .map((listed) => ({ group: entry.group, listed })),
     )
     .sort((a, b) => (b.listed.startedAt ?? "").localeCompare(a.listed.startedAt ?? ""));
@@ -346,9 +347,7 @@ export function AgentOverview({
                 {entry.rows.map(({ listed }) => (
                   <div key={listed.id} className="run-current">
                     <span className={`run-state run-state-${listed.state}`}>
-                      {listed.state === "blocked"
-                        ? t("Waiting on a person")
-                        : t("Running")}
+                      {listed.state && t(RUN_STATE_LABELS[listed.state])}
                     </span>
                     <span className="run-row-id">{listed.id}</span>
                     {listed.rule && <span className="run-row-meta">{listed.rule}</span>}

@@ -67,6 +67,7 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { masterAddress } from "../config.js";
+import { errorMessage } from "../shared/errors.js";
 import {
   GroupAccessError,
   memberGroupAccess,
@@ -96,7 +97,7 @@ import {
 } from "../shared/instruction.js";
 import { RULES_DIR, RuleError } from "../shared/rule.js";
 import type { RunDoc, RunSummary } from "../shared/run.js";
-import { finishRun, summarizeRun } from "../shared/run.js";
+import { finishRun, isInFlight, summarizeRun } from "../shared/run.js";
 import {
   type Env,
   failureFor,
@@ -123,29 +124,53 @@ const memoryFailure = failureFor(MemoryError);
  * sentence that says the run is still in flight rather than an upstream error.
  * An already-ended run is handed back as it is: a second Stop is not an error.
  */
+/**
+ * What one Stop did to one run — the fact, not a state to be re-read.
+ *
+ * `closed` is the only outcome where **this call** wrote the cancellation. It is
+ * not inferred from the document afterwards: a run cancelled by another press, or
+ * by the loop, between the listing and this write is `already`, so two people
+ * pressing at once cannot both report the same run.
+ */
+export type StopOutcome =
+  | { outcome: "closed"; run: RunDoc }
+  | { outcome: "already"; run: RunDoc }
+  | { outcome: "moved" }
+  | { outcome: "not_found" };
+
+/**
+ * Stop one run, whatever it is doing — working, or waiting on a person's answer.
+ *
+ * Stopping is the race the run documents exist for: the pass records a step of
+ * the same run while a person presses Stop. A lost compare-and-set is retried on
+ * the document as it now stands — the same attempts every other writer makes —
+ * and a stop that keeps losing answers `"moved"`, which the route turns into a
+ * sentence that says the run is still in flight rather than an upstream error.
+ * An already-ended run is handed back as it is: a second Stop is not an error.
+ */
 async function stopRun(
   ctx: Ctx,
   accountId: string,
   id: string,
   by: string,
-): Promise<RunDoc | "not_found" | "moved"> {
+): Promise<StopOutcome> {
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const record = await readRun(ctx, accountId, id);
-    if (!record) return "not_found";
+    if (!record) return { outcome: "not_found" };
     if (record.run.state !== "running" && record.run.state !== "blocked")
-      return record.run;
+      return { outcome: "already", run: record.run };
     const ended = finishRun(record.run, "cancelled", {
       at: new Date().toISOString(),
       why: `stopped by ${by}`,
     });
     try {
       await replaceRun(ctx, accountId, ended, { ifInState: record.state });
-      return ended;
+      return { outcome: "closed", run: ended };
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
     }
   }
-  return "moved";
+  return { outcome: "moved" };
 }
 
 /**
@@ -394,8 +419,8 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         id,
         c.get("session").username,
       );
-      if (stopped === "not_found") return c.json({ error: "not_found" }, 404);
-      if (stopped === "moved")
+      if (stopped.outcome === "not_found") return c.json({ error: "not_found" }, 404);
+      if (stopped.outcome === "moved")
         return c.json(
           {
             error: "run_moved",
@@ -404,7 +429,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           },
           409,
         );
-      return c.json({ run: stopped });
+      return c.json({ run: stopped.run });
     } catch (err) {
       return doorFailure(c, err);
     }
@@ -428,41 +453,70 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       });
       if (!access.ok) return groupDenial(c, access);
       const rows = await listRunsForReading(access.ctx, access.accountId);
-      const inFlight = rows
-        .map((row) => row.run)
-        .filter(
-          (run): run is RunDoc =>
-            Boolean(run) && (run!.state === "running" || run!.state === "blocked"),
-        );
+      /*
+       * A document this build cannot read is **said**, not counted as "nothing
+       * is moving": it may be a run in flight, and the listing the same server
+       * serves for the group already draws it as unreadable.
+       */
+      const unreadable = rows.flatMap((row) =>
+        row.problem ? [{ id: row.id, problem: row.problem }] : [],
+      );
+      const inFlight = rows.flatMap((row) =>
+        row.run && isInFlight(row.run.state) ? [row.run] : [],
+      );
       /*
        * A sweep has a ceiling, and it is the browser's: one press must answer
        * inside the client's own deadline, and each run is a read and a
-       * conditional write. A group with more runs in flight than this keeps the
-       * rest, and the answer says how many are still moving rather than closing
-       * the page on a promise.
+       * conditional write. What the ceiling leaves out is counted for the answer
+       * (`beyondCeiling`) rather than left for the surface to work out from two
+       * numbers.
        */
       const runs: string[] = [];
+      const moved: string[] = [];
+      const failed: Array<{ id: string; problem: string }> = [];
       for (const run of inFlight.slice(0, STOP_ALL_MAX)) {
-        const result = await stopRun(
-          access.ctx,
-          access.accountId,
-          run.id,
-          c.get("session").username,
-        );
-        // The listing was read before the writes: a run that ended between them
-        // is handed back as it is, and is not one this request stopped.
-        if (result === "not_found" || result === "moved") continue;
-        if (result.state === "cancelled") runs.push(run.id);
+        let result: StopOutcome;
+        try {
+          result = await stopRun(
+            access.ctx,
+            access.accountId,
+            run.id,
+            c.get("session").username,
+          );
+        } catch (err) {
+          /*
+           * One run that cannot be stopped is that run's answer, not the press
+           * failing: the runs closed before it are closed, and an all-or-nothing
+           * 502 would report none of them.
+           */
+          failed.push({ id: run.id, problem: errorMessage(err) });
+          continue;
+        }
+        /*
+         * Only the run **this press** closed is counted. `already` is a run
+         * somebody else ended between the listing and the write: it is not an
+         * error, and it is not this request's work.
+         */
+        if (result.outcome === "closed") runs.push(run.id);
+        if (result.outcome === "moved") moved.push(run.id);
       }
       /*
        * Read again rather than counted: a run can move under a sweep, and "left"
        * is what a person sees if they look, so it is asked of the documents.
        */
       const after = await listRunsForReading(access.ctx, access.accountId);
-      const left = after.filter(
-        (row) => row.run && (row.run.state === "running" || row.run.state === "blocked"),
-      ).length;
-      return c.json({ stopped: runs.length, runs, left, max: STOP_ALL_MAX });
+      const left = after.filter((row) => row.run && isInFlight(row.run.state)).length;
+      return c.json({
+        stopped: runs.length,
+        runs,
+        left,
+        max: STOP_ALL_MAX,
+        /* In flight when the press began, but past what one press closes. */
+        beyondCeiling: Math.max(0, inFlight.length - STOP_ALL_MAX),
+        moved,
+        failed,
+        unreadable,
+      });
     } catch (err) {
       return doorFailure(c, err);
     }

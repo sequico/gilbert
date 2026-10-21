@@ -1103,6 +1103,17 @@ export function answerOverdue(run: RunDoc, at: string): RunDoc {
 }
 
 /**
+ * Whether a run is still the agent's to work: working, or waiting on a person.
+ *
+ * One definition for the four surfaces that ask it — the admin overview, the
+ * group's run list, the group-wide stop and the archive — so "in flight" cannot
+ * mean two things on two screens.
+ */
+export function isInFlight(state: RunState): boolean {
+  return state === "running" || state === "blocked";
+}
+
+/**
  * The instant the run's wait comes due, or null when it has none.
  *
  * The run's own answer to "is it waiting, and until when", and the one place it

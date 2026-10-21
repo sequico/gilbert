@@ -253,27 +253,63 @@ export interface StopAllAnswer {
   stopped: number;
   runs: string[];
   left: number;
-  /** The most runs one press closes, which is what a partial answer is measured against. */
+  /** The most runs one press closes, which is what the ceiling is measured by. */
   max: number;
+  /** In flight when the press began, but past what one press closes. */
+  beyondCeiling: number;
+  /** Runs the press tried to close and could not: another write kept winning. */
+  moved: string[];
+  /** Runs whose stop failed, with the reason the server gave. */
+  failed: Array<{ id: string; problem: string }>;
+  /** Documents the server holds and cannot read: possibly runs in flight. */
+  unreadable: Array<{ id: string; problem: string }>;
 }
 
 /**
  * Stop every run in flight in a group — the ones working and the ones waiting on
  * a person — and answer what it did.
+ *
+ * The answer is **checked**, not defaulted: a field this build draws is the
+ * server's fact, and a 200 of another shape is a defect to show rather than a
+ * count to invent (`left: 0` from a missing field is the very sentence "nothing
+ * is moving" for a group that never answered).
  */
 export async function stopAllRuns(group: string): Promise<StopAllAnswer> {
-  const answer = await apiFetch<{
-    stopped?: number;
-    runs?: string[];
-    left?: number;
-    max?: number;
-  }>(`/api/groups/${encodeURIComponent(group)}/runs/stop`, { method: "POST" });
+  const answer = await apiFetch<unknown>(
+    `/api/groups/${encodeURIComponent(group)}/runs/stop`,
+    { method: "POST" },
+  );
+  const held = answer as Partial<StopAllAnswer> | null;
+  const problems = (value: unknown): Array<{ id: string; problem: string }> =>
+    Array.isArray(value)
+      ? value.flatMap((one) => {
+          const row = one as { id?: unknown; problem?: unknown };
+          return typeof row?.id === "string" && typeof row?.problem === "string"
+            ? [{ id: row.id, problem: row.problem }]
+            : [];
+        })
+      : [];
+  const ids = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.filter((id): id is string => typeof id === "string")
+      : [];
+  if (
+    !held ||
+    typeof held.stopped !== "number" ||
+    !Array.isArray(held.runs) ||
+    typeof held.left !== "number" ||
+    typeof held.max !== "number" ||
+    typeof held.beyondCeiling !== "number"
+  )
+    throw new Error("The stop answer was not one this build can read.");
   return {
-    stopped: typeof answer.stopped === "number" ? answer.stopped : 0,
-    runs: Array.isArray(answer.runs)
-      ? answer.runs.filter((id): id is string => typeof id === "string")
-      : [],
-    left: typeof answer.left === "number" ? answer.left : 0,
-    max: typeof answer.max === "number" ? answer.max : 0,
+    stopped: held.stopped,
+    runs: ids(held.runs),
+    left: held.left,
+    max: held.max,
+    beyondCeiling: held.beyondCeiling,
+    moved: ids(held.moved),
+    failed: problems(held.failed),
+    unreadable: problems(held.unreadable),
   };
 }

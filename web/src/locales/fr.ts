@@ -2186,8 +2186,8 @@ export const catalog: Catalog = {
     "The workorder that succeeded this one": "L’ordre qui a remplacé celle-ci",
     "Load earlier messages": "Charger les messages précédents",
     "Runs in flight": "Exécutions en cours",
-    "{left} still moving: one press closes {max} runs.":
-      "{left} encore en cours : un appui ferme {max} exécutions.",
+    "{left} still moving; one press closes at most {max} runs.":
+      "{left} encore en cours : un appui ferme au plus {max} exécutions.",
     "Waiting on a person": "En attente d’une personne",
     "Nobody holds the agent.": "Personne ne détient l’agent.",
   },

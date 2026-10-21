@@ -3128,8 +3128,8 @@ export const catalog: Catalog = {
     "Load earlier messages": "Carica messaggi precedenti",
     "Runs in flight": "Esecuzioni in corso",
 
-    "{left} still moving: one press closes {max} runs.":
-      "{left} ancora in corso: una pressione ne chiude {max}.",
+    "{left} still moving; one press closes at most {max} runs.":
+      "{left} ancora in corso: una pressione ne chiude al massimo {max}.",
     "Waiting on a person": "In attesa di una persona",
     "Nobody holds the agent.": "Nessuno detiene l’agente.",
   },

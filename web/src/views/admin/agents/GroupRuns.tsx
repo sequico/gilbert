@@ -1,4 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import { isInFlight } from "@gilbert/shared/run";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { push } from "@/jmap/push";
 import {
@@ -91,11 +92,16 @@ export function StopAll({
   const [error, setError] = useState<string | null>(null);
   /*
    * What the sweep could not close, said rather than left to the page: a person
-   * who pressed Stop all and still sees rows is owed the reason, or the rows read
-   * as a command that did nothing. The count is the server's, the ceiling is the
-   * server's, and neither is guessed here.
+   * who pressed Stop all and still sees rows is owed an answer, or the rows read
+   * as a command that did nothing. The numbers are the server's and the reasons
+   * are the server's — the sentence states both and infers neither, and the
+   * problems it answered are drawn as it wrote them.
    */
-  const [left, setLeft] = useState<{ left: number; max: number } | null>(null);
+  const [note, setNote] = useState<{
+    left: number;
+    max: number;
+    problems: string[];
+  } | null>(null);
   return (
     <>
       <button
@@ -107,11 +113,20 @@ export function StopAll({
           event.stopPropagation();
           setBusy(true);
           setError(null);
-          setLeft(null);
+          setNote(null);
           void stopAllRuns(group)
             .then((answer) => {
               onStopped?.(answer);
-              if (answer.left > 0) setLeft({ left: answer.left, max: answer.max });
+              const problems = [
+                ...answer.failed.map((one) => one.problem),
+                ...answer.unreadable.map((one) => one.problem),
+              ];
+              if (answer.left > 0 || problems.length)
+                setNote({
+                  left: answer.left,
+                  max: answer.max,
+                  problems,
+                });
             })
             .catch((err) => setError(errorMessage(err)))
             .finally(() => setBusy(false));
@@ -120,14 +135,19 @@ export function StopAll({
         {t("Stop all")}
       </button>
       {error && <span className="hint">{error}</span>}
-      {left && (
+      {note && note.left > 0 && (
         <span className="hint">
-          {t("{left} still moving: one press closes {max} runs.", {
-            left: left.left,
-            max: left.max,
+          {t("{left} still moving; one press closes at most {max} runs.", {
+            left: note.left,
+            max: note.max,
           })}
         </span>
       )}
+      {note?.problems.map((problem) => (
+        <span className="hint" key={problem}>
+          {problem}
+        </span>
+      ))}
     </>
   );
 }
@@ -206,7 +226,7 @@ function RunRow({
             })}
           </span>
         )}
-        {!month && (row.state === "running" || row.state === "blocked") && (
+        {!month && row.state && isInFlight(row.state) && (
           <StopRun group={group} id={row.id} onStopped={onStopped} />
         )}
       </summary>

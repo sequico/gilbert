@@ -535,3 +535,73 @@ test("the memory is read, corrected and removed through the administration door"
     "and the refusal names what was wrong with the name",
   );
 });
+
+test("a group-wide stop says what it closed, what it could not, and what it never attempted", async () => {
+  /*
+   * Two runs in flight and one document this build cannot read. The press must
+   * answer **whose** work it did rather than one number: the runs it closed, the
+   * unreadable document it cannot account for, and what it never attempted under
+   * its own ceiling. Inferred from the resulting states instead, a second press
+   * would claim a run somebody else closed, which is the defect this pins.
+   */
+  for (const id of ["stop-me-1", "stop-me-2"]) {
+    const run = startRun({
+      id,
+      startedBy: { rule: null, instruction: null, woke: "chat created: c-1" },
+      plan: ["say something"],
+    });
+    await writeAppFileAt(master, teamAccount, runPath(run.id), run);
+  }
+  await writeAppFileAt(master, teamAccount, runPath("stop-me-unreadable"), {
+    v: RUN_VERSION + 1,
+    id: "stop-me-unreadable",
+  });
+
+  const res = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs/stop`, {
+    method: "POST",
+  });
+  assert.equal(res.status, 200);
+  const answer = res.body as {
+    stopped: number;
+    runs: string[];
+    left: number;
+    max: number;
+    beyondCeiling: number;
+    moved: string[];
+    failed: Array<{ id: string; problem: string }>;
+    unreadable: Array<{ id: string; problem: string }>;
+  };
+  assert.ok(
+    answer.runs.includes("stop-me-1") && answer.runs.includes("stop-me-2"),
+    "each run the press closed is named",
+  );
+  assert.equal(answer.stopped, answer.runs.length, "and the count is those names");
+  assert.equal(
+    answer.beyondCeiling,
+    0,
+    "with nothing left unattempted under the ceiling",
+  );
+  assert.ok(answer.max > 0, "the ceiling is the one the route enforced");
+  assert.ok(
+    answer.unreadable.some((row) => row.id === "stop-me-unreadable"),
+    "and a document the server cannot read is said, not counted as nothing moving",
+  );
+
+  const closed = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs/stop-me-1`);
+  assert.equal((closed.body as { run: { state: string } }).run.state, "cancelled");
+
+  /*
+   * A second press does not claim the runs the first one closed: `stopped` is
+   * what **this** call wrote, so two people pressing at once cannot both report
+   * the same run.
+   */
+  const again = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs/stop`, {
+    method: "POST",
+  });
+  const second = again.body as typeof answer;
+  assert.ok(
+    !second.runs.includes("stop-me-1") && !second.runs.includes("stop-me-2"),
+    "a run somebody already ended is not this press's work",
+  );
+  assert.equal(second.stopped, 0, "and the count says so");
+});
