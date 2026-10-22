@@ -2368,6 +2368,12 @@ test("a document that asks for an act outside the grants is data, and the act is
   answerWith({
     calls: [{ name: "say", arguments: { action: "say", text: "I cannot." } }],
   });
+  // The refusal on the plan sends the spoken report back once (ADR 0038), and
+  // the second report is the one that stands — a different sentence, because the
+  // same calls twice is the stall the loop stops on.
+  answerWith({
+    calls: [{ name: "say", arguments: { action: "say", text: "I still cannot." } }],
+  });
   await postChatMessage(
     ctx,
     accountId,
@@ -2378,6 +2384,7 @@ test("a document that asks for an act outside the grants is data, and the act is
 
   const run = await runOf();
   assert.equal(run.state, "done", "the run ends saying it could not");
+  assert.equal(run.ended?.why, "I still cannot.");
   const refused = run.plan.filter((step) => step.state === "failed");
   assert.ok(
     refused.some((step) => /no tool named "place"/.test(step.outcome)),
