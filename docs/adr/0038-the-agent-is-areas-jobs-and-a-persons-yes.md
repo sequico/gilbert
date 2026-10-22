@@ -10,9 +10,11 @@ run keyed by it and the one-off clear of the old rules are
 `server/src/agent/changes.ts`, `loop.ts` and `legacy.ts`; the `done` is read
 against its plan and a run that finished nothing ends `refused`; a tool's answer
 is filtered by `server/src/agent/redact.ts`; the eval runner is
-`server/src/agent/eval.ts`. **Not built:** the eight job-shaped tools (the
-catalogue is still forty-eight endpoints), the judge that reads the ask and the
-evidence against the plan, and nine of the ten eval tasks.
+`server/src/agent/eval.ts`. **Not built:** the contact (native calls as the only
+protocol, the check at connect, a token budget a run can see, a refusal that
+repairs), the eight job-shaped tools (the catalogue is still forty-five
+endpoints), the judge that reads the ask and the evidence against the plan, and
+nine of the ten eval tasks.
 
 ## What this replaces, and what it keeps
 
@@ -206,7 +208,7 @@ asking it to spell what it cannot see.
 
 ### The catalogue is eight jobs
 
-The forty-eight endpoint tools become eight, and every capability is either a
+The forty-five endpoint tools become eight, and every capability is either a
 field of a job or **consciously dropped**:
 
 | job | what it is | absorbs |
@@ -300,7 +302,7 @@ waits on, and the ones the next choice depends on — instead of the whole plan.
   run did nothing rather than pretending. A `done` that stands on a refused step
   **while a later step succeeded** is not caught by this guard: the ask and the
   evidence are not read against each other yet, and that judge is owed
-  (`ROADMAP.md`).
+  (`docs/plans/0038-implementation.md`).
 
 ### The agent is measured on tasks it has already failed
 

@@ -93,10 +93,11 @@ response to measure. The two blocking defects come first.
 
 ## The contact, in order
 
-The one layer the eval proved unfit. F0 is done; each step is measured with the
+The one layer the eval proved unfit. F0 is written; the rest is measured with the
 runner.
 
-- **F0 — the turn that produces nothing (done).** The decision turn said "JSON";
+- **F0 — the turn that produces nothing (written, not yet measured).** The
+  decision turn said "JSON";
   the choosing turn did not, and every call that fell back to
   `response_format: json_object` was answered 400 by the provider. One sentence
   in the choosing turn's system prompt names JSON. Done when a mail in a declared
@@ -111,7 +112,7 @@ runner.
   run's budget of prompt and completion tokens; each call sends what is left as
   its `max_tokens`, and a run that reaches it ends `out-of-budget` naming the
   token.
-- **F2 — the eight jobs.** The forty-eight endpoint tools become the eight of the
+- **F2 — the eight jobs.** The forty-five endpoint tools become the eight of the
   record (`read`, `find`, `place`, `draft`, `event`, `say`, `remember`,
   `settle`), the map in the record is the authority, and `mail.send` is dropped:
   every capability is either a field of a job or consciously gone. The schema is
