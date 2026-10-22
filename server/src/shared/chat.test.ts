@@ -163,7 +163,7 @@ test("a chat message is the agent's unless it names somebody else", () => {
   );
   assert.equal(
     isMine({ text: "@here stand-up in five" }),
-    false,
-    "a call to the room is somebody else's",
+    true,
+    "a call to the room names nobody, so the message is the agent's",
   );
 });

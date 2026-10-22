@@ -27,7 +27,10 @@ import { freePort, jsonCall } from "./testkit.js";
  *   agent's own write refused against it afterwards (answer the route `ok`
  *   without writing and the store still holds the old sentence);
  * - **a lapsed claim is no claim**, because the instant ADR 0032 gives it means
- *   one thing.
+ *   one thing;
+ * - **a member reads the installation's switch from the group's own surface**,
+ *   because the chat names the state for everybody in the group, not only for
+ *   an administrator.
  */
 
 const PORT = await freePort();
@@ -597,4 +600,34 @@ test("a group-wide stop says what it closed, what it could not, and what it neve
     "a run somebody already ended is not this press's work",
   );
   assert.equal(second.stopped, 0, "and the count says so");
+});
+
+test("a member reads the installation's switch from the group's own surface", async () => {
+  /*
+   * The chat names the agent's state in its header for every member of the
+   * group, not only for an administrator, so the member's read is the door
+   * under test: the switch is the installation's (the Master's document),
+   * reached through the group's grant.
+   */
+  const path = `/api/groups/${encodeURIComponent(TEAM)}/agent`;
+  const turn = (enabled: boolean) =>
+    call("/api/admin/agent/switch", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    });
+
+  assert.equal((await turn(false)).status, 200, "the administrator turns it off");
+  const off = await call(path);
+  assert.equal(off.status, 200);
+  assert.equal((off.body as { enabled: boolean }).enabled, false, "the member reads off");
+
+  assert.equal((await turn(true)).status, 200, "and back on");
+  const on = await call(path);
+  assert.equal(on.status, 200);
+  assert.equal((on.body as { enabled: boolean }).enabled, true, "the member reads on");
+
+  const stranger = await call(
+    `/api/groups/${encodeURIComponent("nobody@example.org")}/agent`,
+  );
+  assert.equal(stranger.status, 403, "a group this session is not in is not readable");
 });

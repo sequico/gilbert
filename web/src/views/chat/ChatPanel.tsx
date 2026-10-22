@@ -20,7 +20,7 @@ import {
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import type { FactView } from "@/lib/agentAdmin";
-import { fetchGroupAgent, fetchGroupRuns } from "@/lib/agentAdmin";
+import { fetchGroupAgent, fetchGroupRuns, onAgentSwitch } from "@/lib/agentAdmin";
 import {
   CHAT_MAX_TEXT,
   CHAT_TAIL,
@@ -445,11 +445,21 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   useEffect(() => {
     const stop = agentState();
     const timer = window.setInterval(() => void agentState(), 15_000);
+    // A switch written in another window is read when this one comes back.
+    const seen = () => {
+      if (document.visibilityState === "visible") void agentState();
+    };
+    document.addEventListener("visibilitychange", seen);
     return () => {
       stop();
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", seen);
     };
   }, [agentState, nodeCount]);
+
+  // The admin surface and the chat are one client: a switch written there is
+  // said here at once, not on the next beat.
+  useEffect(() => onAgentSwitch((state) => setAgentOn(state.enabled)), []);
 
   const questionIds = useMemo(
     () => new Set(questions.map((one) => one.messageId)),

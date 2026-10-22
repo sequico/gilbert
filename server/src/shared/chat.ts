@@ -312,11 +312,20 @@ export function addressedToAgent(
  *
  * An address inside a sentence (`ops@shipper.example`) is not a mention: the
  * `@` must begin the token, and a letter of any script before it is part of an
- * address. Trailing punctuation ends a name rather than being part of it.
+ * address. Trailing punctuation ends a name rather than being part of it. A
+ * call to the room (`@here`, `@channel`) names no person, so it leaves the
+ * message the agent's.
  */
 function namesSomebody(text: string): boolean {
-  return /(^|[^\p{L}\p{N}_@])@[^\s,.;:!?)\]”"]+/u.test(text);
+  for (const match of text.matchAll(/(^|[^\p{L}\p{N}_@])@([^\s,.;:!?)\]”"]+)/gu)) {
+    const name = match[2]?.toLowerCase();
+    if (name && !ROOM_CALLS.has(name)) return true;
+  }
+  return false;
 }
+
+/** Words an `@` call addresses to everybody in the conversation. */
+const ROOM_CALLS = new Set(["here", "all", "channel", "everyone"]);
 
 /**
  * A regex matching a mention in either form, for **drawing** a message.

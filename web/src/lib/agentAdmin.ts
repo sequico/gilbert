@@ -226,11 +226,25 @@ export async function fetchAgentSwitch(): Promise<AgentSwitch> {
   return await apiFetch<AgentSwitch>("/api/admin/agent/switch");
 }
 
+/** The listeners a switch written from this client tells (the chat header). */
+const switchListeners = new Set<(state: AgentSwitch) => void>();
+
+export function onAgentSwitch(listener: (state: AgentSwitch) => void): () => void {
+  switchListeners.add(listener);
+  return () => {
+    switchListeners.delete(listener);
+  };
+}
+
 export async function setAgentSwitch(enabled: boolean): Promise<AgentSwitch> {
-  return await apiFetch<AgentSwitch>("/api/admin/agent/switch", {
+  const state = await apiFetch<AgentSwitch>("/api/admin/agent/switch", {
     method: "PUT",
     body: JSON.stringify({ enabled }),
   });
+  // A surface that names the state (the chat header) hears the answer at once
+  // instead of waiting for its next beat.
+  for (const listener of switchListeners) listener(state);
+  return state;
 }
 
 /**
