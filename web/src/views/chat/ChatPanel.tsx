@@ -10,6 +10,7 @@
  */
 import {
   CircleHelp,
+  Clock,
   CornerUpLeft,
   ListChecks,
   Search,
@@ -18,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { push } from "@/jmap/push";
 import type { Id } from "@/jmap/types";
 import type { FactView } from "@/lib/agentAdmin";
 import { fetchGroupAgent, fetchGroupRuns, onAgentSwitch } from "@/lib/agentAdmin";
@@ -333,6 +335,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const [questionsOpen, setQuestionsOpen] = useState(false);
   /** Whether the installation's agent is on; null until the group answers. */
   const [agentOn, setAgentOn] = useState<boolean | null>(null);
+  /** The place reserved for timed runs; nothing is built behind it yet. */
+  const [timedOpen, setTimedOpen] = useState(false);
 
   // ----- search across the selected group's messages -----
   const [searchOpen, setSearchOpen] = useState(false);
@@ -348,6 +352,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     setEmojiOpen(false);
     setRunsOpen(false);
     setQuestionsOpen(false);
+    setTimedOpen(false);
     // Another team's questions and switch are not this team's: clear them, and
     // the fetch below checks the account again when it lands.
     setQuestions([]);
@@ -403,18 +408,16 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   }, []);
 
   /*
-   * The questions the group's agent has open on a person (ADR 0029, 0038) and
-   * whether that agent is on: the live runs are the source, and the blocked ones
-   * whose wait is a chat message are exactly the questions the thread draws
-   * highlighted. One fetch carries both, refreshed on a new message and on a
-   * slow beat so a question answered in another tab stops being counted and an
-   * agent switched on stops saying it is off.
+   * The questions the group's agent has open on a person (ADR 0029, 0038): the
+   * live runs are the source, and the blocked ones whose wait is a chat message
+   * are exactly the questions the thread draws highlighted. A run is a file in
+   * the group's account, so the push stream is the clock; the interval below is
+   * only the net under a stream that is down.
    */
-  const agentState = useCallback(() => {
+  const questionsNow = useCallback(() => {
     const group = open?.name;
     if (!openAccountId || !group) {
       setQuestions([]);
-      setAgentOn(null);
       return () => {};
     }
     let live = true;
@@ -429,6 +432,25 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         // A listing that could not be read is not an empty one: what was read
         // stays on screen rather than a question quietly disappearing.
       });
+    return () => {
+      live = false;
+    };
+  }, [openAccountId, open?.name]);
+
+  /*
+   * Whether the installation's agent is on. No stream carries the installation's
+   * switch to a member, so this is read when the panel opens, when the window
+   * comes back, when the admin surface writes it here, and on the interval as
+   * the net — each an event, never a poll.
+   */
+  const agentOnNow = useCallback(() => {
+    const group = open?.name;
+    if (!openAccountId || !group) {
+      setAgentOn(null);
+      return () => {};
+    }
+    let live = true;
+    const current = () => live && useChat.getState().openAccountId === openAccountId;
     fetchGroupAgent(group)
       .then((state) => {
         if (current()) setAgentOn(state.enabled);
@@ -443,19 +465,45 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   }, [openAccountId, open?.name]);
 
   useEffect(() => {
-    const stop = agentState();
-    const timer = window.setInterval(() => void agentState(), 15_000);
-    // A switch written in another window is read when this one comes back.
+    const stopQuestions = questionsNow();
+    const stopSwitch = agentOnNow();
+    /*
+     * The stream is the clock: a run document is a `FileNode` in the group's
+     * account, and the agent writes one in a burst, so one read follows it after
+     * a second. The interval is the net under a stream that is down, and the
+     * window coming back is what catches a switch written elsewhere.
+     */
+    let scheduled: number | null = null;
+    const stopPush = openAccountId
+      ? push.subscribe((changed, type) => {
+          if (type !== "FileNode" || changed !== openAccountId || scheduled !== null)
+            return;
+          scheduled = window.setTimeout(() => {
+            scheduled = null;
+            void questionsNow();
+          }, 1_000);
+        })
+      : () => {};
+    const fallback = window.setInterval(() => {
+      void questionsNow();
+      void agentOnNow();
+    }, 15_000);
     const seen = () => {
-      if (document.visibilityState === "visible") void agentState();
+      if (document.visibilityState === "visible") {
+        void questionsNow();
+        void agentOnNow();
+      }
     };
     document.addEventListener("visibilitychange", seen);
     return () => {
-      stop();
-      window.clearInterval(timer);
+      stopQuestions();
+      stopSwitch();
+      stopPush();
+      window.clearInterval(fallback);
+      if (scheduled !== null) window.clearTimeout(scheduled);
       document.removeEventListener("visibilitychange", seen);
     };
-  }, [agentState, nodeCount]);
+  }, [questionsNow, agentOnNow, openAccountId]);
 
   // The admin surface and the chat are one client: a switch written there is
   // said here at once, not on the next beat.
@@ -576,6 +624,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                   setQuestionsOpen((v) => !v);
                   setRunsOpen(false);
                   setSearchOpen(false);
+                  setTimedOpen(false);
                 }}
               >
                 <CircleHelp size={15} />
@@ -586,6 +635,22 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                 </span>
               )}
             </span>
+          )}
+          {open && (
+            <button
+              type="button"
+              className={`icon-btn xs ${timedOpen ? "active" : ""}`}
+              aria-label={t("Timed runs")}
+              title={t("Timed runs")}
+              onClick={() => {
+                setTimedOpen((v) => !v);
+                setQuestionsOpen(false);
+                setRunsOpen(false);
+                setSearchOpen(false);
+              }}
+            >
+              <Clock size={15} />
+            </button>
           )}
           {open && (
             <button
@@ -612,6 +677,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                 setSearchOpen((v) => !v);
                 setRunsOpen(false);
                 setQuestionsOpen(false);
+                setTimedOpen(false);
               }}
             >
               <Search size={15} />
@@ -673,7 +739,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         </div>
       )}
       <div className="chat-thread" ref={threadRef} onScroll={onScroll}>
-        {questionsOpen && open ? (
+        {timedOpen && open ? (
+          <div className="chat-empty">{t("To be implemented")}</div>
+        ) : questionsOpen && open ? (
           <div className="chat-questions">
             {questions.length > 0 && (
               <div className="chat-questions-head">
@@ -718,7 +786,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                       group={open.name}
                       id={one.runId}
                       label={t("Disregard")}
-                      onStopped={() => void agentState()}
+                      onStopped={() => void questionsNow()}
                     />
                   </span>
                 </div>

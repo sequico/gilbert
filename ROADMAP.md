@@ -7,6 +7,13 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
+- **Timed runs are a placeholder.** The chat's header carries a clock between the
+  open questions and the runs, and pressing it says "To be implemented": the place
+  where an instruction will schedule an act for a time (a report at 08:00, a
+  reminder before a deadline) is reserved, not built. No run is scheduled for a
+  time today: the agent lives on changes, and the supervisor's pass is the only
+  clock.
+
 - **The agent is one instruction, eight jobs, and three probes still owed.**
   ADR 0038 is its design: it replaces 0027 (the catalogue) and 0031 (the rules),
   amends 0029 (the conversation) and 0030 (the plan), and keeps 0028 (what it

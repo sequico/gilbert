@@ -745,14 +745,16 @@ the session holds group mailboxes.
 - **A question the agent is waiting on is amber**: the messages whose run is
   blocked on a person's answer (the live runs' `waiting.asked`) are drawn with the
   warning colour, and a **?** control beside the runs lists those questions with a
-  count bubble: a row jumps to its message, **Answer** returns to the composer
-  with a reply already quoting the question, and **Disregard** closes the run as
-  `cancelled`. The panel's title is fixed **Gilbert AI interface** — beside it, in
-  red, **Gilbert AI off** while the installation's agent is switched off, dropped
-  at once when the switch is written from this client and on the next beat or
-  when the window comes back otherwise — the switcher names each team by its
-  local part (`freight@`, `finance@`), and the composer's placeholder names the
-  addressee first — **Message Gilbert @freight**.
+  count bubble, refreshed by the group's push stream — a run is a file there —
+  with a slow beat only as the net: a row jumps to its message, **Answer**
+  returns to the composer with a reply already quoting the question, and
+  **Disregard** closes the run as `cancelled`. The panel's title is fixed
+  **Gilbert AI interface** — beside it, in red, **Gilbert AI off** while the
+  installation's agent is switched off, dropped at once when the switch is
+  written from this client, when the window comes back, and on the net
+  otherwise — the switcher names each team by its local part (`freight@`,
+  `finance@`), and the composer's placeholder names the addressee first —
+  **Message Gilbert @freight**.
 - **Read markers** — `gilbert/chat-state/read-<member>.json`, one per member,
   written by that member's own session — make **unread = newer than my marker**. A
   member who never opened the chat sees badge 0 and the full transcript; the marker

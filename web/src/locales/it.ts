@@ -2770,6 +2770,8 @@ export const catalog: Catalog = {
     "Searching…": "Ricerca in corso…",
     "Gilbert AI interface": "Interfaccia AI di Gilbert",
     "Gilbert AI off": "Gilbert AI spento",
+    "Timed runs": "Run programmati",
+    "To be implemented": "Da implementare",
     "Open questions": "Domande aperte",
     "Open questions ({n})": "Domande aperte ({n})",
     "Questions waiting for an answer": "Domande in attesa di risposta",
