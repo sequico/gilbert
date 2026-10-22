@@ -91,16 +91,49 @@ in the loop, and they are three:
 No measure of the model's quality exists yet: the contact does not deliver a
 response to measure. The two blocking defects come first.
 
+## The contact, in order
+
+The one layer the eval proved unfit. F0 is done; each step is measured with the
+runner.
+
+- **F0 — the turn that produces nothing (done).** The decision turn said "JSON";
+  the choosing turn did not, and every call that fell back to
+  `response_format: json_object` was answered 400 by the provider. One sentence
+  in the choosing turn's system prompt names JSON. Done when a mail in a declared
+  area opens a run and reaches an ending.
+- **F1 — native function calling.** The catalogue travels in `tools` and the
+  answer is read from `tool_calls` (the reader exists); `response_format` is never
+  sent beside `tools`; a provider that refuses `tools` falls back **and the run
+  records it**. The provider path owns the ceiling: a stated `max_tokens` with
+  room for reasoning, and a named failure for a turn with no content.
+- **F2 — the eight jobs.** The forty-eight endpoint tools become the eight of
+  this record; every capability is either a field of a job or consciously
+  dropped, and the map is written beside the tools. The schema is the interface:
+  `enum` for a set, required where required, every id naming its kind.
+- **F3 — a refusal is a repair.** A wrong argument returns to the same turn with
+  the field, the value sent and the allowed values; the valid calls of the same
+  answer still run; the whole-answer refusal disappears, with a test that pins a
+  plan whose bad call and good call leave the good one on the record. The
+  four-lookup ceiling becomes the job's own bound.
+- **F4 — the measure.** Seven tasks beside the three: the drop of files, the
+  credential, "fai tu", the recurring invitation, the unreadable attachment, the
+  repeated reading, and the two run cases whose messages were exported. A task
+  passes only at zero argument refusals and within the `done` averages (7 calls,
+  one minute).
+
+## Open decisions
+
+1. **The ceiling**: a stated `max_tokens` for every call, or a retry when the
+   answer is cut. The first costs nothing when the model stops early and does not
+   hide the provider's default.
+2. **The fallback**: keep JSON in the text for a provider without `tools`, or
+   require `tools` and refuse the deployment with a sentence. The corpus says the
+   fallback is where the format refusals live.
+3. **The eight jobs' names and arguments** — F2's table, reviewed before the
+   tools are written.
+
 ## Owed, and named so it is not forgotten
 
-- **The contact**: the `response_format`/prompt mismatch, a ceiling that leaves a
-  reasoning model room to answer, and native function calling instead of JSON in
-  the text. This is the bottleneck the position note names.
-- **The eval set**: seven tasks of ten remain, and the three run tasks taken from
-  the corpus wait for the exported messages (`gilbert-eval-messages.jsonl`, 15
-  documents, received).
-- **The judge that reads the ask and the evidence against the plan** (ADR 0038):
-  the guard reads the plan alone, so a `done` that stands on a refused step while
-  a later step succeeded still passes.
-- **The job-shaped catalogue** (ADR 0038): the tools are still the endpoint
-  catalogue under area prefixes; the eight job-shaped tools are not written.
+- **The judge that reads the ask and the evidence against the plan**: the guard
+  reads the plan alone, so a `done` that stands on a refused step while a later
+  step succeeded still passes.

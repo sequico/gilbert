@@ -165,6 +165,37 @@ applied at the boundary where an answer is made. The filter is by name, not by
 content: a key pasted inside a paragraph is not caught, and that limit is written
 where the filter lives (`agent/redact.ts`).
 
+### The model calls the tools, and a refusal is a repair
+
+The interface is where the work was lost, not the reasoning: of 260 failed steps
+in the 171-run corpus, **48** are `"id" must be text, **42** `"fact" must be at
+most 400 characters, **9** an invented tool name and **9** a wrong argument set.
+The eval added the same lesson from the provider's side: a turn asked for
+`response_format: json_object` while the prompt never contained the word `json`,
+and a reasoning model spent the provider's default budget before writing any
+content at all. Neither is a decision the model got wrong; it is the interface
+asking it to spell what it cannot see.
+
+- **Native function calling is the protocol.** The catalogue travels in the
+  request's `tools`, and the answer is read from `tool_calls`. JSON in the text is
+  a **declared fallback** for a provider that refuses `tools`, and the run records
+  that the fallback was used, so a deployment sees which path it is on rather
+  than inferring it.
+- **A refusal is a repair, not a lost answer.** An invalid call comes back to the
+  same turn with the field, the value that was sent and the values the schema
+  allows, and the refusal is one step on the run. The calls that were valid still
+  run: the whole-answer refusal disappears.
+- **The schema is narrow and self-describing.** A field that takes one of a set is
+  an `enum`; a field that takes an id says which kind; a required field is
+  required in the schema, not in a sentence the model may skip.
+- **The ceilings are per job.** Four lookups per turn was a number of the endpoint
+  catalogue; a job declares what it needs and the turn may look up that much. The
+  budget of steps, calls and milliseconds stays.
+- **A provider's silence is a named failure.** A turn that answers with no
+  content, or with reasoning only, fails with its own code and the pass says so;
+  no run opens on it, and the build does not pretend the answer was empty on
+  purpose.
+
 ### The common path is a workflow; a plan is the exception
 
 A run of any area set runs three beats, each a step of the document:
