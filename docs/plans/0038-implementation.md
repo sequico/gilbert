@@ -54,13 +54,53 @@ whether the work is accepted and what it cost in calls and refusals.
    instruction will do no work; a credential pasted into the prose a turn is
    given is emptied by the same filter (`redactText`); and a run's state labels
    are in all eleven catalogues.
+9. **The eval exists and runs.** `server/src/agent/eval.ts` starts the mock, the
+   group account and the loop on its own, with the installation's own provider
+   (`GILBERT_EVAL_PROVIDER`, default the provider block exported from the
+   deployment). Three tasks are written, each with the outcome a person would
+   accept; a task that opens no run prints `no-run`. It is not a test and never
+   runs in the gate.
+
+## The eval, as it ran (2026-10-22)
+
+| task | result |
+|---|---|
+| a mention in a group with no instruction is answered, without a run | **PASS** — no run, no model call, one message |
+| a mail in an area the instruction does not declare opens no run | **PASS** — no run, no call |
+| a mail in the mail area is read and answered | **FAIL** — `ending=running`, 6 passes, 20 calls, 0 steps |
+
+The third task never produced a usable turn. The causes are in the contact, not
+in the loop, and they are three:
+
+- **`response_format: json_object` without the word `json` in the prompt.** The
+  provider answers `400: Prompt must contain the word 'json' in some form to use
+  'response_format' of type 'json_object'` on every call that carries no native
+  tools — the decision turn, and the choosing turn when its tool definitions are
+  refused. The prompt's own text never contains the word (`prompt.ts` has it only
+  inside `JSON.stringify`). One sentence in the system prompt is the likely fix;
+  it must be checked against what the deployment sends, since the 171-run corpus
+  shows the same provider answering on 21 October.
+- **A reasoning model with no stated ceiling.** `deepseek-flash` put its answer in
+  `reasoning_content` and left `content` as spaces: `answered without a message`.
+  The build deliberately sends no `max_tokens` ("a ceiling this build guessed cut
+  the content away"); with this model the provider's own default is what runs out.
+- **Four lookups per turn.** One of the six passes reported "The model asked to
+  look something up with all 4 lookups spent", so the turn could not finish what
+  it started.
+
+No measure of the model's quality exists yet: the contact does not deliver a
+response to measure. The two blocking defects come first.
 
 ## Owed, and named so it is not forgotten
 
-- The **eval set** (ADR 0038): the 15–20 tasks taken from the 171 measured runs
-  are not written yet, so no block above has a score.
-- The **judge that reads the ask and the evidence against the plan** (ADR 0038):
+- **The contact**: the `response_format`/prompt mismatch, a ceiling that leaves a
+  reasoning model room to answer, and native function calling instead of JSON in
+  the text. This is the bottleneck the position note names.
+- **The eval set**: seven tasks of ten remain, and the three run tasks taken from
+  the corpus wait for the exported messages (`gilbert-eval-messages.jsonl`, 15
+  documents, received).
+- **The judge that reads the ask and the evidence against the plan** (ADR 0038):
   the guard reads the plan alone, so a `done` that stands on a refused step while
   a later step succeeded still passes.
-- The **job-shaped catalogue** (ADR 0038): the tools are still the endpoint
+- **The job-shaped catalogue** (ADR 0038): the tools are still the endpoint
   catalogue under area prefixes; the eight job-shaped tools are not written.
