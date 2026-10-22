@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { type ChatConversation, useChat } from "@/store/chat";
+import { useSession } from "@/store/session";
 import { ChatPanel } from "../ChatPanel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -30,6 +31,30 @@ vi.mock("@/lib/agentAdmin", async (importOriginal) => {
     stopRun: admin.stopRun,
   };
 });
+
+/*
+ * The event stream, captured: the panel attaches a listener and the test drives
+ * it, so what a run change and an installation change each refresh is pinned
+ * without waiting for a real socket.
+ */
+const stream = vi.hoisted(() => ({
+  listeners: [] as Array<(changed: string, type: string) => void>,
+}));
+vi.mock("@/jmap/push", () => ({
+  push: {
+    subscribe: (fn: (changed: string, type: string) => void) => {
+      stream.listeners.push(fn);
+      return () => {
+        stream.listeners = stream.listeners.filter((one) => one !== fn);
+      };
+    },
+    onConnection: () => () => {},
+    onReconnect: () => () => {},
+    onReachability: () => () => {},
+    start: () => {},
+    stop: () => {},
+  },
+}));
 
 const GROUP: MailAccountInfo = { accountId: "g1", name: "Team", kind: "group" };
 
@@ -103,6 +128,9 @@ describe("the agent's open questions", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
+    useSession.setState({
+      session: { gilbert: { installationAccount: "inst" } } as never,
+    });
     useChat.setState({
       conversations: { g1: conversation() },
       openAccountId: "g1",
@@ -168,5 +196,39 @@ describe("the agent's open questions", () => {
     await act(async () => {});
 
     expect(host.textContent).toContain("Gilbert AI off");
+  });
+
+  /*
+   * The stream is the clock: a run document is a change in the group's account,
+   * and the switch is one in the installation's account, which the server's
+   * fan-out follows for a member. Each is read on its own event — never by
+   * asking for the other — so one surface's change cannot cost the other a
+   * request, and neither needs a poll.
+   */
+  const push = async (changed: string) => {
+    for (const listener of stream.listeners) listener(changed, "FileNode");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
+    });
+  };
+
+  it("reads the questions when the group account changes", async () => {
+    const runsBefore = admin.fetchGroupRuns.mock.calls.length;
+    const switchBefore = admin.fetchGroupAgent.mock.calls.length;
+
+    await push("g1");
+
+    expect(admin.fetchGroupRuns.mock.calls.length).toBe(runsBefore + 1);
+    expect(admin.fetchGroupAgent.mock.calls.length).toBe(switchBefore);
+  });
+
+  it("reads the switch when the installation account changes", async () => {
+    const runsBefore = admin.fetchGroupRuns.mock.calls.length;
+    const switchBefore = admin.fetchGroupAgent.mock.calls.length;
+
+    await push("inst");
+
+    expect(admin.fetchGroupAgent.mock.calls.length).toBe(switchBefore + 1);
+    expect(admin.fetchGroupRuns.mock.calls.length).toBe(runsBefore);
   });
 });

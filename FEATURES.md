@@ -751,10 +751,10 @@ the session holds group mailboxes.
   **Disregard** closes the run as `cancelled`. The panel's title is fixed
   **Gilbert AI interface** — beside it, in red, **Gilbert AI off** while the
   installation's agent is switched off, dropped at once when the switch is
-  written from this client, when the window comes back, and on the net
-  otherwise — the switcher names each team by its local part (`freight@`,
-  `finance@`), and the composer's placeholder names the addressee first —
-  **Message Gilbert @freight**.
+  written from this client or when the installation account's event arrives,
+  with the window coming back and a slow beat as the net — the switcher names
+  each team by its local part (`freight@`, `finance@`), and the composer's
+  placeholder names the addressee first — **Message Gilbert @freight**.
 - **Read markers** — `gilbert/chat-state/read-<member>.json`, one per member,
   written by that member's own session — make **unread = newer than my marker**. A
   member who never opened the chat sees badge 0 and the full transcript; the marker

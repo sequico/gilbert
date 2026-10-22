@@ -220,6 +220,14 @@ const ChatRow = memo(function ChatRow({
 
 export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const me = useSession((s) => s.session?.username ?? "");
+  /*
+   * The installation's own account, as the session names it: the agent switch
+   * lives in the Master's files, and the server's event stream follows that
+   * account for every member because a member's own subscription cannot.
+   */
+  const installationAccount = useSession(
+    (s) => s.session?.gilbert?.installationAccount ?? null,
+  );
   const conversations = useChat((s) => s.conversations);
   const openAccountId = useChat((s) => s.openAccountId);
   const open = openAccountId ? (conversations[openAccountId] ?? null) : null;
@@ -438,10 +446,10 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   }, [openAccountId, open?.name]);
 
   /*
-   * Whether the installation's agent is on. No stream carries the installation's
-   * switch to a member, so this is read when the panel opens, when the window
-   * comes back, when the admin surface writes it here, and on the interval as
-   * the net — each an event, never a poll.
+   * Whether the installation's agent is on. The switch is the Master's file, and
+   * the server's event stream follows the installation account for every member
+   * (`/api/events`' fan-out), so a write there arrives like any other; this is
+   * also read when the panel opens and on the net.
    */
   const agentOnNow = useCallback(() => {
     const group = open?.name;
@@ -469,19 +477,29 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     const stopSwitch = agentOnNow();
     /*
      * The stream is the clock: a run document is a `FileNode` in the group's
-     * account, and the agent writes one in a burst, so one read follows it after
-     * a second. The interval is the net under a stream that is down, and the
-     * window coming back is what catches a switch written elsewhere.
+     * account, and the switch is one in the installation's account, which the
+     * server's fan-out follows for a member. The agent writes a burst, so one
+     * read follows it after a second. The interval is the net under a stream
+     * that is down (and the only channel on a deployment without fan-out); the
+     * window coming back catches what a broken stream dropped.
      */
     let scheduled: number | null = null;
+    let pendingQuestions = false;
+    let pendingSwitch = false;
+    const fire = () => {
+      scheduled = null;
+      if (pendingQuestions) void questionsNow();
+      if (pendingSwitch) void agentOnNow();
+      pendingQuestions = false;
+      pendingSwitch = false;
+    };
     const stopPush = openAccountId
       ? push.subscribe((changed, type) => {
-          if (type !== "FileNode" || changed !== openAccountId || scheduled !== null)
-            return;
-          scheduled = window.setTimeout(() => {
-            scheduled = null;
-            void questionsNow();
-          }, 1_000);
+          if (type !== "FileNode") return;
+          if (changed === openAccountId) pendingQuestions = true;
+          else if (changed === installationAccount) pendingSwitch = true;
+          else return;
+          if (scheduled === null) scheduled = window.setTimeout(fire, 1_000);
         })
       : () => {};
     const fallback = window.setInterval(() => {
@@ -503,7 +521,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       if (scheduled !== null) window.clearTimeout(scheduled);
       document.removeEventListener("visibilitychange", seen);
     };
-  }, [questionsNow, agentOnNow, openAccountId]);
+  }, [questionsNow, agentOnNow, openAccountId, installationAccount]);
 
   // The admin surface and the chat are one client: a switch written there is
   // said here at once, not on the next beat.
