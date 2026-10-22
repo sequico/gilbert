@@ -65,7 +65,6 @@ const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { parseInstallationDocumentDetailed } = await import("../shared/installation.js");
 
-import type { InstallationModel } from "../shared/installation.js";
 import type { AreaName } from "../shared/areas.js";
 import type { EvalTask, Harness, RunMeasure } from "./eval/task.js";
 
@@ -102,7 +101,6 @@ if (process.env.GILBERT_EVAL_RECORD) {
 }
 /** The product's own door to a ready model, and its refusal when there is none. */
 const access = requireModelAccess(parsed.doc, false);
-const model: InstallationModel = access.model;
 
 const probe = await probeModel(access);
 if (!probe.ok) {

@@ -11,8 +11,9 @@
  * when the **first** attempt scores whole: a task that passes on the retry is
  * `unstable`, not passed.
  */
-import type { ChatMessage } from "../../shared/chat.js";
+
 import type { AreaName } from "../../shared/areas.js";
+import type { ChatMessage } from "../../shared/chat.js";
 
 /** What one run did, as every task is graded against it. */
 export interface RunMeasure {
