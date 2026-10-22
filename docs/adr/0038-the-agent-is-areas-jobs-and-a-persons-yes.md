@@ -11,8 +11,9 @@ run keyed by it and the one-off clear of the old rules are
 against its plan and a run that finished nothing ends `refused`; a tool's answer
 is filtered by `server/src/agent/redact.ts`; the eval runner is
 `server/src/agent/eval.ts`. **Not built:** the contact (native calls as the only
-protocol, the check at connect, a token budget a run can see, a refusal that
-repairs), the eight job-shaped tools (the catalogue is still forty-five
+protocol, the check at connect, a token budget a run can see and a daily one, a
+refusal that repairs), the eight job-shaped tools (the catalogue is still
+forty-five
 endpoints), the judge that reads the ask and the evidence against the plan, the
 selected context, the structured memory and the standard trend measure, the
 injection test, and seven of the ten eval tasks.
@@ -206,6 +207,10 @@ asking it to spell what it cannot see.
   room to answer and a run cannot burn without end. The run ends `out-of-budget`
   with the token it stopped at, as it does for steps and for the clock, and the
   value is editable where the installation's limits are.
+- **The installation has a daily ceiling.** `limits.maxDailyTokens` bounds what the
+  whole installation spends in a day: a run that reaches its own budget ends
+  `out-of-budget`, and when the day's is spent the agent works no new change and
+  says so. A group that works a lot cannot consume without an aggregate limit.
 - **The ceilings are per job.** Four lookups per turn was a number of the endpoint
   catalogue; a job declares what it needs and the turn may look up that much. The
   budget of steps, calls and milliseconds stays.
@@ -283,6 +288,13 @@ stays where it is: the document is complete, the prompt is bounded. It is the sa
 rule as the budget, applied to what the model reads rather than to what it may
 spend.
 
+A **stable prefix** — the installation's line, the group's instruction, the
+catalogue of the run's areas — is sent unchanged, so a provider that caches
+prefixes pays for it once per run rather than once per turn. Whether keeping a
+larger context cached costs less than compressing it is **measured on the evals**,
+not decided in advance: with a stable prefix, caching is the cheaper lever; as the
+run grows, compression is.
+
 ### The memory is entities, relations and time — retrieved, not dumped
 
 A fact is not a sentence in a bucket. The memory is **structured**: *entities* (a
@@ -307,6 +319,11 @@ each.
 Consolidation is part of the write: a fact that contradicts one still valid closes
 it in the same write, and a duplicate of an existing (entity, predicate, value) is
 not written again.
+
+The memory is **measured like any other promise**: a task asks what a run should
+remember, and checks what it recalled and what it dropped. A wrong fact recalled is
+worse than a missing one, so the measure is precision and recall of the retrieval,
+not how much was stored.
 
 Limits, declared: a cap per entity, a TTL for facts nobody touches, and a text
 embedding only where the installation offers one. The embedding is a **capability

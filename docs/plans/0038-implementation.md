@@ -111,7 +111,8 @@ runner.
   `limits.maxRunTokens` (editable where the installation's limits are) is the
   run's budget of prompt and completion tokens; each call sends what is left as
   its `max_tokens`, and a run that reaches it ends `out-of-budget` naming the
-  token.
+  token. `limits.maxDailyTokens` bounds the installation's day: past it, no new
+  change is worked and the pass says so.
 - **F2 — the eight jobs.** The forty-five endpoint tools become the eight of the
   record (`read`, `find`, `place`, `draft`, `event`, `say`, `remember`,
   `settle`), the map in the record is the authority, and `mail.send` is dropped:
@@ -143,7 +144,9 @@ runner.
 - **F5 — the context is selected.** A turn receives the ask, the instruction, the
   facts of its subject and the plan's tail; earlier steps reach it as one line
   each, and a run past a threshold is given a summary while the document keeps
-  everything. The threshold is measured, not guessed.
+  everything. The threshold is measured, not guessed, and the stable prefix is
+  cached where the provider does: caching against compression is decided by the
+  eval's cost, not by taste.
 - **F6 — the trend is visible.** Each run and pass emits the same measures in the
   OpenTelemetry GenAI shape, so cost and refusals can be read over time instead of
   document by document.
@@ -151,7 +154,8 @@ runner.
   with a validity interval; one document each in `gilbert/memory/`, the index
   rebuilt at boot; retrieval by exact subject, then similarity, then recency,
   bounded by the context rule; a contradicting fact closes the one it replaces,
-  and a fact nobody touches ages out.
+  and a fact nobody touches ages out. Its **precision and recall** are a task of
+  the eval: a wrong fact recalled is worse than a missing one.
 
 ## Owed, and named so it is not forgotten
 
