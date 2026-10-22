@@ -17,7 +17,7 @@ lives outside the repository; the eval tasks live in it.
 
 | step | touches | done when |
 |---|---|---|
-| **F1 — the contact** | `model.ts`, `loop.ts`, `shared/installation.ts`, `shared/run.ts`, `routes/agent.ts`, admin limits | the third task passes through `tools`; the probe checks `tools` **and** the decision turn's structured output; the provider's output ceiling is read at connect and caps every `max_tokens`; transient failures back off, permanent ones end `refused` after three |
+| **F1 — the contact** | `model.ts`, `loop.ts`, `shared/installation.ts`, `shared/run.ts`, `routes/agent.ts`, admin limits | the third task passes through `tools`; a provider is selectable only with `tools` and structured output, checked when it is set, with reachability at connect; the provider's output ceiling is read at connect and caps every `max_tokens`; transient failures back off, permanent ones stop the pass; a spent day reads nothing |
 | **F2 — eight jobs** | `agent/tools/*`, `tools.ts`, `areas.ts`, fixtures | every one of the 45 endpoint tools has a home or is dropped; each schema shows only the allowed `kind`/`action`; `read`, `find`, `say`, `remember` are always present; zero argument refusals |
 | **F3 — repair** | `model.ts`, `loop.ts` | a plan with one bad and one good call leaves the good one on the record |
 | **F4 — the measure** | `eval.ts` and its tasks | ten tasks **in the repository**, each with its message and a reference; at least six drive the model; partial credit; retry of failures; `pass@1` and cost printed |
@@ -45,5 +45,6 @@ The **judge comes first**, right after F7: it is not optional.
 
 - `limits.maxRunTokens`: **120 000**.
 - `limits.maxDailyTokens`: **2 000 000**.
-- Probe cost: one tool-carrying call per provider session, cached until the
-  provider configuration changes.
+- Probe: the two capabilities are checked **when the provider is set** (one request
+  if they travel together, two if not); at connect, reachability only; cached until
+  the configuration changes.

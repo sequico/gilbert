@@ -156,9 +156,12 @@ exact first, then similarity where an embedding exists — and the matching enti
 their relations and the facts valid at that moment are ranked by subject, then
 similarity, then recency; only the top few reach the turn. A fact about a subject
 the memory does not hold creates it, and a relation is a fact whose object is
-another entity. Closed facts are read by entity and interval when a run asks "since
-when"; the live retrieval ignores them. A contradicting fact closes the one it
-replaces, and a duplicate is not written again.
+another entity. A subject is identified by its **normalized name**: two different
+names are two entities, and merging them is a write someone makes explicitly, never
+an inference. Relations are followed **one hop** in the live retrieval; deeper paths
+belong to the "since when" read. Closed facts are read by entity and interval when a
+run asks "since when"; the live retrieval ignores them. A contradicting fact closes
+the one it replaces, and a duplicate is not written again.
 
 The memory is **measured** — precision and recall, not how much was stored, because
 a wrong fact recalled is worse than a missing one. Limits: a cap per entity, a TTL
@@ -204,11 +207,12 @@ spent the provider's default budget before writing anything.
 
 - **Native function calling is the protocol, and the only one.** The catalogue
   travels in `tools`, the answer is read from `tool_calls`. A provider that refuses
-  `tools` is **refused at connect and whenever the provider session is
-  re-established**, naming what it refused; the probe is cached and re-run only when
-  the provider configuration changes; there is no JSON-in-the-text fallback. The **connect probe checks what
-  both turns need** — `tools` for the action, the structured output for the
-  decision — and refuses a provider that lacks either. The **decision turn**, which
+  A provider is **selectable only if it takes both** what the turns need — `tools`
+  for the action, the structured output for the decision — and the probe checks both
+  **when the installation's provider is set** (one request when they travel
+  together, two when they do not). At connect the probe checks only that the
+  provider answers, and the capability result is cached until the configuration
+  changes. There is no JSON-in-the-text fallback. The **decision turn**, which
   chooses no action, is asked in the provider's **native structured output** (a
   JSON schema), not JSON in free text, and may name one `read` — the same job the
   action turns call, **whose schema is derived from that tool** rather than written
@@ -221,19 +225,24 @@ spent the provider's default budget before writing anything.
 - **The schema is narrow**: `enum` for a set, ids naming their kind, required where
   required.
 - **The run has a token ceiling** (`limits.maxRunTokens`, in admin): each call
-  sends what is left as `max_tokens`, **capped by the output ceiling the provider
-  declares** — read at connect and kept with the capability, with a conservative
-  fallback when it declares none — so a reasoning model has room and a run cannot
-  burn without end; reaching it ends `out-of-budget` naming the token, and when what
-  is left cannot pay for a call the run ends **before** asking. The
-  **installation has a daily ceiling** (`limits.maxDailyTokens`): past it no new run
-  opens, a run already open finishes its own budget, and the pass **stops before
-  reading changes** while the ceiling is spent, so nothing is consumed without a run.
+  sends what is left **after the prompt** as `max_tokens`, **capped by the output
+  ceiling the provider declares** — read at connect and kept with the capability,
+  with a conservative fallback when it declares none — so a reasoning model has room
+  and a run cannot burn without end; reaching it ends `out-of-budget` naming the
+  token, and when what is left cannot pay for a call the run ends **before** asking.
+- **The installation has a daily ceiling** (`limits.maxDailyTokens`), counted in the
+  pass's own document — one write per pass, not per call — and reset lazily when the
+  date changes. Past it no new run opens, a run already open finishes its own
+  budget, and the pass **stops before reading changes**, so nothing is consumed
+  without a run; the change batch per pass is bounded, so the first pass after a
+  spent day does not read the whole day at once.
 - **Ceilings are per job**: four lookups was an endpoint number.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
   with its own code; no run opens on it. A **transient** failure (5xx, timeout) is
-  retried with backoff and does not count; a **permanent** one (a 4xx the request
-  causes) ends the run `refused` after three in a row, naming the provider.
+  retried with backoff and does not count. A **permanent** one (a 4xx the request
+  causes) **stops the pass** after three in a row, naming the provider, and the run
+  stays `running` with a backoff: a broken deployment must not burn the day's
+  changes as refused answers.
 
 ### What a run says, and how it ends
 
@@ -294,8 +303,8 @@ one.
 
 - The largest failure class — a name the catalogue does not hold — shrinks to the
   declared areas; the second, argument names and bounds, is taught by the refusal.
-- A false `done` is caught by the judge, which is **not optional**: it is the first
-  work after F7. The product drafts, the judge checks, the person sends.
+- A false `done` **will be** caught by the judge — not optional, the first work after
+  F7. The product drafts, the judge checks, the person sends.
 - The catalogue is small enough to read every turn, and an area grows a tool without
   growing the others.
 - The durability layer (document, claim, cursor, memory, wait) is untouched; the
