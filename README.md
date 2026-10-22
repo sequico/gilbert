@@ -90,7 +90,7 @@ from the mail server's change log, and it does the reversible work itself.
   invitation is sent and nobody outside the group is written to.
 - **Remembers what it learns** as facts with the provenance they came from, and
   **says what it did** in the group's conversation or asks a person a question —
-  the answer, in that same conversation or by mail, picks the run up again.
+  the answer, in that same conversation, picks the run up again.
 
 ## What it will never do on its own
 
@@ -158,7 +158,8 @@ other:
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
-- **gilbertagents** — the agent: designed by ADR 0027–0033 — the loop
+- **gilbertagents** — the agent: designed by ADR 0038 (which replaced 0027 and
+  0031) — the loop
   that works a run and the supervisor the server's own boot starts, which asks
   for a pass every ten seconds — thirty while the wake stream is connected — and
   reads the Master's groups from the mail server on each one, so a group added in

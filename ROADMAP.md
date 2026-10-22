@@ -7,25 +7,24 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **What the agent still owes is a live probe, not a feature.** The Master's agent is
-  designed by ADR 0027 (its tools), 0028 (what
-  it decides and what only a person decides), 0029 (the conversation, in chat and
-  mail), 0030 (a run is a document, and the record is the product), 0031 (a
-  group's engagement is a rule in prose), 0032 (one installation claims its
-  agent) and 0033 (its memory is a graph of facts it recalls). What the tree
+- **The agent is one instruction, eight jobs, and three probes still owed.**
+  ADR 0038 is its design: it replaces 0027 (the catalogue) and 0031 (the rules),
+  amends 0029 (the conversation) and 0030 (the plan), and keeps 0028 (what it
+  decides and what only a person decides), 0032 (one installation claims its
+  agent), 0033 (its memory is a graph of facts it recalls), 0034 (a batched drop)
+  and 0037 (the cursor as reconciliation). What the tree
   carries is a run's durable
-  state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the catalogue of
-  tools a run's steps are taken with (`server/src/agent/tools.ts`), a group's
-  rules and the three levels of prose every call is told
-  (`server/src/agent/rule.ts`, `rules.ts`, `instruction.ts`, `prose.ts`), the
-  installation's memory of facts (`server/src/agent/memory.ts`,
-  `server/src/shared/memory.ts`), the installation's one model and its two turns
-  of decision
-  (`server/src/agent/model.ts`), the claim that holds the installation's one agent
-  (`server/src/agent/claim.ts`), the loop that works a run
+  state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the eight jobs
+  and their per-value schemas (`server/src/agent/tools/jobs.ts`), narrowed to the
+  areas a group's one instruction declares (`server/src/agent/instruction.ts`,
+  `areas.ts`, `prose.ts`), the installation's memory of facts
+  (`server/src/agent/memory.ts`, `server/src/shared/memory.ts`), the
+  installation's one model with its native tool calling and structured decision
+  turn (`server/src/agent/model.ts`), the claim that holds the installation's one
+  agent (`server/src/agent/claim.ts`), the loop that works a run
   (`server/src/agent/loop.ts`) — a pass claims
   the installation, re-arms the waits it finds, reads each account's changes, and
-  works a run from the model's own choices with the budget, the guard and the
+  works a run from the model's own calls with the budget, the guard and the
   record — and **the supervisor the server's own boot starts with itself**
   (`server/src/agent/supervisor.ts`, started in `server/src/index.ts`): it runs on
   the installation's model, reads the Master's groups from the mail server on
@@ -33,26 +32,25 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   one, with no restart — and asks for a pass every ten seconds, or thirty while
   the wake stream is connected, with the claim
   keeping an installation to one agent when a second copy of the server runs.
-  The writing half of the catalogue does the reversible work of the group's own
-  account, and three of its tools are the acts the inventory promises:
-  `mail.draft` drafts a reply to everyone into the group's Drafts, sent by
-  a person and by nobody else; `workorder.settle` settles a step of a workorder
-  signed as the agent (ADR 0024); `knowledge.propose` writes a page's draft for a
-  person to approve (ADR 0020). A conclusion
+  The writing jobs do the reversible work of the group's own
+  account, and three of them are the acts the inventory promises:
+  `draft` drafts a reply to everyone into the group's Drafts, sent by
+  a person and by nobody else; `settle` settles a step of a workorder
+  signed as the agent (ADR 0024); `remember` proposes a page (ADR 0020). A
+  conclusion
   against a person's fact is proposed beside it rather than written over, and
-  Administration accepts or dismisses it (ADR 0033). The conversation runs in
-  **mail** as well as in chat (ADR 0029): `mail.ask` sends the question to a
-  principal with access and parks the run on it, the reply that names it in its
-  thread continues the run, and `mail.send` carries a message outward once a
-  person's own words or a rule's own declaration license exactly that message
-  (ADR 0028). The destructive acts are **`mail.trash`**, `files.overwrite`,
-  `files.delete`, `calendar.update` and `calendar.delete`, each licensed by the
-  object it names: `mail.trash` moves a message to Deleted Items, a person
-  licenses it by naming the message. An installation administrator's override is
-  read once the **directory** says the sender is one. What is owed is
-  what no test here can answer: a live provider, the arrival record a real
-  Stalwart writes, and the change log's own paging cap (the `owed:` markers in
-  ADRs 0027, 0029 and 0030).
+  Administration accepts or dismisses it (ADR 0033). **The conversation is the
+  chat** (ADR 0029 as 0038 amends it): `say` reports, `ask` parks the run on a
+  person's answer, and an outward message leaves only as a draft a person sends.
+  The destructive acts — `place` with `trash`, `deleteFile`, `deleteFolder` or
+  `overwrite`, and `event` with `update` or `delete` — are each licensed by the
+  object they name. An installation administrator's override is
+  read once the **directory** says the sender is one. What the agent owes is
+  three probes rather than a feature: the **judge** on the ask and the evidence,
+  the **injection test** against the structural defence, and the **replay** that
+  runs the eval in CI without a key (ADR 0038, *Owed*); a live provider, the
+  arrival record a real Stalwart writes and the change log's own paging cap stay
+  owed as their ADRs say.
 
 - **Two models in the key: a small one for the cheap turns, a frontier one for the
   work.** The installation chooses **one** model (ADR 0027) and every turn runs on
