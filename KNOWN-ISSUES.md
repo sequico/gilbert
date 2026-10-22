@@ -1,15 +1,16 @@
 # Known issues and what they need
 
-> **What `gilbertagents` still owes is three probes, not a feature.** The tree
+> **What `gilbertagents` still owes is calibration, not a feature.** The tree
 > carries a run's durable state, the eight jobs, a group's one instruction and the
 > prose levels every call is told, the installation's one model with its turns,
-> its memory of facts, the loop that works a run, the supervisor the
-> server's own boot starts with itself, the conversation in chat, and the
-> administration of all of it; its design is ADR 0038 (which replaced 0027 and
-> 0031 and amends 0029 and 0030). The owed work is the judge on the evidence, the
-> injection test and the CI replay (ADR 0038, *Owed*); the live probes — a real
-> provider, the arrival record, the change log's cap — are listed in
-> [ROADMAP.md](ROADMAP.md).
+> its memory of entities and facts, the loop that works a run, the supervisor the
+> server's own boot starts with itself, the conversation in chat, the judge on the
+> evidence, the injection test and the keyless replay, and the administration of
+> all of it; its design is ADR 0038 (which replaced 0027 and 0031 and amends 0029
+> and 0030). What is owed is the judge's calibration on a human sample, the live
+> embeddings probe and the pruning of closed facts (ADR 0038, *Owed*); the live
+> probes — a real provider, the arrival record, the change log's cap — are listed
+> in [ROADMAP.md](ROADMAP.md).
 
 Where Stalwart departs from a spec, the settings a feature needs, and what
 Gilbert deliberately does not do. The supported server is the **0.16** line —

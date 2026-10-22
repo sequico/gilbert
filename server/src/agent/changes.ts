@@ -632,12 +632,12 @@ export async function workChanges(
       /*
        * The fast path: a chat message that only wants words is answered by the
        * call that decided it, instead of opening a run and a step to say the
-       * same. Other surfaces are never answered in the group's chat, and the
-       * agent has no licence to send outward without an instruction that declares
-       * it (ADR 0028) — so the words go nowhere, and the pass says so rather than
-       * dropping them in silence.
+       * same. **On any other surface the words are not a reply**: a mail has no
+       * conversation to answer in, and refusing them left the change unworked
+       * for ever (measured 2026-10-22), so it opens with no facts and the run
+       * reads the change itself.
        */
-      if (event.source === "chat")
+      if (event.source === "chat") {
         await postChatMessage(
           deps.ctx,
           accountId,
@@ -645,12 +645,11 @@ export async function workChanges(
           decision.text,
           message?.id ? { replyTo: message.id } : {},
         );
-      else
-        summary.gaps.push(
-          `${accountId}: the model answered a ${event.source} change in words, and a reply on that surface has no licence to be sent: nothing was said.`,
-        );
-      continue;
+        continue;
+      }
     }
+    /** What the decision found, or nothing when it only had words. */
+    const facts = decision.kind === "reply" ? {} : decision.facts;
     /*
      * A group has **one** instruction, so a change it covers is one run: there is
      * no second to choose between and no routing to do (ADR 0038). The run this
@@ -669,7 +668,7 @@ export async function workChanges(
     const worked = await deps.workRun(
       accountId,
       withUsage(run, meter),
-      decision.facts,
+      facts,
       openQuestionsOf(held ?? [], run.id),
     );
     remember(held, worked ?? run);

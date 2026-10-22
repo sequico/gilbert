@@ -16,20 +16,19 @@ model, partial credit on a task with more than one side, a failed task retried
 once, `pass@1` and cost printed, and the provider put to the product's own probe
 before anything is measured.
 
-**The eval reads 7/10 on the first attempt**, measured on the installation's own
-provider on 2026-10-22 (`deepseek-flash`, plain JSON mode): two tasks answer only
-on the retry (`unstable`), one scores half, and the measure costs 115 239 tokens,
-31 model calls and 37 s. What made the earlier three-task eval pass still holds:
+**The eval reads 9/10 on the first attempt**, measured on the installation's own
+provider on 2026-10-22 (`deepseek-flash`, plain JSON mode): one task answers only
+on the retry (`unstable`), and the measure costs 133 685 tokens, 33 model calls
+and 46 s. What made the earlier three-task eval pass still holds:
 the eight dot-free job names (the provider refused `mail.find`: a function name
 matches `^[a-zA-Z0-9_-]+$` only), one schema branch per value, room for a
 reasoning model's answer, one lookup in the decision turn, and the report ending
 the run. The measure found two frictions a person meets, and both are closed: the
-decision turn sometimes answers a **mail** change in prose, which is a refused
-answer — and the cursor advances only past what a pass worked, so that change is
-read again while the changes already answered around it are not decided again;
-and the model reaches for the folder **id** `find` answered, which `place file`
-now accepts beside the name and the role. The provider block lives outside the
-repository.
+decision turn sometimes answers a **mail** change in prose, which is not a
+decision — the run now opens with no facts and reads the change itself, instead of
+the change being re-read for ever; and the model reaches for the folder **id**
+`find` answered, which `place file` now accepts beside the name and the role. The
+provider block lives outside the repository.
 
 The loop and model suites speak the jobs' protocol: a call is a bare job name,
 `say` with an `action` is the report that ends the run, and a dependency is a
@@ -87,9 +86,11 @@ that carries it; the probe already reports which mode it found.
 
 ## The owed, after F7
 
-The judge on the evidence, the injection test, the CI replay, and the alignment of
-`ROADMAP.md`, `KNOWN-ISSUES.md`, `FEATURES.md` and `README.md` (ADR 0038, *Owed*).
-The **judge comes first**, right after F7: it is not optional.
+The judge is built (it fires only on a suspect plan), the injection test is in
+`loop.test.ts`, the replay runs in `npm test` (`agent/replay.test.ts`) and the
+documents are aligned. What remains: the judge's **calibration** on a human
+sample, the **live embeddings** probe, and the pruning of closed facts
+(ADR 0038, *Owed*).
 
 ## Open decisions, taken
 

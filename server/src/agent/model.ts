@@ -1408,17 +1408,22 @@ export async function decideEvent(
     }
     /*
      * A person wrote in the conversation and the model answered in prose: those
-     * words are the reply, not a malformed answer. Every other surface keeps the
-     * JSON contract, where a narration is a decision that was never made.
+     * words are the reply, not a malformed answer. On any other surface a
+     * narration is not a decision — but refusing it would leave the change
+     * unworked for ever (the eval measured exactly that on a mail), so the
+     * change is opened with **no facts** and the run reads it itself. The record
+     * still shows the run; nothing is lost to a sentence.
      */
     if (
       isRecord(answer) &&
       Object.keys(answer).length === 1 &&
       typeof answer.text === "string" &&
-      answer.text.trim() &&
-      question.event.source === "chat"
-    )
-      return { kind: "reply", text: answer.text.trim() };
+      answer.text.trim()
+    ) {
+      if (question.event.source === "chat")
+        return { kind: "reply", text: answer.text.trim() };
+      return { kind: "decision", facts: {} };
+    }
     const parsed = parseAnswerDetailed(answer);
     if ("problem" in parsed)
       throw new ModelError("model_answer_malformed", parsed.problem);

@@ -315,7 +315,8 @@ agent's failure and never the task's; a task with more than one side gets
 full `pass@k` only when a number must be defended.
 
 The runner needs a provider key and is not the release gate. Its regression form —
-the recorded answers replayed without a key — is **owed**.
+the **recorded answers replayed without a key** — is `agent/replay.test.ts`, part of
+`npm test`: the answers a real provider gave are read back through today's parsers.
 
 ### An installation can see the trend, not only the run
 
@@ -333,14 +334,11 @@ wherever an answer could carry it.
 
 ## Owed
 
-- The **judge** on the ask and the evidence, on a suspect plan, calibrated — **the
-  first work after F7**, not an option.
-- The **injection test** against the structural defence: the grants already refuse
-  an act outside them before it runs, and the test is what proves it — no separate
-  model guard is owed.
-- The **regression replay** that runs the eval in CI without a key.
-- **The other documents** — `ROADMAP.md`, `KNOWN-ISSUES.md`, `FEATURES.md`,
-  `README.md` — still describe the agent before this record and must be aligned.
+- The **judge's calibration** on a human sample: the judge is built and fires only
+  on a suspect plan, and what is owed is the sample it is measured against.
+- The **live embeddings** probe: similarity is built and pinned against a stub,
+  and no provider that offers embeddings has answered it yet.
+- **Pruning** the closed facts the memory keeps (`ADR-0033 OWED: memory-pruning`).
 
 ## Consequences
 

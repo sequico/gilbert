@@ -1341,19 +1341,17 @@ test("a chat decision written in prose is the reply it is", async () => {
   });
 });
 
-test("prose is not a decision on any other surface", async () => {
-  // On mail or files, words saying what happened are not an answer: the run
-  // would continue on a decision that was never made.
+test("prose on a mail is opened with no facts, rather than losing the change", async () => {
+  // The eval measured a mail change answered in prose and then never worked: a
+  // sentence is not a decision, and refusing it would leave the change unread.
+  // The run opens with no facts and reads the change itself.
   answers.push("I have filed the documents.");
-  await assert.rejects(
-    () =>
-      decideEvent(
-        { model, allowPrivateProvider: true },
-        { event: mailEvent, prose },
-        toolCall(),
-      ),
-    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
+  const decision = await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, prose },
+    toolCall(),
   );
+  assert.deepEqual(decision, { kind: "decision", facts: {} });
 });
 
 test("the choosing turn lists each tool's own argument names", async () => {

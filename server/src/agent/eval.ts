@@ -90,6 +90,16 @@ const parsed = parseInstallationDocumentDetailed(
 );
 if (!("doc" in parsed))
   throw new Error(`the installation is unreadable: ${parsed.problem}`);
+/*
+ * The answers this measure receives can be written down
+ * (`GILBERT_EVAL_RECORD=src/agent/eval/recordings/<date>.jsonl`), and
+ * `agent/replay.test.ts` reads them through today's parsers: that is the
+ * regression that runs without a key (ADR 0038, *Owed*).
+ */
+if (process.env.GILBERT_EVAL_RECORD) {
+  const { installRecording } = await import("./eval/replay.js");
+  installRecording(process.env.GILBERT_EVAL_RECORD);
+}
 /** The product's own door to a ready model, and its refusal when there is none. */
 const access = requireModelAccess(parsed.doc, false);
 const model: InstallationModel = access.model;

@@ -46,10 +46,11 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   The destructive acts — `place` with `trash`, `deleteFile`, `deleteFolder` or
   `overwrite`, and `event` with `update` or `delete` — are each licensed by the
   object they name. An installation administrator's override is
-  read once the **directory** says the sender is one. What the agent owes is
-  three probes rather than a feature: the **judge** on the ask and the evidence,
-  the **injection test** against the structural defence, and the **replay** that
-  runs the eval in CI without a key (ADR 0038, *Owed*); a live provider, the
+  read once the **directory** says the sender is one. The judge on the evidence,
+  the injection test against the structural defence and the keyless replay of the
+  recorded answers are built; what the agent still owes is the judge's
+  **calibration** on a human sample, the live **embeddings** probe and the
+  pruning of closed facts (ADR 0038, *Owed*); a live provider, the
   arrival record a real Stalwart writes and the change log's own paging cap stay
   owed as their ADRs say.
 
