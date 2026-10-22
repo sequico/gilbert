@@ -646,8 +646,10 @@ export function attachRelay(
  * re-reading through its own route, which is what decides what it may see.
  *
  * A tab that arrives before the subscription verifies is parked in `relays`
- * with nothing to give up, so `verify` moves it to the fan-out exactly like a
- * tab that was holding its own upstream stream.
+ * with nothing to give up, so `verify` attaches it to the fan-out. A tab that
+ * was holding the raw relay is not this case: it ends its own stream instead,
+ * because attaching it would write into a response it is still piping
+ * (`reconnectRelay`).
  */
 export function followAccount(
   username: string,
@@ -665,9 +667,12 @@ export function followAccount(
 /**
  * Hand a tab that started on the relay to the fan-out by ending its stream, so
  * the browser's next request finds the verified entry and follows the
- * installation account too. The upstream is dropped first (which is what writes
- * the SSE headers if they are not there yet); an already-ended response is left
- * alone, because a second `end` on a real response is not harmless.
+ * installation account too.
+ *
+ * The caller's drop hook runs first and must leave the response writable — the
+ * raw relay's hook is what writes the SSE headers — because this function only
+ * ends the stream. An ended or destroyed response is left alone: a second `end`
+ * is not harmless.
  *
  * A relay that never verifies does not get here: it keeps its own stream, and
  * the switch is read through the route until a later connection lands on the
@@ -675,7 +680,7 @@ export function followAccount(
  */
 export function reconnectRelay(out: ServerResponse, dropUpstream: () => void): void {
   dropUpstream();
-  if (!out.writableEnded) out.end();
+  if (!out.writableEnded && !out.destroyed) out.end();
 }
 
 /**

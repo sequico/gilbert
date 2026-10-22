@@ -209,7 +209,8 @@ describe("the agent's open questions", () => {
    * and the switch is one in the installation's account, which the server's
    * fan-out follows for a member. Each is read on its own event — never by
    * asking for the other — so one surface's change cannot cost the other a
-   * request. The interval stays only as the net under a stream that is down.
+   * request. The interval stays only as the net under a stream that is down, or
+   * one that carries no installation change (a relay tab before verification).
    */
   const push = async (changed: string) => {
     for (const listener of stream.listeners) listener(changed, "FileNode");

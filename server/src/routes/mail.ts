@@ -357,8 +357,9 @@ export function registerMailRoutes(api: Hono<Env>): void {
        * code, a renewal that keeps failing) the relay tab hears no installation
        * event: the switch is then read through the member's own route on
        * opening, on the window coming back and on the slow net. The direct relay
-       * (`RAW_PUSH_RELAY=0`) neither reconnects nor follows, and in relay mode
-       * there is no fan-out to land on: the same read is all those tabs have.
+       * (`RAW_PUSH_RELAY=0`) never reconnects onto the fan-out, so a later
+       * verification does not reach it; in relay mode there is no fan-out at all.
+       * Those tabs have the same read and nothing else.
        */
       const installation = await resolveInstallationAccount(session);
       const follow = installation

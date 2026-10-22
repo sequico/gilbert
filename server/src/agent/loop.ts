@@ -668,10 +668,10 @@ export class AgentLoop {
     this.passState.clear();
     this.runState.clear();
     /*
-     * The switch is read first, before the model is: off means no call is made
-     * at all, an unreadable document stops the pass, and the value this process
-     * holds answers the members' surfaces even on a pass that has no model to
-     * run.
+     * The switch is read first, before the model is: off means no model call is
+     * made at all, an unreadable document stops the pass, and the value this
+     * process holds answers the members' surfaces even on a pass that has no
+     * model to run.
      *
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the

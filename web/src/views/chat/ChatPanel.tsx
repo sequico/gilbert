@@ -489,8 +489,10 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         live &&
         useChat.getState().openAccountId === openAccountId &&
         generation === switchFresh.current &&
-        // A fresh answer outranks any held read, whatever its order; among held
-        // reads, only the latest asked may land.
+        // This client asked the fresh read last: a held read it launched while
+        // the fresh one was open cannot land after it. The value a beat brings
+        // is still that server process's last read, which a second replica may
+        // have served a pass behind.
         (fresh || ticket === switchSeq.current);
       const settle = () => {
         if (fresh && generation === switchFresh.current)
