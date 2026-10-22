@@ -1502,6 +1502,16 @@ test("a person's answer continues the run that asked for it", async () => {
     [],
     "and a sentence that authorises no act records none",
   );
+  /*
+   * The call that reads the answer for what it authorises is a model call: its
+   * tokens are on the run's tally **and** on the day's counter, which is the
+   * pass summary. The answer path makes no decision call, so the two are equal.
+   */
+  assert.equal(
+    summary.tokens,
+    (answered?.spent.promptTokens ?? 0) + (answered?.spent.completionTokens ?? 0),
+    "the answer's own model call is on the day's counter too",
+  );
 });
 
 test("an answer is worked once, whatever the decision names beside it", async () => {

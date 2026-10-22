@@ -2518,34 +2518,30 @@ export class AgentLoop {
     if (!access) return answer.run;
     let run = spendRun(answer.run, { calls: 1 });
     const meter = usageMeter();
+    /*
+     * Whether the person who answered is an installation administrator is asked
+     * **here**, of the directory, as the Master: only that marker lets the
+     * reading report an override (ADR 0028). A directory that will not answer is
+     * a no, and the answer still continues the run.
+     *
+     * The call is a model call like every other: its tokens are spent on the run
+     * **and on the day's counter** (`passTokens`), whether it answers or is
+     * refused — before this, the daily ceiling under-counted every answer.
+     */
+    let granted: Awaited<ReturnType<typeof readAnswerAuthority>>;
     try {
-      /*
-       * Whether the person who answered is an installation administrator is
-       * asked **here**, of the directory, as the Master: only that marker lets
-       * the reading report an override (ADR 0028). A directory that will not
-       * answer is a no, and the answer still continues the run.
-       */
-      const granted = await readAnswerAuthority(
+      granted = await readAnswerAuthority(
         access,
         { asked: answer.asked, said: answer.said, from: answer.from },
         { admin: await this.isAdministrator(answer.from), meter },
       );
+    } catch (err) {
       run = spendRun(run, {
         promptTokens: meter.promptTokens,
         completionTokens: meter.completionTokens,
         cachedPromptTokens: meter.cachedTokens,
       });
-      for (const one of granted)
-        run = takeAuthorisation(run, {
-          what: answer.said,
-          authority: one.authority,
-          act: { target: one.target, content: one.content },
-          by: answer.from,
-          at: answer.at,
-          from: answer.message,
-        });
-      return run;
-    } catch (err) {
+      this.passTokens += meter.promptTokens + meter.completionTokens;
       if (!(err instanceof ModelError) || err.code !== "model_answer_malformed")
         throw err;
       return this.withStep(
@@ -2555,6 +2551,22 @@ export class AgentLoop {
         false,
       );
     }
+    run = spendRun(run, {
+      promptTokens: meter.promptTokens,
+      completionTokens: meter.completionTokens,
+      cachedPromptTokens: meter.cachedTokens,
+    });
+    this.passTokens += meter.promptTokens + meter.completionTokens;
+    for (const one of granted)
+      run = takeAuthorisation(run, {
+        what: answer.said,
+        authority: one.authority,
+        act: { target: one.target, content: one.content },
+        by: answer.from,
+        at: answer.at,
+        from: answer.message,
+      });
+    return run;
   }
 
   /**
