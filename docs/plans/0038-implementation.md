@@ -17,8 +17,9 @@ whether the work is accepted and what it cost in calls and refusals.
    **reading is free, a write needs its area**. Wired into the turn that chooses,
    with the invariant test that a surface turned off takes its writings out.
 2. **One instruction is the document.** `InstructionDoc` v2 — prose, areas, the
-   surface matrix, and whether it sends — with the v1 document an installation
-   already wrote still read, upgraded in memory. `GET /admin/groups/:name/prose`
+   surface matrix, and whether it sends — read by both tiers, with a document of
+   any other version refused: this build reads v2, and a group whose document is
+   v1 does no work until an administrator writes a new one. `GET /admin/groups/:name/prose`
    returns it; the `PUT` accepts the areas and refuses one nobody has.
 3. **The rules are gone.** `rule.ts`, `rules.ts`, `shared/rule.ts`, their tests
    and their endpoints are deleted. The decision turn no longer names rules: it

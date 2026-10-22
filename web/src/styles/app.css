@@ -2992,7 +2992,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .run-state-done, .run-state-running {
   color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft);
 }
-.run-state-blocked, .run-state-out-of-budget {
+.run-state-blocked, .run-state-out-of-budget, .run-state-refused {
   color: var(--warn); border-color: var(--warn-soft); background: var(--warn-soft);
 }
 .run-state-cancelled { color: var(--fg-muted); }
