@@ -13,7 +13,7 @@ import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
 import { areaOfSource } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
-import { addressesAgent } from "../shared/chat.js";
+import { addressesAgent, addressedToAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
@@ -242,14 +242,12 @@ export async function offPath(
       if (event.source === "chat") {
         const message = await readChatMessageAt(deps.ctx, accountId, event.where);
         if (!message || message.from === deps.self) continue;
-        // In the group conversation the notice is for a message that names the
-        // agent, not for everything the group says to itself.
         /*
-         * A mention is either the stored mark or the words themselves: a person
-         * typing `@gilbert` by hand leaves no mark, and the loose form is what
-         * the conversation reads (`addressesAgent`).
+         * A chat message is for the agent unless it names somebody else (owner
+         * decision 2026-10-22): no mention, or a mention of the agent, gets the
+         * notice; a message that names another person is theirs.
          */
-        if (!addressesAgent(message, deps.self)) continue;
+        if (!addressedToAgent(message, deps.self)) continue;
         await postChatMessage(deps.ctx, accountId, deps.self, OFF_NOTICE, {
           replyTo: message.id,
         });
@@ -322,7 +320,7 @@ function withUsage(
 }
 
 /** The questions a group already has open, as the parked runs that wait on them. */
-function openQuestionsOf(
+function openQuestionLines(
   records: readonly RunRecord[],
   /** The run being worked: its own question is not an "already open" one. */
   except?: string,
@@ -481,36 +479,39 @@ export async function workChanges(
           // The answer's own words are what the next call recalls facts by,
           // as the decision turn's facts were for a change it opened.
           { answer: answer.said },
-          openQuestionsOf(held ?? [], answer.run.id),
+          openQuestionLines(held ?? [], answer.run.id),
         );
         held ??= [];
         if (worked) remember(held, worked);
         continue;
       }
     }
+    /*
+     * A chat message is for the agent unless it names somebody else (owner
+     * decision 2026-10-22): no mention, or a mention of the agent, is its work;
+     * a message that names another person is theirs, and one that names both is
+     * still the agent's. This is after the answer block: an answer to a
+     * question needs no mention to continue the run it replies to.
+     */
+    if (
+      event.source === "chat" &&
+      message &&
+      !addressedToAgent(message, deps.ctx.username)
+    )
+      continue;
     if (!instruction || !coversChange(instruction, event)) {
       /*
        * A change the group's instruction does not name costs no model call and no
-       * step (ADR 0038) — but a person addressing the agent in the conversation is
-       * not such a change. The address is the mention, so a message that names the
-       * agent is answered even when the instruction says nothing about the
-       * conversation: silence was the live ending (a mention produced no run and no
-       * word, and nothing said why), and a person who typed a question is owed an
-       * answer or a reason.
+       * step (ADR 0038) — but a person addressing the agent is owed an answer or a
+       * reason. A chat message that reaches this point is the agent's (a message
+       * naming somebody else was skipped above), and mail that names the agent is
+       * answered the same way: silence was the live ending, and a live
+       * installation read and dropped thirteen mail messages in a group whose
+       * agent had nothing for mail. The notice goes to the group's conversation —
+       * an administrator reads it there — and says what arrived and that no
+       * instruction names the surface.
        */
-      /*
-       * A person who addressed the agent gets an answer or a reason on **every**
-       * surface it can arrive on. A chat mention had its notice; a mail had
-       * nothing, and a live installation read and dropped thirteen messages in a
-       * group whose agent had nothing for mail. The notice goes to the group's
-       * conversation — an administrator reads it there — and says what arrived
-       * and that no instruction names mail: the silence was the defect.
-       */
-      if (
-        event.source === "chat" &&
-        message &&
-        addressesAgent(message, deps.ctx.username)
-      )
+      if (event.source === "chat" && message)
         await postChatMessage(
           deps.ctx,
           accountId,
@@ -657,7 +658,7 @@ export async function workChanges(
       accountId,
       withUsage(run, meter),
       facts,
-      openQuestionsOf(held ?? [], run.id),
+      openQuestionLines(held ?? [], run.id),
     );
     remember(held, worked ?? run);
     byStart = null;

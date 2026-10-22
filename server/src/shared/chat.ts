@@ -255,7 +255,7 @@ export function mentionsName(text: string, address: string): boolean {
   // The local part is followed by something that ends a name: a space, the end
   // of the text, or the punctuation a sentence ends with. `@gilbert.` in a
   // sentence is a mention; `@gilbert1` is somebody else.
-  return new RegExp(`@${escapeRegExp(local)}(?![\\w.@-])`, "i").test(text);
+  return new RegExp(`@${escapeRegExp(local)}(?![\\w@-])`, "i").test(text);
 }
 
 /**
@@ -279,6 +279,43 @@ export function addressesAgent(
   return (
     message.mentions?.some((one) => one.id.toLowerCase() === self.toLowerCase()) ?? false
   );
+}
+
+/**
+ * Whether a chat message is the agent's work (owner decision 2026-10-22).
+ *
+ * A message with **no mention** is addressed to the agent, and so is one that
+ * names it — by the stored mark or by the words. A message that names **another
+ * person** is theirs, and the agent stays out of it; one that names both is
+ * still the agent's. A name typed by hand counts where no mark was stored, so a
+ * client that did not record the mention cannot turn a conversation between
+ * people into the agent's.
+ */
+export function addressedToAgent(
+  message: {
+    text: string;
+    mentions?: ReadonlyArray<{ id: string }> | undefined;
+  },
+  self: string,
+): boolean {
+  if (!self) return false;
+  if (addressesAgent(message, self)) return true;
+  // A stored mark the agent is not in names somebody else: the message is
+  // theirs, whatever the words say.
+  if (message.mentions?.length) return false;
+  // No mention at all is the default: the message is for the agent.
+  return !namesSomebody(message.text);
+}
+
+/**
+ * Whether the text names anybody at all, typed by hand.
+ *
+ * An address inside a sentence (`ops@shipper.example`) is not a mention: the
+ * `@` must begin the token, and a letter of any script before it is part of an
+ * address. Trailing punctuation ends a name rather than being part of it.
+ */
+function namesSomebody(text: string): boolean {
+  return /(^|[^\p{L}\p{N}_@])@[^\s,.;:!?)\]”"]+/u.test(text);
 }
 
 /**

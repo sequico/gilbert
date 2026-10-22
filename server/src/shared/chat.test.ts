@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  addressedToAgent,
   mentionFormRegex,
   mentionsAddress,
   mentionsByName,
@@ -110,4 +111,59 @@ test("a mention ends at punctuation, like the stored mark does", () => {
   const text = "thanks @sam, noted.";
   assert.equal(mentionsByName(text, [SAM]).length, 1);
   assert.ok(text.split(mentionFormRegex([SAM])).includes("sam"));
+});
+
+/**
+ * Who a chat message is for (owner decision 2026-10-22): the agent unless the
+ * message names somebody else. The rule is what the wake reads before it spends
+ * a decision, so the cases are pinned here rather than in the loop test alone.
+ */
+test("a chat message is the agent's unless it names somebody else", () => {
+  const agent = "gilbert@example.org";
+  const isMine = (message: Parameters<typeof addressedToAgent>[0]) =>
+    addressedToAgent(message, agent);
+
+  assert.equal(isMine({ text: "what is the status of the shipment?" }), true);
+  assert.equal(isMine({ text: "@gilbert what is the status?" }), true);
+  assert.equal(isMine({ text: "hello", mentions: [{ id: agent }] }), true);
+  assert.equal(
+    isMine({ text: "hi @sam", mentions: [{ id: SAM }] }),
+    false,
+    "another person is named: theirs, not the agent's",
+  );
+  assert.equal(
+    isMine({ text: "hi @sam@example.org" }),
+    false,
+    "a name typed by hand counts where no mark was stored",
+  );
+  assert.equal(
+    isMine({ text: "@sam and @gilbert, look at this" }),
+    true,
+    "both named: still the agent's",
+  );
+  assert.equal(
+    isMine({ text: "thanks @gilbert." }),
+    true,
+    "a sentence ends after the name",
+  );
+  assert.equal(
+    isMine({ text: "hello", mentions: [{ id: SAM }] }),
+    false,
+    "a stored mark of somebody else, with no words to read",
+  );
+  assert.equal(
+    isMine({ text: "scrivi a josè@example.org" }),
+    true,
+    "a letter of any script before @ is an address, not a mention",
+  );
+  assert.equal(
+    isMine({ text: "write to ops@shipper.example" }),
+    true,
+    "an address inside a sentence is not a mention",
+  );
+  assert.equal(
+    isMine({ text: "@here stand-up in five" }),
+    false,
+    "a call to the room is somebody else's",
+  );
 });

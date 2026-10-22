@@ -917,7 +917,7 @@ test("a run says how it ended, unless the ending is already words between them",
     ctx,
     accountId,
     "sam@example.org",
-    "@gilbert file the booking, please",
+    "@demo file the booking, please",
   );
   onCall = looksThenSays("the booking is filed");
   await agent.pass();
@@ -1017,6 +1017,41 @@ test("a mention opens one run even when the decision names no rule", async () =>
     1,
     "and the person hears the ending",
   );
+});
+
+test("a chat message is the agent's unless it names somebody else", async () => {
+  /*
+   * The conversation is the channel to the agent (owner decision 2026-10-22): a
+   * message that names nobody, or names the agent, is its work; a message that
+   * names a colleague is the colleague's and costs the agent nothing. Naming
+   * both keeps it the agent's — the person asked it too.
+   */
+  await putInstruction(["chat"]);
+  const agent = loop();
+  await agent.start();
+  const runs = async () => (await listRuns(ctx, accountId)).length;
+  const before = await runs();
+
+  onCall = looksThenSays("worked the message with no mention");
+  await postChatMessage(ctx, accountId, "sam@example.org", "what is the status?");
+  await agent.pass();
+  assert.equal(await runs(), before + 1, "a message with no mention is the agent's");
+
+  await postChatMessage(ctx, accountId, "sam@example.org", "@ada can you check this?", {
+    mentions: [{ kind: "principal", id: "ada@example.org" }],
+  });
+  await agent.pass();
+  assert.equal(await runs(), before + 1, "a message to a colleague opens no run");
+
+  onCall = looksThenSays("worked the message that named both");
+  await postChatMessage(ctx, accountId, "sam@example.org", "@ada and @demo, status?", {
+    mentions: [
+      { kind: "principal", id: "ada@example.org" },
+      { kind: "principal", id: ctx.username },
+    ],
+  });
+  await agent.pass();
+  assert.equal(await runs(), before + 2, "naming both keeps it the agent's");
 });
 
 test("a group with no instruction answers a mention rather than leaving it in silence", async () => {
@@ -3241,7 +3276,7 @@ test("a pass leaves what it did, and the last run it ended, where a person reads
   await agent.start();
 
   onCall = looksThenSays("worked it and said so");
-  await postChatMessage(ctx, accountId, "sam@example.org", "@gilbert file the booking");
+  await postChatMessage(ctx, accountId, "sam@example.org", "@demo file the booking");
   await agent.pass();
 
   const found = await readAppFileAt(ctx, memoryAccountId, PASS_STATUS_FILE);
