@@ -14,7 +14,7 @@ is filtered by `server/src/agent/redact.ts`; the eval runner is
 protocol, the check at connect, a token budget a run can see, a refusal that
 repairs), the eight job-shaped tools (the catalogue is still forty-five
 endpoints), the judge that reads the ask and the evidence against the plan, and
-nine of the ten eval tasks.
+seven of the ten eval tasks.
 
 ## What this replaces, and what it keeps
 
@@ -316,8 +316,8 @@ waits on, and the ones the next choice depends on — instead of the whole plan.
 An evaluation set taken from the run corpus — the message, the promise, the outcome
 a person would accept — judged by two measures: **the outcome was accepted** and
 **what it cost** (calls, refusals, milliseconds). It is run when a tool, an area or
-the prompt changes, on the mock. Every live failure adds a task: ten today,
-growing to the twenty or fifty a real suite wants.
+the prompt changes, on the mock. Every live failure adds a task: three today,
+ten planned, and the twenty or fifty a real suite wants.
 
 Each task carries the outcome a person would accept **and a reference that passes
 its own grader**, so a zero is a failure of the agent and never of the task. A
