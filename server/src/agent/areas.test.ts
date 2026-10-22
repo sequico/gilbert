@@ -3,7 +3,6 @@ import { test } from "node:test";
 import { AREA_NAMES, declaredAreas, MAX_DECLARED_AREAS } from "../shared/areas.js";
 import {
   areaOf,
-  areasOfSurfaces,
   CONTEXT_TOOL_PREFIXES,
   catalogueFor,
   isAreaTool,
@@ -82,11 +81,13 @@ test("an area nobody has is refused with the list of the ones there are", () => 
 
 test("the matrix names the areas a group works, and forgets the ones turned off", () => {
   assert.deepEqual(
-    [...areasOfSurfaces({ chat: "watch", mail: "watch", calendar: "off" })].sort(),
+    [
+      ...(selectedAreas([], { chat: "watch", mail: "watch", calendar: "off" }) ?? []),
+    ].sort(),
     ["chat", "knowledge", "mail", "memory"],
   );
   assert.deepEqual(
-    [...areasOfSurfaces({ chat: "watch", workorder: "ondemand" })].sort(),
+    [...(selectedAreas([], { chat: "watch", workorder: "ondemand" }) ?? [])].sort(),
     ["chat", "knowledge", "memory", "workorders"],
   );
 });

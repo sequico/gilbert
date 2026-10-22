@@ -440,18 +440,11 @@ export class AgentLoop {
    */
   private reading: Promise<MemoryStore> | null = null;
   /**
-   * The prose levels above a rule's own, by account, as **this** pass read them
-   * (ADR 0031).
+   * The group's instruction, by account, as this pass read it (ADR 0038).
    *
-   * The installation's line is the boot's own document and costs nothing here;
-   * the group's standing instruction is one document in the group's account, read
-   * once per pass rather than once per call, so a pass that works ten runs of one
-   * group reads it once. Cleared as the pass begins, so an instruction a group
-   * edited is in force at the next pass with no restart.
-   */
-  private readonly above = new Map<string, Partial<Record<ProseLevel, string>>>();
-  /** The group's instruction itself, by account, as this pass read it: one
-   * document opened once and shared by the prose, the run's matrix and the areas.
+   * One document opened once and shared by the prose, the run's matrix and the
+   * areas. Cleared as the pass begins, so an instruction a group edited is in
+   * force at the next pass with no restart.
    */
   private readonly instructions = new Map<string, InstructionDoc | null>();
   /** The accounts whose old rules were cleared by this process (ADR 0038). */
@@ -567,7 +560,6 @@ export class AgentLoop {
    */
   private async workPass(now: Date): Promise<PassSummary> {
     this.reading = null;
-    this.above.clear();
     this.instructions.clear();
     const summary: PassSummary = {
       claimed: false,
@@ -2458,15 +2450,11 @@ export class AgentLoop {
   private async proseAbove(
     accountId: string,
   ): Promise<Partial<Record<ProseLevel, string>>> {
-    const held = this.above.get(accountId);
-    if (held) return held;
     const group = await this.instructionOf(accountId);
-    const levels: Partial<Record<ProseLevel, string>> = {
+    return {
       ...(this.installation ? { installation: this.installation } : {}),
       ...(group ? { group: group.instruction } : {}),
     };
-    this.above.set(accountId, levels);
-    return levels;
   }
 
   /**

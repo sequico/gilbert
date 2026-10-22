@@ -1,10 +1,10 @@
 /**
  * The agent's areas — ADR 0038.
  *
- * Each area is a module of tools with one concern: posta, files, calendario,
- * contatti, conoscenza, workorder, chat, memoria. A run is handed **the areas its
+ * Each area is a module of tools with one concern: mail, files, calendar,
+ * contacts, knowledge, workorders, chat, memory. A run is handed **the areas its
  * instruction declares and its surface matrix names**, plus the three that every
- * run needs — chat (the interface), conoscenza (the shared library) and memoria
+ * run needs — chat (the interface), knowledge (the shared library) and memory
  * (what the installation knows).
  *
  * This file is the one place that says which area a tool belongs to: a new tool
@@ -84,13 +84,11 @@ export function selectedAreas(
  * The areas a group's surface matrix names, leaving out the ones it turned off.
  *
  * The matrix says where a group works (`chat`, `mail`, `files`, `knowledge`,
- * `workorder`, `calendar`); this says which tools that amounts to. Chat is always
- * there: the conversation is the interface whatever the matrix says.
+ * `workorder`, `calendar`); this says which areas that amounts to. It adds
+ * nothing of its own: the three every run has are `selectedAreas`' business.
  */
-export function areasOfSurfaces(
-  surfaces: SurfaceMatrix | undefined,
-): readonly AreaName[] {
-  const held = new Set<AreaName>(TRANSVERSAL_AREAS);
+function areasOfSurfaces(surfaces: SurfaceMatrix | undefined): readonly AreaName[] {
+  const held = new Set<AreaName>();
   for (const [surface, mode] of Object.entries(surfaces ?? {})) {
     // `off` neither wakes nor writes; `watch` and `ondemand` both belong to a
     // catalogue that may act on them.
@@ -98,7 +96,7 @@ export function areasOfSurfaces(
     const area = areaOfSource(surface);
     if (area) held.add(area);
   }
-  return AREA_NAMES.filter((area) => held.has(area));
+  return [...held];
 }
 
 /**

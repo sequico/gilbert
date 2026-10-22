@@ -18,7 +18,6 @@ import { errorMessage } from "../shared/errors.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
-import type { SurfaceName } from "../shared/surfaces.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import {
@@ -149,10 +148,10 @@ export function chatWoken(woke: string | null | undefined): string | null {
 /**
  * The account's runs by the change that woke them: one entry per change.
  *
- * A run an instruction started names no rule and no change, and is not an answer
- * to one — nothing here. Two runs of one change cannot be written by this build,
- * and the one a pass can continue is the one still running, so that is the one
- * kept when a hand-written pair of documents says otherwise.
+ * A run woken by a person's own sentence names no change, and is not an answer to
+ * one — nothing here. Two runs of one change cannot be written by this build, and
+ * the one a pass can continue is the one still running, so that is the one kept
+ * when a hand-written pair of documents says otherwise.
  *
  * shortcut: a change is named by its surface, its kind and its address, which is
  * all the change log hands over — so a document created again at a path a run
@@ -176,13 +175,14 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
 const OFF_NOTICE = "AI agents are turned off.";
 
 /**
- * What a person is told when their words reached the agent and no rule watches
- * the surface they arrived on.
+ * What a person is told when their words reached the agent and no instruction
+ * names the surface they arrived on.
  *
- * One sentence for every surface. A group with no rule watching the conversation
- * is a group whose agent is not asked to speak there, and the same holds for mail
- * — the live defect was that only the conversation got the sentence, so a message
- * to a group with no mail rule was read and dropped without a word.
+ * One sentence for every surface. A group whose instruction says nothing about
+ * the conversation is a group whose agent is not asked to speak there, and the
+ * same holds for mail — the live defect was that only the conversation got the
+ * sentence, so a message to a group that named no mail was read and dropped
+ * without a word.
  */
 function noInstructionNotice(
   surface: "chat" | "mail",
@@ -208,9 +208,7 @@ function coversChange(instruction: InstructionDoc, event: AccountEvent): boolean
   const area = areaOfSource(event.source);
   if (area === null) return false;
   if (instruction.areas.includes(area)) return true;
-  // The source and the surface share a name; only the area differs (`workorder`
-  // is the workorders area, which `areaOfSource` says once).
-  return instruction.surfaces[event.source as SurfaceName] === "watch";
+  return instruction.surfaces[event.source] === "watch";
 }
 
 /**
@@ -218,10 +216,10 @@ function coversChange(instruction: InstructionDoc, event: AccountEvent): boolean
  * one thing that happens is an answer to the people who wrote.
  *
  * The owner chose this on 2026-10-19 (option 2): the off notice answers chat
- * and mail directly, without the class-3 licence a rule must otherwise carry
- * for outward mail. The guards are the ones that keep it from becoming a loop:
- * a message from the agent itself is never answered, and the cursor advances
- * once per batch, so each message is answered once.
+ * and mail directly, without the class-3 licence an instruction must otherwise
+ * carry for outward mail. The guards are the ones that keep it from becoming a
+ * loop: a message from the agent itself is never answered, and the cursor
+ * advances once per batch, so each message is answered once.
  *
  * shortcut: a stranger's own auto-responder is not filtered, so an installation
  * that turns the agent off while a vacation responder writes to the group can
@@ -367,10 +365,11 @@ export async function workChanges(
   let held: RunRecord[] | null = records ? [...records] : null;
   /*
    * The agent's own calendar events are not activity to answer: a calendar
-   * change is handed over like any other, and a rule woken by the agent's own
-   * write would open a run whose write wakes it again. Its mail never reaches
-   * this list — an event is an arrival in the Inbox, which its own sends and
-   * drafts never are — and its own documents are left out by the reading.
+   * change is handed over like any other, and the instruction woken by the
+   * agent's own write would open a run whose write wakes it again. Its mail
+   * never reaches this list — an event is an arrival in the Inbox, which its own
+   * sends and drafts never are — and its own documents are left out by the
+   * reading.
    *
    * The drops whose burst is over are changes of this pass too: one event per
    * folder, carrying the files that landed there while it was open (`queue.ts`).
@@ -390,13 +389,13 @@ export async function workChanges(
     ...due.map(dropEvent),
     ...read.events.filter(
       (event) =>
-        // The agent's own calendar events are not activity to answer: a rule
-        // that wakes on them opens a run whose write wakes it again.
+        // The agent's own calendar events are not activity to answer: the
+        // instruction woken by them would open a run whose write wakes it again.
         !(event.source === "calendar" && takeOwnCalendarChange(event.where)),
     ),
   ];
   if (!events.length) {
-    // A quiet account pays no rule listing: there is nothing to apply them to.
+    // A quiet account pays no document read: there is nothing to apply it to.
     deps.cursors.set(accountId, read.cursor);
     return held;
   }
@@ -449,10 +448,10 @@ export async function workChanges(
     /*
      * A message that answers a run's question continues that run and opens no
      * run of its own (ADR 0029). The correlation is the record's — a reply to
-     * the question in chat, a mail in its thread — so it is asked before any
-     * rule and on **whatever surface the answer arrived on**: a question asked
-     * in chat by a rule that watches mail is answered in chat, and the answer
-     * is not a change that rule watches.
+     * the question in chat, a mail in its thread — so it is asked before
+     * anything else and on **whatever surface the answer arrived on**: a question
+     * asked in chat by an instruction that works mail is answered in chat, and
+     * the answer is not a change that instruction is woken by.
      */
     const couldAnswer =
       (event.source === "chat" && message?.replyTo !== undefined) ||
@@ -506,9 +505,9 @@ export async function workChanges(
        * A person who addressed the agent gets an answer or a reason on **every**
        * surface it can arrive on. A chat mention had its notice; a mail had
        * nothing, and a live installation read and dropped thirteen messages in a
-       * group whose agent has no rule for mail. The notice goes to the group's
+       * group whose agent had nothing for mail. The notice goes to the group's
        * conversation — an administrator reads it there — and says what arrived
-       * and that no rule watches mail: the silence was the defect.
+       * and that no instruction names mail: the silence was the defect.
        */
       if (
         event.source === "chat" &&

@@ -702,13 +702,10 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       });
       if (!access.ok) return groupDenial(c, access);
       const held = await readInstruction(access.ctx, access.accountId);
-      const instruction = held?.instruction ?? "";
       return c.json({
         group: name,
-        instruction,
+        instruction: held?.instruction ?? "",
         areas: held?.areas ?? [],
-        surfaces: held?.surfaces ?? null,
-        sends: held?.sends ?? false,
         state: await appFolderState(access.ctx, access.accountId),
       });
     } catch (err) {

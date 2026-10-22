@@ -1,11 +1,11 @@
 /**
  * The agent's areas, as both tiers name them (ADR 0038).
  *
- * An area is a module of tools with one concern: posta, files, calendario,
- * contatti, conoscenza, workorder, chat, memoria. A run is handed the areas its
- * change and its instruction declare, plus the three every run needs — chat (the
- * interface), conoscenza (the shared library) and memoria (what the installation
- * knows).
+ * An area is a module of tools with one concern: mail, files, calendar,
+ * contacts, knowledge, workorders, chat, memory. A run is handed the areas its
+ * instruction declares and its surface matrix names, plus the three every run
+ * needs — chat (the interface), knowledge (the shared library) and memory (what
+ * the installation knows).
  *
  * The **vocabulary** lives here because both tiers use it: the server selects a
  * run's catalogue from it, and a member's client draws the areas an instruction

@@ -1,52 +1,48 @@
 /**
- * What changed in a group's own account (ADR 0031).
+ * What changed in a group's own account (ADR 0031, 0038).
  *
- * A rule watches the activity of the group's own account: the mail that arrived,
- * the pages and checklist templates written in its KB, the messages posted in its
- * chat, the writes to its own workorders, and everything else written in its
- * Files. This module names that description once, beside
+ * The group's instruction is woken by the activity of its own account: the mail
+ * that arrived, the pages and checklist templates written in its KB, the messages
+ * posted in its chat, the writes to its own workorders, and everything else
+ * written in its Files. This module names that description once, beside
  * the reader that fills it (`events.ts`), so the events the agent reads out of
- * the server and what a rule says it watches are the same vocabulary — a shape
+ * the server and what a surface matrix names are the same vocabulary — a shape
  * declared a second time would drift from the first the day one of them gains a
  * source.
  *
  * An event says **what** changed and **where it is**, and never carries the
  * object itself: the payload is Stalwart's, and whoever acts on an event reads
- * it by the reference when a rule asks for it. That is what keeps a burst of
+ * it by the reference when the work needs it. That is what keeps a burst of
  * mail out of the process's memory, and it is what makes one description enough
- * for every surface a rule can watch.
+ * for every surface an instruction can work.
  *
  * `source` is the group's own vocabulary rather than the protocol's: the five
  * **event** surfaces are answered as five, and the three of them that live in
  * Files are told apart by the folder a node sits in. `eventSourceOf` is the one
  * place that decides, and it reads the folder's own name rather than a second
- * spelling of the path. A rule's matrix also names **calendar**, whose change
+ * spelling of the path. A surface matrix also names **calendar**, whose change
  * log is not read yet: no event carries it (ADR 0031).
  */
 
 import { APP_FOLDER_NAME } from "../shared/appFolder.js";
 import { CHAT_FOLDER } from "../shared/chat.js";
 import { KNOWLEDGE_FOLDER } from "../shared/knowledge.js";
+import type { SurfaceName } from "../shared/surfaces.js";
 import { WORKORDER_FOLDER } from "../shared/workorder.js";
 
 /**
  * A surface of a group's own account that activity happens on (ADR 0027, 0031).
  *
- * The six the records name: its `chat`, its `mail`, its `knowledge` base, its
- * `workorder`s, its `files`, and its `calendar`. A chat message, a KB page and a
- * workorder are Files nodes like any other — the folder a node sits in is the
- * whole of what makes it what it is — but each is a surface of its own to a rule
- * that watches it, so a node outside those three folders is simply `files`. A
- * calendar event is not a node: it is read from its own log
- * (`CalendarEvent/changes`), so its surface is the one the reading names.
+ * The six the records name — `chat`, `mail`, `knowledge`, `workorder`, `files`
+ * and `calendar` — are the surfaces of the matrix that says where a run may act
+ * (`shared/surfaces.ts`), so this is that vocabulary, not a second copy of it. A
+ * chat message, a KB page and a workorder are Files nodes like any other — the
+ * folder a node sits in is the whole of what makes it what it is — but each is a
+ * surface of its own to the work that names it, so a node outside those three
+ * folders is simply `files`. A calendar event is not a node: it is read from its
+ * own log (`CalendarEvent/changes`), so its surface is the one the reading names.
  */
-export type AccountEventSource =
-  | "mail"
-  | "files"
-  | "chat"
-  | "workorder"
-  | "knowledge"
-  | "calendar";
+export type AccountEventSource = SurfaceName;
 
 /**
  * What happened to the object: it appeared, it changed, or it was removed.
