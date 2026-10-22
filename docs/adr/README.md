@@ -420,4 +420,11 @@ is, not what a user sees.
   sends; a second cheap call that judges a `done` against the ask and its evidence;
   an evaluation set taken from the runs that failed; and no credential inside a
   document the agent can read. Replaces 0027 and 0031. **Partly built, Proposed.**
+- **0041 — An outward message is a draft a person sends.** A run composes into the
+  group's own Drafts and never submits: no tool in the catalogue sends, a
+  question is asked in the conversation, and the instruction's `sends` says a
+  draft is wanted rather than licensing a send. The worst a malicious mail
+  obtains is a draft somebody reads. **Built, Proposed**
+  (`agent/tools/jobs.ts` `draft`, `agent/tools/mail.ts`; ADR 0038 dropped
+  `mail.send` and `mail.ask`).
 
