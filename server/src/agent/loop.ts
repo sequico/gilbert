@@ -152,6 +152,7 @@ import {
   usageMeter,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
+import { type AgentMeasure, emitMeasures } from "./otlp.js";
 import {
   forgetDrop as dropForgotten,
   forgetPath as dropPathForgotten,
@@ -413,6 +414,12 @@ export class AgentLoop {
   private statusAt = 0;
   /** The last run the loop ended, for the status document a person reads. */
   private lastEnded: PassStatusDoc["lastEnded"] | null = null;
+  /**
+   * What this pass's ended runs measured, for the trend and the collector
+   * (ADR 0038). Emptied by the pass that sends it; a pass that works nothing
+   * adds nothing.
+   */
+  private readonly outbox: AgentMeasure[] = [];
   /**
    * What the installation spent today, as the pass's own document holds it.
    *
@@ -1666,6 +1673,39 @@ export class AgentLoop {
     const date = at.toISOString().slice(0, 10);
     const before = this.statusSpent?.date === date ? this.statusSpent.tokens : 0;
     const spent = { date, tokens: before + summary.tokens };
+    /*
+     * The measures go to the collector before the document is written, so a
+     * refusal is one of the gaps the document then carries: a week read from the
+     * documents is the measure without a collector, and a collector that is down
+     * is said rather than silently absent (ADR 0038).
+     */
+    if (this.limits.otlp) {
+      const measures = [
+        ...this.outbox.splice(0),
+        {
+          kind: "pass" as const,
+          at: at.toISOString(),
+          model: this.access?.model ?? null,
+          tokens: summary.tokens,
+          ms: summary.ms,
+          steps: 0,
+          calls: 0,
+          refusals: 0,
+          ending: "pass",
+          gaps: summary.gaps.length,
+        },
+      ];
+      try {
+        await emitMeasures(this.limits.otlp, measures);
+      } catch (err) {
+        // Dropped rather than retried: the run documents hold the same measures,
+        // and a collector that is down must not make every pass owe them.
+        this.outbox.length = 0;
+        summary.gaps.push(`otlp: ${errorMessage(err)}`);
+      }
+    } else {
+      this.outbox.length = 0;
+    }
     const doc: PassStatusDoc = {
       v: 1,
       at: at.toISOString(),
@@ -2377,6 +2417,25 @@ export class AgentLoop {
     this.opts.log?.(
       `[gilbert] agent: run ${ended.id} ended ${ending}${refused ? `, ${refused} step(s) refused` : ""}`,
     );
+    /*
+     * The measure of this run, kept for the pass to send: a run's own document
+     * says what happened, and the trend over a week is what the pass's document
+     * and the collector carry (ADR 0038). Buffered rather than sent here, so one
+     * pass is one request and the collector's absence is the pass's business.
+     */
+    this.outbox.push({
+      kind: "run",
+      at: end.at,
+      model: this.access?.model ?? null,
+      tokens: (ended.spent.promptTokens ?? 0) + (ended.spent.completionTokens ?? 0),
+      promptTokens: ended.spent.promptTokens ?? 0,
+      completionTokens: ended.spent.completionTokens ?? 0,
+      ms: ended.spent.ms,
+      steps: ended.spent.steps,
+      calls: ended.spent.calls,
+      refusals: refused,
+      ending,
+    });
     if (!owed) return ended;
     /*
      * The words, then the mark — and a failure of either is the caller's to

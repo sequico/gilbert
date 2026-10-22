@@ -369,16 +369,15 @@ pass takes the installation's claim, works the runs whose wait has come due,
 reads each account's changes and puts each one to the decision turn. A change the
 group's instruction does not name costs no model call and no step; a change it
 does name opens or continues **the one** run for that change — the account's
-record of it is the answer it already has — and the choosing turn works it — **a
-plan of one or more
-steps, the ones whose dependencies have ended made together**, each its own step
-with its own outcome and its own spend, until the model says done, a step parks
-the run on a person's answer, or the run's **budget** (steps, model calls and
-time) is spent, which the record states. A step that waits on an earlier one runs
-only when that step ends the way it needs, and a step no branch reaches is left
-unrun with the record naming which step and which outcome left it — the model
-writes the order and the conditions from the group's knowledge, its checklists and
-its workorders, and the loop invents none. A model that chooses the same plan twice is a stall the record shows
+record of it is the answer it already has — and the choosing turn works it — **the
+calls it names, one or several in one answer**, each its own step with its own
+outcome and its own spend, until the run's report is said, a step parks the run
+on a person's answer, or the run's **budget** (steps, model calls, time and
+tokens) is spent, which the record states. A step that must follow another is a
+second answer: the outcome of the first is read before the model calls what comes
+next, so the model writes the order from the group's knowledge, its checklists
+and its workorders, and the loop invents none. A model that chooses the same
+calls twice is a stall the record shows
 rather than an endless turn; an answer refused twice, or a round whose every step was refused,
 is a step that ended and spends a step, so a model stuck on one malformed answer stops on the run's declared ceiling — never on a counter the record cannot show. The server starts the loop with itself
 (`server/src/agent/supervisor.ts`) and asks it for a pass on a pushed change,
@@ -424,8 +423,8 @@ resumes the same drop, and the instant the drop opened is part of the run's key,
 so a later drop in the same folder is a run of its own. A folder that appears is
 not a document and a removal whose path is unknown wakes nothing. A question is
 asked once: the plan turn is shown the questions the group already has open, and
-`chat.ask` answers with the open question's message instead of posting a second
-copy. A page's transcription is remembered by the content of its bytes, so the
+a `say` with the `ask` action answers with the open question's message instead
+of posting a second copy. A page's transcription is remembered by the content of its bytes, so the
 same scan answers the same words to every run, and an identifier the model cannot
 read is transcribed as `(unclear)` rather than guessed. The Work panel counts the
 decision turn's calls on the run it opens, and labels the steps a run spent and
@@ -453,6 +452,17 @@ is answered without opening a group's list. The last pass is
 `gilbert/agent/status.json`, written after a pass that worked something and at
 most once a minute otherwise, and a document that is there and cannot be read is
 **said** on that line rather than drawn as an installation whose agent never ran.
+**The numbers are read over a period, not only the run** (ADR 0038): the
+Administration page tallies the group's runs over a day, a week — the default —
+a month or everything, as runs, steps, model calls, failed steps, work time and
+tokens, per group and in total, from the run documents themselves
+(`server/src/shared/agentMetrics.ts`). With `limits.otlp` set, each pass also
+sends what it spent and what it ended to that collector as OTLP/HTTP logs in the
+OpenTelemetry GenAI shape — model, tokens, milliseconds, steps, calls, refusals,
+ending — one request per pass (`server/src/agent/otlp.ts`); without it the
+documents remain the measure, and a collector that is down is the pass's gap
+rather than a run's failure.
+
 The model is named with a link to the section
 that chooses it rather than a second set of fields. The loop writes a line as it
 starts an account and a run, so a stall is read as the last line that has no end
@@ -461,10 +471,9 @@ late also writes one line to the journal. **Nothing on that page
 starts or stops the agent**: it is part of
 the server, and the boot starts it. Each group's **runs** are drawn as the record
 carries them, since the record is the product (ADR 0030): the change that woke
-the run, the instruction that answered, every step with what it waited
-on — *after step 1 if it ended Worked* — the branch that was not taken, what each
-step answered, what the run spent, what it recalled — each fact resolved to its
-subject and sentence — and where it parked and why. A run written by
+the run, the instruction that answered, every step with what it answered, what
+the run spent, what it recalled — each fact resolved to its subject and sentence
+— and where it parked and why. A run written by
 another build is **said** where it would be drawn, never drawn as an empty one.
 A run ends as done, blocked on a person, out of budget or **cancelled**, and
 **any member of the group whose account holds it** reads its runs and stops one

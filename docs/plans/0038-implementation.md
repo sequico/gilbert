@@ -2,7 +2,7 @@
 
 Status: **in progress**, branch `agents-reloaded`. The decisions are ADR 0038's;
 this file holds only the order, the files each step touches, and what the step must
-prove. F0–F5 are built, F6 and F7 are not.
+prove. F0–F6 are built, F7 is not.
 
 ## Where the tree stands
 

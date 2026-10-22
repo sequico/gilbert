@@ -126,6 +126,11 @@ interface InstallationLimits {
    * run opens; a run already open finishes its own budget.
    */
   maxDailyTokens: number;
+  /**
+   * ADR 0038: the OTLP/HTTP endpoint the agent's measures are sent to, or `""`
+   * for the documents alone. A base URL: the request goes to `<otlp>/v1/logs`.
+   */
+  otlp: string;
 }
 
 /** How long a sealed session lives. */
@@ -278,6 +283,7 @@ export function installationDefaults(): InstallationDocument {
       apiRateLimit: 1200, // API_RATE_LIMIT (0 turns the limiter off)
       maxRunTokens: 120_000, // ADR 0038
       maxDailyTokens: 2_000_000, // ADR 0038
+      otlp: "", // ADR 0038: no collector; the documents are the measure
     },
     sessions: {
       ttl: 12 * 60 * 60, // SESSION_TTL
@@ -437,6 +443,20 @@ export function parseInstallationDocumentDetailed(
       return "";
     }
     return v;
+  };
+  /**
+   * The OTLP endpoint, when the installation configured one.
+   *
+   * Empty is the default and means "the documents are the measure". What is
+   * written must be an http(s) URL, because it is sent to as one: a value the
+   * export could never reach is a configuration error and is said here, where a
+   * person publishing the document reads it, rather than as a gap on every pass.
+   */
+  const readOtlp = (v: unknown): string => {
+    const text = readText("limits.otlp", v, defaults.limits.otlp).trim();
+    if (text && !/^https?:\/\/\S+$/.test(text))
+      problems.push(`"limits.otlp" must be an http(s) URL, and it is "${text}".`);
+    return text;
   };
   /**
    * The installation's model, or undefined when it has none.
@@ -623,6 +643,7 @@ export function parseInstallationDocumentDetailed(
         defaults.limits.maxDailyTokens,
         1,
       ),
+      otlp: readOtlp(limits.otlp),
     },
     sessions: {
       ttl: readAtLeast("sessions.ttl", sessions.ttl, defaults.sessions.ttl, 1),

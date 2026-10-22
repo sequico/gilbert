@@ -89,7 +89,9 @@ const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { finishRun, QUESTION_TTL_MS, startRun, spendRun, waitUntil } = await import(
   "../shared/run.js"
 );
-const { parseInstallationDocumentDetailed } = await import("../shared/installation.js");
+const { INSTALLATION_FILE, parseInstallationDocumentDetailed } = await import(
+  "../shared/installation.js"
+);
 
 import type { InstallationModel } from "../shared/installation.js";
 
@@ -3085,4 +3087,92 @@ test("a pass leaves what it did, and the last run it ended, where a person reads
   assert.equal(doc.lastEnded?.id, run.id, "the last ending names the run");
   assert.equal(doc.lastEnded?.ending, "done", "and how it ended");
   assert.equal(doc.lastEnded?.why, "worked it and said so", "with its own sentence");
+});
+
+test("a configured collector is sent the pass and the run it ended", async () => {
+  /*
+   * The trend over a week is the documents unless an operator points the
+   * installation at a collector (ADR 0038): then the pass sends what it spent and
+   * what ended, in the OpenTelemetry GenAI shape, one request per pass. A
+   * collector that is down is the pass's gap and never a run's failure.
+   */
+  const posted: Array<Record<string, unknown>> = [];
+  const collectorPort = await freePort();
+  const collector = createServer((req: IncomingMessage, res: ServerResponse) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      posted.push(
+        JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>,
+      );
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end("{}");
+    });
+  });
+  await new Promise<void>((resolve) =>
+    collector.listen(collectorPort, "127.0.0.1", resolve),
+  );
+  try {
+    await writeAppFileAt(ctx, memoryAccountId, INSTALLATION_FILE, {
+      agent: { provider: model },
+      limits: { otlp: `http://127.0.0.1:${collectorPort}` },
+      secret: "an-installation-secret-long-enough-to-seal-a-session-with",
+    });
+    await putInstruction();
+    const agent = loop();
+    await agent.start();
+
+    answerWith({ facts: {} });
+    answerWith({
+      calls: [{ name: "say", arguments: { action: "say", text: "said it" } }],
+    });
+    await deliver("a change the collector hears about");
+    await agent.pass();
+  } finally {
+    collector.close();
+    const held = await readAppFileAt(ctx, memoryAccountId, INSTALLATION_FILE);
+    if (typeof held?.file.id === "string")
+      await destroyAppNode(ctx, memoryAccountId, held.file.id);
+  }
+
+  assert.ok(posted.length >= 1, "the passes posted their measures");
+  assert.equal(
+    posted.length,
+    2,
+    "one request per pass: the boot, and the one that worked the change",
+  );
+  const records = posted.flatMap((body) => {
+    const logs = body.resourceLogs as Array<{
+      scopeLogs: Array<{
+        logRecords: Array<{
+          attributes: Array<{ key: string; value: { stringValue?: string } }>;
+        }>;
+      }>;
+    }>;
+    return logs[0]?.scopeLogs[0]?.logRecords ?? [];
+  });
+  const of = (kind: string) =>
+    records.filter((record) =>
+      record.attributes.some(
+        (one) => one.key === "gen_ai.operation.name" && one.value.stringValue === kind,
+      ),
+    );
+  const ending = (record: {
+    attributes: Array<{ key: string; value: { stringValue?: string } }>;
+  }) =>
+    record.attributes.find((one) => one.key === "gilbert.agent.ending")?.value
+      .stringValue;
+
+  assert.equal(of("agent.pass").length, 2, "each pass measured itself");
+  const runs = of("agent.run");
+  assert.equal(runs.length, 1, "and the run it ended");
+  assert.equal(ending(runs[0] ?? { attributes: [] }), "done", "with its ending");
+  assert.ok(
+    runs[0]?.attributes.some(
+      (one) =>
+        one.key === "gilbert.agent.tokens" &&
+        (one.value as { intValue?: string }).intValue,
+    ),
+    "and the tokens the provider charged",
+  );
 });

@@ -19,9 +19,12 @@ with its message, data and reference, graded with partial credit, a failed task
 tried once more, `pass@1` and cost printed, and the provider put to the
 product's own probe before anything is measured (`eval.ts`), and the turn's
 context: the plan's last steps in full and earlier ones a line each, with the
-threshold measured and no summary call (`prompt.ts`, `prompt.test.ts`).
-**Not built:** the plan's F6–F7 (the run's own trend, the structured memory), and
-everything in *Owed*.
+threshold measured and no summary call (`prompt.ts`, `prompt.test.ts`), and the
+trend: a week of runs and failed steps read from the run documents in
+Administration, and each pass and run it ends emitted as OTLP/HTTP logs in the
+OpenTelemetry GenAI shape when `limits.otlp` names a collector (`agent/otlp.ts`,
+`loop.ts`).
+**Not built:** the plan's F7 (the structured memory), and everything in *Owed*.
 
 ## What this replaces, and what it keeps
 
