@@ -28,9 +28,8 @@
  *   stops a run — never a counter the record cannot show;
  * - a run says how it ended in the conversation, and a question or a stop does
  *   not repeat itself as a notice;
- * - a step that waits on an earlier one runs the branch that step's outcome
- *   names and is left unrun when no branch does, and the record says which step
- *   and which outcome left it;
+ * - a `say` that landed is the report, and its words end the run whatever budget
+ *   remains;
  * - an answer whose plan cannot be read is refused whole, recorded, and asked
  *   again;
  * - a step that asks a person parks the run on the answer it left;
@@ -77,7 +76,6 @@ process.env.APP_SECRET = "test-secret-for-loop";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { groupMembers } = await import("../groupAccess.js");
 const {
   filesAccountId,
   destroyAppNode,
@@ -1870,122 +1868,14 @@ test("an account whose rules cannot be read is a gap, and the others are still w
   }
 });
 
-test("a question asked by mail parks the run, and a reply on its thread continues it", async () => {
-  /*
-   * The conversation's other half (ADR 0029). The question leaves from the group's
-   * own identity to a principal with access, the run waits with no date, and the
-   * answer is the message whose thread names the question — mail's own
-   * correlation, and the same bound as chat: the sender is never the group itself.
-   *
-   * The account is the group the harness works: it carries a mailbox of its own
-   * and a directory entry, which are the two things the question needs.
-   */
-  const mailAccount = accountId;
-  const mailInbox = await inboxOf(mailAccount);
-  const members = await groupMembers(ctx, mailAccount);
-  assert.ok(members?.length, "the directory says who has access to it");
-  // A person who is not the agent: its own address is its own mail, and an
-  // echo is never an answer (the trust reading refuses it by name).
-  const answerer = members.find((address) => address !== ctx.username);
-  assert.ok(answerer, "somebody other than the agent can answer");
-
-  const _id = "intake-by-mail";
-  await putInstruction(["mail"]);
-  const agent = loop(HOLDER, { accounts: async () => [mailAccount] });
-  await agent.start();
-
-  const question = "which booking is this?";
-  /* Answered by kind: the question is itself a change on the mail rail, so a later
-     pass makes more calls than the reply alone accounts for. */
-  let planned = false;
-  onCall = (system) => {
-    if (isAuthorisation(system)) return { authorisations: [] };
-    if (isDecision(system)) return { facts: {} };
-    if (!planned) {
-      planned = true;
-      return {
-        calls: [
-          {
-            name: "mail.ask",
-            arguments: { to: members[0], subject: "a question", text: question },
-          },
-        ],
-      };
-    }
-    return { done: "the booking is BK-2" };
-  };
-  await clientOf(ctx).call(
-    "Email/set",
-    {
-      accountId: mailAccount,
-      create: {
-        c: { subject: "a booking needing an answer", mailboxIds: { [mailInbox]: true } },
-      },
-    },
-    [CAPABILITIES.mail],
-  );
-  await agent.pass();
-
-  const parked = (await listRuns(ctx, mailAccount)).find(
-    (record) => record.run.state === "blocked",
-  )?.run;
-  assert.ok(parked, "the pass opened a run");
-  assert.equal(parked.state, "blocked", "and the question parked it on a person");
-  assert.equal(parked.waiting?.asked?.channel, "mail", "waiting on a mail answer");
-  const askedId = parked.waiting?.asked?.id;
-  assert.ok(askedId, "the question's own message is what the wait names");
-
-  const sent = await clientOf(ctx).call<{ list?: Array<{ messageId?: string[] }> }>(
-    "Email/get",
-    { accountId: mailAccount, ids: [askedId], properties: ["messageId"] },
-    [CAPABILITIES.mail],
-  );
-  const messageId = sent.list?.[0]?.messageId?.[0];
-  assert.ok(messageId, "and the sent question names itself in the account");
-
-  const delivered = await clientOf(ctx).call<{ created?: { r?: { id?: string } } }>(
-    "Email/set",
-    {
-      accountId: mailAccount,
-      create: {
-        r: {
-          subject: "Re: a question",
-          from: [{ email: answerer }],
-          to: [{ email: "demo@example.com" }],
-          inReplyTo: [messageId],
-          references: [messageId],
-          mailboxIds: { [mailInbox]: true },
-          bodyStructure: { partId: "text", type: "text/plain" },
-          bodyValues: { text: { value: "it is BK-2" } },
-          // A message created here stands in for a delivered one, and the
-          // reading takes an answer only on the server's record of the
-          // submission: the account that authenticated is the sender (ADR 0029).
-          "header:Received:asText:all": [
-            `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id x1 (Authenticated sender: ${answerer})`,
-          ],
-        },
-      },
-    },
-    [CAPABILITIES.mail],
-  );
-  const reply = delivered.created?.r?.id;
-  assert.ok(reply, "the reply is in the account");
-  const summary = await agent.pass();
-  assert.ok(summary.due >= 1, "the reply picked the parked run up");
-  const answered = (await readRun(ctx, mailAccount, parked.id))?.run;
-  assert.equal(answered?.state, "done", "the run that asked was worked to its ending");
-  const step = answered?.plan.at(-1);
-  assert.match(
-    step?.what ?? "",
-    new RegExp(`the answer in mail ${reply}`),
-    "and the record names the message the answer came in",
-  );
-  assert.equal(step?.outcome, "it is BK-2", "with what the person said");
-
-  const found = await readAppFileAt(ctx, mailAccount, INSTRUCTION_FILE);
-  if (typeof found?.file.id === "string")
-    await destroyAppNode(ctx, mailAccount, found.file.id, {});
-});
+/*
+ * A question asked **by mail** cannot be expressed any more: `mail.ask` and
+ * `mail.send` are dropped (ADR 0038), and a question is `say` with
+ * `action: "ask"` in the group's conversation. What the test carried — a run
+ * parks on the person it asked, and their answer continues it — is pinned by
+ * "a step that asks a person parks the run on the answer it left" and "a
+ * person's answer continues the run that asked for it", above.
+ */
 
 test("only the directory can say a sender is an administrator", async () => {
   /*
@@ -2156,7 +2046,7 @@ test("the independent calls of one answer are executed, each its own step", asyn
   assert.equal(run.plan.length, 3, "every call of the answer is its own step");
   for (const step of run.plan) {
     assert.equal(step.state, "done", "and each one ran");
-    assert.match(step.what, /^chat\.say /, "the record says which tool each was");
+    assert.match(step.what, /^say /, "the record says which tool each was");
     assert.match(step.outcome, /"id"/, "and what it answered");
   }
   assert.equal(
@@ -2291,7 +2181,7 @@ test("a refused call in a wave leaves its siblings' steps on the record", async 
     "which says what the run could not do",
   );
   assert.equal(run.plan[1]?.state, "done", "and its sibling ran and is a done step");
-  assert.match(run.plan[1]?.what ?? "", /^chat\.say /);
+  assert.match(run.plan[1]?.what ?? "", /^say /);
 });
 
 test("a wait in an answer is honoured after it, with the other calls on the record", async () => {
@@ -2329,181 +2219,13 @@ test("a wait in an answer is honoured after it, with the other calls on the reco
   assert.equal(run.waiting?.asked.channel, "chat", "and where it asked");
 });
 
-test("a step that waits on an earlier one runs the branch that step's outcome names", async () => {
-  /*
-   * The model writes the order and the conditions (ADR 0030): the later steps of
-   * the plan both wait on the first, one for each outcome it can have, so the
-   * same plan takes whichever branch the outcome names — and the branch that did
-   * not come is left unrun on the record, with which step and which outcome left
-   * it. Two runs, because the two outcomes are two facts.
-   */
-  const _id = "intake-branches";
-  await putInstruction();
-  const ran: string[] = [];
-  const remove = defineTool({
-    name: "mail.remove",
-    description: "Destroy a message; a person must authorise it.",
-    authority: "destructive",
-    writes: true,
-    spend: { steps: 1 },
-    act: (args: { id: string }) => ({ target: args.id, content: null }),
-    args: { id: { type: "text" } },
-    parse: (raw: unknown) => raw as { id: string },
-    run: async (_call, args: { id: string }) => {
-      ran.push(args.id);
-      return { id: args.id };
-    },
-  });
-  const agent = loop(HOLDER, { catalogue: [...TOOLS, remove] });
-  await agent.start();
-
-  // Run one: the first step lands, so the branch for "done" runs.
-  answerWith({ facts: {} });
-  answerWith({
-    calls: [
-      { id: "first", name: "chat.say", arguments: { text: "the first act" } },
-      {
-        name: "chat.say",
-        arguments: { text: "it worked" },
-        needs: { step: "first", when: "done" },
-      },
-      {
-        name: "chat.say",
-        arguments: { text: "it did not work" },
-        needs: { step: "first", when: "failed" },
-      },
-    ],
-  });
-  answerWith({ done: "the branch that came was taken" });
-  const landed = await deliver("a change whose first step lands");
-  await agent.pass();
-
-  // Run two: the first step is refused, so the branch for "failed" is the one.
-  answerWith({ facts: {} });
-  answerWith({
-    calls: [
-      { id: "first", name: "mail.remove", arguments: { id: "m-1" } },
-      {
-        name: "chat.say",
-        arguments: { text: "it worked" },
-        needs: { step: "first", when: "done" },
-      },
-      {
-        name: "chat.say",
-        arguments: { text: "it did not work" },
-        needs: { step: "first", when: "failed" },
-      },
-    ],
-  });
-  answerWith({ done: "the other branch was taken" });
-  // The branch's first step was refused, so this `done` is refused once and said
-  // again, as on the other side of the branch.
-  answerWith({ done: "the other branch was taken" });
-  const refused = await deliver("a change whose first step is refused");
-  await agent.pass();
-
-  const runs = (await listRuns(ctx, accountId)).filter(
-    (record) => record.run.startedBy.rule === null,
-  );
-  const woke = (message: string): string => `mail created: ${message}`;
-  const of = (message: string) => {
-    const found = runs.find((record) => record.run.startedBy.woke === woke(message));
-    assert.ok(found, `a run for ${message} should be in the account`);
-    return found.run;
-  };
-
-  const tookDone = of(landed);
-  assert.deepEqual(
-    stepsOf(tookDone).map((step) => step.state),
-    ["done", "done", "skipped"],
-    "the first step landed, so that branch ran and the other was left unrun",
-  );
-  assert.deepEqual(
-    tookDone.plan[2]?.needs,
-    { step: 0, when: "failed" },
-    "and the record says what the step that did not run waited for",
-  );
-  assert.match(
-    tookDone.plan[2]?.outcome ?? "",
-    /left unrun: it waits on step 1 ending failed, and that step ended done/,
-    "naming the step and the outcome that left it, so a reader can say why it did not run",
-  );
-
-  const tookFailed = of(refused);
-  assert.deepEqual(
-    stepsOf(tookFailed).map((step) => step.state),
-    ["failed", "skipped", "done"],
-    "with the first step refused, the other branch is the one that ran",
-  );
-  assert.match(
-    tookFailed.plan[1]?.outcome ?? "",
-    /left unrun: it waits on step 1 ending done, and that step ended failed/,
-    "and its record names the step and the outcome that left it too",
-  );
-  assert.deepEqual(
-    ran,
-    [],
-    "the destructive act the run carries no authority for never ran",
-  );
-});
-
-test("a step whose dependency was left unrun is left unrun too, and the record says so", async () => {
-  const id = "intake-skipped-chain";
-  await putInstruction();
-  const remove = defineTool({
-    name: "mail.remove",
-    description: "Destroy a message; a person must authorise it.",
-    authority: "destructive",
-    writes: true,
-    spend: { steps: 1 },
-    act: (args: { id: string }) => ({ target: args.id, content: null }),
-    args: { id: { type: "text" } },
-    parse: (raw: unknown) => raw as { id: string },
-    run: async (_call, args: { id: string }) => ({ id: args.id }),
-  });
-  const agent = loop(HOLDER, { catalogue: [...TOOLS, remove] });
-  await agent.start();
-
-  answerWith({ facts: {} });
-  answerWith({
-    calls: [
-      { id: "destroy", name: "mail.remove", arguments: { id: "m-1" } },
-      {
-        id: "report",
-        name: "chat.say",
-        arguments: { text: "it was destroyed" },
-        needs: { step: "destroy", when: "done" },
-      },
-      {
-        name: "chat.say",
-        arguments: { text: "after the report" },
-        needs: { step: "report", when: "done" },
-      },
-    ],
-  });
-  answerWith({ done: "nothing of the plan could be taken" });
-  // The plan's first step was refused, so this `done` is refused once and said
-  // again.
-  answerWith({ done: "nothing of the plan could be taken" });
-  await deliver("do not destroy me");
-  await agent.pass();
-
-  const run = await runOf(id);
-  assert.deepEqual(
-    stepsOf(run).map((step) => step.state),
-    ["failed", "skipped", "skipped"],
-    "the refused act leaves the step that waited on it, and the one after that, unrun",
-  );
-  assert.match(
-    run.plan[1]?.outcome ?? "",
-    /left unrun: it waits on step 1 ending done, and that step ended failed/,
-  );
-  assert.match(
-    run.plan[2]?.outcome ?? "",
-    /left unrun: it waits on step 2, which was itself left unrun/,
-    "and a step waiting on one that was itself left unrun says that much",
-  );
-});
+/*
+ * A step that must follow another is a **second answer** (ADR 0038): the turn
+ * calls what it can see, reads each outcome, and calls what follows. No step
+ * carries `needs` any more, so the tests that pinned a plan's dependency
+ * branches — the branch an outcome named, and the step left unrun because the
+ * one it waited on was — are gone with the field they wrote.
+ */
 
 test("an answer whose plan cannot be read is refused whole, recorded, and asked again", async () => {
   const id = "intake-refused-plan";
@@ -2512,16 +2234,8 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
   await agent.start();
 
   answerWith({ facts: {} });
-  // A step waiting on a step the answer does not carry: a plan cannot cycle.
-  answerWith({
-    calls: [
-      {
-        name: "chat.say",
-        arguments: { text: "the only step" },
-        needs: { step: "nowhere", when: "done" },
-      },
-    ],
-  });
+  // A name the catalogue does not hold: the whole answer is refused.
+  answerWith({ calls: [{ name: "invent", arguments: { text: "the only step" } }] });
   answerWith(aLook());
   answerWith({ done: "the plan was refused, so nothing was done" });
   // The refused answer leaves a failed step, so the first `done` is refused once
@@ -2537,10 +2251,7 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
     "the refused answer left a step of its own, and the run went on from it",
   );
   assert.equal(run.plan[0]?.state, "failed", "the refusal is on the record");
-  assert.match(
-    run.plan[0]?.outcome ?? "",
-    /waits on "nowhere", which no earlier step of the answer carries/,
-  );
+  assert.match(run.plan[0]?.outcome ?? "", /There is no tool named "invent"/);
   assert.equal(run.state, "done", "and the model was asked again, and answered");
   assert.equal(run.ended?.why, "the plan was refused, so nothing was done");
 });
@@ -2567,13 +2278,15 @@ test("a run is handed the areas its group works, not the whole catalogue", async
     user.includes("The change that woke this run"),
   );
   assert.ok(choosing.length > 0, "the run was handed a turn of its own");
+  const offered = choosing.map(({ system }) => system).join("\n");
+  assert.ok(/- find\(kind: one of mail/.test(offered), "the group's own area is offered");
   assert.ok(
-    choosing.some(({ system, user }) => `${system}${user}`.includes("mail.read")),
-    "the group's own area is offered",
+    /- place\(action: one of [^)]*trash/.test(offered),
+    "and so is a write of it",
   );
   assert.ok(
-    !choosing.some(({ system, user }) => `${system}${user}`.includes("files.write")),
-    "and a write in an area turned off is not",
+    !/- place\(action: [^)]*deleteFile/.test(offered),
+    "while a write in an area turned off is not",
   );
 });
 
@@ -2596,7 +2309,9 @@ test("an area the group's instruction declares is offered, even when the matrix 
   );
   assert.ok(choosing.length > 0, "the run was handed a turn of its own");
   assert.ok(
-    choosing.some(({ system, user }) => `${system}${user}`.includes("calendar.")),
+    choosing.some(({ system }) =>
+      /- event\(action: one of create, update, delete/.test(system),
+    ),
     "the area the instruction declares is in the catalogue the turn reads",
   );
 
@@ -2620,13 +2335,7 @@ test("a malformed answer costs a step and is asked again, not the run", async ()
 
   answerWith({ facts: {} });
   const stuck = {
-    calls: [
-      {
-        name: "chat.say",
-        arguments: { text: "the same malformed answer" },
-        needs: { step: "nowhere", when: "done" },
-      },
-    ],
+    calls: [{ name: "invent", arguments: { text: "the same malformed answer" } }],
   };
   answerWith(stuck);
   answerWith(stuck);

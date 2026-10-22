@@ -18,12 +18,9 @@ names (the provider refused `mail.find`: a function name matches
 model's answer, one lookup in the decision turn, and the report ending the run.
 The provider block lives outside the repository; the eval tasks live in it.
 
-**One unit is open: the suite's assertions still name the endpoint tools.** The
-mechanisms the tests check are the jobs' and pass (`tools.test.ts`,
-`areas.test.ts`, `model-probe.test.ts`: 52/52); the loop and model suites are
-mid-repair, where an assertion reads `chat.say` or a plan's `needs` the protocol
-no longer offers. `npm run typecheck` is clean; the gate is red until they are
-rewritten, and the push waits for it.
+The loop and model suites speak the jobs' protocol: a call is a bare job name,
+`say` with an `action` is the report that ends the run, and a dependency is a
+second answer rather than a `needs` field.
 
 ## The order
 

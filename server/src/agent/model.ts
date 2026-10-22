@@ -1597,8 +1597,8 @@ export interface StepCall {
  * each outcome is read, and the steps that waited on it follow. **Done** is the
  * run's work being finished, said in the model's own words, which are what the
  * run's ending is written with. There is nothing else an answer can be, and
- * asking a person is not a third shape: it is `chat.ask`, one of the steps,
- * which leaves the run waiting on the answer.
+ * asking a person is not a third shape: it is `say` with the `ask` action, one
+ * of the steps, which leaves the run waiting on the answer.
  *
  * What a step carries is a tool, its arguments and what it waits on, and nothing
  * beside them: it grants no authority and names no capability, because what may
@@ -1980,7 +1980,7 @@ export async function chooseStep(
     "The tools, with the exact arguments and bounds each takes — a name or an argument not written here does not exist:",
     ...catalogue.map(toolSignature),
     "Each tool's definition in this call says what it is for; the list above says how it is called. An argument name a tool does not state is refused, and so is a value outside the bound written beside it.",
-    "When the work needs a person's decision, ask them: chat.ask posts the question in the group's conversation and parks the run until they answer.",
+    "When the work needs a person's decision, ask them: `say` with the `ask` action posts the question in the group's conversation and parks the run until they answer.",
     ...surfaceLines(question.surfaces),
     ...heads,
   ]
@@ -2024,8 +2024,8 @@ export async function chooseStep(
    * The provider's own tool calls are the plan, through the same validation
    * below. The call's arguments are the tool's own, **whole**: nothing is read
    * out of them first, because there is nowhere else for a tool's argument to
-   * live — `id` is an argument of `mail.read`, `mail.trash`, `calendar.update`
-   * and ten other tools.
+   * live — `id` is an argument of `read`, of most `place` actions and of
+   * `event`.
    */
   if (isNativeToolCalls(answer))
     answer = {

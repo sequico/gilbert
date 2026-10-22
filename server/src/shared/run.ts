@@ -211,11 +211,12 @@ export interface RunStep {
   /**
    * Whether this step said something in the group's conversation.
    *
-   * It is what `spoke` reads: a `chat.say` that ended done has been heard by the
-   * people who asked, and repeating the ending beside it would be two messages
-   * for one piece of work. A `chat.ask` asks something and says nothing about
-   * what was done, so it does not count — which is the difference between a run
-   * that reported and one that only has a question open (ADR 0030).
+   * It is what `spoke` reads: a `say` with the `say` action that ended done has
+   * been heard by the people who asked, and repeating the ending beside it would
+   * be two messages for one piece of work. A `say` with the `ask` action asks
+   * something and says nothing about what was done, so it does not count — which
+   * is the difference between a run that reported and one that only has a
+   * question open (ADR 0030).
    */
   spoke?: boolean;
 }

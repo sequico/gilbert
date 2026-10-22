@@ -1150,7 +1150,14 @@ export class AgentLoop {
         const key = `${accountId}\u0000${due.id}`;
         const stuck = due.waiting === null;
         if (stuck) this.stuckUntil.set(key, now.getTime() + STUCK_RETRY_MS);
-        const worked = await this.workRun(accountId, due, undefined, record.state);
+        const worked = await this.workRun(
+          accountId,
+          due,
+          undefined,
+          record.state,
+          undefined,
+          now,
+        );
         const stillStuck = worked?.state === "running" && worked.waiting === null;
         if (!stillStuck) this.stuckUntil.delete(key);
         // The archive and the change batch see the document as this pass left it.
@@ -1234,7 +1241,7 @@ export class AgentLoop {
           memory: () => this.memory(),
           readingCall: (a, e) => this.readingCall(a, e),
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
-          workRun: (a, r, f, oq) => this.workRun(a, r, f, undefined, oq),
+          workRun: (a, r, f, oq) => this.workRun(a, r, f, undefined, oq, now),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
           openRun: (a, e, r, from, about, by) => this.openRun(a, e, r, from, about, by),
           recordRefusal: (a, refused) => this.recordRefusal(a, refused),
@@ -1699,6 +1706,12 @@ export class AgentLoop {
     state?: string,
     /** The questions the group already has open, so this run does not re-ask. */
     openQuestions?: readonly string[],
+    /**
+     * The pass's own clock, which every date this working sets is measured on:
+     * a run left `running` is due again a minute later **by the pass**, and a
+     * deadline taken from the wall clock would be judged by the other one.
+     */
+    now = new Date(),
   ): Promise<RunDoc | null> {
     const access = this.access;
     if (!access) return null;
@@ -1843,7 +1856,7 @@ export class AgentLoop {
           // pass does not ask the same broken provider again at once.
           this.stuckUntil.set(
             `${accountId}\u0000${current.id}`,
-            Date.now() + STUCK_RETRY_MS,
+            now.getTime() + STUCK_RETRY_MS,
           );
           try {
             await this.store(accountId, current, token);
