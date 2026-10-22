@@ -2,11 +2,17 @@
 
 Status: Proposed
 
-Implementation: Not built. The loop today hands one catalogue of forty-five
-endpoint tools to one free-form planner (`server/src/agent/loop.ts`,
-`model.ts`); this record replaces that shape. The run document, the claim, the
-cursors, the single wait, the endings, the authority classes and the memory stay
-as they are.
+Implementation: Partly built. The areas and their selection are
+`server/src/agent/areas.ts`; one instruction per group is
+`server/src/agent/instruction.ts` with the panel at
+`web/src/views/admin/agents/GroupInstruction.tsx`; the change as the trigger, the
+run keyed by it and the one-off clear of the old rules are
+`server/src/agent/changes.ts`, `loop.ts` and `legacy.ts`; the `done` is read
+against its plan and a run that finished nothing ends `refused`; a tool's answer
+is filtered by `server/src/agent/redact.ts`; the eval runner is
+`server/src/agent/eval.ts`. **Not built:** the eight job-shaped tools (the
+catalogue is still forty-eight endpoints), the judge that reads the ask and the
+evidence against the plan, and nine of the ten eval tasks.
 
 ## What this replaces, and what it keeps
 

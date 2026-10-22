@@ -419,5 +419,14 @@ is, not what a user sees.
   read by the harness in bounded slices; an outward message as a draft a person
   sends; a second cheap call that judges a `done` against the ask and its evidence;
   an evaluation set taken from the runs that failed; and no credential inside a
-  document the agent can read. Replaces 0027 and 0031. **Not built, Proposed.**
+  document the agent can read. Replaces 0027 and 0031. **Partly built, Proposed.**
+- **0039 — The model calls the tools, and a refusal is a repair.** Native
+  function calling is the protocol, with the catalogue in `tools` rather than in
+  the prompt and JSON in the text only as a declared fallback; an invalid call
+  comes back to the same turn with the field, the value sent and the values
+  allowed, and the valid calls still run; the schema is narrow and self-describing
+  (`enum`, ids that name their kind); the ceilings are the job's, not a lookup
+  count; and a provider that answers with no content fails with its own code
+  rather than opening a run on a fantasy. The eight jobs are ADR 0038's.
+  **Not built, Proposed.**
 

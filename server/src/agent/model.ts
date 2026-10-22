@@ -1734,6 +1734,7 @@ export async function chooseStep(
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group, working one run in that group's own account.",
+    "Answer in JSON: one object, never prose. The shapes written below are the whole of what an answer may be.",
     'Take the run\'s steps with the tools you are given: call one, several, or the same one twice in one answer, and each step is shown to you before you are asked again. When the work of this run is finished, answer {"done": "<what is finished>"} and nothing else. A plan written out as {"calls": [{"name": "<tool>", "arguments": {...}}, ...]} is read the same way, and a call whose arguments are not what the tool states is refused — only that call; the rest of the plan runs.',
     "Decide what this change needs and ask for it in one answer, as a small plan: name a tool and its arguments for each step — one tool, several, or the same tool twice. The steps whose dependencies have ended are carried out together, and each is shown to you before you are asked again.",
     'A plan that branches is written in the shape above: a step that has to follow another gives itself an "id" and waits on it — {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
