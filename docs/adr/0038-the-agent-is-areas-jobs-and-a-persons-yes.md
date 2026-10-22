@@ -176,11 +176,13 @@ and a reasoning model spent the provider's default budget before writing any
 content at all. Neither is a decision the model got wrong; it is the interface
 asking it to spell what it cannot see.
 
-- **Native function calling is the protocol.** The catalogue travels in the
-  request's `tools`, and the answer is read from `tool_calls`. JSON in the text is
-  a **declared fallback** for a provider that refuses `tools`, and the run records
-  that the fallback was used, so a deployment sees which path it is on rather
-  than inferring it.
+- **Native function calling is the protocol, and the only one.** The catalogue
+  travels in the request's `tools`, and the answer is read from `tool_calls`. A
+  provider that does not take `tools` is refused **at connect and at every
+  reconnection**, with a sentence naming what it refused: the fallback to JSON in
+  the text is gone, because it is where the corpus's format refusals live. The
+  turns that call no tool (the decision, the image read) keep their JSON shape,
+  and their prompt says so.
 - **A refusal is a repair, not a lost answer.** An invalid call comes back to the
   same turn with the field, the value that was sent and the values the schema
   allows, and the refusal is one step on the run. The calls that were valid still
@@ -188,6 +190,12 @@ asking it to spell what it cannot see.
 - **The schema is narrow and self-describing.** A field that takes one of a set is
   an `enum`; a field that takes an id says which kind; a required field is
   required in the schema, not in a sentence the model may skip.
+- **The token ceiling is the run's, and an administrator sets it.**
+  `limits.maxRunTokens` is a run's budget of prompt and completion tokens together;
+  every call sends what is left of it as its `max_tokens`, so a reasoning model has
+  room to answer and a run cannot burn without end. The run ends `out-of-budget`
+  with the token it stopped at, as it does for steps and for the clock, and the
+  value is editable where the installation's limits are.
 - **The ceilings are per job.** Four lookups per turn was a number of the endpoint
   catalogue; a job declares what it needs and the turn may look up that much. The
   budget of steps, calls and milliseconds stays.
@@ -195,6 +203,26 @@ asking it to spell what it cannot see.
   content, or with reasoning only, fails with its own code and the pass says so;
   no run opens on it, and the build does not pretend the answer was empty on
   purpose.
+
+### The catalogue is eight jobs
+
+The forty-eight endpoint tools become eight, and every capability is either a
+field of a job or **consciously dropped**:
+
+| job | what it is | absorbs |
+|---|---|---|
+| `read` | one known object, by id | `mail.read`, `mail.readAttachment`, `files.read`, `calendar.read`, `knowledge.read`, `chat.read`, `workorder.read`, `run.read` |
+| `find` | ask the account what is there | `mail.find`, `mail.folders`, `files.list`, `calendar.list`, `calendar.find`, `chat.find`, `contacts.find`, `knowledge.list`, `knowledge.search`, `workorder.list` |
+| `place` | put something where it belongs | `mail.file`, `mail.trash`, `mail.untrash`, `mail.keyword`, `mail.label`, `files.save`, `files.write`, `files.overwrite`, `files.move`, `files.rename`, `files.delete`, `files.folder`, `mail.folder`, `mail.renameFolder`, `mail.deleteFolder` |
+| `draft` | write an outward message, never send it | `mail.draft`, `mail.editDraft`, `mail.ask` |
+| `event` | create, change or cancel an event or a series | `calendar.create`, `calendar.update`, `calendar.delete` |
+| `say` | speak in the conversation, or ask | `chat.say`, `chat.ask` |
+| `remember` | keep a fact, or propose a knowledge page | `memory.remember`, `knowledge.propose` |
+| `settle` | close or move a workorder | `workorder.settle` |
+
+**Dropped: `mail.send`.** An outward message is a draft a person sends (ADR 0041);
+a tool that submits contradicts the boundary the rest of the design keeps.
+Contacts carry no write today, so `find` is the whole of their surface.
 
 ### The common path is a workflow; a plan is the exception
 

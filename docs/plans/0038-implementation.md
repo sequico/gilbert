@@ -101,15 +101,22 @@ runner.
   `response_format: json_object` was answered 400 by the provider. One sentence
   in the choosing turn's system prompt names JSON. Done when a mail in a declared
   area opens a run and reaches an ending.
-- **F1 — native function calling.** The catalogue travels in `tools` and the
-  answer is read from `tool_calls` (the reader exists); `response_format` is never
-  sent beside `tools`; a provider that refuses `tools` falls back **and the run
-  records it**. The provider path owns the ceiling: a stated `max_tokens` with
-  room for reasoning, and a named failure for a turn with no content.
-- **F2 — the eight jobs.** The forty-eight endpoint tools become the eight of
-  this record; every capability is either a field of a job or consciously
-  dropped, and the map is written beside the tools. The schema is the interface:
-  `enum` for a set, required where required, every id naming its kind.
+- **F1 — native function calling, and only it.** The catalogue travels in `tools`
+  and the answer is read from `tool_calls`. The fallback to JSON in the text is
+  removed, and the parser stops reading a `{"calls": …}` written in prose. A
+  provider that does not take `tools` is refused at connect **and at every
+  reconnection** with a sentence naming the refusal; the probe is the one that
+  already asks the provider a question, extended to carry one tool.
+  `limits.maxRunTokens` (editable where the installation's limits are) is the
+  run's budget of prompt and completion tokens; each call sends what is left as
+  its `max_tokens`, and a run that reaches it ends `out-of-budget` naming the
+  token.
+- **F2 — the eight jobs.** The forty-eight endpoint tools become the eight of the
+  record (`read`, `find`, `place`, `draft`, `event`, `say`, `remember`,
+  `settle`), the map in the record is the authority, and `mail.send` is dropped:
+  every capability is either a field of a job or consciously gone. The schema is
+  the interface: `enum` for a set, required where required, every id naming its
+  kind.
 - **F3 — a refusal is a repair.** A wrong argument returns to the same turn with
   the field, the value sent and the allowed values; the valid calls of the same
   answer still run; the whole-answer refusal disappears, with a test that pins a
@@ -123,14 +130,10 @@ runner.
 
 ## Open decisions
 
-1. **The ceiling**: a stated `max_tokens` for every call, or a retry when the
-   answer is cut. The first costs nothing when the model stops early and does not
-   hide the provider's default.
-2. **The fallback**: keep JSON in the text for a provider without `tools`, or
-   require `tools` and refuse the deployment with a sentence. The corpus says the
-   fallback is where the format refusals live.
-3. **The eight jobs' names and arguments** — F2's table, reviewed before the
-   tools are written.
+1. **The default of `limits.maxRunTokens`** — the value a fresh installation
+   starts from; the shape is decided, the number is not.
+2. **The probe's cost**: one tool-carrying call at every reconnection is a real
+   request; whether it is cached per provider session is a decision for F1.
 
 ## Owed, and named so it is not forgotten
 
