@@ -1457,6 +1457,20 @@ test("a person's answer continues the run that asked for it", async () => {
   await agent.start();
 
   /*
+   * The agent's own message is not an answer (ADR 0029): a `say` that replies to
+   * the question it asked must not continue its own run.
+   */
+  await postChatMessage(ctx, accountId, ctx.username, "I answered myself", {
+    replyTo: asked,
+  });
+  await agent.pass();
+  assert.equal(
+    (await readRun(ctx, accountId, "parked-on-a-person"))?.run.state,
+    "blocked",
+    "the agent's own message left the run where it was",
+  );
+
+  /*
    * An answer is correlated by the record, not decided: the run it continues is
    * found from the message it replies to, so no decision call is made. What the
    * answer authorises is read before the run goes on (ADR 0028): the sentence

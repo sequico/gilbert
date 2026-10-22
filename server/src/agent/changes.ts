@@ -26,7 +26,7 @@ import {
   readAccountEvents,
 } from "./events.js";
 import type { InstructionDoc } from "./instruction.js";
-import type { AnsweredRun, PassSummary, RefusedAnswer } from "./loop.js";
+import type { AnsweredRun, PassSummary } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
 import { recallFor } from "./memory.js";
 import type { ModelAccess } from "./model.js";
@@ -52,9 +52,7 @@ export interface ChangesDeps {
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
-  ): Promise<AnsweredRun | "already" | RefusedAnswer | null>;
-  /** Keep an answer that was not its sender's own word on the run it answered. */
-  recordRefusal(accountId: string, refused: RefusedAnswer): Promise<RunDoc | null>;
+  ): Promise<AnsweredRun | "already" | null>;
   workRun(
     accountId: string,
     run: RunDoc,
@@ -457,14 +455,10 @@ export async function workChanges(
     /*
      * A message that answers a run's question continues that run and opens no
      * run of its own (ADR 0029). The correlation is the record's — a reply to
-     * the question in chat, a mail in its thread — so it is asked before
-     * anything else and on **whatever surface the answer arrived on**: a question
-     * asked in chat by an instruction that works mail is answered in chat, and
-     * the answer is not a change that instruction is woken by.
+     * the question in chat — so it is asked before anything else. A mail answers
+     * nothing: an outward message is a draft a person sends (ADR 0041).
      */
-    const couldAnswer =
-      (event.source === "chat" && message?.replyTo !== undefined) ||
-      (event.source === "mail" && event.change !== "destroyed");
+    const couldAnswer = event.source === "chat" && message?.replyTo !== undefined;
     if (couldAnswer) {
       if (!held) {
         /*
@@ -479,12 +473,6 @@ export async function workChanges(
       }
       const answer = await deps.runAnsweredBy(accountId, event, held);
       if (answer === "already") continue;
-      if (answer && "record" in answer) {
-        // The person answered and the answer was refused: it is written on the
-        // run it would have continued, and the run stays blocked.
-        await deps.recordRefusal(accountId, answer);
-        continue;
-      }
       if (answer) {
         summary.due += 1;
         const worked = await deps.workRun(

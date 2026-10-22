@@ -70,17 +70,8 @@ function recalledFact(id: string, facts: readonly FactView[]): string {
 
 /** The run itself: the change, the rule, the plan with its order, the tally. */
 function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }) {
-  const {
-    startedBy,
-    plan,
-    spent,
-    waiting,
-    ended,
-    recalled,
-    touched,
-    authorisations,
-    answerRefusals,
-  } = run;
+  const { startedBy, plan, spent, waiting, ended, recalled, touched, authorisations } =
+    run;
   const origin = startedBy.rule
     ? t("Started by the rule {rule}, woken by {change}.", {
         rule: startedBy.rule,
@@ -141,14 +132,6 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
               authority: one.authority,
               target: one.act.target,
               what: one.what,
-            })}
-          </div>
-        ))}
-        {(answerRefusals ?? []).map((one, at) => (
-          <div key={`${one.message.id}-${at}`}>
-            {t("An answer from {from} was not a person's word: {code}", {
-              from: one.from,
-              code: one.code,
             })}
           </div>
         ))}
