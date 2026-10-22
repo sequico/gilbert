@@ -1396,6 +1396,44 @@ test("the choosing turn lists each tool's own argument names", async () => {
   });
 });
 
+test("a long plan reaches the turn in one call, its tail whole and the rest a line each", async () => {
+  /*
+   * The context is selected, not accumulated (ADR 0038): the last steps in full,
+   * everything earlier as one line each, and **no model call writes the
+   * summary** — a second call per turn would cost more than the tail it saves.
+   * Twenty steps of three kilobytes are what a whole-plan prompt would have
+   * carried; one request is made, and its user turn is a fraction of them.
+   */
+  let run = startRun({
+    id: "long-run",
+    startedBy: { rule: null, instruction: null, woke: "mail created: m-1" },
+  });
+  const outcomes: string[] = [];
+  for (let at = 0; at < 20; at += 1) {
+    const outcome = `${at}:${"x".repeat(3_000)}`;
+    outcomes.push(outcome);
+    run = appendStep(run, `step-${at} place`);
+    run = recordStep(run, run.plan.length - 1, { state: "done", outcome });
+  }
+  answerWith({ done: "over" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(run.plan));
+
+  assert.equal(seen.length, 1, "one call, and none to write a summary of the tail");
+  const messages = (seen[0]?.body as { messages?: Array<{ content?: string }> }).messages;
+  const user = messages?.[1]?.content ?? "";
+  assert.ok(user.includes(outcomes[outcomes.length - 1] ?? ""), "the last step is whole");
+  assert.ok(!user.includes(outcomes[0] ?? ""), "the first is carried as its beginning");
+  assert.ok(
+    user.includes("An outcome that ends in … is carried as its beginning"),
+    "and the turn says what the cut means",
+  );
+  const whole = outcomes.reduce((sum, one) => sum + one.length, 0);
+  assert.ok(
+    user.length < whole / 2,
+    `the prompt is ${user.length} characters against the plan's ${whole}`,
+  );
+});
+
 test("a provider's leaked tool markup is not prose the agent says", async () => {
   // A reasoning model sometimes emits its tool-call tokens as text; those are
   // not words the group should read in its conversation.

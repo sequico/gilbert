@@ -17,8 +17,10 @@ ceilings with the pass document's daily counter (`shared/installation.ts`,
 and the eval: ten tasks in the repository (`agent/eval/tasks/`), one file each
 with its message, data and reference, graded with partial credit, a failed task
 tried once more, `pass@1` and cost printed, and the provider put to the
-product's own probe before anything is measured (`eval.ts`).
-**Not built:** the plan's F5–F7 (the run's own trend, the structured memory), and
+product's own probe before anything is measured (`eval.ts`), and the turn's
+context: the plan's last steps in full and earlier ones a line each, with the
+threshold measured and no summary call (`prompt.ts`, `prompt.test.ts`).
+**Not built:** the plan's F6–F7 (the run's own trend, the structured memory), and
 everything in *Owed*.
 
 ## What this replaces, and what it keeps

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { RunStep } from "../shared/run.js";
 import type { DecisionQuestion, StepQuestion } from "./model.js";
 import {
+  OUTCOME_IN_PROMPT_MAX,
   READ_IN_PROMPT_MAX,
   STEP_OUTCOME_FULL_MAX,
   STEP_OUTCOME_OLD_MAX,
@@ -78,6 +79,48 @@ test("a step a later step waits on is carried whole however old it is", () => {
   const prompt = stepData({ woke: "chat created: c-1", plan, prose: {} } as StepQuestion);
 
   assert.ok(prompt.includes(plan[0]?.outcome ?? ""), "the waited-on step is whole");
+});
+
+/** One step as the record holds it after it ended: an outcome the prompt carries whole. */
+function ran(at: number): RunStep {
+  return {
+    what: `step-${at} place`,
+    state: "done",
+    outcome: `${at}:${"x".repeat(3_000)}`,
+    needs: null,
+  };
+}
+
+/**
+ * The threshold is measured, not guessed (ADR 0038): the whole plan is what a
+ * turn used to be handed, and the projection is what it is handed now.
+ *
+ * Forty ended steps of three kilobytes are 120 000 characters of outcome; the
+ * turn carries the last three whole and thirty-seven beginnings, 23 064
+ * characters — about a fifth — and the extra cost of twenty more steps is one
+ * line each, not three kilobytes each.
+ */
+test("a long run's prompt is a fraction of the whole plan, and grows a line a step", () => {
+  const plan = Array.from({ length: 20 }, (_, at) => ran(at));
+  const longer = Array.from({ length: 40 }, (_, at) => ran(at));
+  const ask = (steps: RunStep[]) =>
+    stepData({ woke: "mail created: m-1", plan: steps, prose: {} } as StepQuestion);
+
+  const whole = longer.reduce((sum, step) => sum + step.outcome.length, 0);
+  const prompt = ask(longer);
+  assert.ok(
+    prompt.length < whole * 0.2,
+    `the turn carries ${Math.round((prompt.length / whole) * 100)}% of the plan`,
+  );
+
+  const grew = prompt.length - ask(plan).length;
+  const wholeGrew = whole - plan.reduce((sum, step) => sum + step.outcome.length, 0);
+  assert.ok(
+    grew < wholeGrew / 8,
+    `twenty more steps add ${grew} characters, against ${wholeGrew} carried whole`,
+  );
+  for (const step of longer.slice(-STEP_OUTCOME_FULL_MAX))
+    assert.ok(prompt.includes(step.outcome), "the steps just taken are whole");
 });
 
 /**

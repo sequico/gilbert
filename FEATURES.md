@@ -388,6 +388,13 @@ groups — are read from the mail server by that pass rather than decided at the
 boot, so a group added or
 withdrawn in Stalwart needs no restart.
 
+**The turn is handed the plan's tail, not the whole plan** (ADR 0038): the last
+three ended steps with what they answered in full, every earlier step as one line
+of its outcome's beginning, the facts the memory recalled, the catalogue and the
+instruction — and no model call writes the summary. A forty-step run of
+three-kilobyte outcomes costs the turn about a fifth of what the whole plan would,
+and each further step adds a line (`server/src/agent/prompt.ts`).
+
 ## The agent is measured on the tasks it has failed
 
 **The agent is measured on ten tasks in the repository** (ADR 0038,

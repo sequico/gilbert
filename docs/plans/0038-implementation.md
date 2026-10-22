@@ -2,7 +2,7 @@
 
 Status: **in progress**, branch `agents-reloaded`. The decisions are ADR 0038's;
 this file holds only the order, the files each step touches, and what the step must
-prove. F0–F4 are built, F5–F7 are not.
+prove. F0–F5 are built, F6 and F7 are not.
 
 ## Where the tree stands
 
@@ -32,6 +32,13 @@ takes a folder's name. The provider block lives outside the repository.
 The loop and model suites speak the jobs' protocol: a call is a bare job name,
 `say` with an `action` is the report that ends the run, and a dependency is a
 second answer rather than a `needs` field.
+
+**The threshold is measured** (`prompt.ts`, `prompt.test.ts`): a forty-step run
+whose steps answered three kilobytes each is 120 110 characters of outcome, and
+the turn is handed 23 064 of them — the last three steps whole, every earlier one
+as a 240-character beginning — 19% of the whole plan, and twenty more steps add
+one line each rather than three kilobytes each. No model call writes the summary;
+the run document holds every outcome in full.
 
 ## The order
 
