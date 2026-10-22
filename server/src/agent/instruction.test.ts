@@ -96,27 +96,6 @@ test("a group's instruction is read from its own account, and no document is no 
   await removeStored();
 });
 
-test("an instruction written before the areas existed is still read, with none declared", async () => {
-  await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
-    v: 1,
-    instruction: "Answer the shipper in the group's own words.",
-  });
-  const held = await readInstruction(ctx, accountId);
-  assert.deepEqual(
-    { ...held, surfaces: undefined },
-    {
-      v: INSTRUCTION_VERSION,
-      instruction: "Answer the shipper in the group's own words.",
-      areas: [],
-      surfaces: undefined,
-      sends: false,
-    },
-    "the prose it wrote is the instruction it was, and no area is invented for it",
-  );
-  assert.equal(held?.surfaces.mail, "off", "and nothing but the conversation is on");
-  await removeStored();
-});
-
 test("an instruction this build cannot read is refused with its path, never carried as silence", async () => {
   for (const unreadable of [
     "{ not json",
@@ -176,9 +155,7 @@ test("the parser takes the version this build writes and refuses every other sha
   const before = parseInstructionDocumentDetailed(
     JSON.stringify({ v: 1, instruction: "Work by these words." }),
   );
-  assert.ok("instruction" in before);
-  assert.deepEqual(before.instruction.areas, [], "an older document declares no area");
-  assert.equal(before.instruction.surfaces.mail, "off", "and nothing but the chat is on");
+  assert.ok("problem" in before, "a document of another version is refused");
 
   const pinned = doc(["mail"], {
     surfaces: {

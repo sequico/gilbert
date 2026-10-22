@@ -18,7 +18,7 @@ import {
   type GroupInstruction,
   readGroupInstruction,
   saveInstruction,
-} from "@/lib/agentProse";
+} from "@/lib/agentInstruction";
 import { t } from "@/lib/i18n";
 
 /** The word an area goes by, translated where it is drawn. */

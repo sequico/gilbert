@@ -117,11 +117,11 @@ import {
 
 export { RUN_STEPS_MAX } from "../shared/run.js";
 
+import type { AreaName } from "../shared/areas.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
-import type { AreaName } from "./areas.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
 import {
   chatWoken,

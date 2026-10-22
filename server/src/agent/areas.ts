@@ -15,20 +15,11 @@
 
 import {
   AREA_NAMES,
-  areaOfSource,
   type AreaName,
+  areaOfSource,
   TRANSVERSAL_AREAS,
 } from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
-
-export {
-  AREA_NAMES,
-  type AreaName,
-  declaredAreas,
-  isAreaName,
-  MAX_DECLARED_AREAS,
-  TRANSVERSAL_AREAS,
-} from "../shared/areas.js";
 
 /**
  * Prefixes that name no area: the agent's own record (`run.read`), which every

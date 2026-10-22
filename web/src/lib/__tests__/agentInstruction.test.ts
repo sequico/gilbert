@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { apiFetch } = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock("@/jmap/client", () => ({ apiFetch }));
 
-import { readGroupInstruction, saveInstruction } from "../agentProse";
+import { readGroupInstruction, saveInstruction } from "../agentInstruction";
 
 const GROUP = "team@example.org";
 const PATH = "/api/admin/groups/team%40example.org/prose";

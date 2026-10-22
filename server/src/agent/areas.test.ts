@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { AREA_NAMES, declaredAreas, MAX_DECLARED_AREAS } from "../shared/areas.js";
 import {
-  AREA_NAMES,
   areaOf,
   areasOfSurfaces,
   CONTEXT_TOOL_PREFIXES,
   catalogueFor,
-  declaredAreas,
   isAreaTool,
-  MAX_DECLARED_AREAS,
   selectedAreas,
 } from "./areas.js";
 import { TOOLS } from "./tools.js";

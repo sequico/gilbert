@@ -23,9 +23,6 @@ export const INSTRUCTION_FILE = "instruction.json";
  * The schema this build writes and reads. A document of another version is
  * refused, so a field of the shape below moves this with it — the version is
  * how a change reaches an instruction a group has already written.
- *
- * Version 1 carried the prose alone; it is still read, and upgraded in memory,
- * because an installation wrote one before the areas existed.
  */
 export const INSTRUCTION_VERSION = 2;
 
@@ -59,13 +56,6 @@ const CHAT_ONLY: SurfaceMatrix = {
 };
 
 /**
- * The matrix of an instruction that names none: the conversation, and nothing
- * else. A group that writes an instruction and declares no area has told the
- * agent about the chat and about nothing more, and the matrix says exactly that
- * rather than handing it every surface the account has.
- */
-
-/**
  * Parse one stored instruction.
  *
  * Strict JSON, an object at the top, then the fields checked: a `v` this build
@@ -85,21 +75,6 @@ export function parseInstructionDocumentDetailed(
     return { problem: `Not valid JSON${errorDetail(err)}.` };
   }
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };
-  /* A document written before the areas existed says the prose alone: it is the
-     instruction it was, with no area declared, and nothing is invented for it. */
-  if (whole.v === 1) {
-    if (typeof whole.instruction !== "string" || !whole.instruction.trim())
-      return { problem: '"instruction" must say how the group wants its agent to work.' };
-    return {
-      instruction: {
-        v: INSTRUCTION_VERSION,
-        instruction: whole.instruction,
-        areas: [],
-        surfaces: { ...CHAT_ONLY },
-        sends: false,
-      },
-    };
-  }
   if (whole.v !== INSTRUCTION_VERSION)
     return {
       problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${INSTRUCTION_VERSION}.`,
