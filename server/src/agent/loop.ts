@@ -2290,7 +2290,29 @@ export class AgentLoop {
        * 2026-10-22: the work was filed and said, and the run went on reading
        * the same two messages until its budget ended.
        */
-      if (spoke)
+      if (spoke) {
+        /*
+         * A spoken report is a claim like a `done` (ADR 0030, 0038): a refused
+         * step the model was not told about sends it back once, rather than a
+         * report that stands on a step that failed. The judge stays with the
+         * `done` answer; this is the check a report owes.
+         */
+        const refused = current.plan.filter((step) => step.state === "failed").length;
+        const checked = current.plan.filter(
+          (step) => step.what === DONE_CHECKED || step.what === JUDGE_CHECKED,
+        ).length;
+        if (refused > 0 && checked === 0 && current.spent.steps + 1 < RUN_STEPS_MAX) {
+          current = this.withStep(
+            current,
+            DONE_CHECKED,
+            `the plan carries ${refused} refused step(s): finish the work, or say what you could not do`,
+            false,
+          );
+          const kept = await this.store(accountId, current, token);
+          if (!kept) return null;
+          token = kept;
+          continue;
+        }
         return await this.endRun(
           accountId,
           current,
@@ -2298,6 +2320,7 @@ export class AgentLoop {
           { at: new Date().toISOString(), why: spoke },
           token,
         );
+      }
     }
   }
 

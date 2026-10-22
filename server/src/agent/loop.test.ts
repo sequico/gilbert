@@ -2462,6 +2462,37 @@ test("a report standing on a refused step is judged, and the verdict is on the r
   assert.equal(choosing, 3, "the report was put back with each gap named");
 });
 
+test("a spoken report standing on a refused step is sent back once", async () => {
+  /*
+   * The report ends the run (ADR 0038), but it is a claim like a `done`: a wave
+   * that refuses an act and says it was done must not close the run on the
+   * refusal, or the record would show a false success. The mechanical check
+   * sends it back once, with the refusal named.
+   */
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+  answerWith({ facts: {} });
+  answerWith({
+    calls: [
+      { name: "place", arguments: { action: "trash", id: "m-1" } },
+      { name: "say", arguments: { action: "say", text: "it is filed" } },
+    ],
+  });
+  answerWith({
+    calls: [{ name: "say", arguments: { action: "say", text: "I could not file it" } }],
+  });
+  await deliver("a message the agent tries to trash");
+  await agent.pass();
+
+  const run = await runOf();
+  assert.equal(run.state, "done");
+  assert.equal(run.ended?.why, "I could not file it");
+  const checked = run.plan.find((step) => step.what === DONE_CHECKED);
+  assert.ok(checked, "the refusal was put to the model before the report stood");
+  assert.match(checked.outcome, /refused step/);
+});
+
 test("an area the group's instruction declares is offered, even when the matrix turned it off", async () => {
   const doc = instructionDoc(["mail"]);
   doc.surfaces.calendar = "off";
