@@ -1082,8 +1082,20 @@ test("the same change continues one run rather than open a second", async () => 
       plan: ["chat.say the first half"],
     }),
   );
-  onCall = looksThenSays("the rest is done");
+  /*
+   * The decision turn is the part that costs a call, and a change the account
+   * already answers must not pay it again when the cursor re-reads the batch
+   * (ADR 0038): this counter is the assertion.
+   */
+  let decisions = 0;
+  const says = looksThenSays("the rest is done");
+  onCall = (system) => {
+    if (isDecision(system)) decisions += 1;
+    return says(system);
+  };
   const summary = await agent.pass();
+
+  assert.equal(decisions, 0, "the decision turn is not asked again for a known change");
 
   assert.equal(summary.runs, 0, "no second run was opened for this change");
   const runs = (await listRuns(ctx, accountId)).filter(

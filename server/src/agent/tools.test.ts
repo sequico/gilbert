@@ -833,6 +833,23 @@ test("a mailbox folder is renamed in place, and a system folder is not", async (
   );
 });
 
+test("a message is filed by the folder id find answered, as well as by its name", async () => {
+  /*
+   * The eval of 2026-10-22 measured the model copying the id `find folders`
+   * gave it and being refused for a spelling it had in hand: a folder is
+   * named by its name, its role, or that id (ADR 0038).
+   */
+  const folder = await writeTool<{ id: string; name: string }>("mail.folder", {
+    name: "Cases by id",
+  });
+  const message = await deliver("a message to file by id");
+  const filed = await writeTool<{ id: string; folder: string }>("mail.file", {
+    id: message,
+    folder: folder.id,
+  });
+  assert.equal(filed.folder, "Cases by id", "the id reaches the folder it names");
+});
+
 test("the calendar is read and changed through its own tools", async () => {
   const listed = await callTool<{
     calendars: Array<{ id: string; name: string; mayWrite: boolean }>;

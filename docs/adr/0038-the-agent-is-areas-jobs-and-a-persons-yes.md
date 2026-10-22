@@ -100,8 +100,9 @@ one job spans reversible and destructive acts.
   booking's documents is part of reading that mail, not a second tool to chain.
 - **Every call says what kind of thing it is about** — the job's `kind`/`action`
   — and its arguments say what they hold (`id`, the id `find` answered; `path`, a
-  document's; `folder`, a folder's), so a mailbox id cannot stand where a message
-  id belongs. A refusal quotes the real names and a valid example.
+  document's; `folder`, a folder's name, role or id), so a mailbox id cannot
+  stand where a message id belongs. A refusal quotes the real names and a valid
+  example.
 - **A tool returns a distillation, never the payload** — what happened, and the id
   to use next.
 - **No code execution**, by decision: the job-shaped tool buys what it would buy
@@ -262,8 +263,10 @@ spent the provider's default budget before writing anything.
   budget, and the pass **stops before reading changes**, so nothing is consumed
   without a run; the change batch per pass is bounded, so the first pass after a
   spent day does not read the whole day at once, and the cursor advances **only past
-  what the pass has worked**. A pass that dies before writing under-counts by that
-  pass, and that is accepted.
+  what the pass has worked**. A change the account already answers — a run's key is
+  the change — is not put to the decision turn a second time when the batch is
+  re-read, so the rule costs no extra model call. A pass that dies before writing
+  under-counts by that pass, and that is accepted.
 - **Ceilings are per job**: four lookups was an endpoint number.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
   with its own code; no run opens on it. A **transient** failure (5xx, timeout) is

@@ -550,6 +550,43 @@ export async function workChanges(
     }
     const woke = wokeOf(event);
     /*
+     * A change the account already answers costs no decision call: the run's key
+     * is the change, and the record is the answer. This is what makes the
+     * cursor's rule affordable — it advances only past what the pass worked
+     * (ADR 0038), so a pass that stopped mid-batch re-reads the batch, and every
+     * change it already answered is skipped here instead of being decided again.
+     */
+    const key = woke;
+    if (!held) {
+      /*
+       * The working listing says a document it cannot read and hands the
+       * readable runs beside it: one corrupt run must not leave the group's
+       * change page, or a person's answer, unanswered (runs.ts).
+       */
+      const listed = await listRunsForWorking(deps.ctx, accountId);
+      for (const problem of listed.problems)
+        summary.gaps.push(`${accountId}: ${problem}`);
+      held = listed.records;
+      byStart = null;
+    }
+    byStart ??= runsByStart(held);
+    const open = byStart.get(key);
+    if (open) {
+      if (open.state === "running") {
+        const worked = await deps.workRun(
+          accountId,
+          withUsage(open, usageMeter()),
+          undefined,
+          openQuestionsOf(held ?? [], open.id),
+        );
+        if (worked) {
+          remember(held, worked);
+          byStart = null;
+        }
+      }
+      continue;
+    }
+    /*
      * What the change said and who set it off, captured now: the record is the
      * arbiter of what happened, so a message edited next week does not rewrite
      * why this run exists. Everything here comes from what the pass already read
@@ -625,41 +662,10 @@ export async function workChanges(
     }
     /*
      * A group has **one** instruction, so a change it covers is one run: there is
-     * no second to choose between and no routing to do (ADR 0038). The run is
-     * continued when the account already holds one for this change, and opened
-     * otherwise — the record is what says the change was answered, so a pass that
-     * re-reads it does not answer it twice.
+     * no second to choose between and no routing to do (ADR 0038). The run this
+     * change answers is opened here; one the account already held was continued
+     * above, before the decision turn was paid for.
      */
-    const key = woke;
-    if (!held) {
-      /*
-       * The working listing says a document it cannot read and hands the
-       * readable runs beside it: one corrupt run must not leave the group's
-       * change page, or a person's answer, unanswered (runs.ts).
-       */
-      const listed = await listRunsForWorking(deps.ctx, accountId);
-      for (const problem of listed.problems)
-        summary.gaps.push(`${accountId}: ${problem}`);
-      held = listed.records;
-      byStart = null;
-    }
-    byStart ??= runsByStart(held);
-    const open = byStart.get(key);
-    if (open) {
-      if (open.state === "running") {
-        const worked = await deps.workRun(
-          accountId,
-          withUsage(open, meter),
-          decision.facts,
-          openQuestionsOf(held ?? [], open.id),
-        );
-        if (worked) {
-          remember(held, worked);
-          byStart = null;
-        }
-      }
-      continue;
-    }
     const run = await deps.openRun(
       accountId,
       event,

@@ -247,7 +247,12 @@ async function moveMessage(
 ): Promise<{ id: string; folder: string }> {
   {
     const boxes = await mailboxesOf(ctx, accountId);
-    const target = resolveMailbox(folder, boxes);
+    /*
+     * A folder is named by its name, its role, or the id `find folders`
+     * answered: the map is keyed by id, and a model that copied the id it was
+     * given was refused for a spelling it had in hand (eval, 2026-10-22).
+     */
+    const target = boxes[folder] ?? resolveMailbox(folder, boxes);
     if (!target) throw notFound(`folder "${folder}" in this account`);
     /*
      * Filing into Deleted Items is `mail.trash`'s act, and that tool carries
@@ -296,7 +301,8 @@ export const fileMessage = defineTool({
   name: "mail.file",
   description:
     "File a message of this account into one of its folders, by the folder's " +
-    "name or its role (inbox, archive, junk). The message is taken out of the " +
+    "name, its role (inbox, archive, junk), or the id `find folders` answered. " +
+    "The message is taken out of the " +
     "folders it was in: it is moved, not copied. Deleted Items is not a filing " +
     "destination: mail.trash is that act, and a person licenses it.",
   authority: "reversible",
