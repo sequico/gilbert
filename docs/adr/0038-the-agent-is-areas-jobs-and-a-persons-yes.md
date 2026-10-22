@@ -7,8 +7,8 @@ Implementation: Partly built. **Built:** areas and their selection
 (`agent/instruction.ts`, panel `GroupInstruction.tsx`), the change as trigger with
 the run keyed by it and the one-off clear (`changes.ts`, `loop.ts`, `legacy.ts`),
 the `done` read against its plan (nothing finished → `refused`), the credential
-filter (`redact.ts`), the eval runner (`eval.ts`). **Everything in *Owed* is not
-built.**
+filter (`redact.ts`), the eval runner (`eval.ts`). **Not built:** the plan's F1–F7
+besides that list, and everything in *Owed*.
 
 ## What this replaces, and what it keeps
 
@@ -40,9 +40,13 @@ is a **module**: one definition of its actions, no import of another area's, and
 what crosses between them is **an identifier inside the account**. An area is not
 an agent; the run is the one place where two areas meet.
 
-- A run is handed the actions of the areas its **instruction declares**, plus chat
-  (the interface) and memory and knowledge (the shared library). The catalogue is
-  computed, never administered.
+- **The two readings are always present**: `read` and `find` are how a run looks,
+  and reading is free; `say` (the interface) and `remember` (the shared library)
+  are always present too. What the instruction filters is the **writes** —
+  `place`, `draft`, `event`, `settle` — and the guard reads the job's
+  `kind`/`action` when one job reaches more than one area (`place` writes mail or
+  files, `remember` memory or knowledge): a tool-level filter cannot say which half
+  of a job is allowed.
 - **An instruction declares at most three areas**; more is refused when saved,
   because five areas is thirty tools in one turn — the failure this record undoes.
 - *Correspondence* and *agenda* are the two common selections (mail + files,
@@ -58,14 +62,21 @@ Forty-five endpoint tools become eight; every capability is a field of a job or
 | `read` | one known object, by id | `mail.read`, `mail.readAttachment`, `files.read`, `calendar.read`, `knowledge.read`, `chat.read`, `workorder.read`, `run.read` |
 | `find` | ask the account what is there | `mail.find`, `mail.folders`, `files.list`, `calendar.list`, `calendar.find`, `chat.find`, `contacts.find`, `knowledge.list`, `knowledge.search`, `workorder.list` |
 | `place` | put something where it belongs | `mail.file`, `mail.trash`, `mail.untrash`, `mail.keyword`, `mail.label`, `files.save`, `files.write`, `files.overwrite`, `files.move`, `files.rename`, `files.delete`, `files.folder`, `mail.folder`, `mail.renameFolder`, `mail.deleteFolder` |
-| `draft` | write an outward message, never send it | `mail.draft`, `mail.editDraft`, `mail.ask` |
+| `draft` | write an outward message, never send it | `mail.draft`, `mail.editDraft` |
 | `event` | create, change or cancel an event or a series | `calendar.create`, `calendar.update`, `calendar.delete` |
 | `say` | speak in the conversation, or ask | `chat.say`, `chat.ask` |
 | `remember` | keep a fact, or propose a knowledge page | `memory.remember`, `knowledge.propose` |
 | `settle` | close or move a workorder | `workorder.settle` |
 
-**`mail.send` is dropped:** an outward message is a draft a person sends (ADR
-0041). Contacts carry no write; `find` is their whole surface.
+**Dropped: `mail.send` and `mail.ask`.** An outward message is a draft a person
+sends (ADR 0041); `mail.ask` sent a question and parked the run, which the draft
+rule makes impossible — a question is asked in the conversation (`say`), and a
+mail leaves only when a person sends it. Contacts carry no write; `find` is their
+whole surface.
+
+`place` carries an **`action`** (`move`, `trash`, `label`, `folder`, `delete`) and
+`draft` a `kind` (`reply`, `forward`, `new`); the authority class is read from that
+value, not from the tool, because one job spans reversible and destructive acts.
 
 - **A sequence the job implies lives inside the tool** that names the job: filing a
   booking's documents is part of reading that mail, not a second tool to chain.
@@ -118,12 +129,14 @@ only when the instruction asks for one.
 
 The run document holds everything; the turn is handed the ask, the instruction, the
 retrieved facts, the calls it can make, and the plan's tail — earlier steps as one
-line each, a summary past a threshold. The document is complete, the prompt is
-bounded.
+line each, and past a threshold a **deterministic summary** of them (one line each,
+no model call). The document is complete, the prompt is bounded.
 
-The **stable prefix** (installation line, instruction, catalogue) is sent unchanged
-so a caching provider pays for it once per run. Caching against compression is
-**measured on the eval**, not decided in advance.
+The **stable prefix** (installation line, catalogue, instruction) is sent first and
+unchanged, so a caching provider pays for it once per run; the facts and the plan's
+tail follow, because a prefix is cacheable only when nothing that moves comes
+before it. Caching against compression is **measured on the eval**, not decided in
+advance.
 
 ### The memory is entities, relations and time — retrieved, not dumped
 
@@ -142,9 +155,10 @@ recency; only the top few reach the turn. A contradicting fact closes the one it
 replaces, and a duplicate is not written again.
 
 The memory is **measured** — precision and recall, not how much was stored, because
-a wrong fact recalled is worse than a missing one. Limits: a cap per entity, a TTL,
-and an embedding only where the installation offers one — a **capability checked at
-connect, like `tools`** — with the run recording which retrieval it used.
+a wrong fact recalled is worse than a missing one. Limits: a cap per entity, a TTL
+**the pass applies when it reads the memory**, and an embedding only where the
+installation offers one — a **capability checked at connect, like `tools`** — with
+the run recording which retrieval it used.
 
 ### The boundary: content is data, and a person sends
 
@@ -184,23 +198,30 @@ spent the provider's default budget before writing anything.
 - **Native function calling is the protocol, and the only one.** The catalogue
   travels in `tools`, the answer is read from `tool_calls`. A provider that refuses
   `tools` is **refused at connect and at every reconnection**, naming what it
-  refused; there is no JSON-in-the-text fallback. Turns that call no tool keep
-  their JSON shape, and their prompt says so. Programmatic tool calling is **not**
-  the alternative: its fixed prompt cost only reverses above ~26 calls per turn,
-  and a run chains one to three.
+  refused; there is no JSON-in-the-text fallback. The **decision turn**, which
+  chooses no action, is asked in the provider's **native structured output** (a
+  JSON schema), not JSON in free text, and may name one `read` — the same job the
+  action turns call. Both forms are structured and recorded, so a **replay needs no
+  model**. Programmatic tool calling is **not** the alternative: its fixed prompt
+  cost only reverses above ~26 calls per turn, and a run chains one to three.
 - **A refusal is a repair**: the invalid call returns to the same turn with the
   field, the value sent and the allowed values, as one step; the valid calls of the
   same answer still run.
 - **The schema is narrow**: `enum` for a set, ids naming their kind, required where
   required.
 - **The run has a token ceiling** (`limits.maxRunTokens`, in admin): each call
-  sends what is left as `max_tokens`, so a reasoning model has room and a run
-  cannot burn without end; reaching it ends `out-of-budget` naming the token. The
-  **installation has a daily ceiling** (`limits.maxDailyTokens`): past it no new
-  change is worked, and the pass says so.
+  sends what is left as `max_tokens`, **capped by the output ceiling the provider
+  declares** — read at connect and kept with the capability, with a conservative
+  fallback when it declares none — so a reasoning model has room and a run cannot
+  burn without end; reaching it ends `out-of-budget` naming the token. The
+  **installation has a daily ceiling** (`limits.maxDailyTokens`): past it no new run
+  opens, a run already open finishes its own budget, and the pass says so.
 - **Ceilings are per job**: four lookups was an endpoint number.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
-  with its own code; no run opens on it.
+  with its own code; no run opens on it. A provider that refuses `tools` **mid-run**
+  is retried at the next pass, and after three consecutive failures of the same code
+  the run ends `refused`, naming the provider: a deployment mistake is not an endless
+  budget.
 
 ### What a run says, and how it ends
 
@@ -218,7 +239,8 @@ spent the provider's default budget before writing anything.
 An eval taken from the run corpus — the message, the outcome a person would accept
 — judged by **whether the outcome was accepted** and **what it cost**. It runs on
 the mock when a tool, an area or the prompt changes. Every live failure adds a
-task: three today, ten planned, twenty or fifty for a real suite.
+task: three today, ten planned, twenty or fifty for a real suite. **At least six of
+the ten drive the model**; a no-run task measures silence, not the contact.
 
 Each task carries **a reference that passes its own grader**, so a zero is the
 agent's failure and never the task's; a task with more than one side gets
@@ -232,8 +254,9 @@ the recorded answers replayed without a key — is **owed**.
 ### An installation can see the trend, not only the run
 
 Each run and pass emits the same measures in the OpenTelemetry GenAI shape —
-model, tokens, milliseconds, steps, calls, refusals, ending — so cost and refusals
-are read over time. The run remains the truth; the measure is its shadow.
+model, tokens, milliseconds, steps, calls, refusals, ending — to a **configured OTLP
+endpoint and to the pass document**; without an endpoint the documents remain the
+measure. Cost and refusals are read over time; the run remains the truth.
 
 ### Secrets are not readable by the agent
 
@@ -244,8 +267,9 @@ one.
 ## Owed
 
 - The **judge** on the ask and the evidence, on a suspect plan, calibrated.
-- The **injection test** against the structural defence.
-- The **input guardrail** that ends a run `refused`.
+- The **injection test** against the structural defence: the grants already refuse
+  an act outside them before it runs, and the test is what proves it — no separate
+  model guard is owed.
 - The **regression replay** that runs the eval in CI without a key.
 - **The other documents** — `ROADMAP.md`, `KNOWN-ISSUES.md`, `FEATURES.md`,
   `README.md` — still describe the agent before this record and must be aligned.
