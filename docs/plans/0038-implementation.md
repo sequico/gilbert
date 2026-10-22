@@ -147,6 +147,11 @@ runner.
 - **F6 — the trend is visible.** Each run and pass emits the same measures in the
   OpenTelemetry GenAI shape, so cost and refusals can be read over time instead of
   document by document.
+- **F7 — the memory is structured.** Entities, typed relations and atomic facts
+  with a validity interval; one document each in `gilbert/memory/`, the index
+  rebuilt at boot; retrieval by exact subject, then similarity, then recency,
+  bounded by the context rule; a contradicting fact closes the one it replaces,
+  and a fact nobody touches ages out.
 
 ## Owed, and named so it is not forgotten
 

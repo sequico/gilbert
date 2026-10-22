@@ -14,8 +14,8 @@ is filtered by `server/src/agent/redact.ts`; the eval runner is
 protocol, the check at connect, a token budget a run can see, a refusal that
 repairs), the eight job-shaped tools (the catalogue is still forty-five
 endpoints), the judge that reads the ask and the evidence against the plan, the
-selected context and the standard trend measure, the injection test, and seven of
-the ten eval tasks.
+selected context, the structured memory and the standard trend measure, the
+injection test, and seven of the ten eval tasks.
 
 ## What this replaces, and what it keeps
 
@@ -283,11 +283,33 @@ stays where it is: the document is complete, the prompt is bounded. It is the sa
 rule as the budget, applied to what the model reads rather than to what it may
 spend.
 
-The memory is **a few facts, not a search index**: a subject, a text of at most
-four hundred characters, and no embeddings. The domain keeps few stable facts per
-subject — a booking, a client — and a semantic search over them would cost more
-than it finds. The limit is declared: when a group's facts stop fitting the
-subjects they name, retrieval is the next decision, not this one.
+### The memory is entities, relations and time — retrieved, not dumped
+
+A fact is not a sentence in a bucket. The memory is **structured**: *entities* (a
+booking, a client, a container, a person), *typed relations* between them (belongs
+to, shipped by, invoiced with), and *atomic facts* on an entity — a predicate, a
+value, and the interval it is true for. A fact that stops being true is **closed**
+with its `validTo`, never overwritten: the history is what lets a later run answer
+"since when" instead of "is it so".
+
+Durability stays Stalwart's: one document per entity and per fact in the group's
+own `gilbert/memory/`, and the search index is **rebuilt at boot** from those
+documents — an index is a cache of the store, not a second database, and the
+container stays disposable.
+
+A turn does not read the memory; it **retrieves** it. The change's own words name
+the entities; those entities, their relations and the facts valid at the run's
+moment are selected, ranked by exact subject, then text similarity, then recency,
+and only the top few reach the turn (the context rule above). The rest is one line
+each.
+
+Consolidation is part of the write: a fact that contradicts one still valid closes
+it in the same write, and a duplicate of an existing (entity, predicate, value) is
+not written again.
+
+Limits, declared: a cap per entity, a TTL for facts nobody touches, and a text
+embedding only where the provider offers one — a deployment without it falls back
+to exact and temporal retrieval, and says so.
 
 ### One instruction per group
 
