@@ -2081,6 +2081,13 @@ export const catalog: Catalog = {
       "Профиль активен — эта учётная запись отправляет с тем, что задано здесь, и ей не предлагается собственный раздел «Профили и подписи».",
     "Identity active — the account sends with what is set here.":
       "Профиль активен — учётная запись отправляет с тем, что задано здесь.",
+    Refused: "Отклонено",
+    Stopped: "Остановлено",
+    "Out of budget": "Бюджет исчерпан",
+    "Blocked on a person": "Ждёт человека",
+    Finished: "Завершено",
+    "This group's instruction cannot be read by this build. Writing a new one replaces it.":
+      "Эта сборка не может прочитать инструкцию этой группы. Новая инструкция её заменит.",
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Эту учётную запись не удаётся прочитать: Stalwart отклонил имперсонацию. Ничего не записывается, пока она не ответит.",
     "This account holds no identity yet.": "У этой учётной записи пока нет профиля.",

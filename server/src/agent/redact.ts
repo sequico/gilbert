@@ -22,6 +22,26 @@ const SECRET_NAMES =
 /** What a field keeps in place of its value. */
 export const WITHHELD = "[withheld]";
 
+/**
+ * A credential pasted inside somebody's prose, emptied in place.
+ *
+ * The field filter cannot see this one: a message is a single string, and
+ * `password: hunter2` is not a field named `password`. The pattern is
+ * deliberately narrow — a secret word, a colon or an equals sign, a value with no
+ * space — so ordinary prose is left alone. It is a net, not a guarantee, and its
+ * limit is the same one the field filter declares.
+ */
+const SECRET_IN_TEXT =
+  /\b(password|passwd|secret|token|api[-_]?key|authorization)\b(\s*[:=]\s*)([^\s,;]+)/gi;
+
+/** A text with a credential-shaped assignment emptied, for the prompt and the record. */
+export function redactText(text: string): string {
+  return text.replace(
+    SECRET_IN_TEXT,
+    (_all: string, name: string, separator: string) => `${name}${separator}${WITHHELD}`,
+  );
+}
+
 /** An answer with its credential-shaped fields emptied, and what was withheld. */
 export function redactSecrets(value: unknown): { value: unknown; withheld: string[] } {
   const withheld: string[] = [];

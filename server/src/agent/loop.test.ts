@@ -1238,6 +1238,42 @@ test("an act the run carries no authority for is refused, and the refusal is on 
   );
 });
 
+test("a done with nothing finished and no step left to ask ends refused, not out of budget", async () => {
+  /*
+   * Asking whether it really finished costs a step. A run one step from its
+   * ceiling cannot be asked, and spending the last step on the question would
+   * close `out-of-budget` — the record blaming the clock for a run that had
+   * finished nothing (ADR 0030, 0038).
+   */
+  const id = "budget-guard";
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+  await createRun(
+    ctx,
+    accountId,
+    spendRun(
+      startRun({
+        id,
+        startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+      }),
+      { steps: RUN_STEPS_MAX - 1 },
+    ),
+  );
+
+  answerWith({ done: "nothing to do" });
+  await agent.pass();
+
+  const run = (await readRun(ctx, accountId, id))?.run;
+  assert.equal(run?.state, "refused", "the run says it did nothing");
+  assert.equal(
+    run?.spent.steps,
+    RUN_STEPS_MAX - 1,
+    "and the question it could not afford was not written as a step",
+  );
+  assert.match(run?.ended?.why ?? "", /no step of the plan finished/);
+});
+
 test("the model choosing the same step twice is a stall the record shows", async () => {
   const id = "intake-stall";
   await putInstruction();

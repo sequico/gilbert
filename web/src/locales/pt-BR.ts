@@ -2098,6 +2098,13 @@ export const catalog: Catalog = {
       "Identidade ativa — esta conta envia com o que está definido aqui, e não recebe uma seção Identidades e assinaturas própria.",
     "Identity active — the account sends with what is set here.":
       "Identidade ativa — a conta envia com o que está definido aqui.",
+    Refused: "Recusado",
+    Stopped: "Parado",
+    "Out of budget": "Orçamento esgotado",
+    "Blocked on a person": "Bloqueado em uma pessoa",
+    Finished: "Concluído",
+    "This group's instruction cannot be read by this build. Writing a new one replaces it.":
+      "Esta versão não consegue ler a instrução deste grupo. Escrever uma nova a substitui.",
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Esta conta não pode ser lida: o Stalwart recusou a representação. Nada é gravado até que ela responda.",
     "This account holds no identity yet.": "Esta conta ainda não tem identidade.",

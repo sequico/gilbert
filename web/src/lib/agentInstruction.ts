@@ -23,6 +23,11 @@ export interface GroupInstruction {
   areas: AreaName[];
   /** The account's FileNode state the read saw: what a write is conditioned on. */
   state: string;
+  /**
+   * The document this build could not read, in its own words. The instruction
+   * and areas above are empty, and writing a new one replaces it.
+   */
+  unreadable?: string;
 }
 
 function prosePath(group: string, rest = ""): string {

@@ -43,9 +43,17 @@ whether the work is accepted and what it cost in calls and refusals.
 7. **A `done` stands on its plan, and a tool's answer is filtered.**
    `loop.ts` sends back once a `done` that carries no finished step or a refused
    step the run has not been told about, and a second one with nothing finished
-   ends the run `refused` — the ending that had a reader and no writer. Every
-   tool answer is emptied of a credential-shaped field before it reaches the turn
-   or the record (`agent/redact.ts`), and the step says what was withheld.
+   ends the run `refused` — the ending that had a reader and no writer — without
+   spending the last step of the budget on the question. Every tool answer is
+   emptied of a credential-shaped field before it reaches the turn or the record
+   (`agent/redact.ts`), and the step says what was withheld.
+8. **The panel repairs what the build cannot read, and a loss is said.**
+   `GET /prose` answers an unreadable document with an empty instruction and the
+   document's own sentence, so an administrator can write a new one over it; the
+   clear reports in the pass's gaps that a group which had rules and has no
+   instruction will do no work; a credential pasted into the prose a turn is
+   given is emptied by the same filter (`redactText`); and a run's state labels
+   are in all eleven catalogues.
 
 ## Owed, and named so it is not forgotten
 

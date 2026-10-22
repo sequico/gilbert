@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { redactSecrets, WITHHELD } from "./redact.js";
+import { redactSecrets, redactText, WITHHELD } from "./redact.js";
 
 /**
  * A tool's answer is somebody else's text (ADR 0038): what a credential is named
@@ -38,4 +38,17 @@ test("an empty or non-text credential field is left alone", () => {
 test("a value that is not an object passes through", () => {
   assert.deepEqual(redactSecrets("plain"), { value: "plain", withheld: [] });
   assert.deepEqual(redactSecrets(null), { value: null, withheld: [] });
+});
+
+test("a credential pasted into prose is emptied, and the prose around it is kept", () => {
+  assert.equal(
+    redactText("the portal says password: hunter2, use it once"),
+    "the portal says password: [withheld], use it once",
+  );
+  assert.equal(redactText("api_key=sk-live-1"), "api_key=[withheld]");
+  assert.equal(
+    redactText("the token bucket is full"),
+    "the token bucket is full",
+    "a secret word with no assignment is ordinary prose",
+  );
 });

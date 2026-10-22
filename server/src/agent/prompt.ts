@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FactDoc } from "../shared/memory.js";
 import type { RunStep } from "../shared/run.js";
 import type { DecisionQuestion, ReadMade, StepQuestion } from "./model.js";
+import { redactText } from "./redact.js";
 
 /** The most of an outcome, a question or a note one prompt carries. */
 export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
@@ -61,7 +62,9 @@ export function turnData(question: DecisionQuestion, reads: readonly ReadMade[])
     ...(question.document
       ? [
           `The document the change names, already read (${question.document.path}):`,
-          dataBlock(token, [clipped(question.document.text, READ_IN_PROMPT_MAX)]),
+          dataBlock(token, [
+            redactText(clipped(question.document.text, READ_IN_PROMPT_MAX)),
+          ]),
         ]
       : []),
     ...(question.detail
@@ -71,8 +74,10 @@ export function turnData(question: DecisionQuestion, reads: readonly ReadMade[])
             `from: ${question.detail.from}`,
             ...(question.detail.replyTo ? [`answers: ${question.detail.replyTo}`] : []),
             // Bounded like a reading: the message is somebody else's text, and
-            // the turn that decided the change is paid for by the token.
-            `text: ${clipped(question.detail.text, READ_IN_PROMPT_MAX)}`,
+            // the turn that decided the change is paid for by the token. A
+            // credential pasted into the prose is emptied before it travels
+            // (ADR 0038, `redact.ts`).
+            `text: ${redactText(clipped(question.detail.text, READ_IN_PROMPT_MAX))}`,
           ]),
         ]
       : []),

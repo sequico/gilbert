@@ -33,7 +33,7 @@
 import type { Hono } from "hono";
 import { RUNS_ARCHIVE_DIR } from "../agent/archive.js";
 import { readClaim } from "../agent/claim.js";
-import { readInstruction } from "../agent/instruction.js";
+import { InstructionError, readInstruction } from "../agent/instruction.js";
 import {
   correctFactByPerson,
   dismissProposal,
@@ -701,13 +701,31 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const held = await readInstruction(access.ctx, access.accountId);
-      return c.json({
-        group: name,
-        instruction: held?.instruction ?? "",
-        areas: held?.areas ?? [],
-        state: await appFolderState(access.ctx, access.accountId),
-      });
+      const state = await appFolderState(access.ctx, access.accountId);
+      try {
+        const held = await readInstruction(access.ctx, access.accountId);
+        return c.json({
+          group: name,
+          instruction: held?.instruction ?? "",
+          areas: held?.areas ?? [],
+          state,
+        });
+      } catch (err) {
+        /*
+         * A document this build cannot read is not a refusal of the read: the
+         * administrator is the only one who can replace it, and a panel that gets
+         * an error cannot offer that. The answer carries an empty instruction and
+         * the document's own sentence, and saving a new one replaces it.
+         */
+        if (!(err instanceof InstructionError)) throw err;
+        return c.json({
+          group: name,
+          instruction: "",
+          areas: [],
+          state,
+          unreadable: err.message,
+        });
+      }
     } catch (err) {
       return proseFailure(c, err);
     }

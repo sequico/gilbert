@@ -2084,6 +2084,13 @@ export const catalog: Catalog = {
       "Identiteit actief — dit account verzendt met wat hier is ingesteld, en krijgt geen eigen sectie Identiteiten en handtekeningen.",
     "Identity active — the account sends with what is set here.":
       "Identiteit actief — het account verzendt met wat hier is ingesteld.",
+    Refused: "Geweigerd",
+    Stopped: "Gestopt",
+    "Out of budget": "Budget op",
+    "Blocked on a person": "Wacht op een persoon",
+    Finished: "Voltooid",
+    "This group's instruction cannot be read by this build. Writing a new one replaces it.":
+      "Deze versie kan de instructie van deze groep niet lezen. Een nieuwe schrijven vervangt haar.",
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Dit account kan niet worden gelezen: Stalwart weigerde de imitatie. Er wordt niets geschreven tot het antwoordt.",
     "This account holds no identity yet.": "Dit account heeft nog geen identiteit.",

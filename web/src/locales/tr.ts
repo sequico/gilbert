@@ -1644,6 +1644,13 @@ export const catalog: Catalog = {
     "There is nothing in it to export": "Dışa aktarılacak bir içerik yok",
     "There is nowhere else to move it.": "Taşınacak başka bir yer yok.",
     "There is nowhere to save files to.": "Dosyaların kaydedileceği bir yer yok.",
+    Refused: "Reddedildi",
+    Stopped: "Durduruldu",
+    "Out of budget": "Bütçe tükendi",
+    "Blocked on a person": "Bir kişiyi bekliyor",
+    Finished: "Tamamlandı",
+    "This group's instruction cannot be read by this build. Writing a new one replaces it.":
+      "Bu sürüm bu grubun talimatını okuyamıyor. Yeni bir talimat yazmak onun yerini alır.",
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Bu hesap okunamaz: Stalwart kimliğe bürünmeyi reddetti. Yanıt verene kadar hiçbir şey yazılmaz.",
     "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":

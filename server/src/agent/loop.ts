@@ -756,10 +756,27 @@ export class AgentLoop {
         if (!this.legacyCleared.has(accountId)) {
           try {
             const removed = await clearLegacyAgentState(this.ctx, accountId);
-            if (removed.length)
+            if (removed.length) {
               this.opts.log?.(
                 `[gilbert] agent: cleared the old rules of ${accountId}: ${removed.join(", ")}`,
               );
+              /*
+               * The rules a group worked from are gone, and its instruction is
+               * what replaces them. A group that had rules and has written none
+               * does no work at all, and silence is indistinguishable from an
+               * agent at rest: the pass says so, once, where the clear happened.
+               */
+              try {
+                if (!(await readInstruction(this.ctx, accountId)))
+                  summary.gaps.push(
+                    `${accountId}: its old rules were removed by this build and it has no instruction, so it will do no work until an administrator writes one.`,
+                  );
+              } catch (err) {
+                summary.gaps.push(
+                  `${accountId}: its old rules were removed by this build and its instruction is not readable: ${errorMessage(err)}`,
+                );
+              }
+            }
             this.legacyCleared.add(accountId);
           } catch (err) {
             summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
@@ -1735,7 +1752,14 @@ export class AgentLoop {
             : refused > 0 && checked === 0
               ? `the plan carries ${refused} refused step(s): finish the work, or say what you could not do`
               : null;
-        if (gap && checked === 0) {
+        /*
+         * Asking costs a step, so a run with no step left to spend cannot be
+         * asked: it closes `refused` and the record says the run finished
+         * nothing, rather than spending its last step on the question and
+         * closing `out-of-budget`, which would blame the clock.
+         */
+        const roomToAsk = current.spent.steps + 1 < RUN_STEPS_MAX;
+        if (gap && checked === 0 && roomToAsk) {
           current = this.withStep(current, DONE_CHECKED, gap, false);
           const kept = await this.store(accountId, current, token);
           if (!kept) return null;
@@ -1749,7 +1773,7 @@ export class AgentLoop {
             "refused",
             {
               at: new Date().toISOString(),
-              why: `the run said it was done with no step that finished: ${choice.why}`,
+              why: `no step of the plan finished: ${choice.why}`,
             },
             token,
           );

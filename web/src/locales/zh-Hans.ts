@@ -2017,6 +2017,13 @@ export const catalog: Catalog = {
       "发件身份已启用 — 此账户以此处设置的内容发件，且不向它提供自己的“发件身份与签名”区段。",
     "Identity active — the account sends with what is set here.":
       "发件身份已启用 — 账户以此处设置的内容发件。",
+    Refused: "已拒绝",
+    Stopped: "已停止",
+    "Out of budget": "预算用尽",
+    "Blocked on a person": "等待某人",
+    Finished: "已完成",
+    "This group's instruction cannot be read by this build. Writing a new one replaces it.":
+      "此版本无法读取该组的指令。写入新指令会将其替换。",
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "无法读取此账户：Stalwart 拒绝了模拟。在它响应之前不会写入任何内容。",
     "This account holds no identity yet.": "此账户还没有发件身份。",

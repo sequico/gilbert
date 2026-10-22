@@ -98,6 +98,14 @@ export function GroupInstructionPanel({ group }: { group: string }) {
         {t("How the group wants its agent to work, on every call it makes.")}
       </p>
       {error && <div className="error-box">{error}</div>}{" "}
+      {prose?.unreadable && (
+        <div className="error-box">
+          {t(
+            "This group's instruction cannot be read by this build. Writing a new one replaces it.",
+          )}
+          <div className="hint">{prose.unreadable}</div>
+        </div>
+      )}
       {busy && !prose && <p className="hint">{t("Loading…")}</p>}
       {prose && (
         <>

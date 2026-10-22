@@ -2080,6 +2080,13 @@ export const catalog: Catalog = {
       "差出人 有効 — このアカウントはここで設定されたもので送信し、独自の差出人と署名のセクションは提供されません。",
     "Identity active — the account sends with what is set here.":
       "差出人 有効 — アカウントはここで設定されたもので送信します。",
+    Refused: "拒否",
+    Stopped: "停止",
+    "Out of budget": "予算切れ",
+    "Blocked on a person": "人の回答待ち",
+    Finished: "完了",
+    "This group's instruction cannot be read by this build. Writing a new one replaces it.":
+      "このビルドではこのグループの指示を読み取れません。新しい指示を書くと置き換わります。",
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "このアカウントを読み取れません。Stalwartが成り代わりを拒否しました。応答するまで何も書き込まれません。",
     "This account holds no identity yet.": "このアカウントにはまだ差出人がありません。",

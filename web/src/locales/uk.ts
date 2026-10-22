@@ -2076,6 +2076,13 @@ export const catalog: Catalog = {
       "Профіль активний — цей обліковий запис надсилає з тим, що задано тут, і йому не пропонується власний розділ «Профілі та підписи».",
     "Identity active — the account sends with what is set here.":
       "Профіль активний — обліковий запис надсилає з тим, що задано тут.",
+    Refused: "Відхилено",
+    Stopped: "Зупинено",
+    "Out of budget": "Бюджет вичерпано",
+    "Blocked on a person": "Чекає на людину",
+    Finished: "Завершено",
+    "This group's instruction cannot be read by this build. Writing a new one replaces it.":
+      "Ця збірка не може прочитати інструкцію цієї групи. Нова інструкція її замінить.",
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Цей обліковий запис не вдається прочитати: Stalwart відхилив імперсонацію. Нічого не записується, доки він не відповість.",
     "This account holds no identity yet.": "У цього облікового запису ще немає профілю.",
