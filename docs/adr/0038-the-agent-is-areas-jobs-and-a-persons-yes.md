@@ -156,12 +156,13 @@ exact first, then similarity where an embedding exists — and the matching enti
 their relations and the facts valid at that moment are ranked by subject, then
 similarity, then recency; only the top few reach the turn. A fact about a subject
 the memory does not hold creates it, and a relation is a fact whose object is
-another entity. A subject is identified by its **normalized name**: two different
-names are two entities, and merging them is a write someone makes explicitly, never
-an inference. Relations are followed **one hop** in the live retrieval; deeper paths
-belong to the "since when" read. Closed facts are read by entity and interval when a
-run asks "since when"; the live retrieval ignores them. A contradicting fact closes
-the one it replaces, and a duplicate is not written again.
+another entity. A subject is identified by its **normalized name** — lowercase,
+trimmed, inner whitespace collapsed; an alias is an explicit fact, never a guess —
+and two different names are two entities. Relations are followed **one hop** in the
+live retrieval; deeper paths belong to the "since when" read. Closed facts are read
+by entity and interval when a run asks "since when"; the live retrieval ignores
+them. A contradicting fact closes the one it replaces, and a duplicate is not
+written again.
 
 The memory is **measured** — precision and recall, not how much was stored, because
 a wrong fact recalled is worse than a missing one. Limits: a cap per entity, a TTL
@@ -206,17 +207,17 @@ argument set. The eval added the provider's side: a turn asked for
 spent the provider's default budget before writing anything.
 
 - **Native function calling is the protocol, and the only one.** The catalogue
-  travels in `tools`, the answer is read from `tool_calls`. A provider that refuses
-  A provider is **selectable only if it takes both** what the turns need — `tools`
-  for the action, the structured output for the decision — and the administration's
-  provider list offers only those. The probe checks both **when the installation's
-  provider is set** (one request when they travel together, two when they do not). At connect the probe checks only that the
-  provider answers, and the capability result is cached until the configuration
-  changes. There is no JSON-in-the-text fallback. The **decision turn**, which
-  chooses no action, is asked in the provider's **native structured output** (a
-  JSON schema), not JSON in free text, and may name one `read` — the same job the
-  action turns call, **whose schema is derived from that tool** rather than written
-  twice. Both forms are structured and recorded, so a **replay needs no
+  travels in `tools`, the answer is read from `tool_calls`. The administration's
+  form **accepts a provider only if it takes both** what the turns need — `tools`
+  for the action, the structured output for the decision — and refuses one that
+  fails the probe when the block is written; the probe checks both then (one request
+  when they travel together, two when they do not), reads the provider's output
+  ceiling with them, and records the result with the provider block; at connect only
+  reachability is checked. There is no JSON-in-the-text fallback. The **decision
+  turn**, which chooses no action, is asked in the provider's **native structured
+  output** (a JSON schema), not JSON in free text, and may name one `read` — the same
+  job the action turns call, **whose schema is derived from that tool** rather than
+  written twice. Both forms are structured and recorded, so a **replay needs no
   model**. Programmatic tool calling is **not** the alternative: its fixed prompt
   cost only reverses above ~26 calls per turn, and a run chains one to three.
 - **An invalid call is repaired, not lost.** It comes back to the same turn with the
@@ -225,24 +226,28 @@ spent the provider's default budget before writing anything.
 - **The schema is narrow**: `enum` for a set, ids naming their kind, required where
   required.
 - **The run has a token ceiling** (`limits.maxRunTokens`, in admin): each call
-  sends what is left **after the prompt** as `max_tokens`, **capped by the output
-  ceiling the provider declares** — read at connect and kept with the capability,
-  with a conservative fallback when it declares none — so a reasoning model has room
-  and a run cannot burn without end; reaching it ends `out-of-budget` naming the
-  token, and when what is left cannot pay for a call the run ends **before** asking.
+  sends what is left **after the prompt** as `max_tokens` — a declared estimate, or
+  the provider's own count where it offers one, corrected by the next call's usage —
+  **capped by the output ceiling the provider declares** — read with the
+  capabilities and kept with them, with a conservative fallback when it declares
+  none — so a reasoning model has room and a run cannot burn without end; reaching
+  it ends `out-of-budget` naming the token, and when what is left cannot pay for a
+  call the run ends **before** asking.
 - **The installation has a daily ceiling** (`limits.maxDailyTokens`), counted in the
   pass's own document — one write per pass, not per call — and reset lazily when the
   date changes. Past it no new run opens, a run already open finishes its own
   budget, and the pass **stops before reading changes**, so nothing is consumed
   without a run; the change batch per pass is bounded, so the first pass after a
-  spent day does not read the whole day at once. A pass that dies before writing
-  under-counts by that pass, and that is accepted.
+  spent day does not read the whole day at once, and the cursor advances **only past
+  what the pass has worked**. A pass that dies before writing under-counts by that
+  pass, and that is accepted.
 - **Ceilings are per job**: four lookups was an endpoint number.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
   with its own code; no run opens on it. A **transient** failure (5xx, timeout) is
   retried with backoff and does not count. A **permanent** one (a 4xx the request
   causes) **stops the pass** after three in a row, naming the provider, and the run
-  stays `running` with a backoff: a broken deployment must not burn the day's
+  stays `running` with a backoff — and stays so until the configuration changes,
+  with the pass status showing it: a broken deployment must not burn the day's
   changes as consumed answers.
 
 ### What a run says, and how it ends
@@ -285,9 +290,10 @@ document; without an endpoint the documents remain the measure. Cost and refusal
 
 ### Secrets are not readable by the agent
 
-The provider's key and every credential live outside the documents the agent can
-read; a boot reads them from its environment, and no run may read, write or report
-one.
+The provider's key lives in the **installation document** — a compromise the owner
+accepted — outside the group accounts the agent works; a boot reads it as the
+Master, and no run may read, write or report it. The credential filter empties it
+wherever an answer could carry it.
 
 ## Owed
 
