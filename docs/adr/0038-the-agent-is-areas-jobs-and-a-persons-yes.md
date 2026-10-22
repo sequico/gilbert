@@ -208,9 +208,9 @@ spent the provider's default budget before writing anything.
 - **Native function calling is the protocol, and the only one.** The catalogue
   travels in `tools`, the answer is read from `tool_calls`. A provider that refuses
   A provider is **selectable only if it takes both** what the turns need — `tools`
-  for the action, the structured output for the decision — and the probe checks both
-  **when the installation's provider is set** (one request when they travel
-  together, two when they do not). At connect the probe checks only that the
+  for the action, the structured output for the decision — and the administration's
+  provider list offers only those. The probe checks both **when the installation's
+  provider is set** (one request when they travel together, two when they do not). At connect the probe checks only that the
   provider answers, and the capability result is cached until the configuration
   changes. There is no JSON-in-the-text fallback. The **decision turn**, which
   chooses no action, is asked in the provider's **native structured output** (a
@@ -235,14 +235,15 @@ spent the provider's default budget before writing anything.
   date changes. Past it no new run opens, a run already open finishes its own
   budget, and the pass **stops before reading changes**, so nothing is consumed
   without a run; the change batch per pass is bounded, so the first pass after a
-  spent day does not read the whole day at once.
+  spent day does not read the whole day at once. A pass that dies before writing
+  under-counts by that pass, and that is accepted.
 - **Ceilings are per job**: four lookups was an endpoint number.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
   with its own code; no run opens on it. A **transient** failure (5xx, timeout) is
   retried with backoff and does not count. A **permanent** one (a 4xx the request
   causes) **stops the pass** after three in a row, naming the provider, and the run
   stays `running` with a backoff: a broken deployment must not burn the day's
-  changes as refused answers.
+  changes as consumed answers.
 
 ### What a run says, and how it ends
 
@@ -308,4 +309,5 @@ one.
 - The catalogue is small enough to read every turn, and an area grows a tool without
   growing the others.
 - The durability layer (document, claim, cursor, memory, wait) is untouched; the
-  rewrite is the catalogue and the planning turn.
+  rewrite is the catalogue, the planning turn, the two ceilings and the provider
+  path.

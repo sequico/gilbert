@@ -17,10 +17,10 @@ lives outside the repository; the eval tasks live in it.
 
 | step | touches | done when |
 |---|---|---|
-| **F1 — the contact** | `model.ts`, `loop.ts`, `shared/installation.ts`, `shared/run.ts`, `routes/agent.ts`, admin limits | the third task passes through `tools`; a provider is selectable only with `tools` and structured output, checked when it is set, with reachability at connect; the provider's output ceiling is read at connect and caps every `max_tokens`; transient failures back off, permanent ones stop the pass; a spent day reads nothing |
+| **F1 — the contact** | `model.ts`, `loop.ts`, `changes.ts`, `shared/installation.ts`, `shared/run.ts`, `routes/agent.ts`, admin limits and provider list | the third task passes through `tools`; a provider is selectable only with `tools` and structured output, checked when it is set, with reachability at connect; the provider's output ceiling is read at connect and caps every `max_tokens`; transient failures back off, permanent ones stop the pass; a spent day reads nothing, and the batch uses the bound the reading already has |
 | **F2 — eight jobs** | `agent/tools/*`, `tools.ts`, `areas.ts`, fixtures | every one of the 45 endpoint tools has a home or is dropped; each schema shows only the allowed `kind`/`action`; `read`, `find`, `say`, `remember` are always present; zero argument refusals |
 | **F3 — repair** | `model.ts`, `loop.ts` | a plan with one bad and one good call leaves the good one on the record |
-| **F4 — the measure** | `eval.ts` and its tasks | ten tasks **in the repository**, each with its message and a reference; at least six drive the model; partial credit; retry of failures; `pass@1` and cost printed |
+| **F4 — the measure** | `eval.ts`, `agent/eval/tasks/` | ten tasks **in the repository**, one file each with its message, data and reference; the runner uses the same provider check as the product; at least six drive the model; partial credit; retry of failures; `pass@1` and cost printed |
 | **F5 — context** | prompt builder, step projection | the threshold is measured; the last steps in full and earlier ones one line each, no summary call; a long run costs less than with the whole plan |
 | **F6 — trend** | run and pass documents, admin view | cost and refusals readable over a week, through OTLP when configured and the documents otherwise |
 | **F7 — memory** | `memory.ts`, `shared/memory.ts`, memory tools | a superseded fact is closed and not recalled; an entity is created by its first fact; retrieval is exact then similarity where an embedding exists; the pass applies the TTL; precision and recall measured |
@@ -31,9 +31,10 @@ needs F1–F3 to have something to measure.
 
 ## The risk F1 will settle
 
-The installation's provider is Deepseek. If it refuses `tools` with this payload,
-the probe refuses it and the deployment must move to a provider that accepts them.
-That is a product decision, not a bug to work around.
+The installation's provider is Deepseek. If it lacks **either** `tools` or the
+structured output, it cannot be selected and the deployment must move to a provider
+that carries both. That is a product decision, not a bug to work around — and it is
+settled at the first probe, not after the catalogue is rewritten.
 
 ## The owed, after F7
 
