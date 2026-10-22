@@ -310,6 +310,11 @@ installation document stops carrying a key.
 - The **input guardrail** that ends a run `refused` when content tries to make it act
   outside its grants.
 - The **regression replay** that runs the eval in CI without a provider key.
+- **The other documents.** `ROADMAP.md` and `KNOWN-ISSUES.md` still describe the
+  agent before this record — ADR 0027–0033, a rule in prose, three prose levels,
+  `rule.ts` and `rules.ts` that no longer exist — and `FEATURES.md` and
+  `README.md` still carry part of what this record replaced. Aligning every
+  document to this record is owed work, not prose to fix in passing.
 
 ## Consequences
 
