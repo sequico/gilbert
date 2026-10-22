@@ -734,6 +734,24 @@ the session holds group mailboxes.
   who has written is offered and somebody who has not yet is not. A mention of
   somebody the transcript no longer lists renders
   **greyed**.
+- **Who a message is for**: the chat is the channel to the group's agent, so a
+  message with **no mention** — or one that names the agent — is the agent's work;
+  a message that names **another person** is theirs and the agent ignores it; one
+  that names both is still the agent's. The mention may be the stored mark or the
+  name typed out (`@sam`), so a client that records no mark cannot turn a
+  conversation between people into the agent's. This is the rule the agent's wake
+  reads (`addressedToAgent`, `server/src/shared/chat.ts`), the switched-off notice
+  included.
+- **A question the agent is waiting on is amber**: the messages whose run is
+  blocked on a person's answer (the live runs' `waiting.asked`) are drawn with the
+  warning colour, and a **?** control beside the runs lists those questions with a
+  count bubble: a row jumps to its message, **Answer** returns to the composer
+  with a reply already quoting the question, and **Disregard** closes the run as
+  `cancelled`. The panel's title is fixed **Gilbert AI interface** — beside it, in
+  red, **Gilbert AI off** while the installation's agent is switched off, dropped
+  the moment it is on — the switcher names each team by its local part
+  (`freight@`, `finance@`), and the composer's placeholder names the addressee
+  first — **Message Gilbert @freight**.
 - **Read markers** — `gilbert/chat-state/read-<member>.json`, one per member,
   written by that member's own session — make **unread = newer than my marker**. A
   member who never opened the chat sees badge 0 and the full transcript; the marker

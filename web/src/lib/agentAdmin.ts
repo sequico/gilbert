@@ -233,6 +233,16 @@ export async function setAgentSwitch(enabled: boolean): Promise<AgentSwitch> {
   });
 }
 
+/**
+ * Whether the installation's agent is on, as a member of the group reads it.
+ *
+ * The chat names the state in its header for everybody in the group, not only
+ * for an administrator, so it asks the group's own surface.
+ */
+export async function fetchGroupAgent(group: string): Promise<AgentSwitch> {
+  return await apiFetch<AgentSwitch>(`/api/groups/${encodeURIComponent(group)}/agent`);
+}
+
 /** Stop a running run: end it as cancelled, as a member of the group. */
 export async function stopRun(group: string, id: string): Promise<void> {
   await apiFetch(

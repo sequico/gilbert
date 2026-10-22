@@ -45,10 +45,13 @@ export function StopRun({
   group,
   id,
   onStopped,
+  label,
 }: {
   group: string;
   id: string;
   onStopped?: () => void;
+  /** What the button says, where the press means something more specific. */
+  label?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +72,13 @@ export function StopRun({
             .finally(() => setBusy(false));
         }}
       >
-        {t("Stop")}
+        {label ?? t("Stop")}
       </button>
-      {error && <span className="hint">{error}</span>}
+      {error && (
+        <span className="hint" role="alert">
+          {error}
+        </span>
+      )}
     </>
   );
 }

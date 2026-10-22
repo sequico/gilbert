@@ -8,10 +8,19 @@
  * composer. Everything here is a view over the chat store; the durable data
  * lives in the group accounts' own Files.
  */
-import { CornerUpLeft, ListChecks, Search, Send, Smile, X } from "lucide-react";
+import {
+  CircleHelp,
+  CornerUpLeft,
+  ListChecks,
+  Search,
+  Send,
+  Smile,
+  X,
+} from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import type { FactView } from "@/lib/agentAdmin";
+import { fetchGroupAgent, fetchGroupRuns } from "@/lib/agentAdmin";
 import {
   CHAT_MAX_TEXT,
   CHAT_TAIL,
@@ -28,7 +37,8 @@ import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
-import { GroupRuns } from "@/views/admin/agents/GroupRuns";
+import { openQuestionsOf, type OpenQuestion } from "@gilbert/shared/run";
+import { GroupRuns, StopRun } from "@/views/admin/agents/GroupRuns";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 
 interface ChatPanelProps {
@@ -139,6 +149,7 @@ const ChatRow = memo(function ChatRow({
   reply,
   me,
   members,
+  question,
   onReply,
   onJump,
 }: {
@@ -149,11 +160,16 @@ const ChatRow = memo(function ChatRow({
   me: string;
   /** The group's members, or null when no roster could be read. */
   members: string[] | null;
+  /** Whether this message asks a question a person has not answered yet. */
+  question: boolean;
   onReply: (id: Id) => void;
   onJump: (id: Id) => void;
 }) {
   return (
-    <div data-mid={m.id} className={`chat-row ${mine ? "mine" : ""}`}>
+    <div
+      data-mid={m.id}
+      className={`chat-row ${mine ? "mine" : ""}${question ? " question" : ""}`}
+    >
       <div className="chat-bubble">
         {reply && (
           <button
@@ -312,6 +328,12 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   // ----- what the group's agent is doing, live (ADR 0030) -----
   const [runsOpen, setRunsOpen] = useState(false);
 
+  // ----- the agent's open questions: counted, listed, jumped to -----
+  const [questions, setQuestions] = useState<OpenQuestion[]>([]);
+  const [questionsOpen, setQuestionsOpen] = useState(false);
+  /** Whether the installation's agent is on; null until the group answers. */
+  const [agentOn, setAgentOn] = useState<boolean | null>(null);
+
   // ----- search across the selected group's messages -----
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -325,6 +347,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     setSearching(false);
     setEmojiOpen(false);
     setRunsOpen(false);
+    setQuestionsOpen(false);
+    // Another team's questions and switch are not this team's: clear them, and
+    // the fetch below checks the account again when it lands.
+    setQuestions([]);
+    setAgentOn(null);
   }, [openAccountId]);
 
   useEffect(() => {
@@ -376,6 +403,79 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   }, []);
 
   /*
+   * The questions the group's agent has open on a person (ADR 0029, 0038) and
+   * whether that agent is on: the live runs are the source, and the blocked ones
+   * whose wait is a chat message are exactly the questions the thread draws
+   * highlighted. One fetch carries both, refreshed on a new message and on a
+   * slow beat so a question answered in another tab stops being counted and an
+   * agent switched on stops saying it is off.
+   */
+  const agentState = useCallback(() => {
+    const group = open?.name;
+    if (!openAccountId || !group) {
+      setQuestions([]);
+      setAgentOn(null);
+      return () => {};
+    }
+    let live = true;
+    // A late answer belongs to the conversation it was asked from, not to
+    // whichever team the reader has switched to since.
+    const current = () => live && useChat.getState().openAccountId === openAccountId;
+    fetchGroupRuns(group, "live")
+      .then((runs) => {
+        if (current()) setQuestions(openQuestionsOf(runs));
+      })
+      .catch(() => {
+        // A listing that could not be read is not an empty one: what was read
+        // stays on screen rather than a question quietly disappearing.
+      });
+    fetchGroupAgent(group)
+      .then((state) => {
+        if (current()) setAgentOn(state.enabled);
+      })
+      .catch(() => {
+        // Unknown is drawn as neither on nor off.
+        if (current()) setAgentOn(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [openAccountId, open?.name]);
+
+  useEffect(() => {
+    const stop = agentState();
+    const timer = window.setInterval(() => void agentState(), 15_000);
+    return () => {
+      stop();
+      window.clearInterval(timer);
+    };
+  }, [agentState, nodeCount]);
+
+  const questionIds = useMemo(
+    () => new Set(questions.map((one) => one.messageId)),
+    [questions],
+  );
+
+  /** Open the thread on the message a question was asked in, paging back to it. */
+  const showQuestion = useCallback(
+    async (id: Id) => {
+      setQuestionsOpen(false);
+      setRunsOpen(false);
+      setSearchOpen(false);
+      if (!openAccountId) return;
+      let guard = 0;
+      while (guard++ < 50) {
+        const conv = useChat.getState().conversations[openAccountId];
+        if (!conv || conv.reachedStart || conv.pagingMore) break;
+        if (conv.nodes.some((node) => node.id === id)) break;
+        await loadOlder(openAccountId);
+      }
+      window.setTimeout(() => jumpTo(id), 0);
+    },
+    [openAccountId, loadOlder, jumpTo],
+  );
+
+  /*
    * Stable for the rows' memo: the store's own `setReply`, and the
    * conversation on screen -- which is the one whose transcript is drawn, so
    * this changes when the conversation does and not on every store snapshot.
@@ -396,7 +496,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   // and focusing a hidden element is a silent no-op, so retry on the next
   // animation frames until the composer actually holds the focus.
   useEffect(() => {
-    if (!openAccountId || searchOpen || runsOpen) return;
+    if (!openAccountId || searchOpen || runsOpen || questionsOpen) return;
     let raf = 0;
     const tick = () => {
       const input = chatInputRef.current;
@@ -408,7 +508,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     };
     tick();
     return () => cancelAnimationFrame(raf);
-  }, [openAccountId, searchOpen, runsOpen, open?.loading]);
+  }, [openAccountId, searchOpen, runsOpen, questionsOpen, open?.loading]);
 
   const byId = useMemo(() => {
     const m = new Map<Id, ChatMessage>();
@@ -442,19 +542,41 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   return (
     <div className="chat-panel">
       <div className="chat-head">
-        {/* Name the active conversation even when there is only one team:
-            with a single group there is no switcher, and an unnamed "Chat"
-            header would not say whose chat it is. */}
-        <span className="chat-title" title={open?.name}>
-          {open ? (
-            <span className="notranslate" translate="no">
-              {open.name}
-            </span>
-          ) : (
-            t("Chat")
+        {/* The product is the channel's own name, whatever team is open; a
+            switched-off agent is the one thing worth adding beside it. */}
+        <span className="chat-title">
+          {t("Gilbert AI interface")}
+          {agentOn === false && (
+            <span className="chat-title-off">{t("Gilbert AI off")}</span>
           )}
         </span>
         <span className="chat-head-actions">
+          {open && (
+            <span className="chat-head-q">
+              <button
+                type="button"
+                className={`icon-btn xs ${questionsOpen ? "active" : ""}`}
+                aria-label={
+                  questions.length
+                    ? t("Open questions ({n})", { n: questions.length })
+                    : t("Open questions")
+                }
+                title={t("Questions waiting for an answer")}
+                onClick={() => {
+                  setQuestionsOpen((v) => !v);
+                  setRunsOpen(false);
+                  setSearchOpen(false);
+                }}
+              >
+                <CircleHelp size={15} />
+              </button>
+              {questions.length > 0 && (
+                <span className="chat-badge" aria-hidden="true">
+                  {questions.length}
+                </span>
+              )}
+            </span>
+          )}
           {open && (
             <button
               type="button"
@@ -464,6 +586,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               onClick={() => {
                 setRunsOpen((v) => !v);
                 setSearchOpen(false);
+                setQuestionsOpen(false);
               }}
             >
               <ListChecks size={15} />
@@ -478,6 +601,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               onClick={() => {
                 setSearchOpen((v) => !v);
                 setRunsOpen(false);
+                setQuestionsOpen(false);
               }}
             >
               <Search size={15} />
@@ -505,7 +629,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                 className={`chat-switch ${a.accountId === openAccountId ? "active" : ""}`}
                 onClick={() => pickAccount(a.accountId)}
               >
-                <span className="chat-switch-name">{a.name}</span>
+                <span className="chat-switch-name" title={a.name}>
+                  {/* The tab names the team, not the mailbox: the local part is
+                      the space a reader needs, and the address is on hover. */}
+                  {a.name.includes("@") ? `${localPart(a.name)}@` : a.name}
+                </span>
                 {unread > 0 && <span className="chat-badge">{unread}</span>}
               </button>
             );
@@ -535,7 +663,63 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         </div>
       )}
       <div className="chat-thread" ref={threadRef} onScroll={onScroll}>
-        {runsOpen && open ? (
+        {questionsOpen && open ? (
+          <div className="chat-questions">
+            {questions.length > 0 && (
+              <div className="chat-questions-head">
+                {plural(questions.length, {
+                  one: "{n} question waiting for an answer",
+                  other: "{n} questions waiting for an answer",
+                })}
+              </div>
+            )}
+            {questions.length ? (
+              questions.map((one) => (
+                <div key={one.runId} className="chat-question-row">
+                  {/* The words page back to where the question was asked; the
+                      two actions are what a person came to this list for. */}
+                  <button
+                    type="button"
+                    className="chat-question-text"
+                    title={one.question}
+                    onClick={() => void showQuestion(one.messageId)}
+                  >
+                    {snippet(one.question)}
+                  </button>
+                  <span className="chat-question-actions">
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        // Back to the conversation, with the reply already
+                        // quoting the question the agent asked. The message is
+                        // paged in first, so the quote bar can name it.
+                        setQuestionsOpen(false);
+                        void showQuestion(one.messageId).then(() =>
+                          replyToMessage(one.messageId),
+                        );
+                      }}
+                    >
+                      {t("Answer")}
+                    </button>
+                    {/* Disregarding is stopping: the run closes cancelled, and
+                        the question is no longer waiting on anybody. */}
+                    <StopRun
+                      group={open.name}
+                      id={one.runId}
+                      label={t("Disregard")}
+                      onStopped={() => void agentState()}
+                    />
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="chat-empty">
+                {t("No question is waiting for an answer.")}
+              </div>
+            )}
+          </div>
+        ) : runsOpen && open ? (
           <div style={{ padding: 12 }}>
             <GroupRuns
               group={open.name}
@@ -639,6 +823,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                   reply={m.replyTo ? byId.get(m.replyTo) : undefined}
                   me={me}
                   members={members}
+                  question={questionIds.has(m.id)}
                   onReply={replyToMessage}
                   onJump={jumpTo}
                 />
@@ -721,7 +906,12 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               value={open.draft}
               maxLength={CHAT_MAX_TEXT}
               mentionables={mentionables}
-              placeholder={t("Message {group}", { group: localPart(open.name) })}
+              // The channel is Gilbert first, the team second: the placeholder
+              // names both, and the group's local part is the one a person
+              // reads in the tabs.
+              placeholder={t("Message {group}", {
+                group: `Gilbert @${localPart(open.name)}`,
+              })}
               onChange={(text) => setDraft(open.accountId, text)}
               onSend={submit}
             />

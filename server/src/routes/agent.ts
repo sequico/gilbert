@@ -399,6 +399,28 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   });
 
   /**
+   * Whether the installation's agent is on, as a member of a group reads it.
+   *
+   * The chat names the state in its header, and every member of a group talks to
+   * the agent there — not only an administrator. The switch is the
+   * installation's, so it is read from the Master's account; the gate is the
+   * same member grant the group's runs use.
+   */
+  api.get("/groups/:name/agent", requireSession, async (c) => {
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await memberGroupAccess(c.get("session"), name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return groupDenial(c, access);
+      const ctx = await masterCtx(c.get("session"));
+      return c.json(await readAgentSwitch(ctx, filesAccountId(ctx)));
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
+  /**
    * Whether the model this process runs on can be reached, and with this key.
    * A probe, not a stored state: the answer is what the provider says now.
    */

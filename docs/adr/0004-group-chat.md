@@ -44,6 +44,14 @@ marker unchanged.
   read here, so a member who has never written is not offered, and somebody who
   has left stays offerable for as long as their messages do — the words are
   what was written, and the transcript is the group's.
+- **Who a message is for** (owner decision 2026-10-22): a message with **no
+  mention** is the group agent's work, and so is one that names the agent. A
+  message that names **another person** is theirs and the agent stays out of it;
+  one that names both is still the agent's. The mention is either the stored
+  mark or the name typed out (`@sam`), so a client that records no mark cannot
+  turn a conversation between people into the agent's. The rule is
+  `addressedToAgent` (`server/src/shared/chat.ts`), read by the agent's wake and
+  by the switched-off notice.
 - **Read markers**: one document per member (`read-<member>.json`), written
   by that member's own session, holding the last-read position. A member
   with no marker sees the full transcript and no unread badge; the marker is

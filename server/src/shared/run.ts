@@ -225,6 +225,50 @@ export interface RunWait {
 }
 
 /**
+ * A question a run has open on a person, in the conversation (ADR 0029, 0038).
+ *
+ * The chat draws it, and the run that asked is the one an answer continues: the
+ * message is the sentence a reply must answer, so the surface that highlights it
+ * and the loop that reads the answer point at the same one.
+ */
+export interface OpenQuestion {
+  /** The run waiting on the answer. */
+  runId: string;
+  /** The chat message the question was asked in, which an answer replies to. */
+  messageId: string;
+  /** The question, in the run's own words. */
+  question: string;
+}
+
+/**
+ * The questions these runs have open on a person **in the conversation**.
+ *
+ * A run blocked on a mail wait was written by an older build (a question leaves
+ * only as a draft now, ADR 0041) and is not a chat question; a run that ended is
+ * not waiting. One per run, in the order the documents were read.
+ */
+export function openQuestionsOf(
+  runs: readonly {
+    id: string;
+    state: RunDoc["state"] | null;
+    waiting: RunWait | null;
+  }[],
+): OpenQuestion[] {
+  const questions: OpenQuestion[] = [];
+  for (const run of runs) {
+    if (run.state !== "blocked") continue;
+    const asked = run.waiting?.asked;
+    if (!asked || asked.channel !== "chat") continue;
+    questions.push({
+      runId: run.id,
+      messageId: asked.id,
+      question: run.waiting?.what ?? "",
+    });
+  }
+  return questions;
+}
+
+/**
  * The act an authority is given for (ADR 0028), read from what the act reaches
  * and what it carries.
  *
@@ -443,6 +487,13 @@ export interface RunSummary {
   steps: number;
   /** Plan entries that ended failed — not the steps the run spent. */
   failed: number;
+  /**
+   * What the run waits for, when it is blocked on a person (ADR 0029).
+   *
+   * The chat draws the question it asked from this: the message a reply must
+   * answer is `waiting.asked.id`, and a run that is not blocked carries null.
+   */
+  waiting: RunWait | null;
   spent: RunSpent;
 }
 
@@ -473,6 +524,7 @@ export function summarizeRun(
       : {}),
     steps: run?.plan.length ?? 0,
     failed: run?.plan.filter((step) => step.state === "failed").length ?? 0,
+    waiting: run?.waiting ?? null,
     spent: run?.spent ?? { steps: 0, calls: 0, ms: 0 },
   };
 }

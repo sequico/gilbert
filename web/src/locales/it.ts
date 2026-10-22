@@ -2768,6 +2768,14 @@ export const catalog: Catalog = {
     Conversations: "Conversazioni",
     "Search in this chat": "Cerca in questa chat",
     "Searching…": "Ricerca in corso…",
+    "Gilbert AI interface": "Interfaccia AI di Gilbert",
+    "Gilbert AI off": "Gilbert AI spento",
+    "Open questions": "Domande aperte",
+    "Open questions ({n})": "Domande aperte ({n})",
+    "Questions waiting for an answer": "Domande in attesa di risposta",
+    "No question is waiting for an answer.": "Nessuna domanda in attesa di risposta.",
+    Answer: "Rispondi",
+    Disregard: "Ignora",
     "No matches for {query}": "Nessun risultato per {query}",
     "Could not load the conversation": "Impossibile caricare la conversazione",
     "No messages yet": "Ancora nessun messaggio",
@@ -3371,6 +3379,10 @@ export const catalog: Catalog = {
     "{n} participants": {
       one: "{n} partecipante",
       other: "{n} partecipanti",
+    },
+    "{n} questions waiting for an answer": {
+      one: "{n} domanda in attesa di risposta",
+      other: "{n} domande in attesa di risposta",
     },
     "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.":
       {

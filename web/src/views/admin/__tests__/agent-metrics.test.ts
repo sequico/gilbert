@@ -16,6 +16,7 @@ function listed(id: string, run: Record<string, unknown> | null): RunSummary {
       by: null,
       steps: 0,
       failed: 0,
+      waiting: null,
       spent: { steps: 0, calls: 0, ms: 0 },
     };
   }
@@ -31,6 +32,7 @@ function listed(id: string, run: Record<string, unknown> | null): RunSummary {
     by: null,
     steps: plan.length,
     failed: plan.filter((step) => step.state === "failed").length,
+    waiting: null,
     spent: run.spent as RunSummary["spent"],
   };
 }

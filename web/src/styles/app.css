@@ -2637,6 +2637,9 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   font-weight: 700; font-size: .92em; padding-left: 4px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
+/* The switch is off: the one state that changes what the channel can do. */
+.chat-title-off { color: var(--danger); font-weight: 600; }
+.chat-title-off::before { content: " - "; }
 .chat-close { display: none; }
 
 .chat-switcher {
@@ -2652,6 +2655,25 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .chat-switch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .chat-switch .chat-badge { position: static; box-shadow: none; flex: 0 0 auto; }
+
+/* The agent's open questions: the head control and its count, and the list. */
+.chat-head-q { position: relative; display: inline-flex; }
+.chat-head-q .chat-badge { top: -6px; right: -6px; box-shadow: 0 0 0 2px var(--bg-elev); }
+.chat-questions { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
+.chat-questions-head { font-size: .78em; color: var(--fg-muted); padding: 2px 4px 6px; }
+.chat-question-row {
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid var(--warn); background: var(--warn-soft);
+  border-radius: 8px; padding: 6px 9px; color: var(--fg);
+}
+.chat-question-text {
+  border: 0; background: none; padding: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+  font-size: .87em; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.chat-question-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.chat-question-actions .btn { height: 26px; padding: 0 9px; font-size: .78em; }
+.chat-question-actions .run-stop { margin-left: 0; }
 
 .chat-thread {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
@@ -2670,6 +2692,11 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   border-bottom-right-radius: 3px;
 }
 .chat-row:not(.mine) .chat-bubble { border-bottom-left-radius: 3px; }
+/* A question the agent is waiting on: amber, so it reads as an answer owed. */
+.chat-row.question .chat-bubble {
+  background: var(--warn-soft);
+  border-color: var(--warn);
+}
 .chat-bubble-meta {
   display: flex; align-items: center; gap: 6px;
   font-size: .72em; color: var(--fg-muted); margin-bottom: 2px;
