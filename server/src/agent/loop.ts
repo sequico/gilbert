@@ -1718,19 +1718,41 @@ export class AgentLoop {
          * on the record, so the claim is checkable.
          */
         const refused = current.plan.filter((step) => step.state === "failed").length;
+        const finished = current.plan.filter((step) => step.state === "done").length;
         const checked = current.plan.filter((step) => step.what === DONE_CHECKED).length;
-        if (refused > 0 && checked === 0) {
-          current = this.withStep(
-            current,
-            DONE_CHECKED,
-            `the plan carries ${refused} refused step(s): finish the work, or say what you could not do`,
-            false,
-          );
+        /*
+         * A `done` is a claim about work, and the plan is what stands under it. A
+         * run whose plan carries a refused step, or **no step that finished at
+         * all**, is asked once to finish or to say what it could not do. The
+         * second `done` is accepted when a step finished under it — the failed
+         * steps and this one stay on the record, so the claim is checkable — and
+         * ends the run `refused` when nothing did: the run says it did nothing
+         * rather than pretending (ADR 0030, 0038).
+         */
+        const gap =
+          finished === 0
+            ? "no step of the plan finished, so there is nothing the run can claim"
+            : refused > 0 && checked === 0
+              ? `the plan carries ${refused} refused step(s): finish the work, or say what you could not do`
+              : null;
+        if (gap && checked === 0) {
+          current = this.withStep(current, DONE_CHECKED, gap, false);
           const kept = await this.store(accountId, current, token);
           if (!kept) return null;
           token = kept;
           continue;
         }
+        if (finished === 0)
+          return await this.endRun(
+            accountId,
+            current,
+            "refused",
+            {
+              at: new Date().toISOString(),
+              why: `the run said it was done with no step that finished: ${choice.why}`,
+            },
+            token,
+          );
         return await this.endRun(
           accountId,
           current,

@@ -175,6 +175,30 @@ function answerWith(value: unknown): void {
   answers.push(JSON.stringify(value));
 }
 
+/**
+ * A model that takes one reading, then says it is done.
+ *
+ * A `done` is a claim about work and the plan under it must carry a step that
+ * finished (ADR 0038): a fixture whose run does nothing ends `refused`, so every
+ * fixture that only cares about the ending takes a real step first.
+ */
+function looksThenSays(why: string): (system: string) => unknown {
+  let looked = false;
+  return (system) => {
+    if (isDecision(system)) return { facts: {} };
+    if (!looked) {
+      looked = true;
+      return { calls: [{ name: "mail.folders", arguments: {} }] };
+    }
+    return { done: why };
+  };
+}
+
+/** The one reading a run takes before it claims to be done. */
+function aLook(): unknown {
+  return { calls: [{ name: "mail.folders", arguments: {} }] };
+}
+
 /** Whether the call is the decision turn rather than a choosing one. */
 function isDecision(system: string): boolean {
   return system.includes("the instruction the group wrote for it");
@@ -545,6 +569,7 @@ test("a calendar event written in the group's account wakes a rule that watches 
   assert.ok(event, "the event is in the account's calendar");
 
   answerWith({ facts: { event } });
+  answerWith(aLook());
   answerWith({ done: "noted" });
   const summary = await agent.pass();
 
@@ -819,8 +844,7 @@ test("a run says how it ended, unless the ending is already words between them",
     "sam@example.org",
     "@gilbert file the booking, please",
   );
-  onCall = (system) =>
-    isDecision(system) ? { facts: {} } : { done: "the booking is filed" };
+  onCall = looksThenSays("the booking is filed");
   await agent.pass();
   const said = await findChatMessages(ctx, accountId, "Done: the booking is filed", 5);
   assert.equal(said.length, 1, "the ending is said once, where the person wrote");
@@ -828,8 +852,7 @@ test("a run says how it ended, unless the ending is already words between them",
 
   // A background run that finished says nothing: nobody asked it in the
   // conversation, and the record is where its ending is read.
-  onCall = (system) =>
-    isDecision(system) ? { facts: {} } : { done: "a background ending" };
+  onCall = looksThenSays("a background ending");
   await deliver("a booking confirmation");
   await agent.pass();
   assert.equal(
@@ -845,9 +868,9 @@ test("a run says how it ended, unless the ending is already words between them",
   answerWith({ calls: [{ name: "mail.folders", arguments: {} }] });
   await deliver("a message the agent stalls on");
   await agent.pass();
-  const failed = await findChatMessages(ctx, accountId, "I could not finish this one", 5);
+  const failed = await findChatMessages(ctx, accountId, "the same calls twice", 5);
   assert.equal(failed.length, 1, "the failure is said, once");
-  assert.match(failed[0]?.text ?? "", /the same calls twice/, "and it says why");
+  assert.match(failed[0]?.text ?? "", /I could not finish this one/, "and it says why");
 });
 
 test("a restart resumes from the cursor the last process left", async () => {
@@ -872,6 +895,7 @@ test("a restart resumes from the cursor the last process left", async () => {
   // A new process: no cursor in memory, so the document is its only memory.
   const second = loop(HOLDER);
   answerWith({ facts: {} });
+  answerWith(aLook());
   answerWith({ done: "worked the message that waited" });
   await second.start();
 
@@ -898,8 +922,7 @@ test("a mention opens one run even when the decision names no rule", async () =>
   const agent = loop();
   await agent.start();
 
-  onCall = (system) =>
-    isDecision(system) ? { facts: {} } : { done: "answered the mention" };
+  onCall = looksThenSays("answered the mention");
   await postChatMessage(ctx, accountId, "sam@example.org", "@demo what is the status?");
   await agent.pass();
 
@@ -998,8 +1021,7 @@ test("the same change continues one run rather than open a second", async () => 
       plan: ["chat.say the first half"],
     }),
   );
-  onCall = (system) =>
-    isDecision(system) ? { facts: {} } : { done: "the rest is done" };
+  onCall = looksThenSays("the rest is done");
   const summary = await agent.pass();
 
   assert.equal(summary.runs, 0, "no second run was opened for this change");
@@ -1192,6 +1214,7 @@ test("an act the run carries no authority for is refused, and the refusal is on 
 
   answerWith({ facts: {} });
   answerWith({ calls: [{ name: "mail.remove", arguments: { id: "m-1" } }] });
+  answerWith(aLook());
   answerWith({ done: "I could not destroy it, so I left it" });
   // The `done` a refused step earns is refused once, and the model is asked to
   // say it again now that it has been told (ADR 0030): the second one is accepted.
@@ -1933,6 +1956,7 @@ test("a run whose wait has come due is picked up again, from its document", asyn
   );
 
   const agent = loop();
+  answerWith(aLook());
   answerWith({ done: "the window has passed, so it is over" });
   // The step the document left open could not be taken, so the first `done` is
   // refused once and asked again; the second is the run's own word.
@@ -2401,6 +2425,7 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
       },
     ],
   });
+  answerWith(aLook());
   answerWith({ done: "the plan was refused, so nothing was done" });
   // The refused answer leaves a failed step, so the first `done` is refused once
   // and said again.
@@ -2411,8 +2436,8 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
   const run = await runOf(id);
   assert.equal(
     stepsOf(run).length,
-    1,
-    "the refused answer left a step of its own, not a plan",
+    2,
+    "the refused answer left a step of its own, and the run went on from it",
   );
   assert.equal(run.plan[0]?.state, "failed", "the refusal is on the record");
   assert.match(
@@ -2508,6 +2533,7 @@ test("a malformed answer costs a step and is asked again, not the run", async ()
   };
   answerWith(stuck);
   answerWith(stuck);
+  answerWith(aLook());
   answerWith({ done: "the model recovered and finished" });
   // Two refused steps stand, so the first `done` is refused once and said again.
   answerWith({ done: "the model recovered and finished" });
@@ -2612,6 +2638,7 @@ test("a run left running without a wait is tried again on a minute, not every pa
   const second = await agent.pass(new Date(at.getTime() + 10_000));
   assert.equal(second.due, 0, "the next pass does not pay for the same failure");
 
+  answerWith(aLook());
   answerWith({ done: "finished after the pause" });
   const third = await agent.pass(new Date(at.getTime() + 61_000));
   assert.equal(third.due, 1, "a minute later the run is tried again");
@@ -3239,8 +3266,7 @@ test("a pass leaves what it did, and the last run it ended, where a person reads
   const agent = loop();
   await agent.start();
 
-  onCall = (system) =>
-    isDecision(system) ? { facts: {} } : { done: "worked it and said so" };
+  onCall = looksThenSays("worked it and said so");
   await postChatMessage(ctx, accountId, "sam@example.org", "@gilbert file the booking");
   await agent.pass();
 

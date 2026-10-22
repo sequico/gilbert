@@ -228,12 +228,14 @@ waits on, and the ones the next choice depends on — instead of the whole plan.
   ending says it is waiting.
 - `startedBy.sends` is the rule's declaration that a draft is wanted, not a licence
   the model reads.
-- Before a `done` is believed, a second cheap call is given the ask
-  (`startedBy.about`), the plan with each step's state and the `evidence`, and
-  answers whether the work covers the ask or names what is missing. A "missing"
-  answer sends the run back once with the gap named; the second `done` stands and
-  the judge's sentence is written on the ending. A `done` with no evidence is
-  refused without spending a call.
+- Before a `done` is believed, its own plan is read as the evidence for it. A
+  `done` whose plan carries **no step that finished**, or a refused step the run
+  has not been told about, is sent back once with the gap named; a second `done`
+  with nothing finished under it ends the run `refused` and the ending says the
+  run did nothing rather than pretending. A `done` that stands on a refused step
+  **while a later step succeeded** is not caught by this guard: the ask and the
+  evidence are not read against each other yet, and that judge is owed
+  (`ROADMAP.md`).
 
 ### The agent is measured on tasks it has already failed
 

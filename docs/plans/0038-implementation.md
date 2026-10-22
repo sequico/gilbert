@@ -39,13 +39,19 @@ whether the work is accepted and what it cost in calls and refusals.
    keys are out of the eleven catalogues.
 6. **The documents follow the tree.** `FEATURES.md` and `README.md` describe one
    instruction, the areas, the run keyed by its change and the one-off clear.
+7. **A `done` stands on its plan, and a tool's answer is filtered.**
+   `loop.ts` sends back once a `done` that carries no finished step or a refused
+   step the run has not been told about, and a second one with nothing finished
+   ends the run `refused` — the ending that had a reader and no writer. Every
+   tool answer is emptied of a credential-shaped field before it reaches the turn
+   or the record (`agent/redact.ts`), and the step says what was withheld.
 
 ## Owed, and named so it is not forgotten
 
 - The **eval set** (ADR 0038): the 15–20 tasks taken from the 171 measured runs
   are not written yet, so no block above has a score.
-- The **judge on `done`** and the guardrails that write `refused` (ADR 0038,
-  0030): the record reads and draws `refused`; nothing writes it yet, and a
-  credential in a tool's answer is not filtered out of what the model sees.
+- The **judge that reads the ask and the evidence against the plan** (ADR 0038):
+  the guard reads the plan alone, so a `done` that stands on a refused step while
+  a later step succeeded still passes.
 - The **job-shaped catalogue** (ADR 0038): the tools are still the endpoint
   catalogue under area prefixes; the eight job-shaped tools are not written.
