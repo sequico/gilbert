@@ -41,13 +41,11 @@ is a **module**: one definition of its actions, no import of another area's, and
 what crosses between them is **an identifier inside the account**. An area is not
 an agent; the run is the one place where two areas meet.
 
-- **The two readings are always present**: `read` and `find` are how a run looks,
-  and reading is free; `say` (the interface) and `remember` (the shared library,
-  and the one write always present) are always there too. What the instruction
-  filters is the **writes** — `place`, `draft`, `event`, `settle` — and the guard
-  reads the job's `kind`/`action` when one job reaches more than one area (`place`
-  writes mail or files, `remember` memory or knowledge): a tool-level filter cannot
-  say which half of a job is allowed.
+- **Reading and the shared library are always present**: `read`, `find`, `say` and
+  `remember`; the instruction filters only the four area writes (`place`, `draft`,
+  `event`, `settle`), and the guard reads the job's `kind`/`action` when one job
+  reaches more than one area (`place` writes mail or files, `remember` memory or
+  knowledge): a tool-level filter cannot say which half of a job is allowed.
 - **The schema follows the areas.** A job shows only the `kind`/`action` the run's
   areas allow; the guard that reads them is the second door, not the first.
 - **An instruction declares at most three areas**; more is refused when saved,
@@ -121,12 +119,12 @@ from its document.
 
 ### The common path is a workflow; a plan is the exception
 
-A run runs three beats, each a step of the document: **read** (the change names
-what arrived; what was read becomes the evidence), **act** (one act from the
-catalogue, given what the read found), **report** (say in the conversation what was
-done or could not be, and end). The run ends when the report is written, whatever
-budget remains. A plan with dependencies and branches stays available and is used
-only when the instruction asks for one.
+A run runs three phases, each a step of the document: **read** (the change names what
+arrived; what was read becomes the evidence), **act** (the calls the answer needs —
+one, several, or the same twice in a turn, the wave the protocol allows), **report**
+(say in the conversation what was done or could not be, and end). The run ends when
+the report is written, whatever budget remains. A plan with dependencies and branches
+stays available and is used **when the model judges the work needs it**.
 
 ### The turn's context is selected, not accumulated
 
@@ -158,8 +156,9 @@ exact first, then similarity where an embedding exists — and the matching enti
 their relations and the facts valid at that moment are ranked by subject, then
 similarity, then recency; only the top few reach the turn. A fact about a subject
 the memory does not hold creates it, and a relation is a fact whose object is
-another entity. A contradicting fact closes the one it replaces, and a duplicate is
-not written again.
+another entity. Closed facts are read by entity and interval when a run asks "since
+when"; the live retrieval ignores them. A contradicting fact closes the one it
+replaces, and a duplicate is not written again.
 
 The memory is **measured** — precision and recall, not how much was stored, because
 a wrong fact recalled is worse than a missing one. Limits: a cap per entity, a TTL
@@ -195,7 +194,7 @@ reaches the turn, and the step says what was withheld. The filter is by name, no
 by content — a key inside a paragraph is not caught — and that limit is written
 where the filter lives (`agent/redact.ts`).
 
-### The model calls the tools, and a refusal is a repair
+### The model calls the tools, and an invalid call is repaired
 
 The interface is where the work was lost: **48** of 260 failed steps are `"id" must
 be text`, **42** `"fact"` too long, **9** an invented tool name, **9** a wrong
@@ -205,16 +204,18 @@ spent the provider's default budget before writing anything.
 
 - **Native function calling is the protocol, and the only one.** The catalogue
   travels in `tools`, the answer is read from `tool_calls`. A provider that refuses
-  `tools` is **refused at connect and at every reconnection**, naming what it
-  refused; there is no JSON-in-the-text fallback. The **connect probe checks what
+  `tools` is **refused at connect and whenever the provider session is
+  re-established**, naming what it refused; the probe is cached and re-run only when
+  the provider configuration changes; there is no JSON-in-the-text fallback. The **connect probe checks what
   both turns need** — `tools` for the action, the structured output for the
   decision — and refuses a provider that lacks either. The **decision turn**, which
   chooses no action, is asked in the provider's **native structured output** (a
   JSON schema), not JSON in free text, and may name one `read` — the same job the
-  action turns call. Both forms are structured and recorded, so a **replay needs no
+  action turns call, **whose schema is derived from that tool** rather than written
+  twice. Both forms are structured and recorded, so a **replay needs no
   model**. Programmatic tool calling is **not** the alternative: its fixed prompt
   cost only reverses above ~26 calls per turn, and a run chains one to three.
-- **A refusal is a repair**: the invalid call returns to the same turn with the
+- **An invalid call is repaired, not lost.** It comes back to the same turn with the
   field, the value sent and the allowed values, as one step; the valid calls of the
   same answer still run.
 - **The schema is narrow**: `enum` for a set, ids naming their kind, required where
@@ -223,9 +224,11 @@ spent the provider's default budget before writing anything.
   sends what is left as `max_tokens`, **capped by the output ceiling the provider
   declares** — read at connect and kept with the capability, with a conservative
   fallback when it declares none — so a reasoning model has room and a run cannot
-  burn without end; reaching it ends `out-of-budget` naming the token. The
+  burn without end; reaching it ends `out-of-budget` naming the token, and when what
+  is left cannot pay for a call the run ends **before** asking. The
   **installation has a daily ceiling** (`limits.maxDailyTokens`): past it no new run
-  opens, a run already open finishes its own budget, and the pass says so.
+  opens, a run already open finishes its own budget, and the pass **stops before
+  reading changes** while the ceiling is spent, so nothing is consumed without a run.
 - **Ceilings are per job**: four lookups was an endpoint number.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
   with its own code; no run opens on it. A **transient** failure (5xx, timeout) is
@@ -247,8 +250,10 @@ spent the provider's default budget before writing anything.
 ### The agent is measured on tasks it has already failed
 
 An eval taken from the run corpus — the message, the outcome a person would accept
-— judged by **whether the outcome was accepted** and **what it cost**. It runs on
-the mock when a tool, an area or the prompt changes. Every live failure adds a
+— judged by **whether the outcome was accepted** and **what it cost**. The tasks are
+**documents in the repository** — message, data and accepted outcome — so the
+regression form needs no corpus and no key: the corpus is where they come from, not
+what they read. It runs on the mock when a tool, an area or the prompt changes. Every live failure adds a
 task: three today, ten planned, twenty or fifty for a real suite. **At least six of
 the ten drive the model**; a no-run task measures silence, not the contact.
 
@@ -264,9 +269,9 @@ the recorded answers replayed without a key — is **owed**.
 ### An installation can see the trend, not only the run
 
 Each run and pass emits the same measures in the OpenTelemetry GenAI shape —
-model, tokens, milliseconds, steps, calls, refusals, ending — to a **configured OTLP
-endpoint and to the pass document**; without an endpoint the documents remain the
-measure. Cost and refusals are read over time; the run remains the truth.
+model, tokens, milliseconds, steps, calls, refusals, ending — to an **OTLP endpoint
+configured in the installation's limits** (or the environment) and to the pass
+document; without an endpoint the documents remain the measure. Cost and refusals are read over time; the run remains the truth.
 
 ### Secrets are not readable by the agent
 
@@ -276,7 +281,8 @@ one.
 
 ## Owed
 
-- The **judge** on the ask and the evidence, on a suspect plan, calibrated.
+- The **judge** on the ask and the evidence, on a suspect plan, calibrated — **the
+  first work after F7**, not an option.
 - The **injection test** against the structural defence: the grants already refuse
   an act outside them before it runs, and the test is what proves it — no separate
   model guard is owed.
@@ -288,8 +294,8 @@ one.
 
 - The largest failure class — a name the catalogue does not hold — shrinks to the
   declared areas; the second, argument names and bounds, is taught by the refusal.
-- A run's duration becomes predictable, and a false `done` cannot leave the
-  installation unheard: the product drafts, the judge checks, the person sends.
+- A false `done` is caught by the judge, which is **not optional**: it is the first
+  work after F7. The product drafts, the judge checks, the person sends.
 - The catalogue is small enough to read every turn, and an area grows a tool without
   growing the others.
 - The durability layer (document, claim, cursor, memory, wait) is untouched; the
