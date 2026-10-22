@@ -2,21 +2,32 @@
 
 Status: **in progress**, branch `agents-reloaded`. The decisions are ADR 0038's;
 this file holds only the order, the files each step touches, and what the step must
-prove. F0–F3 are built, F4–F7 are not.
+prove. F0–F4 are built, F5–F7 are not.
 
 ## Where the tree stands
 
 Built: areas and their selection, the eight jobs and their narrowing, one
 instruction per group, the change as trigger with the run keyed by it, the one-off
 clear, the `done` read against its plan, the repair of an invalid call, the
-credential filter, the eval runner, the native protocol with the provider probe at
-publish, and the two token ceilings. **The eval's three tasks pass**, measured on
-the installation's own provider on 2026-10-22: the third ends `done` in 2 steps and
-7 model calls, no argument refusal. What made it pass: the eight dot-free job
-names (the provider refused `mail.find`: a function name matches
-`^[a-zA-Z0-9_-]+$` only), one schema branch per value, room for a reasoning
-model's answer, one lookup in the decision turn, and the report ending the run.
-The provider block lives outside the repository; the eval tasks live in it.
+credential filter, the native protocol with the provider probe at publish, the two
+token ceilings, and the eval: ten tasks in the repository (`agent/eval/tasks/`),
+one file each with its message, data and reference, seven of them driving the
+model, partial credit on a task with more than one side, a failed task retried
+once, `pass@1` and cost printed, and the provider put to the product's own probe
+before anything is measured.
+
+**The eval reads 7/10 on the first attempt**, measured on the installation's own
+provider on 2026-10-22 (`deepseek-flash`, plain JSON mode): two tasks answer only
+on the retry (`unstable`), one scores half, and the measure costs 115 239 tokens,
+31 model calls and 37 s. What made the earlier three-task eval pass still holds:
+the eight dot-free job names (the provider refused `mail.find`: a function name
+matches `^[a-zA-Z0-9_-]+$` only), one schema branch per value, room for a
+reasoning model's answer, one lookup in the decision turn, and the report ending
+the run. The measure found two frictions a person meets: the decision turn
+sometimes answers a **mail** change in prose, which is a refused answer — and
+since the pass consumes the batch, that change is lost rather than asked again —
+and the model reaches for the folder **id** `find` answered where `place file`
+takes a folder's name. The provider block lives outside the repository.
 
 The loop and model suites speak the jobs' protocol: a call is a bare job name,
 `say` with an `action` is the report that ends the run, and a dependency is a

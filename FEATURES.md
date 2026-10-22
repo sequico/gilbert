@@ -388,6 +388,22 @@ groups — are read from the mail server by that pass rather than decided at the
 boot, so a group added or
 withdrawn in Stalwart needs no restart.
 
+## The agent is measured on the tasks it has failed
+
+**The agent is measured on ten tasks in the repository** (ADR 0038,
+`server/src/agent/eval/tasks/`): one file per task, holding the message that
+arrives, the data it arrives into and the outcome a person would accept — so a
+regression needs no corpus to describe it and no key to read it. `npx tsx
+src/agent/eval.ts` runs them on the mock against the installation's own provider,
+which is put to **the product's own probe** first, and prints `pass@1` — the
+tasks answered whole on the first attempt — beside what the measure cost in
+tokens and model calls. A task with more than one side is graded in halves, and a
+task that fails is tried once more: one that passes only on the second attempt is
+reported `unstable`, not passed. Three of the ten measure silence — no
+instruction, an area the instruction does not declare, the agent switched off —
+and the other seven drive the model. It is a measure a person runs on purpose,
+not the release gate.
+
 ## A drop is one change
 
 **A burst of files is one drop** (ADR 0034): a file landing in a folder is noted

@@ -13,10 +13,13 @@ runner (`eval.ts`), native function calling as the only action protocol with the
 decision turn in the provider's structured output (`model.ts`), the provider probe
 and the declared output ceiling at publish (`installationAdmin.ts`), the two token
 ceilings with the pass document's daily counter (`shared/installation.ts`,
-`shared/agent.ts`, `loop.ts`), and a permanent provider failure stopping the pass.
-**Not built:** the plan's F4–F7 besides that list (ten eval tasks in the
-repository, the run's own trend, the structured memory), and everything in
-*Owed*.
+`shared/agent.ts`, `loop.ts`), and a permanent provider failure stopping the pass,
+and the eval: ten tasks in the repository (`agent/eval/tasks/`), one file each
+with its message, data and reference, graded with partial credit, a failed task
+tried once more, `pass@1` and cost printed, and the provider put to the
+product's own probe before anything is measured (`eval.ts`).
+**Not built:** the plan's F5–F7 (the run's own trend, the structured memory), and
+everything in *Owed*.
 
 ## What this replaces, and what it keeps
 
