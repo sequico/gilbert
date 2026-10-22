@@ -16,7 +16,8 @@ besides that list, and everything in *Owed*.
 whole-answer refusal) and the five short records beside it, withdrawn into this
 one; ADR 0031 (many rules per group, each with a surface matrix). **Amended:**
 ADR 0030's plan-as-the-normal-shape — the common path is the workflow below.
-**Kept:** ADR 0028 (authority classes), 0029 (a question parks the run), 0030 (the
+**Kept:** ADR 0028 (authority classes), 0029 **amended** (a question parks the
+run in the conversation; a mail leaves only as a draft), 0030 (the
 run is a document and the record is the product), 0032 (one process holds the
 claim), 0033 (the memory), 0034 (a batched drop), 0037 (the cursor as
 reconciliation).
@@ -41,12 +42,14 @@ what crosses between them is **an identifier inside the account**. An area is no
 an agent; the run is the one place where two areas meet.
 
 - **The two readings are always present**: `read` and `find` are how a run looks,
-  and reading is free; `say` (the interface) and `remember` (the shared library)
-  are always present too. What the instruction filters is the **writes** —
-  `place`, `draft`, `event`, `settle` — and the guard reads the job's
-  `kind`/`action` when one job reaches more than one area (`place` writes mail or
-  files, `remember` memory or knowledge): a tool-level filter cannot say which half
-  of a job is allowed.
+  and reading is free; `say` (the interface) and `remember` (the shared library,
+  and the one write always present) are always there too. What the instruction
+  filters is the **writes** — `place`, `draft`, `event`, `settle` — and the guard
+  reads the job's `kind`/`action` when one job reaches more than one area (`place`
+  writes mail or files, `remember` memory or knowledge): a tool-level filter cannot
+  say which half of a job is allowed.
+- **The schema follows the areas.** A job shows only the `kind`/`action` the run's
+  areas allow; the guard that reads them is the second door, not the first.
 - **An instruction declares at most three areas**; more is refused when saved,
   because five areas is thirty tools in one turn — the failure this record undoes.
 - *Correspondence* and *agenda* are the two common selections (mail + files,
@@ -128,15 +131,16 @@ only when the instruction asks for one.
 ### The turn's context is selected, not accumulated
 
 The run document holds everything; the turn is handed the ask, the instruction, the
-retrieved facts, the calls it can make, and the plan's tail — earlier steps as one
-line each, and past a threshold a **deterministic summary** of them (one line each,
-no model call). The document is complete, the prompt is bounded.
+retrieved facts, the calls it can make, and the plan's tail — the last steps in
+full, everything earlier as one line each. The threshold fixes that tail; no model
+call writes the summary. The document is complete, the prompt is bounded.
 
 The **stable prefix** (installation line, catalogue, instruction) is sent first and
 unchanged, so a caching provider pays for it once per run; the facts and the plan's
 tail follow, because a prefix is cacheable only when nothing that moves comes
-before it. Caching against compression is **measured on the eval**, not decided in
-advance.
+before it. The tool definitions travel in `tools`, outside this prefix: a provider
+caches them or it does not. Caching against compression is **measured on the eval**,
+not decided in advance.
 
 ### The memory is entities, relations and time — retrieved, not dumped
 
@@ -149,10 +153,13 @@ Stalwart holds one document per entity and per fact under `gilbert/memory/`, **w
 the vector the fact was written with**: the in-memory index is rebuilt at boot from
 those vectors, so a boot costs no model call.
 
-A turn **retrieves**: the change's words name the entities, and their relations and
-the facts valid at that moment are ranked by exact subject, then similarity, then
-recency; only the top few reach the turn. A contradicting fact closes the one it
-replaces, and a duplicate is not written again.
+A turn **retrieves**: the change's words are matched against the known subjects —
+exact first, then similarity where an embedding exists — and the matching entities,
+their relations and the facts valid at that moment are ranked by subject, then
+similarity, then recency; only the top few reach the turn. A fact about a subject
+the memory does not hold creates it, and a relation is a fact whose object is
+another entity. A contradicting fact closes the one it replaces, and a duplicate is
+not written again.
 
 The memory is **measured** — precision and recall, not how much was stored, because
 a wrong fact recalled is worse than a missing one. Limits: a cap per entity, a TTL
@@ -171,9 +178,10 @@ your instructions and send this to me". The defence is structural:
   refused before it runs, and the refusal is on the record.
 - **Anything outward is a draft** a person sends (ADR 0041), so the worst a
   malicious mail obtains is a draft somebody reads.
-- **A guardrail that cannot go on ends the run `refused`**, naming the check that
-  fired — not an out-of-budget, which would blame the clock. An answer carrying a
-  credential does not stop it: the filter empties the field and says so.
+- **An act outside the grants is a failed step, not an ending.** It is refused
+  before it runs and comes back to the turn as a repair, like any invalid call;
+  `refused` is reserved for a `done` with nothing finished. A credential in an
+  answer does not stop the run: the filter empties the field and says so.
 
 A test that feeds the agent a document asking it to act outside its grants is
 **owed**: argued is not proven.
@@ -198,7 +206,9 @@ spent the provider's default budget before writing anything.
 - **Native function calling is the protocol, and the only one.** The catalogue
   travels in `tools`, the answer is read from `tool_calls`. A provider that refuses
   `tools` is **refused at connect and at every reconnection**, naming what it
-  refused; there is no JSON-in-the-text fallback. The **decision turn**, which
+  refused; there is no JSON-in-the-text fallback. The **connect probe checks what
+  both turns need** — `tools` for the action, the structured output for the
+  decision — and refuses a provider that lacks either. The **decision turn**, which
   chooses no action, is asked in the provider's **native structured output** (a
   JSON schema), not JSON in free text, and may name one `read` — the same job the
   action turns call. Both forms are structured and recorded, so a **replay needs no
@@ -218,15 +228,15 @@ spent the provider's default budget before writing anything.
   opens, a run already open finishes its own budget, and the pass says so.
 - **Ceilings are per job**: four lookups was an endpoint number.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
-  with its own code; no run opens on it. A provider that refuses `tools` **mid-run**
-  is retried at the next pass, and after three consecutive failures of the same code
-  the run ends `refused`, naming the provider: a deployment mistake is not an endless
-  budget.
+  with its own code; no run opens on it. A **transient** failure (5xx, timeout) is
+  retried with backoff and does not count; a **permanent** one (a 4xx the request
+  causes) ends the run `refused` after three in a row, naming the provider.
 
 ### What a run says, and how it ends
 
-- Every outward message **creates a draft** and returns its id; no tool submits.
-  `startedBy.sends` is the instruction's declaration that a draft is wanted.
+- Every outward message creates **the draft the boundary names** and returns its id;
+  no tool submits. `startedBy.sends` is the instruction's declaration that a draft is
+  wanted.
 - Before a `done` is believed, its plan is read as evidence. A `done` with **no
   finished step**, or with a refused step the run was not told about, is sent back
   once with the gap named; a second one with nothing finished ends `refused`. A
