@@ -5,9 +5,10 @@
  * A group used to keep its engagement in `rules/<id>.json`, and an older build
  * kept one in `agent/rules.json`. This build reads neither: a group has one
  * instruction and nothing else. The documents are removed rather than left to
- * age, once per account, and a marker in the account says the clear happened —
- * so a process that restarts does not walk the folder again, and an
- * administrator can see that it was done.
+ * age, and a marker in the account says the clear happened — so a process that
+ * restarts does not walk the folder again. An account that had nothing to clear
+ * writes no marker and is re-checked on the next process's first pass: two reads,
+ * no document.
  *
  * Nothing else is touched: the instruction, the runs, the cursors and the
  * memory are the group's present, not the old shape's residue.
@@ -51,6 +52,12 @@ export async function clearLegacyAgentState(
     await destroyAppNode(ctx, accountId, id);
     removed.push("agent/rules.json");
   }
+  /*
+   * The marker is written only when something was removed: it says "the clear
+   * happened here", and an account that had nothing to clear has no clear to
+   * report — writing one would put a document in every group the agent works.
+   */
+  if (!removed.length) return [];
   await writeAppFileAt(ctx, accountId, RESET_FILE, {
     at: new Date().toISOString(),
     removed,

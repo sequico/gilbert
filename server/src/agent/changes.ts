@@ -364,6 +364,12 @@ export async function workChanges(
    */
   let held: RunRecord[] | null = records ? [...records] : null;
   /*
+   * The account's runs by the change they answer, built once per pass and rebuilt
+   * only when a run this pass writes moves the list: rebuilding it per change was
+   * a scan of every run of the account for every change of the batch.
+   */
+  let byStart: Map<string, RunDoc> | null = null;
+  /*
    * The agent's own calendar events are not activity to answer: a calendar
    * change is handed over like any other, and the instruction woken by the
    * agent's own write would open a run whose write wakes it again. Its mail
@@ -624,8 +630,10 @@ export async function workChanges(
       for (const problem of listed.problems)
         summary.gaps.push(`${accountId}: ${problem}`);
       held = listed.records;
+      byStart = null;
     }
-    const open = runsByStart(held).get(key);
+    byStart ??= runsByStart(held);
+    const open = byStart.get(key);
     if (open) {
       if (open.state === "running") {
         const worked = await deps.workRun(
@@ -634,7 +642,10 @@ export async function workChanges(
           decision.facts,
           openQuestionsOf(held ?? [], open.id),
         );
-        if (worked) remember(held, worked);
+        if (worked) {
+          remember(held, worked);
+          byStart = null;
+        }
       }
       continue;
     }
@@ -654,6 +665,7 @@ export async function workChanges(
       openQuestionsOf(held ?? [], run.id),
     );
     remember(held, worked ?? run);
+    byStart = null;
   }
   /*
    * The drops answered here leave the queue once the batch is worked. A crash

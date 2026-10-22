@@ -97,7 +97,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
       <p className="hint">
         {t("How the group wants its agent to work, on every call it makes.")}
       </p>
-      {error && <div className="error-box">{error}</div>}
+      {error && <div className="error-box">{error}</div>}{" "}
       {busy && !prose && <p className="hint">{t("Loading…")}</p>}
       {prose && (
         <>
@@ -134,6 +134,11 @@ export function GroupInstructionPanel({ group }: { group: string }) {
                 </label>
               ))}
             </div>
+            {areas.length === 0 && (
+              <p className="hint">
+                {t("No area is ticked: the agent works only the conversation.")}
+              </p>
+            )}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
             <button
