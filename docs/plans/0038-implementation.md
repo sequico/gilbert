@@ -36,10 +36,10 @@ whether the work is accepted and what it cost in calls and refusals.
 5. **The client says the new words.** `GroupRules.tsx` and the rules calls are
    gone; `GroupInstruction.tsx` shows the prose and a checkbox per area, under
    Administration → AI Agents → Instruction. The `@gilbert/agent` alias the
-   browser no longer needs is removed from both configs, and the six stale i18n
-   keys are out of the eleven catalogues.
-6. **The documents follow the tree.** `FEATURES.md` and `README.md` describe one
-   instruction, the areas, the run keyed by its change and the one-off clear.
+   browser no longer needs is removed from both configs.
+6. **The documents follow the tree.** `FEATURES.md` describes one instruction, the
+   areas, the run keyed by its change and the one-off clear; `README.md` carries
+   the instruction and the run.
 7. **A `done` stands on its plan, and a tool's answer is filtered.**
    `loop.ts` sends back once a `done` that carries no finished step or a refused
    step the run has not been told about, and a second one with nothing finished
@@ -125,9 +125,13 @@ runner.
   four-lookup ceiling becomes the job's own bound.
 - **F4 — the measure.** Seven tasks beside the three: the drop of files, the
   credential, "fai tu", the recurring invitation, the unreadable attachment, the
-  repeated reading, and the two run cases whose messages were exported. A task
-  passes only at zero argument refusals and within the `done` averages (7 calls,
-  one minute).
+  repeated reading, and the two run cases whose messages were exported. Every
+  task carries a **reference** its own grader accepts, a task with more than one
+  side is graded with **partial credit**, and a failed task is run once more and
+  reported `unstable` when only the second trial passes. A task passes only at
+  zero argument refusals and within the `done` averages (7 calls, one minute).
+  The **regression replay** — recorded provider answers, no key — remains owed:
+  that is what can run in CI.
 
 ## Open decisions
 

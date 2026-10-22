@@ -184,7 +184,11 @@ asking it to spell what it cannot see.
   reconnection**, with a sentence naming what it refused: the fallback to JSON in
   the text is gone, because it is where the corpus's format refusals live. The
   turns that call no tool (the decision, the image read) keep their JSON shape,
-  and their prompt says so.
+  and their prompt says so. Programmatic tool calling — the model writing code
+  against typed stubs — is **not** the alternative here: its fixed prompt cost
+  only reverses above roughly twenty-six calls per turn, and a run of this
+  product chains one to three steps. If the eval ever shows long chains or a wide
+  fan-out, that is the signal to reconsider it, and not before.
 - **A refusal is a repair, not a lost answer.** An invalid call comes back to the
   same turn with the field, the value that was sent and the values the schema
   allows, and the refusal is one step on the run. The calls that were valid still
@@ -300,17 +304,33 @@ waits on, and the ones the next choice depends on — instead of the whole plan.
   has not been told about, is sent back once with the gap named; a second `done`
   with nothing finished under it ends the run `refused` and the ending says the
   run did nothing rather than pretending. A `done` that stands on a refused step
-  **while a later step succeeded** is not caught by this guard: the ask and the
-  evidence are not read against each other yet, and that judge is owed
-  (`docs/plans/0038-implementation.md`).
+  **while a later step succeeded** is not caught by this guard, and the judge that
+  reads the ask and the evidence is owed. When it is built it fires **only on a
+  plan that carries a refused step or no evidence**, never on every ending, and it
+  is calibrated against a human sample before its sentence is trusted: a
+  deterministic check costs nothing and is right more often than a second model
+  asked to grade the first.
 
 ### The agent is measured on tasks it has already failed
 
 An evaluation set taken from the run corpus — the message, the promise, the outcome
 a person would accept — judged by two measures: **the outcome was accepted** and
 **what it cost** (calls, refusals, milliseconds). It is run when a tool, an area or
-the prompt changes, on the mock, and is not the release gate. Every live failure
-adds a task.
+the prompt changes, on the mock. Every live failure adds a task: ten today,
+growing to the twenty or fifty a real suite wants.
+
+Each task carries the outcome a person would accept **and a reference that passes
+its own grader**, so a zero is a failure of the agent and never of the task. A
+task with more than one side is graded with **partial credit**: reading and
+reporting without filing is not the same as doing nothing.
+
+Its non-determinism is met cheaply: one trial, and a failed task is run **once
+more**; a task that passes only the second time is reported `unstable`, not
+passed. A full `pass@k` is paid for only when a number must be defended.
+
+The runner needs a provider key and is not the release gate. Its regression form
+— the recorded provider answers replayed without a key — is **owed**: that is
+what can run in CI on every commit.
 
 ### Secrets are not readable by the agent
 
