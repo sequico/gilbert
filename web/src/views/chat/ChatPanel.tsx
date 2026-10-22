@@ -432,7 +432,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     // A late answer belongs to the conversation it was asked from, not to
     // whichever team the reader has switched to since.
     const current = () => live && useChat.getState().openAccountId === openAccountId;
-    fetchGroupRuns(group, "live")
+    fetchGroupRuns(group, "live", { plan: false })
       .then((runs) => {
         if (current()) setQuestions(openQuestionsOf(runs));
       })
@@ -451,37 +451,43 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
    * (`/api/events`' fan-out), so a write there arrives like any other; this is
    * also read when the panel opens and on the net.
    */
-  const agentOnNow = useCallback(() => {
-    const group = open?.name;
-    if (!openAccountId || !group) {
-      setAgentOn(null);
-      return () => {};
-    }
-    let live = true;
-    const current = () => live && useChat.getState().openAccountId === openAccountId;
-    fetchGroupAgent(group)
-      .then((state) => {
-        if (current()) setAgentOn(state.enabled);
-      })
-      .catch(() => {
-        // Unknown is drawn as neither on nor off.
-        if (current()) setAgentOn(null);
-      });
-    return () => {
-      live = false;
-    };
-  }, [openAccountId, open?.name]);
+  const agentOnNow = useCallback(
+    (fresh = false) => {
+      const group = open?.name;
+      if (!openAccountId || !group) {
+        setAgentOn(null);
+        return () => {};
+      }
+      let live = true;
+      const current = () => live && useChat.getState().openAccountId === openAccountId;
+      fetchGroupAgent(group, fresh)
+        .then((state) => {
+          if (current()) setAgentOn(state.enabled);
+        })
+        .catch(() => {
+          // Unknown is drawn as neither on nor off.
+          if (current()) setAgentOn(null);
+        });
+      return () => {
+        live = false;
+      };
+    },
+    [openAccountId, open?.name],
+  );
 
   useEffect(() => {
     const stopQuestions = questionsNow();
-    const stopSwitch = agentOnNow();
+    // Opening the panel, or switching team, is the moment to ask the document
+    // itself: the pass's last read is for the beats, not for arriving.
+    const stopSwitch = agentOnNow(true);
     /*
      * The stream is the clock: a run document is a `FileNode` in the group's
      * account, and the switch is one in the installation's account, which the
      * server's fan-out follows for a member. The agent writes a burst, so one
-     * read follows it after a second. The interval is the net under a stream
-     * that is down (and the only channel on a deployment without fan-out); the
-     * window coming back catches what a broken stream dropped.
+     * read follows it after a second. The event names the file, so the switch is
+     * read fresh; the interval and the window coming back are the net under a
+     * stream that is down (and the only channel on a deployment without
+     * fan-out), and those ask from the value the pass already holds.
      */
     let scheduled: number | null = null;
     let pendingQuestions = false;
@@ -489,7 +495,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     const fire = () => {
       scheduled = null;
       if (pendingQuestions) void questionsNow();
-      if (pendingSwitch) void agentOnNow();
+      if (pendingSwitch) void agentOnNow(true);
       pendingQuestions = false;
       pendingSwitch = false;
     };
@@ -509,7 +515,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     const seen = () => {
       if (document.visibilityState === "visible") {
         void questionsNow();
-        void agentOnNow();
+        void agentOnNow(true);
       }
     };
     document.addEventListener("visibilitychange", seen);
@@ -526,6 +532,17 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   // The admin surface and the chat are one client: a switch written there is
   // said here at once, not on the next beat.
   useEffect(() => onAgentSwitch((state) => setAgentOn(state.enabled)), []);
+
+  // A stream that comes back may have missed the change that mattered: one
+  // fresh read of each is the catch-up.
+  useEffect(
+    () =>
+      push.onReconnect(() => {
+        void questionsNow();
+        void agentOnNow(true);
+      }),
+    [questionsNow, agentOnNow],
+  );
 
   const questionIds = useMemo(
     () => new Set(questions.map((one) => one.messageId)),

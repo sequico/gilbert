@@ -39,6 +39,7 @@ vi.mock("@/lib/agentAdmin", async (importOriginal) => {
  */
 const stream = vi.hoisted(() => ({
   listeners: [] as Array<(changed: string, type: string) => void>,
+  reconnects: [] as Array<() => void>,
 }));
 vi.mock("@/jmap/push", () => ({
   push: {
@@ -49,7 +50,12 @@ vi.mock("@/jmap/push", () => ({
       };
     },
     onConnection: () => () => {},
-    onReconnect: () => () => {},
+    onReconnect: (fn: () => void) => {
+      stream.reconnects.push(fn);
+      return () => {
+        stream.reconnects = stream.reconnects.filter((one) => one !== fn);
+      };
+    },
     onReachability: () => () => {},
     start: () => {},
     stop: () => {},
@@ -230,5 +236,23 @@ describe("the agent's open questions", () => {
 
     expect(admin.fetchGroupAgent.mock.calls.length).toBe(switchBefore + 1);
     expect(admin.fetchGroupRuns.mock.calls.length).toBe(runsBefore);
+  });
+
+  it("asks the document when the panel opens, not the pass's last read", () => {
+    expect(admin.fetchGroupAgent).toHaveBeenCalledWith("Team", true);
+  });
+
+  it("catches both up when the stream reconnects", async () => {
+    const runsBefore = admin.fetchGroupRuns.mock.calls.length;
+    const switchBefore = admin.fetchGroupAgent.mock.calls.length;
+
+    await act(async () => {
+      for (const fn of stream.reconnects) fn();
+      await Promise.resolve();
+    });
+
+    expect(admin.fetchGroupRuns.mock.calls.length).toBe(runsBefore + 1);
+    expect(admin.fetchGroupAgent.mock.calls.length).toBe(switchBefore + 1);
+    expect(admin.fetchGroupAgent).toHaveBeenLastCalledWith("Team", true);
   });
 });

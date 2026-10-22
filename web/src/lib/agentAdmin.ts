@@ -61,12 +61,19 @@ export async function fetchAgentMetrics(
  */
 export async function fetchGroupRunsPage(
   group: string,
-  opts: { state?: "running" | "live"; offset?: number; limit?: number } = {},
+  opts: {
+    state?: "running" | "live";
+    offset?: number;
+    limit?: number;
+    /** Ask for the plan with each run; false for a surface that only reads headers. */
+    plan?: boolean;
+  } = {},
 ): Promise<{ runs: RunSummary[]; more: boolean }> {
   const query = new URLSearchParams();
   if (opts.state) query.set("state", opts.state);
   if (opts.offset) query.set("offset", String(opts.offset));
   if (opts.limit !== undefined) query.set("limit", String(opts.limit));
+  if (opts.plan === false) query.set("plan", "0");
   const suffix = query.toString();
   const res = await apiFetch<{ runs?: RunSummary[]; more?: boolean }>(
     `/api/groups/${encodeURIComponent(group)}/runs${suffix ? `?${suffix}` : ""}`,
@@ -78,9 +85,11 @@ export async function fetchGroupRunsPage(
 export async function fetchGroupRuns(
   group: string,
   state?: "running" | "live",
+  opts: { plan?: boolean } = {},
 ): Promise<RunSummary[]> {
   const page = await fetchGroupRunsPage(group, {
     ...(state ? { state } : {}),
+    ...opts,
     limit: 1000,
   });
   return page.runs;
@@ -251,10 +260,17 @@ export async function setAgentSwitch(enabled: boolean): Promise<AgentSwitch> {
  * Whether the installation's agent is on, as a member of the group reads it.
  *
  * The chat names the state in its header for everybody in the group, not only
- * for an administrator, so it asks the group's own surface.
+ * for an administrator, so it asks the group's own surface. `fresh` is for a
+ * reader an event just told about the file: the server answers from the value
+ * its pass already holds otherwise.
  */
-export async function fetchGroupAgent(group: string): Promise<AgentSwitch> {
-  return await apiFetch<AgentSwitch>(`/api/groups/${encodeURIComponent(group)}/agent`);
+export async function fetchGroupAgent(
+  group: string,
+  fresh = false,
+): Promise<AgentSwitch> {
+  return await apiFetch<AgentSwitch>(
+    `/api/groups/${encodeURIComponent(group)}/agent${fresh ? "?fresh=1" : ""}`,
+  );
 }
 
 /** Stop a running run: end it as cancelled, as a member of the group. */
