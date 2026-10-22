@@ -638,11 +638,13 @@ export function followAccount(
   authorization: string,
   out: ServerResponse,
   origin: string | null,
+  /** Drop this tab's own upstream stream when the follow verifies, if one is held. */
+  dropUpstream?: () => void,
 ): void {
   const entry = prepare(username, accountId, authorization, origin);
   if (!entry) return;
   if (entry.state === "verified") addFanoutTab(entry, out);
-  else attachRelay(username, out, () => {});
+  else attachRelay(username, out, dropUpstream ?? (() => {}));
 }
 
 /**

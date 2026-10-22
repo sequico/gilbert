@@ -18,6 +18,21 @@ export interface AgentSwitch {
   enabled: boolean;
 }
 
+/**
+ * The last value this process read or wrote.
+ *
+ * A surface that names the switch (the chat's header, for every member) would
+ * otherwise cost a session of the Master per reader: the pass refreshes this on
+ * every run, a write updates it, and a reader told that the file changed asks
+ * for a fresh read instead of trusting it.
+ */
+let lastKnown: AgentSwitch | null = null;
+
+/** The switch as this process last read or wrote it, or null before any read. */
+export function rememberedAgentSwitch(): AgentSwitch | null {
+  return lastKnown;
+}
+
 export async function readAgentSwitch(ctx: Ctx, accountId: string): Promise<AgentSwitch> {
   /*
    * Absent is on — a deployment that never chose has the agent it shipped —
@@ -34,10 +49,14 @@ export async function readAgentSwitch(ctx: Ctx, accountId: string): Promise<Agen
       `The agent's switch is there and cannot be read, so the agent does not act: ${errorMessage(err)}`,
     );
   }
-  if (!found) return { enabled: true };
+  if (!found) {
+    lastKnown = { enabled: true };
+    return lastKnown;
+  }
   try {
     const doc = JSON.parse(found.text) as { enabled?: unknown };
-    return { enabled: doc.enabled !== false };
+    lastKnown = { enabled: doc.enabled !== false };
+    return lastKnown;
   } catch {
     throw new Error(
       "The agent's switch is not a document this build can read, so the agent does not act; it has been left exactly as it is.",
@@ -51,4 +70,5 @@ export async function writeAgentSwitch(
   enabled: boolean,
 ): Promise<void> {
   await writeAppFileAt(ctx, accountId, AGENT_SWITCH_FILE, { v: 1, enabled });
+  lastKnown = { enabled };
 }

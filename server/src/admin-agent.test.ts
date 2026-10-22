@@ -51,11 +51,14 @@ const { createApp } = await import("./app.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { filesAccountId, writeAppFileAt } = await import("./appFolder.js");
 const { releaseClaim, takeClaim } = await import("./agent/claim.js");
+const { AGENT_SWITCH_FILE } = await import("./agent/switch.js");
 const { correctFactByPerson, forgetFact, listMemory, rememberFact } = await import(
   "./agent/memory.js"
 );
 const { runPath } = await import("./agent/runs.js");
-const { appendStep, recordStep, RUN_VERSION, startRun } = await import("./shared/run.js");
+const { appendStep, recordStep, RUN_VERSION, startRun, waitUntil } = await import(
+  "./shared/run.js"
+);
 
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
@@ -630,4 +633,71 @@ test("a member reads the installation's switch from the group's own surface", as
     `/api/groups/${encodeURIComponent("nobody@example.org")}/agent`,
   );
   assert.equal(stranger.status, 403, "a group this session is not in is not readable");
+});
+
+test("the switch is answered from what the pass holds, or read fresh when an event names it", async () => {
+  /*
+   * A member's chat names the switch in its header, and the pass reads that
+   * document on every run: the process already knows the answer, so the route
+   * must not open a session of the Master per reader. `fresh=1` is the reader
+   * saying an event named the file, which is the one case that reads again.
+   */
+  const turned = await call("/api/admin/agent/switch", {
+    method: "PUT",
+    body: JSON.stringify({ enabled: true }),
+  });
+  assert.equal(turned.status, 200, "the write is what the process holds");
+
+  // Written behind the process, as another copy or another admin would.
+  await writeAppFileAt(master, memoryAccount, AGENT_SWITCH_FILE, {
+    v: 1,
+    enabled: false,
+  });
+
+  const cached = await call(`/api/groups/${encodeURIComponent(TEAM)}/agent`);
+  assert.equal(
+    (cached.body as { enabled: boolean }).enabled,
+    true,
+    "without an event, the value the pass holds answers",
+  );
+
+  const fresh = await call(`/api/groups/${encodeURIComponent(TEAM)}/agent?fresh=1`);
+  assert.equal(
+    (fresh.body as { enabled: boolean }).enabled,
+    false,
+    "and an event names the file, so it is read again",
+  );
+});
+
+test("a live listing asked for headers keeps the wait and leaves the plan behind", async () => {
+  /*
+   * The chat watches the runs in flight but reads only what they wait for, so
+   * it asks for headers: the plan of every live run on every change is weight
+   * nobody draws there. The wait must survive, because that is the question.
+   */
+  const waiting = waitUntil(
+    startRun({
+      id: "live-question",
+      startedBy: { rule: "intake", instruction: null, woke: "chat created: m-9" },
+      plan: ["ask somebody which booking"],
+    }),
+    {
+      what: "Which booking?",
+      asked: { channel: "chat", id: "m-9" },
+      until: new Date(Date.now() + 60_000).toISOString(),
+    },
+  );
+  await writeAppFileAt(master, teamAccount, runPath(waiting.id), waiting);
+
+  const res = await call(
+    `/api/groups/${encodeURIComponent(TEAM)}/runs?state=live&plan=0`,
+  );
+  assert.equal(res.status, 200);
+  const { runs } = res.body as {
+    runs: Array<{ id: string; plan?: unknown; waiting: unknown }>;
+  };
+  const asked = runs.find((one) => one.id === "live-question");
+  assert.ok(asked, "the blocked run is in the live listing");
+  assert.equal(asked.plan, undefined, "no plan for a surface that reads headers");
+  assert.ok(asked.waiting, "and the wait the chat reads is still carried");
 });

@@ -50,7 +50,11 @@ import {
   replaceRun,
 } from "../agent/runs.js";
 import { AGENT_PASS_INTERVAL_MS } from "../agent/supervisor.js";
-import { readAgentSwitch, writeAgentSwitch } from "../agent/switch.js";
+import {
+  readAgentSwitch,
+  rememberedAgentSwitch,
+  writeAgentSwitch,
+} from "../agent/switch.js";
 import {
   appFolderState,
   type Ctx,
@@ -101,6 +105,7 @@ import {
   readJson,
   requireAdmin,
   requireSession,
+  resolveInstallationAccount,
 } from "./shared.js";
 
 /** The most runs one group-wide Stop closes, so its answer fits the browser's deadline. */
@@ -405,6 +410,11 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * the agent there — not only an administrator. The switch is the
    * installation's, so it is read from the Master's account; the gate is the
    * same member grant the group's runs use.
+   *
+   * The pass reads this document on every run and the admin write updates it, so
+   * the value this process already holds answers the surface for free. `fresh=1`
+   * is the reader saying an event named the file: then the document is read
+   * again, which is the one case where a member's request opens a session.
    */
   api.get("/groups/:name/agent", requireSession, async (c) => {
     const name = c.req.param("name") ?? "";
@@ -413,8 +423,14 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const ctx = await masterCtx(c.get("session"));
-      return c.json(await readAgentSwitch(ctx, filesAccountId(ctx)));
+      if (c.req.query("fresh") !== "1") {
+        const remembered = rememberedAgentSwitch();
+        if (remembered) return c.json(remembered);
+      }
+      const installation = await resolveInstallationAccount(c.get("session"));
+      if (!installation)
+        throw new GroupAccessError({ code: "agent_not_configured" }, 409);
+      return c.json(await readAgentSwitch(installation.master, installation.id));
     } catch (err) {
       return doorFailure(c, err);
     }
@@ -612,9 +628,12 @@ export function registerAgentRoutes(api: Hono<Env>): void {
        * The history list is a header per run; the plan travels only to the
        * surface that watches a run, where a step turning from open to done is
        * the thing being watched. A page of a hundred past runs carrying every
-       * step of all of them is weight nobody reads.
+       * step of all of them is weight nobody reads. `plan=0` is a surface that
+       * watches the runs but not their steps — the chat's questions read only
+       * what a run waits for — and it is answered with headers too.
        */
-      const runs = state === undefined ? page.map(headerOf) : page;
+      const runs =
+        state === undefined || c.req.query("plan") === "0" ? page.map(headerOf) : page;
       return c.json({
         group: name,
         runs,

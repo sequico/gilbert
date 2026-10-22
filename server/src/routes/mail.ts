@@ -333,6 +333,37 @@ export function registerMailRoutes(api: Hono<Env>): void {
       // relay, and is moved to fan-out the moment the account verifies.
       const accountId = upstream.primaryAccounts?.[CAPABILITIES.mail];
       const origin = pushOrigin(c);
+      /*
+       * The tab also follows the installation's own account (ADR 0024).
+       *
+       * A step an administrator checks on the installation's checklist is
+       * written in the Master's account, which no member is a member of, so a
+       * member's own subscription never covers it and the fan-out is what
+       * reaches them. The subscription is the installation's, made with the
+       * credential the deployment already holds and never the tab's; the frame
+       * is Stalwart's own StateChange -- an account and a state, no data -- and
+       * the reader answers it by re-reading through its own route, which
+       * decides what it may see.
+       *
+       * One resolution answers both this and the session payload (`ADR 0024`'s
+       * `installationAccount`), so the id the client filters on and the account
+       * subscribed here cannot be different accounts.
+       *
+       * Resolved before the branch so the relay gets the follow too: the first
+       * tab after a start is on the relay until the account verifies, and a tab
+       * that never asked would hear no installation change until it reconnected.
+       * The direct relay (`RAW_PUSH_RELAY=0`) is the one path this does not
+       * reach, because it hands the response back to the framework unwritten;
+       * the next connection lands on the fan-out and follows.
+       */
+      const installation = await resolveInstallationAccount(session);
+      const follow = installation
+        ? {
+            id: installation.id,
+            username: installation.master.username,
+            authorization: installation.master.authorization,
+          }
+        : null;
       if (
         accountId &&
         pushAttach(session.username, accountId, session.authorization, out, origin)
@@ -346,40 +377,19 @@ export function registerMailRoutes(api: Hono<Env>): void {
         out.writeHead(200, SSE_HEADERS);
         out.flushHeaders();
         out.write(": subscribed\n\n");
-        /*
-         * The tab also follows the installation's own account (ADR 0024).
-         *
-         * A step an administrator checks on the installation's checklist is
-         * written in the Master's account, which no member is a member of, so
-         * a member's own subscription never covers it and the fan-out is what
-         * reaches them. The subscription is the installation's, made with the
-         * credential the deployment already holds and never the tab's; the
-         * frame is Stalwart's own StateChange -- an account and a state, no
-         * data -- and the reader answers it by re-reading through its own
-         * route, which decides what it may see.
-         *
-         * One resolution answers both this and the session payload (`ADR 0024`'s
-         * `installationAccount`), so the id the client filters on and the account
-         * subscribed here cannot be different accounts.
-         *
-         * The fan-out needs the subscribe mode: the per-tab relay below carries
-         * the tab's own credential and cannot follow an account the credential
-         * does not hold. A deployment on that path hears no installation change,
-         * and its client keeps the panel it has until the next read.
-         */
-        const installation = await resolveInstallationAccount(session);
-        if (installation)
-          followAccount(
-            installation.master.username,
-            installation.id,
-            installation.master.authorization,
-            out,
-            origin,
-          );
+        if (follow)
+          followAccount(follow.username, follow.id, follow.authorization, out, origin);
         return RESPONSE_ALREADY_SENT;
       }
       if (config.rawPushRelay)
-        return relayPushRaw(c, url, session.authorization, session.username);
+        return relayPushRaw(
+          c,
+          url,
+          session.authorization,
+          session.username,
+          follow,
+          origin,
+        );
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
       const res = await fetch(url, {

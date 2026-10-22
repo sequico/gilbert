@@ -11,7 +11,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context } from "hono";
-import { attachRelay as pushAttachRelay } from "../../push.js";
+import { attachRelay as pushAttachRelay, followAccount } from "../../push.js";
 import {
   GENERIC_TYPES,
   isPdfType,
@@ -154,6 +154,8 @@ export function relayPushRaw(
   url: string,
   authorization: string,
   username?: string,
+  installation?: { id: string; username: string; authorization: string } | null,
+  origin?: string | null,
 ): Response {
   const out = (c.env as { outgoing: import("node:http").ServerResponse }).outgoing;
   const target = new URL(url);
@@ -199,6 +201,21 @@ export function relayPushRaw(
     req.destroy();
   };
   if (username) pushAttachRelay(username, out, migrate);
+  /*
+   * The installation's own account is followed here too: the tab holding this
+   * relay is the first after a start, and a follow that waited for the fan-out
+   * would leave it hearing no installation change until it reconnected. The
+   * same hook drops the relay when either subscription verifies.
+   */
+  if (installation)
+    followAccount(
+      installation.username,
+      installation.id,
+      installation.authorization,
+      out,
+      origin ?? null,
+      migrate,
+    );
   req.on("response", (res) => {
     if (migrated) {
       res.destroy();
