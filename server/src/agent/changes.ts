@@ -607,9 +607,9 @@ export async function workChanges(
         ...(document ? { document } : {}),
       },
       deps.readingCall(accountId, event),
-      // A file event carries its document above, so the turn needs few lookups
-      // at most; the other surfaces keep the full allowance.
-      { meter, ...(event.source === "files" ? { maxReads: 2 } : {}) },
+      // One lookup, as ADR 0038 says: a file event already carries its document
+      // above, and every surface shares the same ceiling.
+      { meter },
     );
     // The day's counter is the pass's own, and a decision call is spent on it
     // (ADR 0038): a change the agent looked at costs tokens even when no run
