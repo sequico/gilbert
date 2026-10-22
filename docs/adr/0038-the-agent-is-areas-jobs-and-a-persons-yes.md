@@ -293,9 +293,10 @@ with its `validTo`, never overwritten: the history is what lets a later run answ
 "since when" instead of "is it so".
 
 Durability stays Stalwart's: one document per entity and per fact in the group's
-own `gilbert/memory/`, and the search index is **rebuilt at boot** from those
-documents — an index is a cache of the store, not a second database, and the
-container stays disposable.
+own `gilbert/memory/`. The **vector a fact was written with is part of its
+document**, so the index in memory is rebuilt at boot from those vectors and a
+boot costs no model call — an index is a cache of the store, not a second
+database, and the container stays disposable.
 
 A turn does not read the memory; it **retrieves** it. The change's own words name
 the entities; those entities, their relations and the facts valid at the run's
@@ -308,8 +309,10 @@ it in the same write, and a duplicate of an existing (entity, predicate, value) 
 not written again.
 
 Limits, declared: a cap per entity, a TTL for facts nobody touches, and a text
-embedding only where the provider offers one — a deployment without it falls back
-to exact and temporal retrieval, and says so.
+embedding only where the installation offers one. The embedding is a **capability
+checked at connect, like `tools`**: a deployment without it retrieves by exact
+subject and validity, and the run records which retrieval it used — nobody
+mistakes a lexical answer for a semantic one.
 
 ### One instruction per group
 
