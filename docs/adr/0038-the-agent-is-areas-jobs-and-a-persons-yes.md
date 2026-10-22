@@ -288,9 +288,8 @@ spent the provider's default budget before writing anything.
 
 ### What a run says, and how it ends
 
-- Every outward message creates **the draft the boundary names** and returns its id;
-  no tool submits. `startedBy.sends` is the instruction's declaration that a draft is
-  wanted.
+- Every outward message creates **the draft the boundary names** and returns its
+  id; no tool submits, and nothing on the run declares that one should.
 - Before a `done` is believed, its plan is read as evidence. A `done` with **no
   finished step**, or with a refused step the run was not told about, is sent back
   once with the gap named; a second one with nothing finished ends `refused`. A
@@ -335,7 +334,9 @@ wherever an answer could carry it.
 ## Owed
 
 - The **judge's calibration** on a human sample: the judge is built and fires only
-  on a suspect plan, and what is owed is the sample it is measured against.
+  on a suspect plan, and what is owed is the sample it is measured against. It
+  runs on the installation's own model, so its verdict shares that model's blind
+  spots; an installation that has a second model owes the judge one of its own.
 - The **live embeddings** probe: similarity is built and pinned against a stub,
   and no provider that offers embeddings has answered it yet.
 - **Pruning** the closed facts the memory keeps (`ADR-0033 OWED: memory-pruning`).

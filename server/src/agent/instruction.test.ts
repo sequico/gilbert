@@ -82,7 +82,6 @@ test("a group's instruction is read from its own account, and no document is no 
       instruction: "Answer the shipper in the group's own words.",
       areas: ["mail", "files"],
       surfaces: undefined,
-      sends: false,
     },
     "and one it wrote is read whole, with the areas it works",
   );
@@ -92,7 +91,6 @@ test("a group's instruction is read from its own account, and no document is no 
     "off",
     "and every other surface off until it is named",
   );
-  assert.equal(held?.sends, false, "and sends nothing outward without a person's yes");
   await removeStored();
 });
 
@@ -140,11 +138,9 @@ test("the parser takes the version this build writes and refuses every other sha
       instruction: "Work by these words.",
       areas: ["mail"],
       surfaces: undefined,
-      sends: false,
     },
   );
   assert.equal(parsed.instruction.surfaces.chat, "watch");
-  assert.equal(parsed.instruction.sends, false, "and nothing outward without a person");
 
   const unknownKey = doc(["mail"], { retired: true });
   assert.ok(
@@ -166,11 +162,9 @@ test("the parser takes the version this build writes and refuses every other sha
       workorder: "off",
       calendar: "off",
     },
-    sends: true,
   });
   assert.ok("instruction" in pinned);
   assert.equal(pinned.instruction.surfaces.mail, "watch", "a matrix it carries is read");
-  assert.equal(pinned.instruction.sends, true, "and so is a declared send");
 
   for (const raw of [
     "[]",

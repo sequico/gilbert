@@ -26,6 +26,12 @@ export interface RunMeasure {
   said: string | null;
   /** Tokens the run spent, prompt and completion together. */
   tokens: number;
+  /**
+   * The part of the prompt the provider served from its own cache, when it says.
+   * The ADR's caching question — is the stable prefix cached? — is answered by
+   * this number over `tokens`, never by an assumption.
+   */
+  cachedTokens: number;
   /** Milliseconds the run spent in model calls and tools. */
   ms: number;
 }

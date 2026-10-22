@@ -68,8 +68,7 @@ test("every recorded answer still parses through today's parsers", () => {
     for (const call of recordedCalls(`${RECORDINGS}${file}`)) {
       if (!call.url.endsWith("/chat/completions")) continue;
       // The capability probe is a request of its own, not a turn of the agent.
-      if (call.system.startsWith('Answer in JSON: {"ok": true}')) continue;
-      if (call.tools.includes("gilbert_probe")) continue;
+      if (call.probe) continue;
       const body = answerOf(call);
       if (call.status !== 200 || !body) continue;
 
@@ -130,7 +129,7 @@ test("every recorded answer still parses through today's parsers", () => {
         decisions += 1;
         continue;
       }
-      if (call.system.includes("judge whether a run's report stands")) {
+      if (call.judge) {
         assert.equal(typeof (object as { stands?: unknown }).stands, "boolean");
         assert.equal(typeof (object as { why?: unknown }).why, "string");
         judgements += 1;

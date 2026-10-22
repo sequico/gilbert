@@ -373,17 +373,6 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
   if (needed === "never") return false;
   const act = tool.act(args);
   if (!act) return false;
-  /*
-   * A rule that declares that it sends is the authority an outward act asks for
-   * (ADR 0028, 0031) — for the correspondent whose change woke it. The group
-   * wrote the rule and its instruction says what to send, so the declaration
-   * reaches the thread that caused it; another address is a decision the run
-   * may ask a person for, never one it grants itself.
-   */
-  if (needed === "outward" && run.startedBy.sends === true) {
-    const wokeFrom = run.startedBy.wakeFrom?.trim().toLowerCase();
-    if (wokeFrom && act.target.trim().toLowerCase() === wokeFrom) return true;
-  }
   return run.authorisations.some(
     (one) =>
       one.authority === needed &&

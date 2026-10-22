@@ -36,8 +36,6 @@ export interface InstructionDoc {
   areas: AreaName[];
   /** Where a run may act, one mode per surface of the group's own account. */
   surfaces: SurfaceMatrix;
-  /** Whether the group's agent may send outward without a person's yes. */
-  sends: boolean;
 }
 
 /**
@@ -89,15 +87,12 @@ export function parseInstructionDocumentDetailed(
     return {
       problem: '"surfaces" must be one mode per surface of the group\'s account.',
     };
-  if (whole.sends !== undefined && typeof whole.sends !== "boolean")
-    return { problem: '"sends" must be true or false.' };
   return {
     instruction: {
       v: INSTRUCTION_VERSION,
       instruction: whole.instruction,
       areas: [...areas.areas],
       surfaces: whole.surfaces ?? { ...CHAT_ONLY },
-      sends: whole.sends ?? false,
     },
   };
 }

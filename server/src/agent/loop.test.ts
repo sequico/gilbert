@@ -440,10 +440,7 @@ type WatchList = Array<keyof SurfaceMatrix>;
  * The matrix watches the surfaces named and leaves the others on demand, which
  * is what a rule was before: an instruction that named an area could write it.
  */
-function instructionDoc(
-  watches: WatchList = ["mail"],
-  extra: { sends?: boolean } = {},
-): InstructionDoc {
+function instructionDoc(watches: WatchList = ["mail"]): InstructionDoc {
   const surfaces: SurfaceMatrix = {
     chat: "watch",
     mail: "ondemand",
@@ -459,7 +456,6 @@ function instructionDoc(
     instruction: "Answer the shipper within the day.",
     areas: areasOf(watches),
     surfaces,
-    sends: extra.sends ?? false,
   };
 }
 
@@ -475,9 +471,8 @@ function areasOf(watches: WatchList): AreaName[] {
 async function putInstructionInto(
   into: string,
   watches: WatchList = ["mail"],
-  extra: { sends?: boolean } = {},
 ): Promise<void> {
-  await writeAppFileAt(ctx, into, INSTRUCTION_FILE, instructionDoc(watches, extra));
+  await writeAppFileAt(ctx, into, INSTRUCTION_FILE, instructionDoc(watches));
 }
 
 /** The instruction every test's group writes, watching the surfaces it names. */
@@ -2741,54 +2736,6 @@ test("the groups are worked together, not one after another", async () => {
       `neither group waited for the other to finish (arrived=${arrived}, ${account}=${line})`,
     );
   }
-});
-
-test("the agent's own send is not a change a rule watching mail wakes on", async () => {
-  /*
-   * A send creates an Email in the group's Sent folder. Leaving it as group
-   * activity would let a rule watching mail answer the agent's own reply, and
-   * every answer begets another: the loop the chat's own-message skip prevents.
-   */
-  const _id = "own-send";
-  const group = "a3"; // the mock's group mailbox with its own sending identity
-  await putInstructionInto(group, ["mail"], { sends: true });
-  const agent = loop(HOLDER, { accounts: async () => [group] });
-  await agent.start();
-
-  answerWith({ facts: {} });
-  answerWith({
-    calls: [
-      {
-        name: "mail.send",
-        arguments: {
-          to: "ops@shipper.example",
-          subject: "re: the booking",
-          text: "filed with the booking",
-        },
-      },
-    ],
-  });
-  answerWith({ done: "sent the answer" });
-  await clientOf(ctx).call(
-    "Email/set",
-    {
-      accountId: group,
-      create: {
-        c: {
-          subject: "a booking to answer",
-          from: [{ email: "ops@shipper.example" }],
-          to: [{ email: "team@example.org" }],
-          mailboxIds: { [await inboxOf(group)]: true },
-        },
-      },
-    },
-    [CAPABILITIES.mail],
-  );
-  await agent.pass();
-  const afterFirst = seen.length;
-
-  await agent.pass();
-  assert.equal(seen.length, afterFirst, "the Sent message does not buy a decision call");
 });
 
 test("the switch off answers a mention and a mail that names the agent alone, with no model call", async () => {

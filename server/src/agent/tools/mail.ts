@@ -11,7 +11,6 @@
 
 import { readGroupLabels, writeGroupLabels } from "../../account.js";
 import type { Ctx } from "../../appFolder.js";
-import { groupMembers } from "../../groupAccess.js";
 import { cachedMail } from "../../mailCache.js";
 import { sameAddress } from "../../shared/address.js";
 import { CAPABILITIES } from "../../shared/capabilities.js";
@@ -27,7 +26,6 @@ import {
   type LabelCatalogEntry,
 } from "../../shared/labels.js";
 import { mailboxesOf as accountMailboxes } from "../../shared/mailboxes.js";
-import { QUESTION_TTL_MS, type RunWait } from "../../shared/run.js";
 import {
   buildFilter,
   parseQuery,
@@ -585,16 +583,6 @@ function messageTextOf(message: Record<string, unknown>): string {
   return typeof message.preview === "string" ? message.preview : "";
 }
 
-/** Whether an address is one this group itself sends as. */
-export async function isGroupAddress(
-  ctx: Ctx,
-  accountId: string,
-  address: string,
-): Promise<boolean> {
-  const identities = await sendingIdentities(ctx, accountId);
-  return identities.some((identity) => sameAddress(identity.email, address));
-}
-
 export const draftReply = defineTool({
   name: "mail.draft",
   description:
@@ -976,102 +964,6 @@ export async function sendMail(
   }
   return { id: emailId, from: from.email };
 }
-
-export const sendOutward = defineTool({
-  name: "mail.send",
-  description:
-    "Send a message from this group to anybody. This is the act that reaches " +
-    "somebody, so it is refused until a person's own words license exactly this " +
-    "message — the address it goes to and the words it carries — and a license for " +
-    "one message reaches no other.",
-  authority: "outward",
-  writes: true,
-  surface: "mail",
-  spend: { steps: 1 },
-  act: (raw: unknown) => {
-    const one = isRecord(raw) ? raw : {};
-    /*
-     * The licence is the recipient and the body: the words the person approved.
-     * The subject is the agent's own line, like the envelope — a licence is not
-     * for a sentence the person never wrote. If a subject is ever to be part of
-     * what a person authorises, it moves here with the reading that produces
-     * their licence.
-     */
-    return {
-      target: typeof one.to === "string" ? one.to.trim().toLowerCase() : "",
-      // Trimmed like the licence it is compared with: the person's words and the
-      // call differ by the newline a model puts around them, and nothing else.
-      content: typeof one.text === "string" ? one.text.trim() : null,
-    };
-  },
-  args: {
-    to: { type: "text" },
-    subject: { type: "text" },
-    text: { type: "text" },
-  },
-  parse: (raw: unknown) => {
-    const args = argsRecord(raw);
-    return {
-      to: textArg(args, "to"),
-      subject: textArg(args, "subject"),
-      text: textArg(args, "text"),
-    };
-  },
-  run: async ({ ctx, accountId }, { to, subject, text }) => {
-    const sent = await sendMail(ctx, accountId, { to, subject, text });
-    return { id: sent.id, to, subject };
-  },
-});
-
-export const askByMail = defineTool({
-  name: "mail.ask",
-  description:
-    "Ask one person a question by mail and leave the run waiting on their answer. " +
-    "The question goes from the group's own identity to a principal who has access " +
-    "to this group, and the answer is the message that replies to it. Use it when " +
-    "the person works by mail; chat.ask asks in the group's conversation.",
-  authority: "reversible",
-  writes: true,
-  surface: "mail",
-  waits: true,
-  spend: { steps: 1 },
-  args: {
-    to: { type: "text" },
-    subject: { type: "text" },
-    text: { type: "text" },
-  },
-  parse: (raw: unknown) => {
-    const args = argsRecord(raw);
-    return {
-      to: textArg(args, "to"),
-      subject: textArg(args, "subject"),
-      text: textArg(args, "text"),
-    };
-  },
-  run: async ({ ctx, accountId }, { to, subject, text }) => {
-    const members = await groupMembers(ctx, accountId);
-    if (!members)
-      throw new ToolError(
-        "no_roster",
-        "The mail server would not say who has access to this group, so nobody can be asked by mail.",
-        409,
-      );
-    const address = to.trim().toLowerCase();
-    if (!members.includes(address))
-      throw new ToolError(
-        "not_a_member",
-        `"${to}" is not a principal with access to this group, and a question by mail reaches nobody else.`,
-        403,
-      );
-    const sent = await sendMail(ctx, accountId, { to: address, subject, text });
-    const wait: RunWait = {
-      what: text,
-      asked: { channel: "mail", id: sent.id },
-      until: new Date(Date.now() + QUESTION_TTL_MS).toISOString(),
-    };
-    return { id: sent.id, to: address, subject, wait };
-  },
-});
 
 export const defineLabel = defineTool({
   name: "mail.label",

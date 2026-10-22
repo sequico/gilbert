@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { declaredAreas, MAX_DECLARED_AREAS } from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
-import { areaOf, catalogueFor, isAreaTool, selectedAreas } from "./areas.js";
+import { catalogueFor, selectedAreas } from "./areas.js";
 import { TOOLS } from "./tools.js";
 
 /**
@@ -50,16 +50,6 @@ test("the selection keeps reading free and narrows the four area writes", () => 
     null,
     "a job whose area is not declared is not offered at all",
   );
-});
-
-test("a tool whose name names no area is refused, not guessed at", () => {
-  assert.throws(() => areaOf("frobnicate.thing"), /names no area/);
-  assert.throws(() => areaOf("mail"), /names no area/);
-});
-
-test("a prefix that is not the area's name still lands in its area", () => {
-  assert.equal(areaOf("workorder.list"), "workorders");
-  assert.ok(!isAreaTool("run.read"), "the harness's own tool is in no area");
 });
 
 test("the areas of a run are its instruction's and its matrix's, plus the three", () => {
@@ -110,18 +100,6 @@ test("the matrix names the areas a group works, and forgets the ones turned off"
   );
 });
 
-test("the selection narrows what a run may change, never what it may read", () => {
-  const catalogue = [
-    { name: "mail.search", writes: false },
-    { name: "mail.send", writes: true },
-    { name: "calendar.schedule", writes: true },
-    { name: "run.read" },
-  ];
-  const picked = catalogueFor(catalogue, ["mail", "chat", "knowledge", "memory"]);
-  assert.deepEqual(
-    picked.map((tool) => tool.name),
-    ["mail.search", "mail.send", "run.read"],
-    "reading stays free; a write outside the areas is not offered",
-  );
-  assert.equal(catalogueFor(catalogue, null), catalogue, "no matrix, nothing to select");
+test("a catalogue with no areas selected is handed whole", () => {
+  assert.equal(catalogueFor(TOOLS, null), TOOLS, "no matrix, nothing to select");
 });

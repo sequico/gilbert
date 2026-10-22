@@ -53,10 +53,9 @@ import {
   ToolError,
 } from "./tools/define.js";
 import { JOBS } from "./tools/jobs.js";
-import { isGroupAddress, readMessageForAnswer } from "./tools/mail.js";
 
 export type { AnyTool, ArgSpec, ImageReader, ToolCall };
-export { argSchema, defineTool, isGroupAddress, mayRun, readMessageForAnswer };
+export { argSchema, defineTool, mayRun };
 
 /**
  * Every job this build has (ADR 0038).

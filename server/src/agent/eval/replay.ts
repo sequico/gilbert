@@ -15,8 +15,10 @@ import { dirname } from "node:path";
 /** One recorded exchange: what was asked, what was offered, and the answer. */
 export interface RecordedCall {
   url: string;
-  /** The system turn, which says what kind of answer was asked for. */
-  system: string;
+  /** Whether the request was the capability probe, which is not a turn of the agent. */
+  probe: boolean;
+  /** Whether the system turn asked for a judgement, which is a turn of its own. */
+  judge: boolean;
   /** The job names the call offered as `tools`, empty for a decision. */
   tools: string[];
   status: number;
@@ -38,19 +40,24 @@ export function installRecording(file: string): void {
       (url.endsWith("/chat/completions") || url.endsWith("/models"))
     ) {
       /*
-       * The request is kept as what the replay needs — its system turn and the
-       * catalogue it offered — not as the whole prompt: the run's data is not
-       * the regression's business, and the file stays small.
+       * The request is kept as what the replay needs — whether it asked for a
+       * judgement and the catalogue it offered — not as the whole prompt: the
+       * run's data is not the regression's business, and the file stays small.
        */
-      let system = "";
+      let probe = false;
+      let judge = false;
       let tools: string[] = [];
       try {
         const asked = JSON.parse(body) as {
           messages?: Array<{ content?: unknown }>;
           tools?: Array<{ function?: { name?: unknown } }>;
         };
-        if (typeof asked.messages?.[0]?.content === "string")
-          system = asked.messages[0].content;
+        const system =
+          typeof asked.messages?.[0]?.content === "string"
+            ? asked.messages[0].content
+            : "";
+        probe = system.startsWith('Answer in JSON: {"ok": true}');
+        judge = system.includes("judge whether a run's report stands");
         tools = (asked.tools ?? []).flatMap((one) =>
           typeof one.function?.name === "string" ? [one.function.name] : [],
         );
@@ -59,7 +66,7 @@ export function installRecording(file: string): void {
       }
       appendFileSync(
         file,
-        `${JSON.stringify({ url, system, tools, status: res.status, response: text } satisfies RecordedCall)}\n`,
+        `${JSON.stringify({ url, probe, judge, tools, status: res.status, response: text } satisfies RecordedCall)}\n`,
       );
     }
     return new Response(text, { status: res.status, headers: res.headers });

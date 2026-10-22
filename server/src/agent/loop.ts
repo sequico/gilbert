@@ -73,7 +73,6 @@ import {
   readVisibleFileBytes,
   writeAppFileAt,
 } from "../appFolder.js";
-import { groupMembers } from "../groupAccess.js";
 import { postChatMessage, readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
@@ -176,8 +175,6 @@ import { READ_BYTES_MAX, readFileText } from "./tools/content.js";
 import {
   type AnyTool,
   type ImageReader,
-  isGroupAddress,
-  readMessageForAnswer,
   runTool,
   TOOLS,
   type ToolCall,
@@ -547,10 +544,6 @@ export class AgentLoop {
   >();
   /** Runs a pass tried while nothing waits on them: a failure is not retried at once. */
   private readonly stuckUntil = new Map<string, number>();
-  /** One roster read per account per pass: an answer is a mail-minute apart. */
-  private readonly members = new Map<string, Promise<string[] | null>>();
-  /** One Message-IDs read per asked message, kept for the pass. */
-  private readonly messageIds = new Map<string, string[]>();
   /**
    * The state each account's last write in **this pass** produced. A due run's
    * record carries the token of the pass's listing, which the first write of
@@ -690,8 +683,6 @@ export class AgentLoop {
     forgetMemoryStores();
     this.passState.clear();
     this.runState.clear();
-    this.members.clear();
-    this.messageIds.clear();
     /*
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the
@@ -1335,9 +1326,6 @@ export class AgentLoop {
         // says why it exists without reading the source again.
         ...(about ? { about } : {}),
         ...(by ? { by } : {}),
-        // The instruction's own declaration, carried by the run: the guard reads
-        // it, and so does the correspondent it answers.
-        sends: instruction.sends,
         wakeFrom,
         // The whole drop this run answers, so its plan reads the names instead
         // of listing the folder again (ADR 0034).
@@ -1352,29 +1340,29 @@ export class AgentLoop {
   }
 
   /**
-   * The run a change answers: the one this account parked on this very question.
+   * The run a person's answer continues: the one parked on this very question.
    *
-   * A person's answer arrives in the group's own chat as a message of its own,
-   * addressed to nothing the change log can see: what ties it to the run that
+   * A question is asked in the group's own conversation (ADR 0029, 0038), so its
+   * answer arrives there as a message of its own: what ties it to the run that
    * asked is the message it replies to — the very sentence the run recorded as
-   * its wait — and the sender being the agent rather than the person. So the
-   * change is the message, the message is read at the path the change names
+   * its wait — and the sender being a person rather than the agent. So the change
+   * is the message, the message is read at the path the change names
    * (`groupChat.ts`), and `repliesToAuthor` (`shared/chat.ts`) answers whether it
    * is addressed to anything the agent wrote; the run that asked is the one whose
    * `waiting.asked` is that parent, and the step the record gains names the
    * message the answer itself came in.
    *
-   * Nothing else is read: a change on another surface, a removal, a message that
-   * is not one, a message that replies to nobody and a question no run of this
-   * account is parked on all answer null without a single extra read.
+   * A mail answers nothing: an outward message is a draft a person sends
+   * (ADR 0041), so no run ever waits on one. Nothing else is read: a change on
+   * another surface, a removal, a message that is not one, a message that replies
+   * to nobody and a question no run of this account is parked on all answer null
+   * without a single extra read.
    */
   private async runAnsweredBy(
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
   ): Promise<AnsweredRun | "already" | RefusedAnswer | null> {
-    if (event.source === "mail")
-      return await this.mailAnsweredBy(accountId, event, records);
     if (event.source !== "chat" || event.change === "destroyed") return null;
     const message = await readChatMessageAt(this.ctx, accountId, event.where);
     if (!message) return null;
@@ -1403,128 +1391,6 @@ export class AgentLoop {
       at: message.at,
       message: { channel: "chat", id: message.id },
     };
-  }
-
-  /**
-   * The run a **mail** message answers (ADR 0029).
-   *
-   * Mail is correlated the way mail is: by the thread. A reply carries the message
-   * ids it answers (`inReplyTo`, `references`), and the run that asked is the one
-   * whose question — the message it recorded as its wait — is one of them. Nothing
-   * is read when no run of this account waits on mail; the sender must not be the
-   * group itself, because the question went out from the group's own identity.
-   */
-  private async mailAnsweredBy(
-    accountId: string,
-    event: AccountEvent,
-    records: readonly RunRecord[],
-  ): Promise<AnsweredRun | "already" | RefusedAnswer | null> {
-    if (event.change === "destroyed") return null;
-    const parked = records.filter(
-      ({ run }) => run.state === "blocked" && run.waiting?.asked?.channel === "mail",
-    );
-    if (!parked.length) return null;
-    // Who may speak: the principals with access to this group, and the agent
-    // itself (an echo is refused as its own). A server that will not name the
-    // roster answers nobody, rather than trusting the sender line.
-    const members = await this.membersOf(accountId);
-    if (!members) return null;
-    const reply = await readMessageForAnswer(this.ctx, accountId, event.where, {
-      own: this.ctx.username,
-      known: [...members, this.ctx.username],
-    });
-    if (!reply?.thread.length || !reply.from || !reply.text.trim()) return null;
-    if (await isGroupAddress(this.ctx, accountId, reply.from)) return null;
-    if (answeredAlready(records, "mail", event.where)) return "already";
-    /*
-     * The thread says which run this answers, and that answer is needed before
-     * the word is judged: a reply that is not its sender's own word is recorded
-     * on the run it would have continued, so the person's answer and its
-     * refusal are both on the record.
-     */
-    const askedIds = parked
-      .map((record) => record.run.waiting?.asked?.id)
-      .filter((id): id is string => typeof id === "string");
-    const idsOf = await this.messageIdsOf(accountId, askedIds);
-    for (const record of parked) {
-      const asked = record.run.waiting?.asked;
-      if (!asked) continue;
-      const ids = idsOf.get(asked.id) ?? [];
-      if (!ids.some((id) => reply.thread.includes(id))) continue;
-      const message: RunMessageRef = { channel: "mail", id: event.where };
-      if (!reply.word)
-        return {
-          record,
-          at: reply.at ?? new Date().toISOString(),
-          code: reply.refusal ?? "not_authenticated",
-          from: reply.from,
-          message,
-        };
-      return {
-        run: takeAnswer(record.run, asked, message, reply.text),
-        asked: record.run.waiting?.what ?? "",
-        said: reply.text,
-        from: reply.from,
-        at: reply.at ?? new Date().toISOString(),
-        message,
-      };
-    }
-    return null;
-  }
-
-  /**
-   * One roster read per account per pass.
-   *
-   * A page of mail changes asks who may speak about every one of them, and the
-   * roster is the same answer within the pass; the next pass reads it again, so
-   * a membership change is seen.
-   */
-  private membersOf(accountId: string): Promise<string[] | null> {
-    const held = this.members.get(accountId);
-    if (held) return held;
-    const read = groupMembers(this.ctx, accountId);
-    this.members.set(accountId, read);
-    return read;
-  }
-
-  /**
-   * The Message-IDs each of these messages was filed under, in one read: a
-   * reply names them in its thread.
-   *
-   * Asking per parked run made a mail answer cost one round trip for every
-   * question the account is waiting on, and the same asked ids are read again
-   * for every new mail of the page; each is fetched once per pass.
-   */
-  private async messageIdsOf(
-    accountId: string,
-    emailIds: readonly string[],
-  ): Promise<Map<string, string[]>> {
-    const idsOf = new Map<string, string[]>();
-    const missing = emailIds.filter((id) => !this.messageIds.has(id));
-    if (missing.length) {
-      const client = clientOf(this.ctx);
-      const size = client.maxObjectsInGet;
-      for (let at = 0; at < missing.length; at += size) {
-        const answer = await client.call<{
-          list?: Array<{ id?: unknown; messageId?: unknown }>;
-        }>(
-          "Email/get",
-          { accountId, ids: missing.slice(at, at + size), properties: ["messageId"] },
-          [CAPABILITIES.mail],
-        );
-        for (const one of answer.list ?? []) {
-          if (typeof one.id !== "string") continue;
-          this.messageIds.set(
-            one.id,
-            Array.isArray(one.messageId)
-              ? one.messageId.filter((id): id is string => typeof id === "string")
-              : [],
-          );
-        }
-      }
-    }
-    for (const id of emailIds) idsOf.set(id, this.messageIds.get(id) ?? []);
-    return idsOf;
   }
 
   /**
@@ -1690,9 +1556,13 @@ export class AgentLoop {
      * The measures go to the collector before the document is written, so a
      * refusal is one of the gaps the document then carries: a week read from the
      * documents is the measure without a collector, and a collector that is down
-     * is said rather than silently absent (ADR 0038).
+     * is said rather than silently absent (ADR 0038). The operator's environment
+     * wins over the document, as the ADR allows: a collector is a deployment's
+     * fact, and one process may point at a local one without editing the
+     * installation.
      */
-    if (this.limits.otlp) {
+    const collector = process.env.GILBERT_AGENT_OTLP?.trim() || this.limits.otlp;
+    if (collector) {
       const measures = [
         ...this.outbox.splice(0),
         {
@@ -1709,7 +1579,7 @@ export class AgentLoop {
         },
       ];
       try {
-        await emitMeasures(this.limits.otlp, measures);
+        await emitMeasures(collector, measures);
       } catch (err) {
         // Dropped rather than retried: the run documents hold the same measures,
         // and a collector that is down must not make every pass owe them.

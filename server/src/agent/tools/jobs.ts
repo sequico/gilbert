@@ -187,6 +187,10 @@ function job(spec: JobSpec): AnyTool {
               ]),
             ),
           },
+          // The discriminator is the one argument a call cannot leave out: the
+          // endpoint is chosen by it, and a provider can refuse its absence
+          // before the step is paid for (the eval recorded a `say` without one).
+          required: [spec.discriminator],
           additionalProperties: false,
         })),
       }),

@@ -22,46 +22,6 @@ import {
 import type { SurfaceMatrix } from "../shared/surfaces.js";
 
 /**
- * Prefixes that name no area: the agent's own record (`run.read`), which every
- * run may consult, is a tool of the harness rather than of a product surface.
- */
-export const CONTEXT_TOOL_PREFIXES: readonly string[] = ["run"];
-
-function prefixOf(toolName: string): string | null {
-  const dot = toolName.indexOf(".");
-  return dot > 0 ? toolName.slice(0, dot) : null;
-}
-
-/** A tool's prefix is the area's own name, and `areaOfSource` is the one mapping
- * (`workorder` is the workorders area) — there is no second table to keep. */
-function areaOrNull(toolName: string): AreaName | null {
-  const prefix = prefixOf(toolName);
-  return prefix === null ? null : areaOfSource(prefix);
-}
-
-/** Whether a tool belongs to an area rather than to the harness. */
-export function isAreaTool(toolName: string): boolean {
-  return areaOrNull(toolName) !== null;
-}
-
-/**
- * The area a tool belongs to, from its name's own prefix.
- *
- * A tool's name is `area.action` by construction (the catalogue's naming rule),
- * so the mapping is read and not maintained twice. A name that matches no area is
- * a defect in the tool, and it is refused here rather than silently handed to
- * every run.
- */
-export function areaOf(toolName: string): AreaName {
-  const found = areaOrNull(toolName);
-  if (found === null)
-    throw new Error(
-      `The tool "${toolName}" names no area: its name must be area.action, with area one of ${AREA_NAMES.join(", ")}.`,
-    );
-  return found;
-}
-
-/**
  * The areas one run may use: what its group's instruction declares and what the
  * run's own surface matrix named, plus the transversal three.
  *
@@ -106,8 +66,8 @@ function areasOfSurfaces(surfaces: SurfaceMatrix | undefined): readonly AreaName
  * the selection narrows what a run may change, never what it may look at — and
  * the four area writes (`place`, `draft`, `event`, `settle`) keep only the
  * values whose area the instruction declared. The narrowing is each job's own
- * (`AnyTool.narrow`): a tool that does not narrow keeps the old filter, which
- * is what a catalogue built by a caller or a test still gets.
+ * (`AnyTool.narrow`); a tool that does not narrow is a test's fixture and is
+ * offered as it is.
  */
 export function catalogueFor<
   T extends {
@@ -118,12 +78,8 @@ export function catalogueFor<
 >(catalogue: readonly T[], areas: readonly AreaName[] | null): readonly T[] {
   if (areas === null) return catalogue;
   return catalogue.flatMap((tool) => {
-    if (tool.narrow) {
-      const kept = tool.narrow(areas);
-      return kept ? [kept] : [];
-    }
-    return !tool.writes || !isAreaTool(tool.name) || areas.includes(areaOf(tool.name))
-      ? [tool]
-      : [];
+    if (!tool.narrow) return [tool];
+    const kept = tool.narrow(areas);
+    return kept ? [kept] : [];
   });
 }

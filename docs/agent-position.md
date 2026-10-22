@@ -23,25 +23,34 @@ reading the session that rebuilt the agent on ADR 0038.
 
 ## Where we are behind
 
-- **The catalogue**: 45 endpoint-shaped tools, with contracts the model does not
-  read. The 48 `"id" must be text`, 42 `"fact" is too long` and 9 invented tool
-  names say it: the bottleneck is not reasoning, it is the interface. The
-  state of the art is few job-shaped tools, a narrow schema, a repairable error.
-  This is gap number one.
-- **The judge on the evidence is missing**: a `done` with one refused step and
-  one successful step still passes. The corpus says that is 51% of the
-  successes.
-- **The protocol is not native function calling**: it is JSON in the text, and
-  that is the mechanical cause of most of the format refusals.
-- **The measure is newborn**: 3 tasks of 10, not in CI, no history yet.
+- **The measure's reliability.** The eval prints `pass@1` with one retry of a
+  failure, not `pass^k`: one task of ten answering only on the retry is already a
+  signal that a single run overstates. τ-bench is the reference, and the number a
+  person experiences is the repeated one.
+- **The judge's independence and calibration.** The judge fires only on a suspect
+  plan, which is right, but it runs on the installation's own model — the one
+  that wrote the report — and has no human sample behind it. The literature is
+  explicit on both counts: a judge should not grade its own family, and an
+  uncalibrated judge is an opinion with a schema.
+- **The memory's read cost.** The index is rebuilt from `memory/` on every pass
+  that needs it: correct, and O(facts) per pass up to the 5 000 cap. The tree
+  already has the pattern that avoids it (the run listing's FileNode state).
+- **The provider's schema is advisory where it matters.** The live provider
+  refuses `json_schema` and accepts `json_object`; the discriminator is now
+  required, the rest is the endpoint parser's door. That is honest, and it means
+  the model can still pay for an argument the schema could have refused.
+- **Trajectory checks are implicit.** The guard forbids the act and the run's
+  record holds every step, but nothing prints "tool calls valid / step budget /
+  forbidden action touched" as a measure of its own.
 
 ## Verdict
 
-In the architecture of boundaries — permissions, drafts, idempotence, budget,
-audit — we are solid, and on some points (a mandatory draft, areas, an eval born
-from the corpus) ahead. In the model↔tools contact we are one generation behind:
-that is where the next work goes, and now we have the instrument to measure it.
-
-So: not state of the art in absolute terms — state of the art in the skeleton,
-first generation in the contact. It is a better base than the average, with a
-known and measurable bottleneck.
+The contact is no longer the bottleneck: eight job-shaped tools, native function
+calling as the only protocol, a structured decision turn, a repairable refusal and
+a schema with one branch per value. In the architecture of boundaries —
+permissions, drafts, idempotence, budget, audit — we are solid, and in places (a
+mandatory draft, eight jobs, a temporal memory, an eval born from the corpus)
+ahead. What is behind is **measurement and independence**: a judge that shares its
+subject's model, a reliability number not yet repeated, and a memory that is read
+whole. Those are smaller than the contact was, and they are measurable with the
+instrument that now exists.

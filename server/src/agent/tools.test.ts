@@ -69,10 +69,10 @@ const {
   mayRun,
   READING_TOOLS,
   readingTools,
-  readMessageForAnswer,
   runTool: rawRunTool,
   TOOLS,
 } = await import("./tools.js");
+const { readMessageForAnswer } = await import("./tools/mail.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -540,17 +540,11 @@ test("a tool refuses arguments it cannot use, and asks the server nothing", asyn
   );
 });
 
-test("a rule that declares it sends is the authority an outward act asks for", () => {
+test("an outward act asks for a person's word, and a rule's declaration is not one", () => {
   /*
-   * ADR 0028's class 3, carried by a rule (ADR 0031): the group wrote the rule,
-   * its instruction says what to send, and the declaration travels on the run
-   * that rule opened. It answers the correspondent whose change woke it and no
-   * other address, so the declaration is not a licence to compose a recipient.
-   */
-  /*
-   * `mail.send` is not in the catalogue any more (ADR 0038: an outward message
-   * is a draft a person sends), and the class-3 rule that answers an outward
-   * act is still the guard's, exercised here with a fixture of that class.
+   * ADR 0028's class 3. The rule declaration that used to license a send is
+   * gone with `mail.send` (ADR 0041: an outward message is a draft a person
+   * sends); what remains is the person's own word for that act, and no other.
    */
   const send = countingTool({
     name: "fixture.send",
@@ -566,36 +560,11 @@ test("a rule that declares it sends is the authority an outward act asks for", (
     text: "Confirmed.",
   };
 
-  const sending = startRun({
-    id: "sending",
-    startedBy: {
-      rule: "shipper",
-      instruction: null,
-      woke: "mail created: m-1",
-      sends: true,
-      wakeFrom: "shipper@example.org",
-    },
-  });
-  assert.equal(
-    mayRun(send, sending, args),
-    true,
-    "the rule's declaration answers the sender that woke it",
-  );
-  assert.equal(
-    mayRun(send, sending, { ...args, to: "someone-else@example.org" }),
-    false,
-    "and reaches no other address the model names",
-  );
-
   const quiet = startRun({
     id: "quiet",
     startedBy: { rule: "shipper", instruction: null, woke: "mail created: m-1" },
   });
-  assert.equal(
-    mayRun(send, quiet, args),
-    false,
-    "a rule that says nothing sends nothing",
-  );
+  assert.equal(mayRun(send, quiet, args), false, "a run with no word sends nothing");
   assert.equal(
     mayRun(
       send,

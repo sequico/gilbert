@@ -17,11 +17,9 @@ not in the group, in the group's name, and no later step can call it back. A too
 that submits is therefore a tool a document can talk the agent into using, and
 every defence around it is a filter that will one day miss.
 
-The product's answer before this record was a submission tool that a person's
-recorded word — or a group's declaration that it sends — licensed. That bound one
-message to one word, but it still made the agent the sender: the word was given
-before the words were written, and the thing that left could differ from the
-thing the person pictured.
+A submission tool licensed by a person's recorded word still makes the agent the
+sender: the word is given before the words are written, and what leaves can differ
+from what the person pictured.
 
 ## Decision
 
@@ -32,9 +30,6 @@ thing the person pictured.
   addresses left out, the thread carried, marked `$draft`. It never submits.
 - **No tool submits a message.** The catalogue holds no submission endpoint, and
   adding one would be a new decision rather than a field.
-- The instruction's `sends` declaration says a draft is **wanted**, not that one
-  is sent: it is the group saying outward words are part of its work, and the
-  draft is the most it obtains.
 - A question is asked in the conversation (`say` with `ask`), which parks the run
   on a person's answer; it is never asked by mail, because a mail that leaves is
   the act this record forbids.
@@ -53,6 +48,3 @@ thing the person pictured.
 - The draft is the record: what the run wrote is in the account's Drafts, beside
   the run that wrote it, so what a person sends can be compared with what the
   agent proposed.
-- The `sends` declaration loses its outward meaning and keeps only "a draft is
-  wanted"; a surface that showed it as a licence to send is wrong and is fixed
-  where it is drawn.

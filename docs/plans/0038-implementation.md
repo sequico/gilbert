@@ -89,7 +89,9 @@ that carries it; the probe already reports which mode it found.
 The judge is built (it fires only on a suspect plan), the injection test is in
 `loop.test.ts`, the replay runs in `npm test` (`agent/replay.test.ts`) and the
 documents are aligned. What remains: the judge's **calibration** on a human
-sample, the **live embeddings** probe, and the pruning of closed facts
+sample (and an independent model where one exists), **`pass^k`** over repeated
+trials rather than `pass@1` alone, the **live embeddings** probe, the pruning of
+closed facts, and a memory read that is not rebuilt from the folder on every pass
 (ADR 0038, *Owed*).
 
 ## Open decisions, taken

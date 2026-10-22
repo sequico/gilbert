@@ -181,7 +181,6 @@ async function writeInstruction(prose: string, areas: AreaName[]): Promise<void>
       workorder: "ondemand",
       calendar: "ondemand",
     },
-    sends: false,
   });
 }
 
@@ -402,6 +401,7 @@ async function measure(): Promise<RunMeasure> {
       refused: 0,
       said: null,
       tokens: 0,
+      cachedTokens: 0,
       ms: 0,
     };
   for (const step of last.plan)
@@ -415,6 +415,7 @@ async function measure(): Promise<RunMeasure> {
     refused: last.plan.filter((step) => step.state === "failed").length,
     said: last.ended?.why ?? null,
     tokens: (last.spent.promptTokens ?? 0) + (last.spent.completionTokens ?? 0),
+    cachedTokens: last.spent.cachedPromptTokens ?? 0,
     ms: last.spent.ms,
   };
 }
@@ -486,6 +487,7 @@ let unstable = 0;
 let failed = 0;
 let total = 0;
 let tokens = 0;
+let cached = 0;
 let calls = 0;
 let ms = 0;
 for (const task of tasks) {
@@ -506,11 +508,13 @@ for (const task of tasks) {
     (sum, one) => ({
       calls: sum.calls + one.got.calls,
       tokens: sum.tokens + one.got.tokens,
+      cached: sum.cached + one.got.cachedTokens,
       ms: sum.ms + one.got.ms,
     }),
-    { calls: 0, tokens: 0, ms: 0 },
+    { calls: 0, tokens: 0, cached: 0, ms: 0 },
   );
   tokens += spent.tokens;
+  cached += spent.cached;
   calls += spent.calls;
   ms += spent.ms;
   const last = attempts[attempts.length - 1]?.got;
@@ -536,7 +540,9 @@ for (const task of tasks) {
 
 console.log(
   `pass@1 ${firstPassed}/${total} | unstable ${unstable} | ` +
-    `cost ${tokens} tokens, ${calls} model calls, ${Math.round(ms / 1000)} s`,
+    `cost ${tokens} tokens (${cached} from the provider's cache, ` +
+    `${tokens ? Math.round((cached / tokens) * 100) : 0}%), ` +
+    `${calls} model calls, ${Math.round(ms / 1000)} s`,
 );
 (mock as { server?: { close(): void } }).server?.close();
 process.exitCode = failed ? 1 : 0;
