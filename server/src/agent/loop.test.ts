@@ -3348,3 +3348,58 @@ test("the operator's environment names the collector over the document", async (
   }
   assert.ok(posted >= 1, "the collector from the environment received the pass");
 });
+
+test("a spent day reads nothing, and says so once a minute rather than every pass", async () => {
+  /*
+   * The daily ceiling (ADR 0038): past it no change is read, so nothing is
+   * consumed without a run. The reason is on the pass's document, but that
+   * document counts a gap as work: an unthrottled line would rewrite
+   * `agent/status.json` every ten seconds for the rest of the day. The gate is
+   * every pass; the line is once a minute.
+   */
+  const today = new Date().toISOString().slice(0, 10);
+  await writeAppFileAt(ctx, memoryAccountId, INSTALLATION_FILE, {
+    agent: { provider: model },
+    limits: { maxDailyTokens: 1 },
+    secret: "an-installation-secret-long-enough-to-seal-a-session-with",
+  });
+  await writeAppFileAt(ctx, memoryAccountId, PASS_STATUS_FILE, {
+    v: 1,
+    at: new Date(0).toISOString(),
+    ms: 1,
+    claimed: true,
+    accounts: 0,
+    changes: 0,
+    runs: 0,
+    due: 0,
+    gaps: [],
+    spent: { date: today, tokens: 5 },
+  });
+  try {
+    await putInstruction();
+    const agent = loop();
+    const boot = await agent.start();
+    assert.equal(boot.changes, 0, "the spent day read no change");
+    assert.equal(boot.runs, 0, "and opened no run");
+    assert.ok(
+      boot.gaps.some((gap) => gap.includes("spent its day")),
+      "and the first pass says why",
+    );
+
+    await deliver("a mail the spent day does not read");
+    const second = await agent.pass();
+    assert.equal(second.changes, 0, "the next pass still reads nothing");
+    assert.equal(second.runs, 0, "and opens nothing");
+    assert.equal(
+      second.gaps.some((gap) => gap.includes("spent its day")),
+      false,
+      "while the line is not repeated on every pass",
+    );
+  } finally {
+    for (const id of [INSTALLATION_FILE, PASS_STATUS_FILE]) {
+      const held = await readAppFileAt(ctx, memoryAccountId, id);
+      if (typeof held?.file.id === "string")
+        await destroyAppNode(ctx, memoryAccountId, held.file.id);
+    }
+  }
+});

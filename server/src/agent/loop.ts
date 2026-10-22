@@ -691,12 +691,20 @@ export class AgentLoop {
      */
     const spentToday = this.dailySpent(limits.maxDailyTokens, now);
     if (spentToday) {
-      summary.gaps.push(
-        `the installation has spent its day: ${spentToday} of ${limits.maxDailyTokens} tokens, so no change is read until the date changes`,
-      );
-      this.opts.log?.(
-        `[gilbert] agent: the day's token ceiling is spent (${spentToday}/${limits.maxDailyTokens}); changes are not read this pass`,
-      );
+      /*
+       * The reason is said when the pass's own document is due, not on every
+       * pass: the status write counts a gap as work, so an unthrottled line here
+       * rewrote `agent/status.json` every ten seconds for the rest of a spent
+       * day. The gate itself is not throttled — nothing is read, every pass.
+       */
+      if (Date.now() - this.statusAt >= STATUS_EVERY_MS) {
+        summary.gaps.push(
+          `the installation has spent its day: ${spentToday} of ${limits.maxDailyTokens} tokens, so no change is read until the date changes`,
+        );
+        this.opts.log?.(
+          `[gilbert] agent: the day's token ceiling is spent (${spentToday}/${limits.maxDailyTokens}); changes are not read this pass`,
+        );
+      }
     }
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
