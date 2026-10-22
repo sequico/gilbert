@@ -3294,3 +3294,47 @@ test("a configured collector is sent the pass and the run it ended", async () =>
     "and the tokens the provider charged",
   );
 });
+
+test("the operator's environment names the collector over the document", async () => {
+  /*
+   * ADR 0038 lets the deployment name the collector in the environment as well
+   * as in the document, and the environment wins: a process points at a local
+   * collector without editing the installation. The document here names none.
+   */
+  let posted = 0;
+  const collectorPort = await freePort();
+  const collector = createServer((req: IncomingMessage, res: ServerResponse) => {
+    req.on("end", () => {
+      posted += 1;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end("{}");
+    });
+    req.resume();
+  });
+  await new Promise<void>((resolve) =>
+    collector.listen(collectorPort, "127.0.0.1", resolve),
+  );
+  process.env.GILBERT_AGENT_OTLP = `http://127.0.0.1:${collectorPort}`;
+  try {
+    await writeAppFileAt(ctx, memoryAccountId, INSTALLATION_FILE, {
+      agent: { provider: model },
+      secret: "an-installation-secret-long-enough-to-seal-a-session-with",
+    });
+    await putInstruction();
+    const agent = loop();
+    await agent.start();
+    answerWith({ facts: {} });
+    answerWith({
+      calls: [{ name: "say", arguments: { action: "say", text: "said it" } }],
+    });
+    await deliver("a change the environment's collector hears about");
+    await agent.pass();
+  } finally {
+    collector.close();
+    delete process.env.GILBERT_AGENT_OTLP;
+    const held = await readAppFileAt(ctx, memoryAccountId, INSTALLATION_FILE);
+    if (typeof held?.file.id === "string")
+      await destroyAppNode(ctx, memoryAccountId, held.file.id);
+  }
+  assert.ok(posted >= 1, "the collector from the environment received the pass");
+});
