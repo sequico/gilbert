@@ -13,8 +13,9 @@ is filtered by `server/src/agent/redact.ts`; the eval runner is
 `server/src/agent/eval.ts`. **Not built:** the contact (native calls as the only
 protocol, the check at connect, a token budget a run can see, a refusal that
 repairs), the eight job-shaped tools (the catalogue is still forty-five
-endpoints), the judge that reads the ask and the evidence against the plan, and
-seven of the ten eval tasks.
+endpoints), the judge that reads the ask and the evidence against the plan, the
+selected context and the standard trend measure, the injection test, and seven of
+the ten eval tasks.
 
 ## What this replaces, and what it keeps
 
@@ -156,6 +157,9 @@ structural, not a sentence in a prompt:
   because a document one of the group's own people wrote is not a reason to throw
   the run away.
 
+A test that feeds the agent a document asking it to act outside its grants is
+**owed**: the defence is argued and structural, and argued is not proven.
+
 ### A tool's answer is filtered before the model sees it
 
 A tool that returns a document can return a password somebody pasted into it, and a
@@ -268,6 +272,23 @@ and its state — is the deduplication.
 the next change, or the reconciliation, resumes it from the document. No group
 waits for another group's run.
 
+### The turn's context is selected, not accumulated
+
+The run document is the memory of the run; the turn is not handed all of it. A
+turn receives the ask, the instruction, the facts the memory holds about the
+subject, the calls it can make, and the plan's tail — the last steps and their
+outcomes — while earlier steps reach it as one line each. A run past a threshold
+of steps or tokens is given a summary of what came before, and the full record
+stays where it is: the document is complete, the prompt is bounded. It is the same
+rule as the budget, applied to what the model reads rather than to what it may
+spend.
+
+The memory is **a few facts, not a search index**: a subject, a text of at most
+four hundred characters, and no embeddings. The domain keeps few stable facts per
+subject — a booking, a client — and a semantic search over them would cost more
+than it finds. The limit is declared: when a group's facts stop fitting the
+subjects they name, retrieval is the next decision, not this one.
+
 ### One instruction per group
 
 A group has **one instruction**: a briefing in the group's own words, read by
@@ -331,6 +352,15 @@ passed. A full `pass@k` is paid for only when a number must be defended.
 The runner needs a provider key and is not the release gate. Its regression form
 — the recorded provider answers replayed without a key — is **owed**: that is
 what can run in CI on every commit.
+
+### An installation can see the trend, not only the run
+
+Every run is a document and every pass leaves one; that is enough to answer what
+happened. It is not enough to see whether it is getting worse. Each run and each
+pass emits the same measures in a standard shape — the OpenTelemetry GenAI
+attributes: model, tokens in and out, milliseconds, steps, calls, refusals,
+ending — so a reader can chart cost and refusals over time rather than open
+documents one by one. The run remains the truth; the measure is its shadow.
 
 ### Secrets are not readable by the agent
 

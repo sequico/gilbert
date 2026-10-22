@@ -140,8 +140,18 @@ runner.
 2. **The probe's cost**: one tool-carrying call at every reconnection is a real
    request; whether it is cached per provider session is a decision for F1.
 
+- **F5 — the context is selected.** A turn receives the ask, the instruction, the
+  facts of its subject and the plan's tail; earlier steps reach it as one line
+  each, and a run past a threshold is given a summary while the document keeps
+  everything. The threshold is measured, not guessed.
+- **F6 — the trend is visible.** Each run and pass emits the same measures in the
+  OpenTelemetry GenAI shape, so cost and refusals can be read over time instead of
+  document by document.
+
 ## Owed, and named so it is not forgotten
 
 - **The judge that reads the ask and the evidence against the plan**: the guard
   reads the plan alone, so a `done` that stands on a refused step while a later
   step succeeded still passes.
+- **The injection test**: a document that asks the agent to act outside its grants,
+  against the structural defence this record argues.
