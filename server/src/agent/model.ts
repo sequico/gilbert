@@ -77,6 +77,7 @@ import { SURFACES } from "../shared/surfaces.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { clipped, dataBlock, stepData, textOf, turnData } from "./prompt.js";
 import { type ProseLevel, proseForModel } from "./prose.js";
+import { redactSecrets } from "./redact.js";
 import {
   type AnyTool,
   type ArgSpec,
@@ -1052,8 +1053,9 @@ export async function decideEvent(
     );
     // The prompt bounds each reading as it is carried (`turnData`,
     // READ_IN_PROMPT_MAX): the answer is kept whole here so that bound, and not
-    // the step outcome's smaller one, is what the model sees.
-    reads.push({ name: parsed.answer.name, result });
+    // the step outcome's smaller one, is what the model sees — with a
+    // credential-shaped field emptied before it travels (ADR 0038, `redact.ts`).
+    reads.push({ name: parsed.answer.name, result: redactSecrets(result).value });
   }
   // The loop returns or throws on every path; this is unreachable and stated so.
   throw new ModelError("model_answer_malformed", "The model did not answer.");

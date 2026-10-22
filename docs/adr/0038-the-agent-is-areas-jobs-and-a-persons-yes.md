@@ -140,19 +140,24 @@ structural, not a sentence in a prompt:
   refused before it runs, and the refusal is on the record.
 - **Anything outward is a draft** a person sends (ADR 0041), so the worst a
   malicious mail can obtain is a draft somebody reads before it leaves.
-- **A guardrail that fires ends the run.** Input that tries to make the agent act
-  outside its grants, and output that carries a credential, stop the run with the
-  ending `refused` (ADR 0030 gains that ending) and a sentence that says which
-  check fired — not an out-of-budget, which would blame the clock.
+- **A guardrail that cannot go on ends the run.** Input that tries to make the
+  agent act outside its grants stops the run with the ending `refused` (ADR 0030
+  gains that ending) and a sentence that says which check fired — not an
+  out-of-budget, which would blame the clock. An answer that carries a credential
+  does **not** stop it: the filter below empties the field and the record says so,
+  because a document one of the group's own people wrote is not a reason to throw
+  the run away.
 
 ### A tool's answer is filtered before the model sees it
 
 A tool that returns a document can return a password somebody pasted into it, and a
 tool that reads the installation can return its own credential. So the tool layer
-holds **one filter for every answer**: a field that is a credential, a key or a
-session token is removed before the answer reaches the turn, and the run records
-that something was withheld. It is the same rule as "secrets are not readable by
-the agent", applied at the boundary where an answer is made.
+holds **one filter for every answer**: a field named like a credential, a key or a
+session token is emptied before the answer reaches the turn, and the step says
+what was withheld. It is the same rule as "secrets are not readable by the agent",
+applied at the boundary where an answer is made. The filter is by name, not by
+content: a key pasted inside a paragraph is not caught, and that limit is written
+where the filter lives (`agent/redact.ts`).
 
 ### The common path is a workflow; a plan is the exception
 

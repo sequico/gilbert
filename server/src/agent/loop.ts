@@ -156,6 +156,7 @@ import {
   dueDrops as dropsDue,
   noteFile,
 } from "./queue.js";
+import { redactSecrets } from "./redact.js";
 import {
   createRun,
   listRunsForWorking,
@@ -1961,6 +1962,12 @@ export class AgentLoop {
           const result = settled[which];
           if (result?.status === "fulfilled") {
             /*
+             * What came back is somebody else's text: a credential-shaped field
+             * is emptied before it reaches the record, and the step says what was
+             * withheld (ADR 0038, `redact.ts`).
+             */
+            const clean = redactSecrets(result.value);
+            /*
              * Whether this step said something in the group's conversation: the
              * fact `spoke` reads. A `chat.say` that ended done has been heard by
              * the people who asked, whether or not it threaded its answer to the
@@ -1968,10 +1975,10 @@ export class AgentLoop {
              * what was done, so it does not make the run a report (ADR 0030).
              */
             const said = call.name === "chat.say";
-            const source = sourceOf(result.value);
+            const source = sourceOf(clean.value);
             current = recordStep(current, at, {
               state: "done",
-              outcome: boundedText(result.value),
+              outcome: `${boundedText(clean.value)}${clean.withheld.length ? ` (withheld: ${clean.withheld.join(", ")})` : ""}`,
               ...(said ? { spoke: true } : {}),
             });
             /*
