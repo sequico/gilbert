@@ -50,8 +50,10 @@ function fakeOut() {
   };
   e.end = () => {
     e.ended = true;
+    // A real ServerResponse.end() marks the stream ended; `destroyed` follows
+    // only when the socket actually closes, which is why the guard after a drop
+    // checks `writableEnded` rather than `destroyed`.
     e.writableEnded = true;
-    e.destroyed = true;
   };
   e.destroy = () => {
     e.destroyed = true;
@@ -622,16 +624,25 @@ test("a relay tab that reconnects instead of attaching is ended, not handed fram
 
     const out = fakeOut();
     let dropped = 0;
-    push.attachRelay(who, out as never, () => {
-      dropped++;
-      out.end();
-    });
+    const order: string[] = [];
+    const end = out.end;
+    out.end = () => {
+      order.push("end");
+      end();
+    };
+    push.attachRelay(who, out as never, () =>
+      push.reconnectRelay(out as never, () => {
+        dropped++;
+        order.push("drop");
+      }),
+    );
 
     assert.equal(
       await push.receive(token!, { "@type": "PushVerification", verificationCode: "v" }),
       200,
     );
     assert.equal(dropped, 1, "the relay is dropped on verification");
+    assert.deepEqual(order, ["drop", "end"], "the upstream is dropped before the end");
     assert.equal(out.ended, true, "and the browser stream closed, for a reconnect");
 
     await push.receive(token!, {
@@ -645,6 +656,23 @@ test("a relay tab that reconnects instead of attaching is ended, not handed fram
   } finally {
     restore();
   }
+});
+
+test("a relay hand-off that finds its stream already ended does not end it again", () => {
+  const out = fakeOut();
+  out.end();
+  let drops = 0;
+  let ends = 0;
+  out.end = () => {
+    ends++;
+  };
+
+  push.reconnectRelay(out as never, () => {
+    drops++;
+  });
+
+  assert.equal(drops, 1, "the upstream is still dropped");
+  assert.equal(ends, 0, "and an ended browser stream is left alone");
 });
 
 test("a failed renewal is retried on a later sweep instead of staying failed forever", async (t) => {

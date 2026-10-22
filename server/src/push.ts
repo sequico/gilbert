@@ -504,10 +504,20 @@ async function verify(entry: AccountPush, code: string) {
       `PushSubscription/set did not accept the verification (${name ?? "no response"})`,
     );
   entry.state = "verified";
-  // Every tab of this account that has been holding its own upstream stream
-  // can now let go of it: the subscription is live, so Stalwart will POST the
-  // same changes here. The browser-facing stream is untouched. Done in this
-  // order there is no gap -- at worst a change lands twice, which is harmless.
+  /*
+   * Tabs parked on a relay get what the subscription makes possible, by two
+   * rules their hook decides:
+   *
+   * - a raw-relay tab ends its browser stream and reconnects, so the next
+   *   request lands on the fan-out and follows the installation account too
+   *   (ending and attaching to both would write into a closed response);
+   * - a tab parked for a follow only (`followAccount`) is attached here, since
+   *   it holds no upstream of its own to drop.
+   *
+   * A StateChange that lands in the reconnect gap reaches nobody, and the
+   * client's own reconnect catch-up re-reads it; that is the price of never
+   * having two writers on one stream.
+   */
   let moved = 0;
   for (const [out, dropUpstream] of entry.relays) {
     entry.relays.delete(out);
@@ -650,6 +660,22 @@ export function followAccount(
   if (!entry) return;
   if (entry.state === "verified") addFanoutTab(entry, out);
   else attachRelay(username, out, () => {});
+}
+
+/**
+ * Hand a tab that started on the relay to the fan-out by ending its stream, so
+ * the browser's next request finds the verified entry and follows the
+ * installation account too. The upstream is dropped first (which is what writes
+ * the SSE headers if they are not there yet); an already-ended response is left
+ * alone, because a second `end` on a real response is not harmless.
+ *
+ * A relay that never verifies does not get here: it keeps its own stream, and
+ * the switch is read through the route until a later connection lands on the
+ * fan-out. That is the cost of not attaching two writers to one response.
+ */
+export function reconnectRelay(out: ServerResponse, dropUpstream: () => void): void {
+  dropUpstream();
+  if (!out.writableEnded) out.end();
 }
 
 /**

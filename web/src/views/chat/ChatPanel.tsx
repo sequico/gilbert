@@ -348,6 +348,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   /** The newest read of each, so a slower earlier answer cannot overwrite it. */
   const questionsSeq = useRef(0);
   const switchSeq = useRef(0);
+  /** The generation of the last fresh switch read, and whether one is open. */
+  const switchFresh = useRef(0);
+  const switchFreshPending = useRef(false);
 
   // ----- search across the selected group's messages -----
   const [searchOpen, setSearchOpen] = useState(false);
@@ -428,6 +431,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const questionsNow = useCallback(() => {
     const group = open?.name;
     if (!openAccountId || !group) {
+      // Nothing is open: an answer still in flight must not name a question of
+      // the previous team.
+      questionsSeq.current += 1;
       setQuestions([]);
       return () => {};
     }
@@ -463,15 +469,33 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     (fresh = false) => {
       const group = open?.name;
       if (!openAccountId || !group) {
+        switchSeq.current += 1;
+        switchFresh.current += 1;
+        switchFreshPending.current = false;
         setAgentOn(null);
         return () => {};
       }
+      /*
+       * A held value is not asked over a fresh read already in flight: it would
+       * land after that answer and put the older pass's value back. The next
+       * beat asks again once the document has answered.
+       */
+      if (!fresh && switchFreshPending.current) return () => {};
       let live = true;
       const ticket = ++switchSeq.current;
+      const generation = fresh ? ++switchFresh.current : switchFresh.current;
+      if (fresh) switchFreshPending.current = true;
       const current = () =>
         live &&
-        ticket === switchSeq.current &&
-        useChat.getState().openAccountId === openAccountId;
+        useChat.getState().openAccountId === openAccountId &&
+        generation === switchFresh.current &&
+        // A fresh answer outranks any held read, whatever its order; among held
+        // reads, only the latest asked may land.
+        (fresh || ticket === switchSeq.current);
+      const settle = () => {
+        if (fresh && generation === switchFresh.current)
+          switchFreshPending.current = false;
+      };
       fetchGroupAgent(group, fresh)
         .then((state) => {
           if (current()) setAgentOn(state.enabled);
@@ -479,7 +503,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         .catch(() => {
           // Unknown is drawn as neither on nor off.
           if (current()) setAgentOn(null);
-        });
+        })
+        .finally(settle);
       return () => {
         live = false;
       };

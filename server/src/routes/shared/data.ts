@@ -11,7 +11,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context } from "hono";
-import { attachRelay as pushAttachRelay } from "../../push.js";
+import { attachRelay as pushAttachRelay, reconnectRelay } from "../../push.js";
 import {
   GENERIC_TYPES,
   isPdfType,
@@ -198,18 +198,7 @@ export function relayPushRaw(
     req.on("error", () => {});
     req.destroy();
   };
-  if (username)
-    pushAttachRelay(username, out, () => {
-      /*
-       * A tab that started on the relay is handed to the fan-out by
-       * reconnecting it: the next /api/events request finds the verified entry
-       * and follows the installation account too. Attaching this stream to both
-       * fan-outs while the relay still writes would interleave frames, and the
-       * relay has no installation stream of its own to drop.
-       */
-      migrate();
-      if (!out.writableEnded) out.end();
-    });
+  if (username) pushAttachRelay(username, out, () => reconnectRelay(out, migrate));
   req.on("response", (res) => {
     if (migrated) {
       res.destroy();

@@ -4,8 +4,9 @@
  * One document in the Master's app folder, beside the runs it governs: a person
  * turns the agent off from Administration and every process reads it on the next
  * pass. Absent means on — a deployment that never chose has an agent, which is
- * what the product shipped — and a document that cannot be read is on for the
- * same reason: a broken switch must not silently disable the feature.
+ * what the product shipped. A document that is **there and unreadable** is not
+ * absent: it stops the pass rather than being read as on (which would re-enable
+ * an agent somebody turned off) or as off (which would disable one silently).
  */
 
 import { type Ctx, readAppFileAt, writeAppFileAt } from "../appFolder.js";

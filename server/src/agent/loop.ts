@@ -668,16 +668,15 @@ export class AgentLoop {
     this.passState.clear();
     this.runState.clear();
     /*
-     * The model is re-read every pass, so a publish applies to the run after
-     * this one (ten seconds), not to the next boot: the key is kept in the
-     * document and read here as the Master. A document that cannot be read
-     * leaves the model this process already runs on.
-     */
-    /*
      * The switch is read first, before the model is: off means no call is made
      * at all, an unreadable document stops the pass, and the value this process
      * holds answers the members' surfaces even on a pass that has no model to
      * run.
+     *
+     * The model is re-read every pass, so a publish applies to the run after
+     * this one (ten seconds), not to the next boot: the key is kept in the
+     * document and read here as the Master. A document that cannot be read
+     * leaves the model this process already runs on.
      */
     const agentSwitch = await readAgentSwitch(this.ctx, filesAccountId(this.ctx));
     const { access: model, instruction, limits } = await this.readInstallationForPass();
@@ -691,7 +690,7 @@ export class AgentLoop {
     setRunningModelAccess(model);
     this.installation = instruction;
     /*
-     * The day's ceiling is read before anything is read from an account
+     * The day's ceiling is read before any account's changes are read
      * (ADR 0038): a spent day opens no run, so the changes are not even read —
      * nothing is consumed without a run behind it — while a run already open is
      * still worked, because its own budget is what bounds it.

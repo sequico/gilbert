@@ -209,7 +209,7 @@ describe("the agent's open questions", () => {
    * and the switch is one in the installation's account, which the server's
    * fan-out follows for a member. Each is read on its own event — never by
    * asking for the other — so one surface's change cannot cost the other a
-   * request, and neither needs a poll.
+   * request. The interval stays only as the net under a stream that is down.
    */
   const push = async (changed: string) => {
     for (const listener of stream.listeners) listener(changed, "FileNode");
@@ -281,6 +281,47 @@ describe("the agent's open questions", () => {
       expect(admin.fetchGroupAgent).toHaveBeenCalledWith("Team", false);
       expect(admin.fetchGroupAgent).not.toHaveBeenCalledWith("Team", true);
     } finally {
+      act(() => root.unmount());
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not ask the held value over a fresh read in flight", async () => {
+    // A fresh read has the document's answer; a beat asked while it is open
+    // would land after it and put the older pass's value back.
+    act(() => root.unmount());
+    vi.useFakeTimers();
+    try {
+      admin.fetchGroupAgent.mockClear();
+      let release: (value: { enabled: boolean }) => void = () => {};
+      admin.fetchGroupAgent.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
+
+      root = createRoot(host);
+      await act(async () => {
+        root.render(<ChatPanel accounts={[GROUP]} onClose={() => {}} />);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(admin.fetchGroupAgent, "the open read is open").toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+      });
+      expect(admin.fetchGroupAgent, "the beat asked nothing").toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        release({ enabled: false });
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(host.textContent).toContain("Gilbert AI off");
+    } finally {
+      act(() => root.unmount());
       vi.useRealTimers();
     }
   });

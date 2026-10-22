@@ -353,9 +353,12 @@ export function registerMailRoutes(api: Hono<Env>): void {
        * relay path does not follow it directly -- a stream attached to two
        * fan-outs while the relay still writes would interleave frames -- and
        * instead reconnects onto this branch once the subscription verifies,
-       * which is what brings the follow. The direct relay (`RAW_PUSH_RELAY=0`)
-       * neither reconnects nor follows, and in relay mode there is no fan-out
-       * to land on: those tabs hear the switch only through their read.
+       * which is what brings the follow. Until that verification (a refused
+       * code, a renewal that keeps failing) the relay tab hears no installation
+       * event: the switch is then read through the member's own route on
+       * opening, on the window coming back and on the slow net. The direct relay
+       * (`RAW_PUSH_RELAY=0`) neither reconnects nor follows, and in relay mode
+       * there is no fan-out to land on: the same read is all those tabs have.
        */
       const installation = await resolveInstallationAccount(session);
       const follow = installation
