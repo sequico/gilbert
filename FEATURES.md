@@ -121,7 +121,8 @@ keeps the label catalog and the folders; drafts a reply to everyone; settles a
 workorder step; proposes a KB page; writes and moves documents; creates events in
 the group's own calendar; says what it did; asks a person; remembers facts.
 
-**It never does alone:** sends outward; destroys or rewrites anything; acts
+**It never does:** sends outward — an outward message is a draft a person sends
+(ADR 0041). **It never does alone:** destroys or rewrites anything; acts
 against the written policy; decides intent.
 
 ## The five authority classes
@@ -358,11 +359,11 @@ guard licenses exactly that act and no other. An **override** (class 4) is an
 installation administrator's, and it is proved by the **directory**: before the
 answer is read, the agent presents the sender's account to the server and reads
 whether it is a Stalwart administrator, so an administrator's own words may grant
-one and nobody else's. An instruction may **declare that it sends**, and
-that declaration is the authority of its own outward acts. **The same conversation runs by mail** (ADR 0038, 0041): a question is asked in
-the conversation with `say` (`action: ask`) and parks the run there; a mail leaves
-the account only as a **draft a person sends**, so no tool submits one and the
-worst a malicious mail obtains is a draft somebody reads. **A question carries a
+one and nobody else's. **The conversation runs in chat** (ADR 0029 as 0038
+amends it): a question is asked in the conversation with `say` (`action: ask`)
+and the run parks there; a mail leaves the account only as a **draft a person
+sends** (ADR 0041), so no tool submits one and the worst a malicious mail
+obtains is a draft somebody reads. **A question carries a
 deadline** (72 hours, ADR 0029): the answer is still the conversation's own event,
 and the deadline is what a run does
 about a person who never answers — it goes on without it, with a step on the
