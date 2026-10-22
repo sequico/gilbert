@@ -673,6 +673,13 @@ export class AgentLoop {
      * document and read here as the Master. A document that cannot be read
      * leaves the model this process already runs on.
      */
+    /*
+     * The switch is read first, before the model is: off means no call is made
+     * at all, an unreadable document stops the pass, and the value this process
+     * holds answers the members' surfaces even on a pass that has no model to
+     * run.
+     */
+    const agentSwitch = await readAgentSwitch(this.ctx, filesAccountId(this.ctx));
     const { access: model, instruction, limits } = await this.readInstallationForPass();
     if (!model) {
       setRunningModelAccess(null);
@@ -708,8 +715,6 @@ export class AgentLoop {
     }
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
-    // The switch is read before the model: off means no call is made at all.
-    const agentSwitch = await readAgentSwitch(this.ctx, filesAccountId(this.ctx));
     if (!agentSwitch.enabled) {
       /*
        * Off still answers the people who wrote -- in chat and by mail, with a

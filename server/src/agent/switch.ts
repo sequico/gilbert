@@ -23,8 +23,10 @@ export interface AgentSwitch {
  *
  * A surface that names the switch (the chat's header, for every member) would
  * otherwise cost a session of the Master per reader: the pass refreshes this on
- * every run, a write updates it, and a reader told that the file changed asks
- * for a fresh read instead of trusting it.
+ * every run — even one with no model, so a member's net is answered while the
+ * agent is idle — a write updates it, and a reader told that the file changed
+ * asks for a fresh read instead. One installation per process: every reader
+ * names the same account.
  */
 let lastKnown: AgentSwitch | null = null;
 
@@ -45,6 +47,9 @@ export async function readAgentSwitch(ctx: Ctx, accountId: string): Promise<Agen
   try {
     found = await readAppFileAt(ctx, accountId, AGENT_SWITCH_FILE);
   } catch (err) {
+    // An unreadable document is not a value: the last good one must not answer
+    // for it, or an agent that refuses to act would read as on (or off).
+    lastKnown = null;
     throw new Error(
       `The agent's switch is there and cannot be read, so the agent does not act: ${errorMessage(err)}`,
     );
@@ -58,6 +63,7 @@ export async function readAgentSwitch(ctx: Ctx, accountId: string): Promise<Agen
     lastKnown = { enabled: doc.enabled !== false };
     return lastKnown;
   } catch {
+    lastKnown = null;
     throw new Error(
       "The agent's switch is not a document this build can read, so the agent does not act; it has been left exactly as it is.",
     );

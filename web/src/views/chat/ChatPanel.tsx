@@ -345,6 +345,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const [agentOn, setAgentOn] = useState<boolean | null>(null);
   /** The place reserved for timed runs; nothing is built behind it yet. */
   const [timedOpen, setTimedOpen] = useState(false);
+  /** The newest read of each, so a slower earlier answer cannot overwrite it. */
+  const questionsSeq = useRef(0);
+  const switchSeq = useRef(0);
 
   // ----- search across the selected group's messages -----
   const [searchOpen, setSearchOpen] = useState(false);
@@ -429,9 +432,14 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       return () => {};
     }
     let live = true;
-    // A late answer belongs to the conversation it was asked from, not to
-    // whichever team the reader has switched to since.
-    const current = () => live && useChat.getState().openAccountId === openAccountId;
+    const ticket = ++questionsSeq.current;
+    // A late answer belongs to the read that asked and to the conversation it
+    // was asked from — not to an older read, nor to a team the reader switched
+    // to since.
+    const current = () =>
+      live &&
+      ticket === questionsSeq.current &&
+      useChat.getState().openAccountId === openAccountId;
     fetchGroupRuns(group, "live", { plan: false })
       .then((runs) => {
         if (current()) setQuestions(openQuestionsOf(runs));
@@ -459,7 +467,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         return () => {};
       }
       let live = true;
-      const current = () => live && useChat.getState().openAccountId === openAccountId;
+      const ticket = ++switchSeq.current;
+      const current = () =>
+        live &&
+        ticket === switchSeq.current &&
+        useChat.getState().openAccountId === openAccountId;
       fetchGroupAgent(group, fresh)
         .then((state) => {
           if (current()) setAgentOn(state.enabled);
@@ -485,9 +497,10 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
      * account, and the switch is one in the installation's account, which the
      * server's fan-out follows for a member. The agent writes a burst, so one
      * read follows it after a second. The event names the file, so the switch is
-     * read fresh; the interval and the window coming back are the net under a
-     * stream that is down (and the only channel on a deployment without
-     * fan-out), and those ask from the value the pass already holds.
+     * read fresh; the interval is the net under a stream that is down (and the
+     * only channel on a deployment without fan-out) and asks the value the pass
+     * already holds. The window coming back and a reconnect read the document
+     * itself.
      */
     let scheduled: number | null = null;
     let pendingQuestions = false;

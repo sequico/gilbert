@@ -349,12 +349,13 @@ export function registerMailRoutes(api: Hono<Env>): void {
        * `installationAccount`), so the id the client filters on and the account
        * subscribed here cannot be different accounts.
        *
-       * Resolved before the branch so the relay gets the follow too: the first
-       * tab after a start is on the relay until the account verifies, and a tab
-       * that never asked would hear no installation change until it reconnected.
-       * The direct relay (`RAW_PUSH_RELAY=0`) is the one path this does not
-       * reach, because it hands the response back to the framework unwritten;
-       * the next connection lands on the fan-out and follows.
+       * Resolved before the branch so the fan-out below always has it. The
+       * relay path does not follow it directly -- a stream attached to two
+       * fan-outs while the relay still writes would interleave frames -- and
+       * instead reconnects onto this branch once the subscription verifies,
+       * which is what brings the follow. The direct relay (`RAW_PUSH_RELAY=0`)
+       * neither reconnects nor follows, and in relay mode there is no fan-out
+       * to land on: those tabs hear the switch only through their read.
        */
       const installation = await resolveInstallationAccount(session);
       const follow = installation
@@ -382,14 +383,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
         return RESPONSE_ALREADY_SENT;
       }
       if (config.rawPushRelay)
-        return relayPushRaw(
-          c,
-          url,
-          session.authorization,
-          session.username,
-          follow,
-          origin,
-        );
+        return relayPushRaw(c, url, session.authorization, session.username);
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
       const res = await fetch(url, {

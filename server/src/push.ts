@@ -513,6 +513,13 @@ async function verify(entry: AccountPush, code: string) {
     entry.relays.delete(out);
     if (out.destroyed) continue;
     dropUpstream();
+    /*
+     * A relay that chose to reconnect instead of attaching (the raw relay does:
+     * its next request is the one that also follows the installation account)
+     * ends its browser stream here. Attaching it would write frames into a
+     * closed response.
+     */
+    if (out.destroyed || out.writableEnded) continue;
     addFanoutTab(entry, out);
     moved++;
   }
@@ -638,13 +645,11 @@ export function followAccount(
   authorization: string,
   out: ServerResponse,
   origin: string | null,
-  /** Drop this tab's own upstream stream when the follow verifies, if one is held. */
-  dropUpstream?: () => void,
 ): void {
   const entry = prepare(username, accountId, authorization, origin);
   if (!entry) return;
   if (entry.state === "verified") addFanoutTab(entry, out);
-  else attachRelay(username, out, dropUpstream ?? (() => {}));
+  else attachRelay(username, out, () => {});
 }
 
 /**

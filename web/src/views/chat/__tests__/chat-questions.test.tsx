@@ -225,6 +225,9 @@ describe("the agent's open questions", () => {
     await push("g1");
 
     expect(admin.fetchGroupRuns.mock.calls.length).toBe(runsBefore + 1);
+    expect(admin.fetchGroupRuns).toHaveBeenLastCalledWith("Team", "live", {
+      plan: false,
+    });
     expect(admin.fetchGroupAgent.mock.calls.length).toBe(switchBefore);
   });
 
@@ -235,6 +238,7 @@ describe("the agent's open questions", () => {
     await push("inst");
 
     expect(admin.fetchGroupAgent.mock.calls.length).toBe(switchBefore + 1);
+    expect(admin.fetchGroupAgent).toHaveBeenLastCalledWith("Team", true);
     expect(admin.fetchGroupRuns.mock.calls.length).toBe(runsBefore);
   });
 
@@ -254,5 +258,30 @@ describe("the agent's open questions", () => {
     expect(admin.fetchGroupRuns.mock.calls.length).toBe(runsBefore + 1);
     expect(admin.fetchGroupAgent.mock.calls.length).toBe(switchBefore + 1);
     expect(admin.fetchGroupAgent).toHaveBeenLastCalledWith("Team", true);
+  });
+
+  it("asks the value the pass holds on the net, not the document", async () => {
+    // Unmounted before the fake clock, so the real interval is cleared for good.
+    act(() => root.unmount());
+    vi.useFakeTimers();
+    try {
+      root = createRoot(host);
+      await act(async () => {
+        root.render(<ChatPanel accounts={[GROUP]} onClose={() => {}} />);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      admin.fetchGroupAgent.mockClear();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+      });
+
+      expect(admin.fetchGroupAgent).toHaveBeenCalledWith("Team", false);
+      expect(admin.fetchGroupAgent).not.toHaveBeenCalledWith("Team", true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

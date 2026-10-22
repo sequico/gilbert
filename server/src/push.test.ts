@@ -30,6 +30,7 @@ function fakeOut() {
   const e = new EventEmitter() as EventEmitter & {
     destroyed: boolean;
     ended: boolean;
+    writableEnded: boolean;
     written: string[];
     writableLength: number;
     write(s: string): boolean;
@@ -38,6 +39,7 @@ function fakeOut() {
   };
   e.destroyed = false;
   e.ended = false;
+  e.writableEnded = false;
   e.written = [];
   // What the socket still holds unflushed; a real tab that is reading keeps it
   // near zero, and the sweeper drops one that climbs past its ceiling.
@@ -48,6 +50,7 @@ function fakeOut() {
   };
   e.end = () => {
     e.ended = true;
+    e.writableEnded = true;
     e.destroyed = true;
   };
   e.destroy = () => {
@@ -585,6 +588,59 @@ test("a tab on the relay is moved to fan-out when its account verifies, and its 
       out.written.at(-1) ?? "",
       /StateChange/,
       "the same browser stream now receives fan-out",
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("a relay tab that reconnects instead of attaching is ended, not handed frames", async () => {
+  /*
+   * The raw relay hands its tab to the fan-out by ending it: the browser's next
+   * /api/events is the request that also follows the installation account. An
+   * ended stream must not be attached, or frames land in a closed response.
+   */
+  const restore = stubUpstream();
+  try {
+    let token: string | null = null;
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (
+      input: Parameters<typeof fetch>[0],
+      init?: RequestInit,
+    ) => {
+      const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(
+        typeof init?.body === "string" ? init.body : "",
+      );
+      if (m?.[1]) token = m[1];
+      return real(input, init);
+    }) as typeof fetch;
+    const who = "reconnect@example.com";
+    push.prepare(who, "c", "Basic r", ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    globalThis.fetch = real;
+    assert.ok(token);
+
+    const out = fakeOut();
+    let dropped = 0;
+    push.attachRelay(who, out as never, () => {
+      dropped++;
+      out.end();
+    });
+
+    assert.equal(
+      await push.receive(token!, { "@type": "PushVerification", verificationCode: "v" }),
+      200,
+    );
+    assert.equal(dropped, 1, "the relay is dropped on verification");
+    assert.equal(out.ended, true, "and the browser stream closed, for a reconnect");
+
+    await push.receive(token!, {
+      "@type": "StateChange",
+      changed: { c: { FileNode: "s10" } },
+    });
+    assert.ok(
+      !out.written.some((frame) => /StateChange/.test(frame)),
+      "nothing is written into the ended stream",
     );
   } finally {
     restore();
