@@ -3434,3 +3434,44 @@ test("a spent day reads nothing, and says so once a minute rather than every pas
     }
   }
 });
+
+test("a decision refused mid-batch is read again, and the changes around it are not decided twice", async () => {
+  /*
+   * The cursor moves only once the batch is answered (ADR 0037, 0038): a
+   * decision the model cannot give leaves the cursor where it was, so the next
+   * pass reads the same batch. The change already answered is skipped by its
+   * run's key, so the re-read costs one decision, not one per change.
+   */
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+
+  const first = await deliver("the first message");
+  const second = await deliver("the second message");
+  answerWith({ facts: {} });
+  answerWith({
+    calls: [{ name: "say", arguments: { action: "say", text: "first done" } }],
+  });
+  answerWith({}); // the decision for the second change is not a decision
+  const failed = await agent.pass();
+  assert.equal(failed.runs, 1, "the first change opened its run");
+  assert.ok(
+    failed.gaps.some((gap) => /exactly one of "facts"/.test(gap)),
+    "and the second change's decision is the pass's gap",
+  );
+
+  answerWith({ facts: {} });
+  answerWith({
+    calls: [{ name: "say", arguments: { action: "say", text: "second done" } }],
+  });
+  // The failed batch is not retried ten seconds later: the wrapper holds the
+  // account a minute, so the second pass is one minute on.
+  const after = await agent.pass(new Date(Date.now() + 61_000));
+  assert.equal(after.runs, 1, "the re-read decided only the change that was left");
+  const runs = (await listRuns(ctx, accountId)).filter(
+    (record) =>
+      record.run.startedBy.woke === `mail created: ${first}` ||
+      record.run.startedBy.woke === `mail created: ${second}`,
+  );
+  assert.equal(runs.length, 2, "both changes have their one run");
+});
