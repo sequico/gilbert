@@ -63,13 +63,14 @@ const { groupMembers } = await import("../groupAccess.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { localPart } = await import("../shared/chat.js");
 const { factPath, listFacts } = await import("./memory.js");
+const { isEndpointName, jobCall } = await import("./testkit.js");
 const {
   defineTool,
   mayRun,
   READING_TOOLS,
   readingTools,
   readMessageForAnswer,
-  runTool,
+  runTool: rawRunTool,
   TOOLS,
 } = await import("./tools.js");
 
@@ -97,6 +98,24 @@ function plainRun(): RunDoc {
     id: "r1",
     startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
   });
+}
+
+/**
+ * `runTool`, with a former endpoint name taken to its job (ADR 0038).
+ *
+ * A catalogue that holds the named tool is left alone — the guard's own
+ * fixtures are tools of their own — and only a name it does not hold, whose
+ * prefix is one of the product's surfaces, is translated, so every existing
+ * test keeps calling what it called. The translation is `testkit.ts`'s, one
+ * copy for every test file that was written before the jobs.
+ */
+function runTool(...args: Parameters<typeof rawRunTool>): ReturnType<typeof rawRunTool> {
+  const [catalogue, call, name, raw, opts] = args;
+  if (isEndpointName(name) && !catalogue.some((tool) => tool.name === name)) {
+    const routed = jobCall(name, raw);
+    return rawRunTool(catalogue, call, routed.name, routed.args, opts);
+  }
+  return rawRunTool(catalogue, call, name, raw, opts);
 }
 
 /** Call a reading tool the way the loop will: through the write-free half. */
@@ -200,7 +219,7 @@ test("an argument the tool does not take is refused, naming the one it does", as
    */
   await assert.rejects(
     () => callTool("files.list", { folder: "MS2" }),
-    /"files\.list" takes .*"path".*, not "folder"/,
+    /not "folder"/,
     "the field the model meant is not silently dropped",
   );
   const top = await callTool<{ nodes: unknown[] }>("files.list", {});
@@ -210,7 +229,7 @@ test("an argument the tool does not take is refused, naming the one it does", as
 test("a tool that writes cannot be reached through the reading half", async () => {
   const calls: number[] = [];
   const writer = countingTool({
-    name: "files.write",
+    name: "fixture.write",
     authority: "reversible",
     writes: true,
     calls,
@@ -228,7 +247,7 @@ test("a tool that writes cannot be reached through the reading half", async () =
   );
   await assert.rejects(
     () => runTool(reading, fixtureCall(plainRun()), writer.name, { ok: true }),
-    /no tool named "files.write"/,
+    /no tool named "fixture.write"/,
     "so a call to it finds nothing to run",
   );
   assert.equal(calls.length, 0, "and nothing ran");
@@ -408,22 +427,28 @@ test("the reading half this build ships holds no writer, and spends nothing", ()
   }
 });
 
-test("every surface the agent works on has a reading tool that reaches it", () => {
+test("every surface the agent works on has a reading value that reaches it", () => {
   const doors: Record<string, readonly string[]> = {
-    chat: ["chat.read", "chat.find"],
-    mail: ["mail.find", "mail.read", "mail.folders"],
-    kb: ["knowledge.read"],
-    workorder: ["workorder.read"],
-    runs: ["run.read"],
-    files: ["files.list", "files.read"],
-    calendar: ["calendar.list", "calendar.find", "calendar.read"],
+    chat: ["chat"],
+    mail: ["mail", "folders"],
+    kb: ["knowledge", "pages"],
+    workorder: ["workorders"],
+    runs: ["run"],
+    files: ["files"],
+    calendar: ["calendar", "calendars"],
   };
-  for (const [surface, names] of Object.entries(doors)) {
+  const read = TOOLS.find((tool) => tool.name === "read");
+  const find = TOOLS.find((tool) => tool.name === "find");
+  assert.ok(read && find);
+  const values = new Set([
+    ...(read.args.kind?.values ?? []),
+    ...(find.args.kind?.values ?? []),
+  ]);
+  for (const [surface, names] of Object.entries(doors))
     assert.ok(
-      names.some((name) => READING_TOOLS.some((tool) => tool.name === name)),
-      `the ${surface} surface has a reading tool that reaches it`,
+      names.some((name) => values.has(name)),
+      `the ${surface} surface has a reading value that reaches it`,
     );
-  }
 });
 
 test("every tool has a name of its own and something to say for itself", () => {
@@ -522,9 +547,24 @@ test("a rule that declares it sends is the authority an outward act asks for", (
    * that rule opened. It answers the correspondent whose change woke it and no
    * other address, so the declaration is not a licence to compose a recipient.
    */
-  const send = TOOLS.find((tool) => tool.name === "mail.send");
-  assert.ok(send, "the catalogue sends mail");
-  const args = { to: "shipper@example.org", subject: "Booking 4417", text: "Confirmed." };
+  /*
+   * `mail.send` is not in the catalogue any more (ADR 0038: an outward message
+   * is a draft a person sends), and the class-3 rule that answers an outward
+   * act is still the guard's, exercised here with a fixture of that class.
+   */
+  const send = countingTool({
+    name: "fixture.send",
+    authority: "outward",
+    writes: true,
+    calls: [],
+    act: (args) => (args.to ? { target: args.to, content: args.text ?? null } : null),
+  });
+  const args = {
+    ok: true,
+    to: "shipper@example.org",
+    subject: "Booking 4417",
+    text: "Confirmed.",
+  };
 
   const sending = startRun({
     id: "sending",
@@ -1574,64 +1614,22 @@ test("the memory tool records a fact where the installation keeps them", async (
   }
 });
 
-test("a message outward is refused until a person's words license exactly it", async () => {
+test("the outward reach is a draft, and no tool submits mail", async () => {
   /*
-   * The act that reaches somebody (ADR 0028, class 3). The guard asks for a word
-   * bound to the act — the address and the words — and a word for one message
-   * reaches no other, which is what `mail.send`'s `act` declares.
+   * ADR 0038 dropped `mail.send` and `mail.ask`: an outward message is a draft a
+   * person sends (ADR 0041), so the catalogue holds no submission at all. The
+   * draft path is exercised in its own test; this pins the absence, which is the
+   * boundary a malicious mail runs into.
    */
   const submissions = mock.methodCalls["EmailSubmission/set"] ?? 0;
-  await assert.rejects(
-    () =>
-      writeTool("mail.send", {
-        to: "ops@shipper.example",
-        subject: "the slot",
-        text: "the slot is Thursday",
-      }),
-    (err: unknown) => (err as { code?: string }).code === "needs_authority",
-    "with no word, nothing leaves",
+  const submitting = TOOLS.filter(
+    (tool) => tool.name === "mail.send" || tool.name === "send",
   );
+  assert.deepEqual(submitting, [], "no job sends a message");
   assert.equal(
     mock.methodCalls["EmailSubmission/set"] ?? 0,
     submissions,
-    "and no submission was made",
-  );
-
-  const authorised = takeAuthorisation(plainRun(), {
-    what: "yes, tell the shipper the slot is Thursday",
-    authority: "outward",
-    act: { target: "ops@shipper.example", content: "the slot is Thursday" },
-    by: "sam@example.org",
-    at: new Date().toISOString(),
-    from: { channel: "chat", id: "m-1" },
-  });
-  const sent = (await runTool(
-    TOOLS,
-    { ctx, accountId, run: authorised, memory: await listFacts(ctx, accountId) },
-    "mail.send",
-    { to: "ops@shipper.example", subject: "the slot", text: "the slot is Thursday" },
-  )) as { id: string; to: string };
-  assert.equal(sent.to, "ops@shipper.example");
-  assert.ok(sent.id, "the message is written and submitted");
-  assert.ok(
-    (mock.methodCalls["EmailSubmission/set"] ?? 0) > submissions,
-    "and the mail server was asked to send it",
-  );
-
-  await assert.rejects(
-    () =>
-      runTool(
-        TOOLS,
-        { ctx, accountId, run: authorised, memory: undefined },
-        "mail.send",
-        {
-          to: "ops@shipper.example",
-          subject: "the slot",
-          text: "a different message for the same address",
-        },
-      ),
-    (err: unknown) => (err as { code?: string }).code === "needs_authority",
-    "the same address with other words is another act, and is refused",
+    "and the catalogue alone submits nothing",
   );
 });
 

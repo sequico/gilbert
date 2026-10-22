@@ -79,6 +79,12 @@ export interface ChangesDeps {
     accountId: string,
     path: string,
   ): Promise<{ path: string; text: string } | null>;
+  /**
+   * A model call this pass made answered: the provider's run of failures ends
+   * (ADR 0038). Called after the decision turn returns, so a provider that
+   * refuses only the run's turns is not excused by it.
+   */
+  modelAnswered(): void;
   openRun(
     accountId: string,
     event: AccountEvent,
@@ -589,6 +595,11 @@ export async function workChanges(
       // at most; the other surfaces keep the full allowance.
       { meter, ...(event.source === "files" ? { maxReads: 2 } : {}) },
     );
+    // The day's counter is the pass's own, and a decision call is spent on it
+    // (ADR 0038): a change the agent looked at costs tokens even when no run
+    // opens.
+    summary.tokens += meter.promptTokens + meter.completionTokens;
+    deps.modelAnswered();
     if (decision.kind === "reply") {
       /*
        * The fast path: a chat message that only wants words is answered by the

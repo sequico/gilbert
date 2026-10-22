@@ -1,13 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AREA_NAMES, declaredAreas, MAX_DECLARED_AREAS } from "../shared/areas.js";
-import {
-  areaOf,
-  CONTEXT_TOOL_PREFIXES,
-  catalogueFor,
-  isAreaTool,
-  selectedAreas,
-} from "./areas.js";
+import { declaredAreas, MAX_DECLARED_AREAS } from "../shared/areas.js";
+import type { SurfaceMatrix } from "../shared/surfaces.js";
+import { areaOf, catalogueFor, isAreaTool, selectedAreas } from "./areas.js";
 import { TOOLS } from "./tools.js";
 
 /**
@@ -19,26 +14,42 @@ import { TOOLS } from "./tools.js";
  * always present, and a group cannot declare its way back to forty-five.
  */
 
-test("every tool in the catalogue names an area, and one only", () => {
-  const seen = new Map<string, string>();
-  for (const tool of TOOLS) {
-    const area = isAreaTool(tool.name) ? areaOf(tool.name) : null;
-    if (area === null) {
-      assert.ok(
-        CONTEXT_TOOL_PREFIXES.includes(tool.name.split(".")[0] ?? ""),
-        `${tool.name} is either an area's tool or the harness's own`,
-      );
-      continue;
-    }
-    assert.ok(
-      (AREA_NAMES as readonly string[]).includes(area),
-      `${tool.name} belongs to a known area`,
+test("the catalogue is eight jobs, each a name a provider accepts", () => {
+  assert.deepEqual(
+    TOOLS.map((tool) => tool.name),
+    ["read", "find", "place", "draft", "event", "say", "remember", "settle"],
+  );
+  for (const tool of TOOLS)
+    assert.match(
+      tool.name,
+      /^[a-zA-Z0-9_-]+$/,
+      `${tool.name} is a function name a provider accepts`,
     );
-    const held = seen.get(tool.name);
-    assert.equal(held, undefined, `${tool.name} is named once`);
-    seen.set(tool.name, area);
-  }
-  assert.ok(seen.size > 0, "the catalogue is not empty");
+});
+
+test("the selection keeps reading free and narrows the four area writes", () => {
+  const picked = catalogueFor(TOOLS, ["mail", "files", "chat", "knowledge", "memory"]);
+  assert.deepEqual(
+    picked.map((tool) => tool.name),
+    ["read", "find", "place", "draft", "say", "remember"],
+  );
+  const place = picked.find((tool) => tool.name === "place");
+  assert.ok(place);
+  const actions = place.args.action?.values ?? [];
+  assert.ok(actions.includes("file"), "a mail action is kept");
+  assert.ok(actions.includes("save"), "a files action is kept");
+  assert.ok(!actions.includes("create"), "no calendar action is invented");
+
+  const calendarOnly = catalogueFor(TOOLS, ["calendar", "chat", "knowledge", "memory"]);
+  assert.deepEqual(
+    calendarOnly.map((tool) => tool.name),
+    ["read", "find", "event", "say", "remember"],
+  );
+  assert.equal(
+    TOOLS.find((tool) => tool.name === "settle")?.narrow?.(["mail"]),
+    null,
+    "a job whose area is not declared is not offered at all",
+  );
 });
 
 test("a tool whose name names no area is refused, not guessed at", () => {
@@ -82,12 +93,19 @@ test("an area nobody has is refused with the list of the ones there are", () => 
 test("the matrix names the areas a group works, and forgets the ones turned off", () => {
   assert.deepEqual(
     [
-      ...(selectedAreas([], { chat: "watch", mail: "watch", calendar: "off" }) ?? []),
+      ...(selectedAreas([], {
+        chat: "watch",
+        mail: "watch",
+        calendar: "off",
+      } as SurfaceMatrix) ?? []),
     ].sort(),
     ["chat", "knowledge", "mail", "memory"],
   );
   assert.deepEqual(
-    [...(selectedAreas([], { chat: "watch", workorder: "ondemand" }) ?? [])].sort(),
+    [
+      ...(selectedAreas([], { chat: "watch", workorder: "ondemand" } as SurfaceMatrix) ??
+        []),
+    ].sort(),
     ["chat", "knowledge", "memory", "workorders"],
   );
 });

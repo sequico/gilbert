@@ -91,7 +91,7 @@ test("a chat message longer than the prompt's bound is carried as its beginning"
     event: { source: "chat", change: "created", where: "c-1" },
     detail: { from: "someone@example.com", text: huge },
   } as DecisionQuestion;
-  const prompt = turnData(question, [], []);
+  const prompt = turnData(question, []);
 
   assert.ok(prompt.length < huge.length, "the whole paste is not in the prompt");
   assert.ok(prompt.includes("b".repeat(1_000)), "its beginning is");

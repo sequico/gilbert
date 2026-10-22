@@ -79,7 +79,7 @@ async function waitFor(done: () => boolean, timeoutMs = 2_000): Promise<void> {
 
 /** A pass of the loop, with nothing claimed unless the stand-in says otherwise. */
 function passSummary(claimed: boolean, accounts = 1): PassSummary {
-  return { claimed, accounts, changes: 0, runs: 0, due: 0, ms: 1, gaps: [] };
+  return { claimed, accounts, changes: 0, runs: 0, due: 0, tokens: 0, ms: 1, gaps: [] };
 }
 
 interface StandIn {

@@ -47,6 +47,8 @@
  * report a bug where there is an installation nobody can administer yet.
  */
 import { type Ctx, ensureAppFolder, filesAccountId, readAppFileAt } from "./appFolder.js";
+import { probeModel } from "./agent/model.js";
+import { config } from "./config.js";
 import {
   appFolderInstallationStore,
   InstallationError,
@@ -368,14 +370,55 @@ export async function publishInstallation(
 
   let written: InstallationDocument;
   try {
-    written = await writeInstallation(
-      store,
-      // The stored key stands when the publish said nothing about it — the
-      // field absent or empty — and goes when the publish said the provider
-      // needs none (see `withStoredKey`).
-      { ...withStoredKey(parsed.doc, stored, raw), epoch: storedEpoch(stored) },
-      { ifInState: state },
-    );
+    /*
+     * What this publish means to write, with the key a save that said nothing
+     * about it did not state (`withStoredKey`) and the epoch derived from the
+     * stored document rather than the submitted one.
+     */
+    const effective: InstallationDocument = {
+      ...withStoredKey(parsed.doc, stored, raw),
+      epoch: storedEpoch(stored),
+    };
+    /*
+     * The provider is proved before it is stored (ADR 0038): a model the turns
+     * cannot use — no `tools`, no structured output — is refused here, where a
+     * person can read why, instead of failing every run after the next boot.
+     * The probe runs when the block changed and when it carries no recorded
+     * capability (a document written before the probe existed); publishing
+     * anything else in the document does not pay for a provider call.
+     */
+    const nextProvider = effective.agent.provider;
+    const previousProvider = providerIn(stored ?? "");
+    const changed =
+      !previousProvider ||
+      ["provider", "model", "baseUrl", "apiKey"].some(
+        (key) =>
+          (previousProvider[key] ?? "") !==
+          ((nextProvider as unknown as Record<string, unknown>)?.[key] ?? ""),
+      );
+    if (nextProvider && (changed || !nextProvider.structured)) {
+      const probe = await probeModel({
+        model: nextProvider,
+        allowPrivateProvider: config.agent.allowPrivateProvider,
+      });
+      if (!probe.ok)
+        return {
+          refused: {
+            status: 400,
+            code: "provider_unsupported",
+            message: providerRefusal(probe.reason, nextProvider.provider),
+          },
+        };
+      effective.agent = {
+        ...effective.agent,
+        provider: {
+          ...nextProvider,
+          structured: probe.structured,
+          ...(probe.outputTokens === null ? {} : { outputTokens: probe.outputTokens }),
+        },
+      };
+    }
+    written = await writeInstallation(store, effective, { ifInState: state });
   } catch (err) {
     if (isStateMismatch(err))
       return {
@@ -490,4 +533,39 @@ function noFilesAccount(): InstallationRefused {
       "it from or write it to. Every account on this Stalwart should have one; check the server's version " +
       "and the principal's capabilities.",
   };
+}
+
+/**
+ * Why a provider cannot be stored, in the words the form shows (ADR 0038).
+ *
+ * One sentence per refusal: a key that is wrong and a provider that cannot call
+ * tools are different repairs, and the second is the one a model chosen by name
+ * alone usually needs.
+ */
+function providerRefusal(
+  reason: Extract<Awaited<ReturnType<typeof probeModel>>, { ok: false }>["reason"],
+  provider: string,
+): string {
+  switch (reason) {
+    case "no_tools":
+      return `${provider} does not accept tool definitions, and every run calls the agent's catalogue through them: choose a provider that does.`;
+    case "no_structured":
+      return `${provider} accepts neither a JSON schema nor its own JSON mode, and the decision turn needs one: choose a provider that carries structured output.`;
+    case "unauthorized":
+      return `${provider} refused the key: check the key in the document, and save it again.`;
+    case "not_found":
+      return `The base URL did not answer: check it, and that ${provider} serves the model named.`;
+    case "rate_limited":
+      return `${provider} is rate-limiting this installation right now: try the save again in a minute.`;
+    case "forbidden_target":
+      return "The provider's address is private, and this deployment has not stated that its model may sit inside its own network (GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER).";
+    case "bad_url":
+      return "The provider's base URL could not be used: it must be an https address that resolves.";
+    case "unreachable":
+      return `${provider} could not be reached: check the address and that the deployment may reach it.`;
+    case "provider_error":
+      return `${provider} answered with an error: the provider is not serving this installation right now.`;
+    default:
+      return `${provider} could not be used: the probe could not settle whether it calls tools and answers structured output.`;
+  }
 }

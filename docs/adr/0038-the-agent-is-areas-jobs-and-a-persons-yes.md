@@ -3,12 +3,20 @@
 Status: Proposed
 
 Implementation: Partly built. **Built:** areas and their selection
-(`server/src/agent/areas.ts`), one instruction per group
+(`server/src/agent/areas.ts`), the eight jobs and their narrowing
+(`agent/tools/jobs.ts`), one instruction per group
 (`agent/instruction.ts`, panel `GroupInstruction.tsx`), the change as trigger with
 the run keyed by it and the one-off clear (`changes.ts`, `loop.ts`, `legacy.ts`),
-the `done` read against its plan (nothing finished → `refused`), the credential
-filter (`redact.ts`), the eval runner (`eval.ts`). **Not built:** the plan's F1–F7
-besides that list, and everything in *Owed*.
+the `done` read against its plan (nothing finished → `refused`), the repair of an
+invalid call (`model.ts`, `loop.ts`), the credential filter (`redact.ts`), the eval
+runner (`eval.ts`), native function calling as the only action protocol with the
+decision turn in the provider's structured output (`model.ts`), the provider probe
+and the declared output ceiling at publish (`installationAdmin.ts`), the two token
+ceilings with the pass document's daily counter (`shared/installation.ts`,
+`shared/agent.ts`, `loop.ts`), and a permanent provider failure stopping the pass.
+**Not built:** the plan's F4–F7 besides that list (ten eval tasks in the
+repository, the run's own trend, the structured memory), and everything in
+*Owed*.
 
 ## What this replaces, and what it keeps
 
@@ -68,21 +76,24 @@ Forty-five endpoint tools become eight; every capability is a field of a job or
 | `say` | speak in the conversation, or ask | `chat.say`, `chat.ask` |
 | `remember` | keep a fact, or propose a knowledge page | `memory.remember`, `knowledge.propose` |
 | `settle` | close or move a workorder | `workorder.settle` |
-
 **Dropped: `mail.send` and `mail.ask`.** An outward message is a draft a person
 sends (ADR 0041); `mail.ask` sent a question and parked the run, which the draft
 rule makes impossible — a question is asked in the conversation (`say`), and a
 mail leaves only when a person sends it. Contacts carry no write; `find` is their
 whole surface.
 
-`place` carries an **`action`** (`move`, `trash`, `label`, `folder`, `delete`) and
-`draft` a `kind` (`reply`, `forward`, `new`); the authority class is read from that
-value, not from the tool, because one job spans reversible and destructive acts.
+`place` carries an **`action`** (`file`, `trash`, `untrash`, `keyword`, `label`,
+`save`, `write`, `overwrite`, `moveFile`, `renameFile`, `deleteFile`, `folder`,
+`mailFolder`, `renameFolder`, `deleteFolder`) and `draft` a `kind` (`reply`,
+`edit`); the authority class is read from that value, not from the tool, because
+one job spans reversible and destructive acts.
 
 - **A sequence the job implies lives inside the tool** that names the job: filing a
   booking's documents is part of reading that mail, not a second tool to chain.
-- **Every argument says what kind of thing it is** (`message_id`, `node_id`,
-  `event_id`), and a refusal quotes the real names and a valid example.
+- **Every call says what kind of thing it is about** — the job's `kind`/`action`
+  — and its arguments say what they hold (`id`, the id `find` answered; `path`, a
+  document's; `folder`, a folder's), so a mailbox id cannot stand where a message
+  id belongs. A refusal quotes the real names and a valid example.
 - **A tool returns a distillation, never the payload** — what happened, and the id
   to use next.
 - **No code execution**, by decision: the job-shaped tool buys what it would buy
@@ -207,17 +218,21 @@ argument set. The eval added the provider's side: a turn asked for
 spent the provider's default budget before writing anything.
 
 - **Native function calling is the protocol, and the only one.** The catalogue
-  travels in `tools`, the answer is read from `tool_calls`. The administration's
-  form **accepts a provider only if it takes both** what the turns need — `tools`
-  for the action, the structured output for the decision — and refuses one that
-  fails the probe when the block is written; the probe checks both then (one request
-  when they travel together, two when they do not), reads the provider's output
-  ceiling with them, and records the result with the provider block; at connect only
-  reachability is checked. There is no JSON-in-the-text fallback. The **decision
-  turn**, which chooses no action, is asked in the provider's **native structured
-  output** (a JSON schema), not JSON in free text, and may name one `read` — the same
-  job the action turns call, **whose schema is derived from that tool** rather than
-  written twice. Both forms are structured and recorded, so a **replay needs no
+  travels in `tools`, the answer is read from `tool_calls`. The names are bare
+  words (`read`, `find`, …) because a provider accepts only
+  `^[a-zA-Z0-9_-]+$` — the live provider refused `mail.find` as an invalid
+  function name. The administration's form **accepts a provider only if it takes
+  both** what the turns need — `tools` for the action, a native JSON mode for the
+  decision — and refuses one that fails the probe when the block is written; the
+  probe checks both then (one request when they travel together, one per
+  capability when they do not), reads the provider's output ceiling with them, and
+  records the result with the provider block; at connect only reachability is
+  checked. There is no JSON-in-the-text fallback. The **decision turn**, which
+  chooses no action, is asked in the provider's **native structured output** — a
+  JSON schema where it enforces one, its plain JSON mode where that is all it has
+  — and never in free text. It may name one `read` — the same job the action
+  turns call, **whose schema is derived from that tool** rather than written
+  twice. Both forms are structured and recorded, so a **replay needs no
   model**. Programmatic tool calling is **not** the alternative: its fixed prompt
   cost only reverses above ~26 calls per turn, and a run chains one to three.
 - **An invalid call is repaired, not lost.** It comes back to the same turn with the

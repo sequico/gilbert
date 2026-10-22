@@ -187,6 +187,10 @@ async function measured(): Promise<Measured> {
   const records = await listRuns(ctx, accountId);
   const last = records[records.length - 1]?.run;
   if (!last) return { ending: "no-run", steps: 0, calls: 0, refused: 0, said: null };
+  for (const step of last.plan)
+    console.error(
+      `  step ${step.state}: ${step.what} -> ${step.outcome.replace(/\s+/g, " ").slice(0, 220)}`,
+    );
   return {
     ending: last.state,
     steps: last.spent.steps,

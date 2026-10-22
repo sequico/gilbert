@@ -9,6 +9,7 @@
  */
 
 import type { Ctx } from "../../appFolder.js";
+import type { AreaName } from "../../shared/areas.js";
 import { isRecord } from "../../shared/json.js";
 import type {
   RunAuthority,
@@ -70,6 +71,15 @@ export interface AnyTool {
   readonly name: string;
   readonly description: string;
   readonly authority: ToolAuthority;
+  /**
+   * The class this **call** exercises, read from its parsed arguments.
+   *
+   * One job reaches reversible and destructive acts alike (ADR 0038): `place`
+   * files a message and destroys a folder, `event` creates and cancels. The
+   * guard asks this, never the tool's static `authority`, which a job keeps as
+   * its default.
+   */
+  readonly authorityOf: (args: unknown) => ToolAuthority;
   /** Whether the tool can change anything. The reading half's are all false. */
   readonly writes: boolean;
   /**
@@ -77,8 +87,12 @@ export interface AnyTool {
    * for the agent's own bookkeeping (its memory).
    */
   readonly surface?: SurfaceName;
+  /** The surface this call touches, read from its parsed arguments. */
+  readonly surfaceOf: (args: unknown) => SurfaceName | undefined;
   /** Whether one call leaves the run waiting on a person (ADR 0029, 0030). */
   readonly waits: boolean;
+  /** Whether this call waits, read from its parsed arguments. */
+  readonly waitsOf: (args: unknown) => boolean;
   /** What a call to it spends of the run's budget (ADR 0027). */
   readonly spend: Partial<RunSpent>;
   /**
@@ -103,10 +117,28 @@ export interface AnyTool {
   readonly keys: readonly string[];
   /** What each argument is, for the turn that has to fill it in. */
   readonly args: Readonly<Record<string, ArgSpec>>;
+  /**
+   * The whole `parameters` object of a provider's tool definition, when one
+   * object cannot express the call's shapes (ADR 0038): a job whose arguments
+   * depend on its `kind`/`action` publishes one branch per value, so a provider
+   * can refuse `path` on a mail search before the endpoint does.
+   */
+  readonly parameters?: () => Record<string, unknown>;
+  /**
+   * The call's arguments as one line, when the generic rendering is not enough:
+   * a job says which arguments belong to which value.
+   */
+  readonly argLine?: () => string;
   /** Validate the arguments; throw `ToolError` on anything the tool cannot use. */
   readonly parse: (raw: unknown) => unknown;
   /** The task itself, with arguments already validated. */
   readonly run: (call: ToolCall, args: unknown) => Promise<unknown>;
+  /**
+   * The same tool with only the acts a run's areas allow (ADR 0038), or null
+   * when none is: a job whose values all belong to areas the instruction did
+   * not declare is not offered at all.
+   */
+  readonly narrow?: (areas: readonly AreaName[] | null) => AnyTool | null;
 }
 
 /**
@@ -140,19 +172,67 @@ export interface ArgSpec {
   values?: readonly string[];
 }
 
+/** One argument as a JSON Schema, from the tool's own `args` spec. */
+export function argSchema(spec: ArgSpec): Record<string, unknown> {
+  /*
+   * The bound in words, beside the machine-readable one: a provider may ignore
+   * `maxLength` — one did, and the run paid a refusal for a `fact` five times
+   * over its limit — and a description is what a model actually reads.
+   */
+  const described = spec.about ? { description: spec.about } : {};
+  switch (spec.type) {
+    case "number":
+      return {
+        type: "integer",
+        ...described,
+        ...(spec.min === undefined ? {} : { minimum: spec.min }),
+        ...(spec.max === undefined ? {} : { maximum: spec.max }),
+      };
+    case "boolean":
+      return { type: "boolean", ...described };
+    case "list":
+      return {
+        type: "array",
+        items: {
+          type: "string",
+          ...(spec.max === undefined ? {} : { maxLength: spec.max }),
+        },
+        ...described,
+      };
+    case "one of":
+      return {
+        type: "string",
+        ...described,
+        ...(spec.values?.length ? { enum: [...spec.values] } : {}),
+      };
+    case "text":
+      return {
+        type: "string",
+        ...described,
+        ...(spec.max === undefined ? {} : { maxLength: spec.max }),
+      };
+  }
+}
+
 /** One tool's own shape, typed by the arguments it takes. */
 interface ToolSpec<Args> {
   name: string;
   description: string;
   authority: ToolAuthority;
+  /** The class a call exercises, when it varies by its arguments. */
+  authorityOf?: (args: Args) => ToolAuthority;
   writes: boolean;
   /** The surface of the group's account a write touches (ADR 0031). */
   surface?: SurfaceName;
+  /** The surface a call touches, when it varies by its arguments. */
+  surfaceOf?: (args: Args) => SurfaceName | undefined;
   /**
    * Whether one call leaves the run waiting on a person. A run holds one wait
    * (ADR 0030), so a plan may carry one such call and no more.
    */
   waits?: boolean;
+  /** Whether a call waits, when it varies by its arguments. */
+  waitsOf?: (args: Args) => boolean;
   spend?: Partial<RunSpent>;
   act?: (args: Args) => RunAuthorityAct | null;
   /**
@@ -166,6 +246,10 @@ interface ToolSpec<Args> {
    * is nothing to disagree now.
    */
   args: Readonly<Record<string, ArgSpec>>;
+  /** The whole argument schema, when it is a union of per-value shapes. */
+  parameters?: () => Record<string, unknown>;
+  /** The arguments as one line, when the generic rendering is not enough. */
+  argLine?: () => string;
   parse: (raw: unknown) => Args;
   run: (call: ToolCall, args: Args) => Promise<unknown>;
 }
@@ -178,13 +262,24 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     name: spec.name,
     description: spec.description,
     authority: spec.authority,
+    authorityOf: spec.authorityOf
+      ? (args) => spec.authorityOf!(args as Args)
+      : () => spec.authority,
     writes: spec.writes,
     surface: spec.surface,
+    surfaceOf: spec.surfaceOf
+      ? (args) => spec.surfaceOf!(args as Args)
+      : () => spec.surface,
     waits: spec.waits === true,
+    waitsOf: spec.waitsOf
+      ? (args) => spec.waitsOf!(args as Args)
+      : () => spec.waits === true,
     spend: spec.spend ?? {},
     act: spec.act ? (args) => spec.act!(args as Args) : () => null,
     keys,
     args: spec.args,
+    ...(spec.parameters ? { parameters: spec.parameters } : {}),
+    ...(spec.argLine ? { argLine: spec.argLine } : {}),
     parse: (raw) => {
       /*
        * A key this tool does not take is refused whole, before the run: the
@@ -263,7 +358,7 @@ function authorityNeeded(authority: ToolAuthority): RunAuthority | "alone" | "ne
  * be authorised to decide.
  */
 export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
-  const needed = authorityNeeded(tool.authority);
+  const needed = authorityNeeded(tool.authorityOf(args));
   if (needed === "alone") return true;
   if (needed === "never") return false;
   const act = tool.act(args);

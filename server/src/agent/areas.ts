@@ -100,21 +100,30 @@ function areasOfSurfaces(surfaces: SurfaceMatrix | undefined): readonly AreaName
 }
 
 /**
- * The catalogue one turn reads: the selected areas' writing tools, every area's
- * reading tools, and the harness's own (`run.read`), which is never a group's
- * business but is always available.
+ * The catalogue one turn reads, already narrowed to the run's areas (ADR 0038).
  *
- * Reading is free (`surfaces.ts`: a reading is proof, not an act), so the selection
- * narrows **what a run may change**, never what it may look at. A run whose group
- * declares no surface matrix has nothing to select from and is handed the whole
- * catalogue — the arrangement every run had before the areas existed.
+ * `read`, `find`, `say` and `remember` are always present — reading is free, so
+ * the selection narrows what a run may change, never what it may look at — and
+ * the four area writes (`place`, `draft`, `event`, `settle`) keep only the
+ * values whose area the instruction declared. The narrowing is each job's own
+ * (`AnyTool.narrow`): a tool that does not narrow keeps the old filter, which
+ * is what a catalogue built by a caller or a test still gets.
  */
-export function catalogueFor<T extends { name: string; writes?: boolean }>(
-  catalogue: readonly T[],
-  areas: readonly AreaName[] | null,
-): readonly T[] {
+export function catalogueFor<
+  T extends {
+    name: string;
+    writes?: boolean;
+    narrow?: (areas: readonly AreaName[] | null) => T | null;
+  },
+>(catalogue: readonly T[], areas: readonly AreaName[] | null): readonly T[] {
   if (areas === null) return catalogue;
-  return catalogue.filter(
-    (tool) => !tool.writes || !isAreaTool(tool.name) || areas.includes(areaOf(tool.name)),
-  );
+  return catalogue.flatMap((tool) => {
+    if (tool.narrow) {
+      const kept = tool.narrow(areas);
+      return kept ? [kept] : [];
+    }
+    return !tool.writes || !isAreaTool(tool.name) || areas.includes(areaOf(tool.name))
+      ? [tool]
+      : [];
+  });
 }

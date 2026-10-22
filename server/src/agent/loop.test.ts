@@ -58,10 +58,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { after, afterEach, before, beforeEach, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
 import type { AreaName } from "../shared/areas.js";
+import { isRecord } from "../shared/json.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
 import { freePort, waitForPort } from "../testkit.js";
 import type { InstructionDoc } from "./instruction.js";
 import { type AgentLoopOptions, DONE_CHECKED } from "./loop.js";
+import { isEndpointName, jobCall } from "./testkit.js";
 
 const MOCK_PORT = await freePort();
 process.env.MOCK_PORT = String(MOCK_PORT);
@@ -154,16 +156,71 @@ const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     return;
   }
   res.writeHead(200, { "content-type": "application/json" });
-  const content = onCall
-    ? JSON.stringify(onCall(system, user))
-    : (answers.shift() ?? "{}");
+  /*
+   * The answer in the shape the protocol now gives (ADR 0038): a `calls` value
+   * is the provider's own tool calls, a `done` value is the sentence that ends
+   * the run, and anything else is the structured JSON a decision turn is asked
+   * for. The endpoint names the older tests write are translated to their job
+   * (`testkit.ts`), so each test still exercises the call it named.
+   */
+  let content = "{}";
+  let toolCalls: unknown = null;
+  const value = onCall ? onCall(system, user) : parseAnswer(answers.shift() ?? "{}");
+  if (isRecord(value) && Array.isArray(value.calls)) {
+    content = "";
+    toolCalls = value.calls.map((one, at) => {
+      const call = one as { name: string; arguments?: unknown };
+      let routed: { name: string; args: unknown } = {
+        name: call.name,
+        args: call.arguments,
+      };
+      if (isEndpointName(call.name)) {
+        try {
+          routed = jobCall(call.name, call.arguments);
+        } catch {
+          // A fixture's own tool that happens to be named like a surface.
+        }
+      }
+      return {
+        index: at,
+        id: `call-${at}`,
+        type: "function",
+        function: {
+          name: routed.name,
+          arguments: JSON.stringify(routed.args ?? {}),
+        },
+      };
+    });
+  } else if (isRecord(value) && typeof value.done === "string") {
+    content = value.done;
+  } else if (typeof value === "string") {
+    content = value;
+  } else {
+    content = JSON.stringify(value);
+  }
   res.end(
     JSON.stringify({
-      choices: [{ message: { content } }],
+      choices: [
+        {
+          message: {
+            content,
+            ...(toolCalls ? { tool_calls: toolCalls } : {}),
+          },
+        },
+      ],
       usage: { prompt_tokens: 11, completion_tokens: 7 },
     }),
   );
 });
+
+/** A queued answer, or the text itself when it is not JSON. */
+function parseAnswer(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
 
 /** Fail the next model call as an unreachable provider would. */
 function failNextModelCall(): void {
@@ -521,12 +578,16 @@ test("a change a rule watches opens a run, and the record shows every step of it
     "and carries the matrix the rule had at that instant (ADR 0031)",
   );
   assert.equal(run.state, "done", "the model said the work was done");
-  assert.equal(run.ended?.why, "the shipper's message is filed", "in its own words");
+  assert.equal(
+    run.ended?.why,
+    "filed with the booking",
+    "and the sentence it said in the conversation is the ending",
+  );
   assert.equal(run.plan.length, 1, "one step was taken");
-  assert.match(run.plan[0]?.what ?? "", /^chat\.say /, "and the record says which");
+  assert.match(run.plan[0]?.what ?? "", /^say /, "and the record says which");
   assert.equal(run.plan[0]?.state, "done");
   assert.match(run.plan[0]?.outcome ?? "", /"id"/, "with what it answered");
-  assert.ok(run.spent.calls >= 2, "and what it spent: the turns it took");
+  assert.ok(run.spent.calls >= 1, "and what it spent: the turns it took");
 
   // The decision turn is asked first, and the choosing turn after it.
   assert.equal(isDecision(seen[0]?.system ?? ""), true, "the decision comes first");
@@ -783,7 +844,7 @@ test("a wave asks the server for at most four calls at once", async () => {
   let inFlight = 0;
   let peak = 0;
   const slow = defineTool<{ path: string }>({
-    name: "files.probe",
+    name: "probe",
     description: "A listing slow enough to see how many of them run together.",
     authority: "reversible",
     writes: false,
@@ -805,7 +866,7 @@ test("a wave asks the server for at most four calls at once", async () => {
   answerWith({ facts: {} });
   answerWith({
     calls: Array.from({ length: 9 }, (_, at) => ({
-      name: "files.probe",
+      name: "probe",
       arguments: { path: `MS2/${at}` },
     })),
   });

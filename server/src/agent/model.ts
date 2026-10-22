@@ -80,15 +80,48 @@ import { type ProseLevel, proseForModel } from "./prose.js";
 import { redactSecrets } from "./redact.js";
 import {
   type AnyTool,
+  argSchema,
   type ArgSpec,
   READING_TOOLS,
   runTool,
   type ToolCall,
   validatedTool,
 } from "./tools.js";
-
 /** How long one model call may take before it counts as unreachable. */
 const MODEL_TIMEOUT_MS = 60_000;
+
+/**
+ * The output ceiling a call assumes when the provider declared none.
+ *
+ * A provider that publishes no ceiling can still be used, but an answer left to
+ * the provider's own default is an uncapped bill on a reasoning model, which
+ * spends it before writing anything (ADR 0038). The default is generous because
+ * that reasoning is paid out of the same budget — 4096 was measured to be spent
+ * before a decision turn wrote a word (2026-10-22, `deepseek-flash`) — and a
+ * provider that declares more is believed while one that declares nothing is
+ * bounded here.
+ */
+export const DEFAULT_OUTPUT_TOKENS = 16_384;
+
+/** The least room a call is worth making with, once the prompt is paid for. */
+export const MIN_OUTPUT_TOKENS = 512;
+
+/**
+ * A declared estimate of a prompt's tokens: four characters each.
+ *
+ * The provider's own count exists only in an answer it has already charged for,
+ * so the first call of a run is estimated and the next ones are corrected by
+ * the usage the previous one reported (ADR 0038). A tool catalogue is JSON, so
+ * the estimate is stated rather than guessed at silently.
+ */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/** The output ceiling an access's call is capped by. */
+export function outputCeiling(access: ModelAccess): number {
+  return access.model.outputTokens ?? DEFAULT_OUTPUT_TOKENS;
+}
 
 /**
  * The most of a provider's answer a call holds before it gives up.
@@ -134,9 +167,25 @@ const DATA_NOT_INSTRUCTIONS =
 
 /** A model call this build cannot use. The code is what a surface composes its sentence from. */
 export class ModelError extends CodedError {
-  constructor(code: string, message: string, status = 502) {
+  constructor(
+    code: string,
+    message: string,
+    status = 502,
+    /**
+     * Whether the same call could ever work. A provider that is unreachable or
+     * answered 5xx is retried; a request the provider refuses on its merits
+     * (a 4xx that names the request, not the key) is permanent, and three in a
+     * row stop the pass (ADR 0038).
+     */
+    readonly permanent = false,
+  ) {
     super(code, message, status, "ModelError");
   }
+}
+
+/** The statuses a retry may cure: the provider's own trouble, never the request's. */
+function transientStatus(status: number): boolean {
+  return status === 408 || status === 409 || status === 429 || status >= 500;
 }
 
 /**
@@ -272,10 +321,18 @@ interface ModelRequest {
    *
    * A call that carries them asks for a tool-calling answer instead of a JSON
    * object: the provider checks the kind and the bound of every argument, which
-   * is what a hand-written plan gets wrong. The demanded JSON shape stays the
-   * fallback — a model that ignores the tools still answers a plan or a `done`.
+   * is what a hand-written plan gets wrong. This is the **only** action
+   * protocol (ADR 0038): there is no second channel without them.
    */
   tools?: readonly ToolDefinition[];
+  /**
+   * The JSON schema the answer must take, for the decision turn (ADR 0038).
+   *
+   * Asked in the provider's own structured output — a schema where it enforces
+   * one, its plain JSON mode where that is all it has — and never as JSON in
+   * free text.
+   */
+  schema?: { name: string; schema: Record<string, unknown> };
 }
 
 /** One image handed to the model: its type and its bytes. */
@@ -287,9 +344,11 @@ interface ModelImage {
 /**
  * One call to an OpenAI-compatible chat endpoint.
  *
- * `response_format: json_object` is what makes the answer parseable, and the
- * content is parsed as JSON here, so a model that narrates instead of answering
- * fails as a malformed answer rather than as a silent empty decision.
+ * The catalogue travels in `tools` when the turn has one, and a turn without it
+ * asks for the provider's own structured output (ADR 0038): there is no
+ * JSON-in-the-text fallback and no second request without the tools. The
+ * content is still parsed as JSON here, so a model that narrates instead of
+ * answering fails as a malformed answer rather than as a silent empty decision.
  * `temperature: 0` is sent with it and is not what makes a turn repeatable: the
  * shape the answer is read against is what bounds it.
  */
@@ -394,16 +453,37 @@ export async function callModel(
   const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const timeoutMs = req.timeoutMs ?? MODEL_TIMEOUT_MS;
   /*
-   * The request the provider is asked, with the catalogue or without it.
-   *
-   * The second form is the JSON-plan channel: `chooseStep` prompts for both
-   * shapes, so an OpenAI-compatible provider that refuses `tools` is served by
-   * asking once more without them instead of failing every choosing turn of the
-   * installation for ever. Whether that second form is taken is decided by the
-   * *provider's own body* naming tools or functions — never by a guess.
+   * One request, in the shape the turn needs (ADR 0038): the catalogue in
+   * `tools` when there is one, and the provider's own structured output when
+   * there is not — a JSON schema where the probe found one, its plain JSON mode
+   * otherwise. A provider that refuses either is not selectable, so there is
+   * nothing to fall back to.
    */
-  const send = (carryTools: boolean) =>
-    fetch(url, {
+  const answerFormat = req.tools?.length
+    ? {}
+    : req.schema && access.model.structured === "schema"
+      ? {
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: req.schema.name,
+              strict: true,
+              schema: req.schema.schema,
+            },
+          },
+        }
+      : { response_format: { type: "json_object" } };
+  /*
+   * What is left for the answer, always stated: an omitted `max_tokens` is the
+   * provider's default, and a reasoning model spends it before writing anything
+   * (ADR 0038). The run's own bound is passed in by `chooseStep`; a turn with no
+   * run behind it takes the lesser of the provider's ceiling and this build's.
+   */
+  const maxTokens =
+    req.maxOutputTokens ?? Math.min(DEFAULT_OUTPUT_TOKENS, outputCeiling(access));
+  let res: Response;
+  try {
+    res = await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -417,22 +497,9 @@ export async function callModel(
       body: JSON.stringify({
         model,
         temperature: 0,
-        /*
-         * A JSON answer is demanded only of a call that carries no tools: an
-         * answer forced into `json_object` cannot be a tool call, and the one
-         * kind of call that offers the catalogue asks for the provider's own.
-         */
-        ...(carryTools && req.tools?.length ? { tools: req.tools } : {}),
-        ...(carryTools && req.tools?.length
-          ? {}
-          : { response_format: { type: "json_object" } }),
-        /*
-         * The provider's own ceiling unless a call states one: a reasoning
-         * model spends the budget before it writes the answer, and a ceiling
-         * this build guessed cut the content away -- "answered without a
-         * message", with only `reasoning_content` left.
-         */
-        ...(req.maxOutputTokens === undefined ? {} : { max_tokens: req.maxOutputTokens }),
+        ...(req.tools?.length ? { tools: req.tools } : {}),
+        ...answerFormat,
+        max_tokens: maxTokens,
         messages: [
           { role: "system", content: req.system },
           {
@@ -453,10 +520,6 @@ export async function callModel(
       }),
       signal: AbortSignal.timeout(timeoutMs),
     });
-  const carrying = Boolean(req.tools?.length);
-  let res: Response;
-  try {
-    res = await send(carrying);
   } catch (err) {
     /*
      * The platform's own abort is a name and a message a developer reads, not a
@@ -490,54 +553,12 @@ export async function callModel(
       );
     throw err;
   }
-  /*
-   * The catalogue was refused: ask once more without it.
-   *
-   * An OpenAI-compatible provider that does not accept `tools` answers 400 or
-   * 422 and names the field — "unknown field: tools", "invalid function" — and
-   * the same turn without the catalogue is the JSON-plan channel the prompt
-   * already describes. This is not a retry around a wrong request: it is the
-   * second channel, taken only when the provider's body names tools or
-   * functions, so a 400 from a context that is too long or a model nobody serves
-   * is still the failure it is.
-   */
-  let withheld = false;
-  if (
-    !res.ok &&
-    carrying &&
-    (res.status === 400 || res.status === 422) &&
-    /tool|function/i.test(raw)
-  ) {
-    withheld = true;
-    try {
-      res = await send(false);
-      raw = await readAnswer(res, provider);
-    } catch (err) {
-      if (
-        err instanceof Error &&
-        (err.name === "TimeoutError" || err.name === "AbortError")
-      )
-        throw new ModelError(
-          "model_call_failed",
-          `${provider} stopped answering after its body began, so the call's time ran out.`,
-        );
-      throw err;
-    }
-  }
   if (!res.ok)
     throw new ModelError(
       "model_call_failed",
-      /*
-       * What is known, and no more: the status, the provider's own first line,
-       * and — when the catalogue is what was refused — the fact that it was
-       * withheld and the request asked again, so a person can tell a provider
-       * without tool calling from a request that is wrong for another reason.
-       */
-      `${provider} answered ${res.status}: ${firstLine(raw)}${
-        withheld
-          ? " The choosing turn sent the catalogue as tool definitions, this provider refused them, and the same request without them was refused too."
-          : ""
-      }`,
+      `The installation's model answered ${res.status}: ${firstLine(raw)}`,
+      502,
+      !transientStatus(res.status),
     );
   let body: unknown;
   try {
@@ -587,8 +608,10 @@ export async function callModel(
   const content = messageContent(body);
   if (content === null)
     throw new ModelError(
-      "model_call_failed",
-      `${provider} answered without a message: ${firstLine(raw)}`,
+      "model_silent",
+      `${provider} answered without content — reasoning only, or nothing: ${firstLine(raw)}`,
+      502,
+      true,
     );
   const parsed = jsonObjectIn(content);
   if (parsed !== null) return parsed;
@@ -600,8 +623,221 @@ export async function callModel(
   );
 }
 
-/** What a model probe found: connected, or the first thing that was wrong. */
+/** What a model probe found: what the installation can use, or the first thing that was wrong. */
 export type ModelProbe =
+  | {
+      ok: true;
+      identity: string;
+      /** The structured-output mode the provider accepted (ADR 0038). */
+      structured: "schema" | "json";
+      /** The output ceiling it declares, or null when it declares none. */
+      outputTokens: number | null;
+    }
+  | {
+      ok: false;
+      reason:
+        | "no_model"
+        | "bad_url"
+        | "forbidden_target"
+        | "unauthorized"
+        | "not_found"
+        | "rate_limited"
+        | "provider_error"
+        | "no_tools"
+        | "no_structured"
+        | "unreachable";
+    };
+
+/** The tool the probe offers: one boolean, so no provider can be excused for its size. */
+const PROBE_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "gilbert_probe",
+    description: "Answer whether the probe reached the model.",
+    parameters: {
+      type: "object",
+      properties: { ok: { type: "boolean" } },
+      additionalProperties: false,
+    },
+  },
+};
+
+/** The JSON schema the probe asks for, and the one the decision turn uses. */
+export const PROBE_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: { ok: { type: "boolean" } },
+  required: ["ok"],
+  additionalProperties: false,
+};
+
+/**
+ * Ask the provider what this build may use it for (ADR 0038).
+ *
+ * Both capabilities the turns need are put to the provider in **one** request
+ * when they travel together — the catalogue in `tools`, the schema in
+ * `response_format` — and one capability per request when they do not. A
+ * provider that carries neither is not selectable; one that carries only the
+ * plain JSON mode is selectable as that, and the decision turn is asked in it.
+ * The output ceiling is read from the provider's own `/models` answer, which is
+ * a declaration rather than a guess; a provider that declares none yields
+ * `null` and a call falls back to `DEFAULT_OUTPUT_TOKENS`.
+ *
+ * The probe never treats an answer's content as a verdict: a reasoning model
+ * spends a small `max_tokens` before writing, so a 200 is the proof that the
+ * request shape was accepted, which is the only question asked here.
+ */
+export async function probeModel(access: ModelAccess): Promise<ModelProbe> {
+  try {
+    await assertUsableProvider(access);
+  } catch (err) {
+    return {
+      ok: false,
+      reason:
+        err instanceof ModelError && err.code === "model_address_refused"
+          ? "forbidden_target"
+          : "bad_url",
+    };
+  }
+  const { provider, model, baseUrl, apiKey } = access.model;
+  const base = baseUrl.replace(/\/+$/, "");
+  const headers = {
+    "content-type": "application/json",
+    accept: "application/json",
+    ...(apiKey.trim() ? { authorization: `Bearer ${apiKey}` } : {}),
+    ...NO_TRAINING_HEADERS,
+  };
+  const schemaFormat = {
+    type: "json_schema",
+    json_schema: { name: "gilbert_probe", strict: true, schema: PROBE_SCHEMA },
+  };
+  /** One probe request: its status, and the provider's own words for a refusal. */
+  const post = async (body: Record<string, unknown>): Promise<Response> =>
+    await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model,
+        max_tokens: 32,
+        messages: [{ role: "user", content: 'Answer in JSON: {"ok": true}' }],
+        ...body,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  const refused = async (res: Response): Promise<ModelProbe | null> => {
+    if (res.ok) {
+      await res.body?.cancel();
+      return null;
+    }
+    await res.body?.cancel();
+    if (res.status === 401 || res.status === 403)
+      return { ok: false, reason: "unauthorized" };
+    if (res.status === 404) return { ok: false, reason: "not_found" };
+    if (res.status === 429) return { ok: false, reason: "rate_limited" };
+    if (!transientStatus(res.status)) return null;
+    return { ok: false, reason: "provider_error" };
+  };
+  try {
+    // Both together: the common path, and the only one a strict provider needs.
+    const both = await post({ tools: [PROBE_TOOL], response_format: schemaFormat });
+    if (both.ok) {
+      await both.body?.cancel();
+      return {
+        ok: true,
+        ...(await factsOf(access, headers, base)),
+        structured: "schema",
+      };
+    }
+    const bad = await refused(both);
+    if (bad) return bad;
+    // One capability per request, so the refusal names what is missing.
+    const toolsOnly = await post({ tools: [PROBE_TOOL] });
+    if (!toolsOnly.ok) {
+      const stopped = await refused(toolsOnly);
+      if (stopped) return stopped;
+      return { ok: false, reason: "no_tools" };
+    }
+    await toolsOnly.body?.cancel();
+    const schemaOnly = await post({ response_format: schemaFormat });
+    let structured: "schema" | "json" | null = schemaOnly.ok ? "schema" : null;
+    if (schemaOnly.ok) await schemaOnly.body?.cancel();
+    else {
+      const stopped = await refused(schemaOnly);
+      if (stopped) return stopped;
+      const jsonOnly = await post({ response_format: { type: "json_object" } });
+      if (!jsonOnly.ok) {
+        const jsonStopped = await refused(jsonOnly);
+        if (jsonStopped) return jsonStopped;
+        return { ok: false, reason: "no_structured" };
+      }
+      await jsonOnly.body?.cancel();
+      structured = "json";
+    }
+    return {
+      ok: true,
+      ...(await factsOf(access, headers, base)),
+      structured: structured === "schema" ? "schema" : "json",
+    };
+  } catch {
+    return { ok: false, reason: "unreachable" };
+  }
+}
+
+/**
+ * Who answered and what it declares, from the provider's own `/models` answer.
+ *
+ * One request for both facts, because they are one document. The ceiling's
+ * three spellings (`max_output_tokens`, `max_completion_tokens`, and
+ * OpenRouter's nested one) are read in that order; a number nobody declared is
+ * not invented, and a call then uses `DEFAULT_OUTPUT_TOKENS`. The identity is
+ * the model id the provider names, which says the key reached the model asked
+ * for, or the block's own name when the answer carries neither.
+ */
+async function factsOf(
+  access: ModelAccess,
+  headers: Record<string, string>,
+  base: string,
+): Promise<{ identity: string; outputTokens: number | null }> {
+  const fallback = {
+    identity: `${access.model.provider}/${access.model.model}`,
+    outputTokens: null,
+  };
+  try {
+    const res = await fetch(`${base}/models`, {
+      headers,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return fallback;
+    const body = (await res.json()) as {
+      data?: Array<{
+        id?: unknown;
+        max_output_tokens?: unknown;
+        max_completion_tokens?: unknown;
+        top_provider?: { max_completion_tokens?: unknown };
+      }>;
+    };
+    const entry = body.data?.find((one) => one?.id === access.model.model);
+    const identity =
+      typeof entry?.id === "string" && entry.id
+        ? `${access.model.provider}/${entry.id}`
+        : fallback.identity;
+    const candidates = [
+      entry?.max_output_tokens,
+      entry?.max_completion_tokens,
+      entry?.top_provider?.max_completion_tokens,
+    ];
+    const outputTokens =
+      candidates.find(
+        (value): value is number =>
+          typeof value === "number" && Number.isInteger(value) && value > 0,
+      ) ?? null;
+    return { identity, outputTokens };
+  } catch {
+    return fallback;
+  }
+}
+
+/** What a reachability probe found: the provider answered, or why it did not. */
+export type ReachabilityProbe =
   | { ok: true; identity: string }
   | {
       ok: false;
@@ -617,13 +853,15 @@ export type ModelProbe =
     };
 
 /**
- * Ask the provider whether this installation can reach it, and with that key.
+ * Ask only whether this installation can reach its provider, with that key.
  *
- * The cheapest call a chat-completions endpoint takes (`max_tokens: 1`) so the
- * answer is the truth about the credential and the address rather than a
- * guess: 401 is the key, 404 the URL, a refused connection the address.
+ * The cheap question, asked when the administration opens: the cheapest call a
+ * chat-completions endpoint takes, so the answer is the truth about the
+ * credential and the address. **Capabilities are not asked here** (ADR 0038):
+ * they are the publish's question, and repeating three provider calls every
+ * thirty seconds to learn nothing new is a bill, not a check.
  */
-export async function probeModel(access: ModelAccess): Promise<ModelProbe> {
+export async function probeReachable(access: ModelAccess): Promise<ReachabilityProbe> {
   try {
     await assertUsableProvider(access);
   } catch (err) {
@@ -899,8 +1137,57 @@ export function parseAnswerDetailed(
 /* The decision turn                                                   */
 /* ------------------------------------------------------------------ */
 
-/** How many lookups one decision turn may make before it must answer. */
-const DECISION_READS_MAX = 4;
+/** How many lookups one decision turn may make before it must answer (ADR 0038, one `read`). */
+const DECISION_READS_MAX = 1;
+
+/**
+ * The shape a decision takes, as the provider's own structured output.
+ *
+ * One of the three answers a decision can be (ADR 0038): the facts, one lookup,
+ * or the reply a chat needs. Written as a union so a provider that enforces a
+ * strict schema has exactly one shape to accept, and the parser below still
+ * reads the object it gets.
+ */
+const DECISION_SCHEMA = {
+  name: "decision",
+  schema: {
+    anyOf: [
+      {
+        type: "object",
+        properties: {
+          facts: {
+            type: "object",
+            additionalProperties: { type: "string" },
+          },
+        },
+        required: ["facts"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          read: {
+            type: "object",
+            properties: {
+              tool: { type: "string" },
+              arguments: { type: "object" },
+            },
+            required: ["tool"],
+            additionalProperties: false,
+          },
+        },
+        required: ["read"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: { reply: { type: "string" } },
+        required: ["reply"],
+        additionalProperties: false,
+      },
+    ],
+  },
+};
 
 /** What one turn is given: the change and the prose above it. */
 export interface DecisionQuestion {
@@ -969,7 +1256,7 @@ export async function decideEvent(
     'Answer with one JSON object and nothing else: {"facts": {"<name>": "<what you found>"}}.',
     '"facts" is what the change is about, in the group\'s own vocabulary: which booking, which shipper, which client, and what is being asked. Its names are yours; its values are text.',
     "You never decide what may be done: what is allowed is the authority classes, not you, and an answer that carries a capability, a tool or an authorisation is refused.",
-    `When you need the group's own state to answer, look it up first: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookups.`,
+    `When you need the group's own state to answer, you may look it up once: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookup${maxReads === 1 ? "" : "s"}, so look up only what the change does not already tell you.`,
     "In the knowledge base, look for a subject with knowledge.search, or list the pages with knowledge.list, and read one by the folder that answered: never guess a folder.",
     'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
@@ -988,6 +1275,7 @@ export async function decideEvent(
       {
         system,
         user: turnData(question, reads),
+        schema: DECISION_SCHEMA,
         ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
       },
       opts.meter,
@@ -1538,59 +1826,6 @@ export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
 }
 
 /**
- * One argument as a JSON Schema, from the tool's own `args` spec.
- *
- * The bound a turn is told and the bound the parser checks come from one place
- * (`ArgSpec`, `tools/define.ts`) — the schema *is* what the turn is told — and a
- * provider that enforces it refuses a wrong type or a value out of its bounds
- * before the step is ever paid for. Every bound the spec states is rendered:
- * a `min` the parser enforces and the schema omitted was a refusal the run paid
- * for (a count of 0, an offset below zero), which is the whole cost this exists
- * to avoid. The `type` is required, so there is no fallback here: an argument
- * nobody described cannot reach this function.
- */
-function argSchema(spec: ArgSpec): Record<string, unknown> {
-  /*
-   * The bound in words, beside the machine-readable one: a provider may ignore
-   * `maxLength` — one did, and the run paid a refusal for a `fact` five times
-   * over its limit — and a description is what a model actually reads.
-   */
-  const described = spec.about ? { description: spec.about } : {};
-  switch (spec.type) {
-    case "number":
-      return {
-        type: "integer",
-        ...described,
-        ...(spec.min === undefined ? {} : { minimum: spec.min }),
-        ...(spec.max === undefined ? {} : { maximum: spec.max }),
-      };
-    case "boolean":
-      return { type: "boolean", ...described };
-    case "list":
-      return {
-        type: "array",
-        items: {
-          type: "string",
-          ...(spec.max === undefined ? {} : { maxLength: spec.max }),
-        },
-        ...described,
-      };
-    case "one of":
-      return {
-        type: "string",
-        ...described,
-        ...(spec.values?.length ? { enum: [...spec.values] } : {}),
-      };
-    case "text":
-      return {
-        type: "string",
-        ...described,
-        ...(spec.max === undefined ? {} : { maxLength: spec.max }),
-      };
-  }
-}
-
-/**
  * One argument as a phrase: its name, its kind, and the bound it is held to.
  *
  * The catalogue line both turns read. It exists because the schema alone is not
@@ -1615,6 +1850,7 @@ function argPhrase(key: string, spec: ArgSpec): string {
 
 /** A tool as its catalogue line without the prose: name and arguments. */
 export function toolSignature(tool: AnyTool): string {
+  if (tool.argLine) return `- ${tool.name}(${tool.argLine()})`;
   const args = tool.keys.length
     ? tool.keys.map((key) => argPhrase(key, tool.args[key] as ArgSpec)).join(", ")
     : "no arguments";
@@ -1632,11 +1868,11 @@ export interface ToolDefinition {
   function: {
     name: string;
     description: string;
-    parameters: {
-      type: "object";
-      properties: Record<string, Record<string, unknown>>;
-      additionalProperties: false;
-    };
+    /**
+     * The argument schema: an object with `properties` for an endpoint, or a
+     * union of per-value shapes for a job (ADR 0038).
+     */
+    parameters: Record<string, unknown>;
   };
 }
 
@@ -1664,7 +1900,7 @@ export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] 
     function: {
       name: tool.name,
       description: tool.description,
-      parameters: {
+      parameters: tool.parameters?.() ?? {
         type: "object",
         properties: Object.fromEntries(
           tool.keys.map((key) => {
@@ -1693,28 +1929,28 @@ export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] 
 }
 
 /**
- * One choosing turn: given the run so far, the plan of steps to make or the
- * end of the work.
+ * One choosing turn: given the run so far, the calls to make or the end of the
+ * work (ADR 0038).
  *
  * The catalogue is handed to the model **as it describes itself** — the same
  * `name` and `description` every reader of it reads, so what the model is told
- * and what the caller runs are one definition. The catalogue is the caller's:
- * the loop hands the whole one, because the model may always propose an act and
- * whether the act runs is the guard's answer, while the decision turn's reads
- * stay in the write-free half.
+ * and what the caller runs are one definition. The protocol is the provider's
+ * own tool calling and nothing else: an answer is its calls or the sentence
+ * that ends the run, never a plan written as JSON in the text.
  *
- * The answer is validated before it is returned: a malformed one — including one
- * whose steps wait on a name the answer does not carry, or on an outcome no step
- * can end with — is refused rather than guessed at, and every step is checked
- * against the catalogue: a name it does not hold, or arguments its tool cannot
- * use, refuses the **whole answer** rather than the step alone, so a plan is
- * never half made and never bent into the nearest call that would work.
+ * A dependency is a second turn: the model calls what it can see, reads each
+ * outcome, and calls what follows. That is why no step here carries `needs` any
+ * more — the run's own record still holds the ones older runs wrote.
+ *
+ * Every call is checked against the catalogue: a name it does not hold, or
+ * arguments its tool cannot use, refuses **that call** and the rest of the
+ * answer runs, which is the repair a whole-answer refusal never gave.
  */
 export async function chooseStep(
   catalogue: readonly AnyTool[],
   access: ModelAccess,
   question: StepQuestion,
-  opts: { timeoutMs?: number; meter?: UsageMeter } = {},
+  opts: { timeoutMs?: number; meter?: UsageMeter; left?: number } = {},
 ): Promise<StepChoice> {
   const heads = proseForModel(question.prose);
   const tools = catalogueTools(catalogue);
@@ -1734,11 +1970,11 @@ export async function chooseStep(
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group, working one run in that group's own account.",
-    "Answer in JSON: one object, never prose. The shapes written below are the whole of what an answer may be.",
-    'Take the run\'s steps with the tools you are given: call one, several, or the same one twice in one answer, and each step is shown to you before you are asked again. When the work of this run is finished, answer {"done": "<what is finished>"} and nothing else. A plan written out as {"calls": [{"name": "<tool>", "arguments": {...}}, ...]} is read the same way, and a call whose arguments are not what the tool states is refused — only that call; the rest of the plan runs.',
-    "Decide what this change needs and ask for it in one answer, as a small plan: name a tool and its arguments for each step — one tool, several, or the same tool twice. The steps whose dependencies have ended are carried out together, and each is shown to you before you are asked again.",
-    'A plan that branches is written in the shape above: a step that has to follow another gives itself an "id" and waits on it — {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
-    'A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run\'s record says which step and which outcome left it. A call made through the tools is taken in the order you give it, and its arguments are exactly the tool\'s own: an "id" or a "needs" typed into a tool call is an argument the tool does not take, and the call is refused.',
+    "The change that woke this run names the object it is about: read that object first, and do the work the change asks for before looking anywhere else.",
+    "Do only what this change and the instruction ask. Do not browse the account for context: take the act, then say in the conversation what you did — the saying ends the run.",
+    "The run's work is done by calling the tools you are given: call one, several, or the same one twice in one answer, and each result is shown to you before you are asked again.",
+    "When the work of this run is finished, say so in the conversation with `say`; a run that needs no words ends with a sentence of its own and no tool calls.",
+    "A step that has to follow another is simply a second answer: call what you can see, read the result, then call what follows.",
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
     "The tools, with the exact arguments and bounds each takes — a name or an argument not written here does not exist:",
@@ -1751,34 +1987,45 @@ export async function chooseStep(
     .filter(Boolean)
     .join("\n");
 
+  const user = stepData(question);
+  /*
+   * What is left to spend on this answer (ADR 0038): the run's remainder minus a
+   * declared estimate of the prompt (the catalogue included), capped by the
+   * provider's own ceiling. The previous call's measured usage is what corrects
+   * the estimate, because the loop spends it before asking again.
+   */
+  const ceiling = outputCeiling(access);
+  const promptTokens =
+    estimateTokens(system) + estimateTokens(user) + estimateTokens(JSON.stringify(tools));
+  const room = Math.min(ceiling, (opts.left ?? ceiling) - promptTokens);
+  if (room < MIN_OUTPUT_TOKENS)
+    throw new ModelError(
+      "model_out_of_budget",
+      `The run has ${Math.max(0, opts.left ?? 0)} tokens left, and this call's prompt is about ${promptTokens}: there is no room for an answer.`,
+    );
   let answer = await callModel(
     access,
     {
       system,
-      user: stepData(question),
+      user,
       tools,
+      maxOutputTokens: room,
       ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
     },
     opts.meter,
     /*
-     * The choosing turn carries the catalogue as `tools`, so the protocol gives
-     * the turn two answers: calls, or text. A model that closes with "the work
-     * is finished" — the ordinary shape of a tool-calling turn — is ending the
-     * run with that sentence, not failing to write a plan; the JSON shape below
-     * stays for a provider without tool calling.
+     * The protocol gives a tool-carrying turn two answers: calls, or text. A
+     * model that closes with "the work is finished" is ending the run with that
+     * sentence, not failing to call a tool.
      */
     { allowText: true },
   );
   /*
-   * The provider's own tool calls are the plan: the same calls the JSON shape
-   * would carry, through the same validation below (ADR 0027). The call's
-   * arguments are the tool's own, **whole**: nothing is read out of them first,
-   * because there is nowhere else for a tool's argument to live — `id` is an
-   * argument of `mail.read`, `mail.trash`, `calendar.updateEvent` and ten other
-   * tools, and taking it for the step's own name left those tools callable only
-   * by the JSON shape. A sequence of native calls is linear, which is the
-   * structure the protocol gives; a plan that branches is written as the plan
-   * shape above, which is the one that carries `id` and `needs`.
+   * The provider's own tool calls are the plan, through the same validation
+   * below. The call's arguments are the tool's own, **whole**: nothing is read
+   * out of them first, because there is nowhere else for a tool's argument to
+   * live — `id` is an argument of `mail.read`, `mail.trash`, `calendar.update`
+   * and ten other tools.
    */
   if (isNativeToolCalls(answer))
     answer = {
@@ -1796,6 +2043,15 @@ export async function chooseStep(
     answer.text.trim()
   )
     answer = { done: answer.text.trim() };
+  /*
+   * A JSON object in the text is the shape this build does not read any more
+   * (ADR 0038): the catalogue is called through the provider's `tools`, and an
+   * answer that wrote a plan as prose JSON is told so rather than run.
+   */ else
+    throw new ModelError(
+      "model_answer_malformed",
+      "The answer was not a tool call and not a sentence. Call the tools you are given; when the work is finished, answer with a sentence saying so.",
+    );
   const parsed = parseStepAnswerDetailed(answer);
   if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
   if (parsed.choice.kind === "plan") {
@@ -1821,8 +2077,8 @@ export async function chooseStep(
     const refused: Array<{ name: string; args: unknown; problem: string }> = [];
     for (const call of parsed.choice.calls) {
       try {
-        const { tool } = validatedTool(catalogue, call.name, call.args);
-        if (tool.waits) asking += 1;
+        const { tool, args } = validatedTool(catalogue, call.name, call.args);
+        if (tool.waitsOf(args)) asking += 1;
         kept.push(call);
       } catch (err) {
         refused.push({

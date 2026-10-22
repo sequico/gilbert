@@ -43,18 +43,9 @@
 
 import { errorMessage } from "../shared/errors.js";
 import {
-  createEvent,
-  deleteEvent,
-  findEvents,
-  listCalendars,
-  readEvent,
-  updateEvent,
-} from "./tools/calendar.js";
-import { askInChat, findChat, readChat, sayInChat } from "./tools/chat.js";
-import { findContacts } from "./tools/contacts.js";
-import {
   type AnyTool,
   type ArgSpec,
+  argSchema,
   defineTool,
   type ImageReader,
   mayRun,
@@ -62,109 +53,22 @@ import {
   type ToolCall,
   ToolError,
 } from "./tools/define.js";
-import {
-  createFileFolder,
-  deleteDocument,
-  listFiles,
-  moveFile,
-  overwriteDocument,
-  readNode,
-  renameFile,
-  saveFile,
-  writeDocument,
-} from "./tools/files.js";
-import {
-  listKnowledge,
-  proposePage,
-  readKnowledgePage,
-  searchKnowledge,
-} from "./tools/knowledge.js";
-import {
-  askByMail,
-  createMailFolder,
-  defineLabel,
-  deleteMailFolder,
-  draftReply,
-  editDraft,
-  fileMessage,
-  findMessages,
-  isGroupAddress,
-  listMailboxes,
-  readAttachment,
-  readMessage,
-  readMessageForAnswer,
-  renameMailFolder,
-  sendOutward,
-  setKeyword,
-  trashMessage,
-  untrashMessage,
-} from "./tools/mail.js";
-import { rememberFactTool } from "./tools/memory.js";
-import { readRunTool } from "./tools/runs.js";
-import { listWorkorders, readWorkorder, settleStep } from "./tools/workorders.js";
+import { isGroupAddress, readMessageForAnswer } from "./tools/mail.js";
+import { JOBS } from "./tools/jobs.js";
 
 export type { AnyTool, ArgSpec, ImageReader, ToolCall };
-export { defineTool, isGroupAddress, mayRun, readMessageForAnswer };
+export { argSchema, defineTool, isGroupAddress, mayRun, readMessageForAnswer };
 
 /**
- * Every tool this build has: the half that reads, the half that changes the
- * group's own account, and the acts a person answers for.
+ * Every job this build has (ADR 0038).
  *
- * Each tool declares its authority class (ADR 0028): `reversible` is the
- * agent's own decision; `destructive` and `outward` are answered by a person's
- * recorded word for that act (or, for an outward act, by a rule that sends, to
- * the correspondent whose change woke it); `intent` is never answered by
- * anything. The catalogue carries all of them, and what a call may take is
- * `mayRun`'s answer over the run that asks — never the list's order or a
- * caller's assumption about which half a tool is in.
+ * Eight tools, each a value its call names: reading and finding are free, and
+ * the four area writes are narrowed by the run's instruction (`areas.ts`). What
+ * a call may take is `mayRun`'s answer over the run that asks, read from the
+ * endpoint the value names — never the list's order or a caller's assumption
+ * about which half a tool is in.
  */
-export const TOOLS: readonly AnyTool[] = [
-  findMessages,
-  readMessage,
-  readAttachment,
-  listMailboxes,
-  listCalendars,
-  findEvents,
-  readEvent,
-  findContacts,
-  readChat,
-  findChat,
-  listFiles,
-  readNode,
-  listWorkorders,
-  readWorkorder,
-  readKnowledgePage,
-  listKnowledge,
-  searchKnowledge,
-  readRunTool,
-  fileMessage,
-  trashMessage,
-  setKeyword,
-  draftReply,
-  sendOutward,
-  askByMail,
-  settleStep,
-  proposePage,
-  defineLabel,
-  createMailFolder,
-  renameMailFolder,
-  deleteMailFolder,
-  createEvent,
-  updateEvent,
-  deleteEvent,
-  writeDocument,
-  saveFile,
-  overwriteDocument,
-  deleteDocument,
-  editDraft,
-  untrashMessage,
-  createFileFolder,
-  moveFile,
-  renameFile,
-  sayInChat,
-  askInChat,
-  rememberFactTool,
-];
+export const TOOLS: readonly AnyTool[] = JOBS;
 
 /**
  * The half of a catalogue that cannot change anything: the tools that write
@@ -220,12 +124,14 @@ export async function runTool(
    * A write on a surface the run's rule keeps off is refused before the class
    * is asked: the rule says *where* this run may act (ADR 0031), the class says
    * whether the act needs a person's word (ADR 0028). Reading is free — a
-   * reading is proof, not an act.
+   * reading is proof, not an act. The surface is the call's own, because one
+   * job reaches two of them (ADR 0038).
    */
-  if (tool.writes && tool.surface && surfaceModeOf(call.run, tool.surface) === "off")
+  const surface = tool.surfaceOf(args);
+  if (tool.writes && surface && surfaceModeOf(call.run, surface) === "off")
     throw new ToolError(
       "surface_off",
-      `"${tool.name}" writes ${tool.surface}, and this run's rule keeps ${tool.surface} off.`,
+      `"${tool.name}" writes ${surface}, and this run's rule keeps ${surface} off.`,
       403,
     );
   if (!mayRun(tool, call.run, args))

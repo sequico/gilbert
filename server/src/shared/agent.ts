@@ -86,6 +86,17 @@ export interface PassStatusDoc {
     /** The ending's own sentence, as the conversation has it. */
     why: string;
   };
+  /**
+   * What the installation spent today, in tokens (ADR 0038).
+   *
+   * The daily ceiling's counter: one write per pass, reset when the date
+   * changes, so a day's spend is one field rather than a sum over every run.
+   */
+  spent?: {
+    /** The UTC date the count belongs to, `YYYY-MM-DD`. */
+    date: string;
+    tokens: number;
+  };
 }
 
 /** The app-folder path of the last pass's document. */
@@ -102,6 +113,7 @@ export const PASS_STATUS_FILE = "agent/status.json";
  */
 export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
   const ended = isRecord(x) ? (x as { lastEnded?: unknown }).lastEnded : undefined;
+  const spent = isRecord(x) ? (x as { spent?: unknown }).spent : undefined;
   return (
     isRecord(x) &&
     typeof x.v === "number" &&
@@ -114,6 +126,11 @@ export function isPassStatusDoc(x: unknown): x is PassStatusDoc {
     isCount(x.due) &&
     Array.isArray(x.gaps) &&
     x.gaps.every((one) => typeof one === "string") &&
+    (spent === undefined ||
+      (isRecord(spent) &&
+        typeof spent.date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(spent.date) &&
+        isCount(spent.tokens))) &&
     (ended === undefined ||
       (isRecord(ended) &&
         typeof ended.id === "string" &&

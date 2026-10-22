@@ -114,6 +114,18 @@ interface InstallationLimits {
    * can deny service to everyone else.
    */
   apiRateLimit: number;
+  /**
+   * ADR 0038: the most tokens one run may spend, prompt and completion
+   * together. A run that reaches it ends `out-of-budget`, and a call the
+   * remainder cannot pay for is not made.
+   */
+  maxRunTokens: number;
+  /**
+   * ADR 0038: the tokens the whole installation may spend in one day, counted
+   * in the pass's own document and reset when the date changes. Past it no new
+   * run opens; a run already open finishes its own budget.
+   */
+  maxDailyTokens: number;
 }
 
 /** How long a sealed session lives. */
@@ -165,6 +177,17 @@ export interface InstallationModel {
   baseUrl: string;
   /** The key the calls carry; empty when the provider needs none. */
   apiKey: string;
+  /**
+   * The structured-output mode the probe found (ADR 0038): a JSON schema where
+   * the provider enforces one, its plain JSON mode where that is all it has.
+   * Absent on a provider block written before the probe recorded it.
+   */
+  structured?: "schema" | "json";
+  /**
+   * The output ceiling the provider declared (`/models`), read by the probe.
+   * Absent when it declared none; a call then falls back to a conservative one.
+   */
+  outputTokens?: number;
 }
 
 /**
@@ -253,6 +276,8 @@ export function installationDefaults(): InstallationDocument {
       imageProxy: true, // IMAGE_PROXY
       loginRateLimit: 10, // LOGIN_RATE_LIMIT
       apiRateLimit: 1200, // API_RATE_LIMIT (0 turns the limiter off)
+      maxRunTokens: 120_000, // ADR 0038
+      maxDailyTokens: 2_000_000, // ADR 0038
     },
     sessions: {
       ttl: 12 * 60 * 60, // SESSION_TTL
@@ -438,7 +463,38 @@ export function parseInstallationDocumentDetailed(
       return undefined;
     }
     if (!provider || !model || !baseUrl) return undefined;
-    return { provider, model, baseUrl, apiKey };
+    /*
+     * What the probe recorded (ADR 0038): the structured-output mode and the
+     * output ceiling the provider declared. A block written before the probe
+     * recorded them carries neither, and is still a provider.
+     */
+    const structured = v.structured;
+    if (
+      structured !== undefined &&
+      structured !== null &&
+      structured !== "schema" &&
+      structured !== "json"
+    )
+      problems.push(`"agent.provider.structured" must be "schema" or "json".`);
+    const outputTokens =
+      v.outputTokens === undefined || v.outputTokens === null
+        ? undefined
+        : v.outputTokens;
+    if (
+      outputTokens !== undefined &&
+      (typeof outputTokens !== "number" ||
+        !Number.isInteger(outputTokens) ||
+        outputTokens < 1)
+    )
+      problems.push(`"agent.provider.outputTokens" must be a positive integer.`);
+    return {
+      provider,
+      model,
+      baseUrl,
+      apiKey,
+      ...(structured === "schema" || structured === "json" ? { structured } : {}),
+      ...(typeof outputTokens === "number" ? { outputTokens } : {}),
+    };
   };
 
   const server = readSection("server", whole.server);
@@ -554,6 +610,18 @@ export function parseInstallationDocumentDetailed(
         limits.apiRateLimit,
         defaults.limits.apiRateLimit,
         0,
+      ),
+      maxRunTokens: readAtLeast(
+        "limits.maxRunTokens",
+        limits.maxRunTokens,
+        defaults.limits.maxRunTokens,
+        1,
+      ),
+      maxDailyTokens: readAtLeast(
+        "limits.maxDailyTokens",
+        limits.maxDailyTokens,
+        defaults.limits.maxDailyTokens,
+        1,
       ),
     },
     sessions: {

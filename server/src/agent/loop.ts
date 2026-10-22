@@ -87,6 +87,8 @@ import { mapLimit } from "../shared/concurrency.js";
 import { errorMessage } from "../shared/errors.js";
 import {
   INSTALLATION_FILE,
+  type InstallationDocument,
+  installationDefaults,
   parseInstallationDocumentDetailed,
 } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
@@ -239,6 +241,24 @@ const STATUS_EVERY_MS = 60_000;
 /** How long a run left running without a wait waits before it is tried again. */
 const STUCK_RETRY_MS = 60_000;
 
+/**
+ * How many permanent provider failures in a row stop the pass (ADR 0038).
+ *
+ * Three: one refusal may be a model the provider does not serve any more, two
+ * may be a request that drifted, three is the deployment broken. The run stays
+ * `running` and the pass status says why, rather than every change of the day
+ * being consumed as an answer nobody gave.
+ */
+const PERMANENT_FAILURES_MAX = 3;
+
+/** A pass that stopped on purpose: the provider is broken, not this account. */
+class PassStopped extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+    this.name = "PassStopped";
+  }
+}
+
 /** What one pass of the loop did. */
 export interface PassSummary {
   /** Whether this process held the installation's claim and worked at all. */
@@ -257,6 +277,8 @@ export interface PassSummary {
   runs: number;
   /** The runs whose wait had come due and were picked up again. */
   due: number;
+  /** The tokens the pass spent, prompt and completion together (ADR 0038). */
+  tokens: number;
   /** How long the pass took, in milliseconds. */
   ms: number;
   /**
@@ -391,6 +413,21 @@ export class AgentLoop {
   private statusAt = 0;
   /** The last run the loop ended, for the status document a person reads. */
   private lastEnded: PassStatusDoc["lastEnded"] | null = null;
+  /**
+   * What the installation spent today, as the pass's own document holds it.
+   *
+   * The daily ceiling's counter (ADR 0038): read with the last pass's document
+   * when this process takes the claim, added to by every pass it works, and
+   * reset when the UTC date changes (a lazy reset, on the read that finds it).
+   */
+  private statusSpent: PassStatusDoc["spent"] | null = null;
+  /**
+   * Permanent provider failures in a row, across the pass's accounts.
+   *
+   * A transient failure does not count and a success clears the count; the
+   * pass stops at `PERMANENT_FAILURES_MAX` (ADR 0038).
+   */
+  private permanentFailures = 0;
 
   /**
    * Take the last ending the document holds, when this process takes the claim.
@@ -411,14 +448,26 @@ export class AgentLoop {
       );
       if (!found) {
         this.lastEnded = null;
+        this.statusSpent = null;
         return;
       }
       const parsed = JSON.parse(found.text) as unknown;
       if (!isPassStatusDoc(parsed)) return;
       this.lastEnded = parsed.lastEnded ?? null;
+      this.statusSpent = parsed.spent ?? null;
     } catch {
       // Kept, not blanked: the read failed, and that is not an ending.
     }
+  }
+  /**
+   * What the installation has spent today, and the ceiling it is measured
+   * against (ADR 0038). A date other than today's is yesterday's spend and is
+   * not carried: the reset is lazy, on the read that finds it.
+   */
+  private dailySpent(maxDailyTokens: number, now: Date): number {
+    const today = now.toISOString().slice(0, 10);
+    const held = this.statusSpent?.date === today ? this.statusSpent.tokens : 0;
+    return held >= maxDailyTokens ? held : 0;
   }
   /**
    * When each account's change cursor was last advanced, by the working pass.
@@ -431,6 +480,8 @@ export class AgentLoop {
   private readonly cursorAt = new Map<string, number>();
   /** The runs the alarms have handed over, worked on the next pass. */
   private readonly pending: DueWait[] = [];
+  /** The tokens this pass's runs spent, added to the document at its end. */
+  private passTokens = 0;
   /**
    * The installation's memory as **this** pass read it (ADR 0033).
    *
@@ -455,6 +506,8 @@ export class AgentLoop {
 
   /** The model the current pass runs on, re-read from the document each pass. */
   private access: ModelAccess | null;
+  /** The installation's limits as this pass read them (ADR 0038). */
+  private limits: InstallationDocument["limits"] = installationDefaults().limits;
   /** The operator's switch on private provider addresses. */
   private readonly allowPrivate: boolean;
   /** When an account's change batch may be tried again after it failed. */
@@ -540,7 +593,11 @@ export class AgentLoop {
    */
   async pass(now = new Date()): Promise<PassSummary> {
     const started = Date.now();
+    this.passTokens = 0;
     const summary = await this.workPass(now);
+    // What this pass's runs spent joins what the changes spent, so the document
+    // and the daily counter have one number (ADR 0038).
+    summary.tokens += this.passTokens;
     summary.ms = Date.now() - started;
     await this.recordStatus(summary);
     return summary;
@@ -568,6 +625,7 @@ export class AgentLoop {
       changes: 0,
       runs: 0,
       due: 0,
+      tokens: 0,
       ms: 0,
       gaps: [],
     };
@@ -619,15 +677,31 @@ export class AgentLoop {
      * document and read here as the Master. A document that cannot be read
      * leaves the model this process already runs on.
      */
-    const { access: model, instruction } = await this.readInstallationForPass();
+    const { access: model, instruction, limits } = await this.readInstallationForPass();
     if (!model) {
       setRunningModelAccess(null);
       summary.gaps.push("the installation names no model, so this pass worked nothing");
       return summary;
     }
     this.access = model;
+    this.limits = limits;
     setRunningModelAccess(model);
     this.installation = instruction;
+    /*
+     * The day's ceiling is read before anything is read from an account
+     * (ADR 0038): a spent day opens no run, so the changes are not even read —
+     * nothing is consumed without a run behind it — while a run already open is
+     * still worked, because its own budget is what bounds it.
+     */
+    const spentToday = this.dailySpent(limits.maxDailyTokens, now);
+    if (spentToday) {
+      summary.gaps.push(
+        `the installation has spent its day: ${spentToday} of ${limits.maxDailyTokens} tokens, so no change is read until the date changes`,
+      );
+      this.opts.log?.(
+        `[gilbert] agent: the day's token ceiling is spent (${spentToday}/${limits.maxDailyTokens}); changes are not read this pass`,
+      );
+    }
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
     // The switch is read before the model: off means no call is made at all.
@@ -744,174 +818,201 @@ export class AgentLoop {
      * documents, cursors and timers; what they share is the installation's
      * claim (renewed once, below) and the pass summary.
      */
-    await Promise.all(
-      accounts.map(async (accountId) => {
-        this.opts.log?.(`[gilbert] agent: working ${accountId}`);
-        /*
-         * The documents the rules left behind go once per account, before
-         * anything reads the account: a group starts from its instruction and
-         * nothing else (ADR 0038). The marker inside the account is what makes
-         * the clear one-off; the set only saves the read on every later pass.
-         */
-        if (!this.legacyCleared.has(accountId)) {
-          try {
-            const removed = await clearLegacyAgentState(this.ctx, accountId);
-            if (removed.length) {
-              this.opts.log?.(
-                `[gilbert] agent: cleared the old rules of ${accountId}: ${removed.join(", ")}`,
-              );
-              /*
-               * The rules a group worked from are gone, and its instruction is
-               * what replaces them. A group that had rules and has written none
-               * does no work at all, and silence is indistinguishable from an
-               * agent at rest: the pass says so, once, where the clear happened.
-               */
-              try {
-                if (!(await readInstruction(this.ctx, accountId)))
+    try {
+      await Promise.all(
+        accounts.map(async (accountId) => {
+          this.opts.log?.(`[gilbert] agent: working ${accountId}`);
+          /*
+           * The documents the rules left behind go once per account, before
+           * anything reads the account: a group starts from its instruction and
+           * nothing else (ADR 0038). The marker inside the account is what makes
+           * the clear one-off; the set only saves the read on every later pass.
+           */
+          if (!this.legacyCleared.has(accountId)) {
+            try {
+              const removed = await clearLegacyAgentState(this.ctx, accountId);
+              if (removed.length) {
+                this.opts.log?.(
+                  `[gilbert] agent: cleared the old rules of ${accountId}: ${removed.join(", ")}`,
+                );
+                /*
+                 * The rules a group worked from are gone, and its instruction is
+                 * what replaces them. A group that had rules and has written none
+                 * does no work at all, and silence is indistinguishable from an
+                 * agent at rest: the pass says so, once, where the clear happened.
+                 */
+                try {
+                  if (!(await readInstruction(this.ctx, accountId)))
+                    summary.gaps.push(
+                      `${accountId}: its old rules were removed by this build and it has no instruction, so it will do no work until an administrator writes one.`,
+                    );
+                } catch (err) {
                   summary.gaps.push(
-                    `${accountId}: its old rules were removed by this build and it has no instruction, so it will do no work until an administrator writes one.`,
+                    `${accountId}: its old rules were removed by this build and its instruction is not readable: ${errorMessage(err)}`,
                   );
+                }
+              }
+              this.legacyCleared.add(accountId);
+            } catch (err) {
+              summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+            }
+          }
+          let records: RunRecord[] | null = null;
+          /*
+           * One account that cannot be read is not the installation failing: a
+           * single rule sheet this build cannot parse is a group to leave alone for
+           * this pass, not a reason to stop working every other group — and the
+           * pass that throws here would throw again on the next beat, for ever. The
+           * reason goes into the pass's gaps, which the supervisor reports.
+           */
+          /*
+           * The account's changes are read first: the FileNode state they end at
+           * is the state the run listing is judged against, so the pass no longer
+           * asks the account for that state separately. A read that fails is said
+           * and the due runs are still worked from the state `workDue` reads for
+           * itself — the handed alarm is not lost with the reading.
+           */
+          let read: AccountEvents | null = null;
+          if (spentToday) {
+            // A spent day reads nothing: no run may open, so no change is taken.
+          } else if ((this.retryAfter.get(accountId) ?? 0) <= now.getTime()) {
+            try {
+              // The first pass of a process resumes from the cursor the last one
+              // left (ADR 0037); a document this build cannot read is the pass's
+              // gap, and the reading anchors afresh in the same breath.
+              const problem = await this.restoreCursor(accountId);
+              if (problem) summary.gaps.push(`${accountId}: ${problem}`);
+              read = await readChangesForPass(this.ctx, this.cursors, accountId);
+              // The cursor now stands where this pass read: the off path's age
+              // check reads this instant, not its own last run.
+              this.cursorAt.set(accountId, now.getTime());
+            } catch (err) {
+              summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+            }
+          }
+          try {
+            records = await this.workDue(
+              accountId,
+              now,
+              summary,
+              handed.get(accountId) ?? [],
+              read?.cursor.files,
+            );
+            const moved = new Set<string>();
+            for (const gap of await this.archive(accountId, records, now, moved))
+              summary.gaps.push(`${accountId}: ${gap}`);
+            /*
+             * A run moved to its drawer is not in the working set any more: the
+             * change batch is not handed it, so an old question cannot be answered
+             * against a document that is no longer there. What the batch worked is
+             * the account's working set as this pass leaves it, which is what the
+             * waits are armed from.
+             */
+            const after = spentToday
+              ? records
+              : await this.workChanges(
+                  accountId,
+                  now,
+                  summary,
+                  moved.size
+                    ? records.filter((record) => !moved.has(record.run.id))
+                    : records,
+                  read ?? undefined,
+                );
+            if (after) records = after;
+            /*
+             * An ending written and not said — the conversation refused the
+             * message, or the process stopped between the write and the words — is
+             * said once the way is clear. The record carries the debt (`said:
+             * false`) until it is paid, which is what keeps a run that already
+             * spoke from speaking again.
+             */
+            for (const { run: finished } of records) {
+              if (finished.ended?.said !== false) continue;
+              let said = false;
+              try {
+                said = await this.sayEnding(
+                  accountId,
+                  finished,
+                  chatWoken(finished.startedBy.woke),
+                );
+              } catch (err) {
+                /*
+                 * The post failed: the debt stays and the pass says so. It is not a
+                 * silence — a saying that can never leave is something a person has
+                 * to be able to see — and it is not a `continue`, which swallowed
+                 * both the failure and the reason.
+                 */
+                summary.gaps.push(
+                  `${accountId}: ${finished.id}: its ending was not said: ${errorMessage(err)}`,
+                );
+                continue;
+              }
+              if (!said) continue;
+              try {
+                await this.markSaid(accountId, finished);
               } catch (err) {
                 summary.gaps.push(
-                  `${accountId}: its old rules were removed by this build and its instruction is not readable: ${errorMessage(err)}`,
+                  `${accountId}: ${finished.id}: its ending was said and could not be marked: ${errorMessage(err)}`,
                 );
               }
             }
-            this.legacyCleared.add(accountId);
+            await this.saveCursor(accountId);
+            this.pruneStuck(accountId, records);
+            /*
+             * The filter on the pass side: the last state a store produced is
+             * remembered as the cached set's state. The next pass reads the
+             * account's state; when it is still that one, nothing but this
+             * process's own run writes moved it, and the working set is the one
+             * already held — no folder walk, no downloads. A person's write (a
+             * stop among them) moves the state to a value this process did not
+             * produce, so it is listed.
+             */
+            const selfState = this.passState.get(accountId);
+            if (selfState && records)
+              this.runReadings.set(accountId, { state: selfState, records });
           } catch (err) {
+            /*
+             * A broken provider is the installation's state, not one account's
+             * trouble (ADR 0038): `noteModelFailure` counts a permanent refusal
+             * and stops the pass on the third in a row; the runs stay `running`
+             * and `workPass` puts the reason in the status a person reads. A
+             * transient failure (5xx, a timeout) is said and retried.
+             */
+            if (err instanceof PassStopped) throw err;
+            this.noteModelFailure(err);
             summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
           }
-        }
-        let records: RunRecord[] | null = null;
-        /*
-         * One account that cannot be read is not the installation failing: a
-         * single rule sheet this build cannot parse is a group to leave alone for
-         * this pass, not a reason to stop working every other group — and the
-         * pass that throws here would throw again on the next beat, for ever. The
-         * reason goes into the pass's gaps, which the supervisor reports.
-         */
-        /*
-         * The account's changes are read first: the FileNode state they end at
-         * is the state the run listing is judged against, so the pass no longer
-         * asks the account for that state separately. A read that fails is said
-         * and the due runs are still worked from the state `workDue` reads for
-         * itself — the handed alarm is not lost with the reading.
-         */
-        let read: AccountEvents | null = null;
-        if ((this.retryAfter.get(accountId) ?? 0) <= now.getTime()) {
+          /*
+           * The waits are armed **after** the due runs have been advanced: a re-arm
+           * beside a run whose document has not moved would hand the same instant
+           * over twice (`timers.ts`), and a process that restarts re-arms what the
+           * installation left. Its own guard, because arming reads the account's run
+           * documents: an unreadable one is a gap for this pass, not a reason to
+           * stop the accounts after it — and the account whose work failed is armed
+           * all the same, from the runs that can be read.
+           */
           try {
-            // The first pass of a process resumes from the cursor the last one
-            // left (ADR 0037); a document this build cannot read is the pass's
-            // gap, and the reading anchors afresh in the same breath.
-            const problem = await this.restoreCursor(accountId);
-            if (problem) summary.gaps.push(`${accountId}: ${problem}`);
-            read = await readChangesForPass(this.ctx, this.cursors, accountId);
-            // The cursor now stands where this pass read: the off path's age
-            // check reads this instant, not its own last run.
-            this.cursorAt.set(accountId, now.getTime());
+            const problems: string[] = [];
+            await this.timers.arm(this.ctx, accountId, problems, records ?? undefined);
+            for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
           } catch (err) {
             summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
           }
-        }
-        try {
-          records = await this.workDue(
-            accountId,
-            now,
-            summary,
-            handed.get(accountId) ?? [],
-            read?.cursor.files,
-          );
-          const moved = new Set<string>();
-          for (const gap of await this.archive(accountId, records, now, moved))
-            summary.gaps.push(`${accountId}: ${gap}`);
-          /*
-           * A run moved to its drawer is not in the working set any more: the
-           * change batch is not handed it, so an old question cannot be answered
-           * against a document that is no longer there. What the batch worked is
-           * the account's working set as this pass leaves it, which is what the
-           * waits are armed from.
-           */
-          const after = await this.workChanges(
-            accountId,
-            now,
-            summary,
-            moved.size ? records.filter((record) => !moved.has(record.run.id)) : records,
-            read ?? undefined,
-          );
-          if (after) records = after;
-          /*
-           * An ending written and not said — the conversation refused the
-           * message, or the process stopped between the write and the words — is
-           * said once the way is clear. The record carries the debt (`said:
-           * false`) until it is paid, which is what keeps a run that already
-           * spoke from speaking again.
-           */
-          for (const { run: finished } of records) {
-            if (finished.ended?.said !== false) continue;
-            let said = false;
-            try {
-              said = await this.sayEnding(
-                accountId,
-                finished,
-                chatWoken(finished.startedBy.woke),
-              );
-            } catch (err) {
-              /*
-               * The post failed: the debt stays and the pass says so. It is not a
-               * silence — a saying that can never leave is something a person has
-               * to be able to see — and it is not a `continue`, which swallowed
-               * both the failure and the reason.
-               */
-              summary.gaps.push(
-                `${accountId}: ${finished.id}: its ending was not said: ${errorMessage(err)}`,
-              );
-              continue;
-            }
-            if (!said) continue;
-            try {
-              await this.markSaid(accountId, finished);
-            } catch (err) {
-              summary.gaps.push(
-                `${accountId}: ${finished.id}: its ending was said and could not be marked: ${errorMessage(err)}`,
-              );
-            }
-          }
-          await this.saveCursor(accountId);
-          this.pruneStuck(accountId, records);
-          /*
-           * The filter on the pass side: the last state a store produced is
-           * remembered as the cached set's state. The next pass reads the
-           * account's state; when it is still that one, nothing but this
-           * process's own run writes moved it, and the working set is the one
-           * already held — no folder walk, no downloads. A person's write (a
-           * stop among them) moves the state to a value this process did not
-           * produce, so it is listed.
-           */
-          const selfState = this.passState.get(accountId);
-          if (selfState && records)
-            this.runReadings.set(accountId, { state: selfState, records });
-        } catch (err) {
-          summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
-        }
-        /*
-         * The waits are armed **after** the due runs have been advanced: a re-arm
-         * beside a run whose document has not moved would hand the same instant
-         * over twice (`timers.ts`), and a process that restarts re-arms what the
-         * installation left. Its own guard, because arming reads the account's run
-         * documents: an unreadable one is a gap for this pass, not a reason to
-         * stop the accounts after it — and the account whose work failed is armed
-         * all the same, from the runs that can be read.
-         */
-        try {
-          const problems: string[] = [];
-          await this.timers.arm(this.ctx, accountId, problems, records ?? undefined);
-          for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
-        } catch (err) {
-          summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
-        }
-        this.opts.log?.(`[gilbert] agent: finished ${accountId}`);
-      }),
-    );
+          this.opts.log?.(`[gilbert] agent: finished ${accountId}`);
+        }),
+      );
+    } catch (err) {
+      /*
+       * The provider is broken, and three refusals in a row say so (ADR 0038):
+       * the pass stops here, the runs stay `running`, and the status document
+       * carries the reason. Nothing was consumed that nobody answered.
+       */
+      if (!(err instanceof PassStopped)) throw err;
+      summary.gaps.push(err.reason);
+      this.opts.log?.(`[gilbert] agent: the pass stopped: ${err.reason}`);
+      return summary;
+    }
     /*
      * The memory is read on the first change that needs it, not at the top of
      * every pass: a quiet pass pays for no store it never consults. A sheet it
@@ -1059,12 +1160,26 @@ export class AgentLoop {
             run: worked,
           };
       } catch (err) {
+        this.noteModelFailure(err);
         summary.gaps.push(`${accountId}: ${record.run.id}: ${errorMessage(err)}`);
       }
     }
     // What the pass read is also what the archive decides on: a run this pass
     // just ended is on the list with its ending, and goes in its drawer now.
     return records;
+  }
+
+  /**
+   * Count a model call that failed for good, and stop the pass on the third in
+   * a row (ADR 0038). A transient failure is not counted; a success resets.
+   */
+  private noteModelFailure(err: unknown): void {
+    if (!(err instanceof ModelError) || !err.permanent) return;
+    this.permanentFailures += 1;
+    if (this.permanentFailures < PERMANENT_FAILURES_MAX) return;
+    throw new PassStopped(
+      `the installation's model refused ${PERMANENT_FAILURES_MAX} calls in a row: ${errorMessage(err)} — a run already open stays running until the provider answers.`,
+    );
   }
 
   /**
@@ -1128,6 +1243,9 @@ export class AgentLoop {
           forgetDrop: (a, folder) => dropForgotten(this.ctx, a, folder),
           forgetDropPath: (a, path) => dropPathForgotten(this.ctx, a, path),
           readEventFile: (a, path) => this.readEventFile(a, path),
+          modelAnswered: () => {
+            this.permanentFailures = 0;
+          },
         },
         accountId,
         now,
@@ -1533,6 +1651,14 @@ export class AgentLoop {
     const worked =
       summary.changes + summary.runs + summary.due > 0 || summary.gaps.length > 0;
     if (!worked && at.getTime() - this.statusAt < STATUS_EVERY_MS) return;
+    /*
+     * The daily counter (ADR 0038): what the document already held for today,
+     * plus what this pass spent. A date it does not carry is yesterday's, and
+     * the reset is this line rather than a scheduled write.
+     */
+    const date = at.toISOString().slice(0, 10);
+    const before = this.statusSpent?.date === date ? this.statusSpent.tokens : 0;
+    const spent = { date, tokens: before + summary.tokens };
     const doc: PassStatusDoc = {
       v: 1,
       at: at.toISOString(),
@@ -1543,11 +1669,13 @@ export class AgentLoop {
       runs: summary.runs,
       due: summary.due,
       gaps: summary.gaps,
+      spent,
       ...(this.lastEnded ? { lastEnded: this.lastEnded } : {}),
     };
     try {
       await writeAppFileAt(this.ctx, accountId, PASS_STATUS_FILE, doc);
       this.statusAt = at.getTime();
+      this.statusSpent = spent;
     } catch (err) {
       summary.gaps.push(`status: ${errorMessage(err)}`);
     }
@@ -1628,7 +1756,7 @@ export class AgentLoop {
      * rounds with its budget untouched, which is the ending this replaces.
      */
     for (;;) {
-      const over = overBudget(current);
+      const over = overBudget(current, this.limits.maxRunTokens);
       if (over) {
         return await this.endRun(
           accountId,
@@ -1658,15 +1786,38 @@ export class AgentLoop {
       // tally that skips it is optimistic exactly where it matters most.
       current = spendRun(current, { calls: 1 });
       const meter = usageMeter();
+      /** What the run has left to spend on this answer (ADR 0038). */
+      const left =
+        this.limits.maxRunTokens -
+        ((current.spent.promptTokens ?? 0) + (current.spent.completionTokens ?? 0));
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
         choice = await chooseStep(
           catalogueFor(this.catalogue, this.areasOfRun(accountId, current)),
           access,
           question,
-          { meter },
+          { meter, left },
         );
+        this.permanentFailures = 0;
       } catch (err) {
+        /*
+         * The answer could not be paid for: the run ends before the provider is
+         * asked, naming the token (ADR 0038), rather than making a call whose
+         * answer would not fit.
+         */
+        if (err instanceof ModelError && err.code === "model_out_of_budget") {
+          current = spendRun(current, { ms: Date.now() - startedMs });
+          return await this.endRun(
+            accountId,
+            current,
+            "out-of-budget",
+            {
+              at: new Date().toISOString(),
+              why: `the token budget ended the run: it spent ${this.limits.maxRunTokens} tokens, so no further call could be paid for.`,
+            },
+            token,
+          );
+        }
         /*
          * An answer this build refused is a step the record shows, not a silence:
          * the model is told what was wrong with it before it chooses again. A
@@ -1687,6 +1838,13 @@ export class AgentLoop {
             completionTokens: meter.completionTokens,
             cachedPromptTokens: meter.cachedTokens,
           });
+          this.passTokens += meter.promptTokens + meter.completionTokens;
+          // The backoff (ADR 0038): the run is still `running`, and the next
+          // pass does not ask the same broken provider again at once.
+          this.stuckUntil.set(
+            `${accountId}\u0000${current.id}`,
+            Date.now() + STUCK_RETRY_MS,
+          );
           try {
             await this.store(accountId, current, token);
           } catch {
@@ -1700,6 +1858,7 @@ export class AgentLoop {
           completionTokens: meter.completionTokens,
           cachedPromptTokens: meter.cachedTokens,
         });
+        this.passTokens += meter.promptTokens + meter.completionTokens;
         /*
          * A refusal is a step that ended, and it spends a step of the budget: the
          * run stops on the budget it declares, never on a count of refusals the
@@ -1724,6 +1883,7 @@ export class AgentLoop {
         completionTokens: meter.completionTokens,
         cachedPromptTokens: meter.cachedTokens,
       });
+      this.passTokens += meter.promptTokens + meter.completionTokens;
       if (choice.kind === "done") {
         /*
          * A `done` is a claim about the work, and the run's own plan is the
@@ -1918,6 +2078,8 @@ export class AgentLoop {
       if (!planned) return null;
       token = planned;
       let wait: RunWait | null = null;
+      /** What the wave said in the conversation, when it said anything (ADR 0038). */
+      let spoke: string | null = null;
       for (;;) {
         const { ready, left } = readiness(current.plan, base);
         if (!ready.length && !left.length) break;
@@ -2015,12 +2177,23 @@ export class AgentLoop {
             const clean = redactSecrets(result.value);
             /*
              * Whether this step said something in the group's conversation: the
-             * fact `spoke` reads. A `chat.say` that ended done has been heard by
+             * fact `spoke` reads. `say` with the `say` action has been heard by
              * the people who asked, whether or not it threaded its answer to the
-             * waking message; a `chat.ask` asks a question and says nothing about
-             * what was done, so it does not make the run a report (ADR 0030).
+             * waking message; `say` with `ask` asks a question and says nothing
+             * about what was done, so it does not make the run a report
+             * (ADR 0030, 0038).
              */
-            const said = call.name === "chat.say";
+            const said =
+              call.name === "say" && isRecord(call.args) && call.args.action === "say";
+            // The report is the last phase (ADR 0038): what it said ends the run
+            // after this wave, rather than the model being asked for a `done`.
+            // The sentence is the words it asked to say, not the step's answer
+            // (a message id): the ending a person reads is the report itself.
+            if (said)
+              spoke =
+                isRecord(call.args) && typeof call.args.text === "string"
+                  ? boundedText(call.args.text)
+                  : boundedText(clean.value);
             const source = sourceOf(clean.value);
             current = recordStep(current, at, {
               state: "done",
@@ -2099,6 +2272,21 @@ export class AgentLoop {
       const settledWrite = await this.store(accountId, current, token);
       if (!settledWrite) return null;
       token = settledWrite;
+      /*
+       * The report ends the run, whatever budget remains (ADR 0038). A `say`
+       * that landed is the group's answer, and asking the model for a `done`
+       * afterwards is the turn that kept exploring on the live eval of
+       * 2026-10-22: the work was filed and said, and the run went on reading
+       * the same two messages until its budget ended.
+       */
+      if (spoke)
+        return await this.endRun(
+          accountId,
+          current,
+          "done",
+          { at: new Date().toISOString(), why: spoke },
+          token,
+        );
     }
   }
 
@@ -2460,21 +2648,27 @@ export class AgentLoop {
   private async readInstallationForPass(): Promise<{
     access: ModelAccess | null;
     instruction: string | undefined;
+    limits: InstallationDocument["limits"];
   }> {
+    const fallback = {
+      access: this.access,
+      instruction: this.opts.installation,
+      limits: installationDefaults().limits,
+    };
     const accountId = filesAccountId(this.ctx);
-    if (!accountId) return { access: this.access, instruction: this.opts.installation };
+    if (!accountId) return fallback;
     try {
       const found = await readAppFileAt(this.ctx, accountId, INSTALLATION_FILE);
-      if (!found) return { access: this.access, instruction: this.opts.installation };
+      if (!found) return fallback;
       const parsed = parseInstallationDocumentDetailed(found.text);
-      if ("problem" in parsed)
-        return { access: this.access, instruction: this.opts.installation };
+      if ("problem" in parsed) return fallback;
       return {
         access: modelAccess(parsed.doc, this.allowPrivate),
         instruction: parsed.doc.agent.instruction || undefined,
+        limits: parsed.doc.limits,
       };
     } catch {
-      return { access: this.access, instruction: this.opts.installation };
+      return fallback;
     }
   }
 
@@ -2776,11 +2970,13 @@ function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDo
   return null;
 }
 
-/** The ceiling a run has spent, or null when it has budget left (ADR 0027). */
-function overBudget(run: RunDoc): string | null {
+/** The ceiling a run has spent, or null when it has budget left (ADR 0027, 0038). */
+function overBudget(run: RunDoc, maxRunTokens: number): string | null {
   if (run.spent.steps >= RUN_STEPS_MAX) return `it took ${RUN_STEPS_MAX} steps`;
   if (run.spent.calls >= RUN_CALLS_MAX) return `it made ${RUN_CALLS_MAX} model calls`;
   if (run.spent.ms >= RUN_MS_MAX) return `it spent ${RUN_MS_MAX} ms of work`;
+  const tokens = (run.spent.promptTokens ?? 0) + (run.spent.completionTokens ?? 0);
+  if (tokens >= maxRunTokens) return `it spent ${maxRunTokens} tokens`;
   return null;
 }
 

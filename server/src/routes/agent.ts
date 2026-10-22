@@ -41,7 +41,7 @@ import {
   listFacts,
   MemoryError,
 } from "../agent/memory.js";
-import { probeModel, runningModelAccess } from "../agent/model.js";
+import { probeReachable, runningModelAccess } from "../agent/model.js";
 import {
   listRunsForReading,
   RUNS_DIR,
@@ -404,7 +404,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   api.get("/admin/agent/model", requireSession, requireAdmin, async (c) => {
     const access = runningModelAccess();
     if (!access) return c.json({ ok: false, reason: "no_model" });
-    return c.json(await probeModel(access));
+    return c.json(await probeReachable(access));
   });
 
   /**

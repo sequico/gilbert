@@ -193,7 +193,7 @@ decided, and **what was recalled is written into the run's record** (`recalled`)
 so a wrong conclusion traces to the fact that carried it — the surface resolves
 each of those ids to the fact's subject and sentence — while a change the
 memory holds nothing about is worked exactly as it was before the memory existed.
-The agent records a fact with `memory.remember`, within the authority classes, and
+The agent records a fact with `remember` (`kind: fact`), within the authority classes, and
 **a fact a person wrote is in force**: the write refuses to overwrite it, in a code,
 rather than correcting it in silence. An installation administrator reads,
 corrects and removes the facts from **Administration → Agent**, through the
@@ -210,8 +210,10 @@ account, `instruction.json`, that says **in prose** how the group wants its agen
 to work and **which areas** that work is in. The areas are the agent's own
 modules — **mail**, **files**, **calendar**, **contacts**, **knowledge**,
 **workorders**, **chat**, **memory** — and they are the whole of what a run may
-**change**: a run's catalogue of tools is the areas its instruction declares plus
-chat, knowledge and memory, which every run has. **Reading is free**; a write
+**change**: a run's catalogue is the **eight jobs** (`read`, `find`, `place`,
+`draft`, `event`, `say`, `remember`, `settle`), narrowed to the values whose area
+its instruction declares, with reading, the conversation and memory always
+there. **Reading is free**; a write
 needs its area. An instruction may declare at most **three** areas, which is what
 keeps a turn's catalogue small.
 
@@ -229,8 +231,9 @@ and nothing but the conversation on.
 
 The shape and its parser are `server/src/shared/instruction.ts`, the areas are
 `server/src/shared/areas.ts` (the vocabulary both tiers read) and
-`server/src/agent/areas.ts` (which tool is in which area, and the selection); what
-reads the document is `server/src/agent/instruction.ts`. A group's instruction may
+`server/src/agent/areas.ts` (the selection); which value of which job belongs to
+which area is `server/src/agent/tools/jobs.ts`, one table the narrowing reads.
+What reads the document is `server/src/agent/instruction.ts`. A group's instruction may
 **declare that it sends**, which is the one power it carries of its own. The
 agent's prose has two levels, outermost first: the **installation's own line** and
 the **group's instruction**, and one builder, `server/src/agent/prose.ts`,
@@ -264,26 +267,35 @@ needs none clears it. `server/src/agent/model.ts` posts one OpenAI-compatible ch
 completion with the zero-retention opt-out on every request, refuses a provider
 whose address is not public unless the **operator** has said the installation's
 model may sit inside the deployment's own network
-(`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries both turns: the **decision
-turn** — given one change in a group's own account, what the change is about,
-looking the group's own state up first with the **reading tools** when it needs
-to — and the **choosing turn**, which is
-handed the catalogue as the catalogue describes itself — the provider's own
-`tools`, each rendered from the tool's own argument specs, once per call and never
-repeated as prose — and
-the run so far, and
-answers with a **plan**: one or more steps, each a tool, its arguments and what it
-waits on, or that the work is finished — so what a run needs in several parts,
-and what follows from each outcome, is one turn. A provider that takes the tools
-checks the kind and the bound of every argument itself, which is the refusal a
-hand-written JSON plan used to pay for. The decision turn's answer is facts and nothing else — one that
-carries an authorisation, or names a tool that writes, is refused — and an
-installation that has chosen no model has no agent.
+(`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries both turns (ADR 0038): the **decision turn** — given one change in a
+group's own account, what the change is about, with **one** lookup of the group's
+own state when the change does not say enough — asked in the provider's native
+JSON mode (a schema where the provider enforces one); and the **choosing turn**,
+handed the catalogue of eight jobs as the provider's own `tools`, which answers
+with **calls** — one, several, or the same one twice — or with the sentence that
+ends the run. There is no JSON-in-the-text plan and no second request without the
+tools: a provider is accepted only if it takes `tools` and a native JSON mode,
+checked when its block is written, with its declared output ceiling read beside
+them, and at connect only reachability is asked. Each call carries what is left of
+the run's tokens after the prompt, capped by that ceiling; the run ends
+`out-of-budget` at `limits.maxRunTokens`, the installation opens no run past
+`limits.maxDailyTokens`, and three permanent provider refusals in a row stop the
+pass with the open runs left `running`. A provider that takes the tools checks the
+kind and the bound of every argument itself — a job publishes one schema branch
+per value, so a mail search cannot be sent a `path` — and the decision turn's
+answer is facts and nothing else: one that carries an authorisation, or names a
+tool that writes, is refused. An installation that has chosen no model has no
+agent.
 
 ## The catalogue of tools
 
-**The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0027): one tool is
-a task over an object. The reading half — the only half a reading caller is handed
+**The catalogue of tools is `server/src/agent/tools/jobs.ts`** (ADR 0038): eight
+jobs — `read`, `find`, `place`, `draft`, `event`, `say`, `remember`, `settle` —
+each naming the value it means (`kind` or `action`) and routing that call to the
+endpoint tool of `server/src/agent/tools/*.ts`, where the arguments, the authority
+and the answer stay one definition. A job's provider schema is one branch per
+value, so a mail search cannot be sent a Files path. The reading values — the only
+ones a reading caller is handed
 — finds and reads a message, a folder, a document in Files, a page of the
 KB **searched by its own words** and **listed** by title and folder before one is
 read, the **workorders the account holds a part of** beside one read by uid, a
@@ -292,7 +304,7 @@ the events of its calendars in a window, and people in the installation's
 Global contacts by name or address, and a document in Files is read
 **inside**: a PDF's text layer, a Word file, a spreadsheet, an OpenDocument or a
 text file as the document's own words (`server/src/documentText.ts`), and an
-attachment of a message is read the same way (`mail.readAttachment`). An image, or
+attachment of a message is read the same way. An image, or
 a page of a PDF with no text layer — a scan — is transcribed by the installation's
 model, the page rendered to a bitmap and sent as a picture: no OCR engine is
 installed, and a model that cannot see says so instead of guessing. The half that changes the
@@ -331,26 +343,24 @@ installation administrator's, and it is proved by the **directory**: before the
 answer is read, the agent presents the sender's account to the server and reads
 whether it is a Stalwart administrator, so an administrator's own words may grant
 one and nobody else's. An instruction may **declare that it sends**, and
-that declaration is the authority of its own outward acts. **The same conversation
-runs by mail**: `mail.ask` sends the question from the group's own identity to a
-principal with access to the group and parks the run on that message, and the
-reply that names it in its thread continues the run — mail's own correlation,
-read by the loop. **A question carries a deadline** (72 hours, ADR 0029): the
-answer is still the conversation's own event, and the deadline is what a run does
+that declaration is the authority of its own outward acts. **The same conversation runs by mail** (ADR 0038, 0041): a question is asked in
+the conversation with `say` (`action: ask`) and parks the run there; a mail leaves
+the account only as a **draft a person sends**, so no tool submits one and the
+worst a malicious mail obtains is a draft somebody reads. **A question carries a
+deadline** (72 hours, ADR 0029): the answer is still the conversation's own event,
+and the deadline is what a run does
 about a person who never answers — it goes on without it, with a step on the
-record saying what did not come, so nothing waits for ever. `mail.send` is the act that reaches somebody **outside**: it is
-class `outward`, and it is refused until a person's own words license exactly that
-message — the address and the words — because a word for one send reaches no
-other. Every tool declares the **authority class** it
-exercises (ADR 0028), the **argument names** it takes and what it costs the
+record saying what did not come, so nothing waits for ever. Every call's
+**authority class** is read from the act it names (ADR 0028), the **argument
+names** it takes and what it costs the
 run's budget — a call naming a field the tool does not take is refused whole,
 naming the fields it does, rather than read as if the field it meant were
 absent; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
-the run carries no authority for that act. The reading half is what the decision
+the run carries no authority for that act. The reading jobs are what the decision
 turn looks the group's state up with; the loop runs each chosen call through the
 guard, so a refusal is a failed step on the run rather than a silent skip, and the
-whole catalogue is exercised against the mock Stalwart.
+jobs and their endpoints are exercised against the mock Stalwart.
 
 ## The loop
 
