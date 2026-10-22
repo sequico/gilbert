@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { after, before, test } from "node:test";
+import { after, afterEach, before, beforeEach, test } from "node:test";
 import type { InstallationPublished, InstallationView } from "./shared/installation.js";
 import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 import type { UpstreamSession } from "./upstream.js";
@@ -117,6 +117,36 @@ async function documentIn(
 }
 
 let adminCookie = "";
+
+/*
+ * The provider probe, answered here (ADR 0038): publishing a provider asks it
+ * one question — tools, a JSON mode, the ceiling it declares — and a test must
+ * not need the network to answer. The address is a public literal, so the
+ * private-address rule passes, and every other request (the mock Stalwart) goes
+ * to the real `fetch`.
+ */
+const realFetch = globalThis.fetch;
+const PROVIDER_HOST = "93.184.216.34";
+beforeEach(() => {
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.startsWith(`https://${PROVIDER_HOST}/`)) {
+      if (url.endsWith("/models"))
+        return new Response(
+          JSON.stringify({
+            data: [{ id: "a-small-model", max_output_tokens: 4096 }],
+          }),
+          { status: 200 },
+        );
+      return new Response(JSON.stringify({ model: "a-small-model" }), { status: 200 });
+    }
+    return realFetch(input, init);
+  }) as typeof fetch;
+});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
 let bobCookie = "";
 
 before(async () => {
@@ -382,7 +412,7 @@ test("the model's key is write-only: a save keeps it unless it names a provider 
         provider: {
           provider: "ollama",
           model: "a-small-model",
-          baseUrl: "https://models.example.com/v1",
+          baseUrl: "https://93.184.216.34/v1",
           apiKey,
         },
       },
@@ -497,7 +527,7 @@ test("the model's key is write-only: a save keeps it unless it names a provider 
       provider: {
         provider: "ollama",
         model: "a-small-model",
-        baseUrl: "https://models.example.com/v1",
+        baseUrl: "https://93.184.216.34/v1",
         apiKey: key,
       },
     },
@@ -676,7 +706,7 @@ test("a save that states no key keeps the installation's own line beside the mod
       provider: {
         provider: "ollama",
         model: "a-small-model",
-        baseUrl: "https://models.example.com/v1",
+        baseUrl: "https://93.184.216.34/v1",
         apiKey: key,
       },
       instruction: line,

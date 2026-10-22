@@ -20,12 +20,14 @@
  * ordering of its own.
  *
  * **Every call starts from what the installation knows.** The pass reads the
- * memory the Master's account holds **once** (ADR 0033) and takes the
- * **selection** each change's own words name — with its nearest links and the
- * group's standing set, inside a ceiling — hands it to both turns fenced as
- * data, and records on the run which facts it carried, so a wrong conclusion
- * traces to the fact that carried it. A change with nothing to recall is worked
- * exactly as it was before the memory existed.
+ * memory the Master's account holds **once** (ADR 0038), at the pass's own clock,
+ * and takes the **selection** each change's own words name — the entities they
+ * name, their facts valid at that moment and one hop of their relations, inside a
+ * ceiling, by exact subject first and by similarity where the installation
+ * embeds — hands it to both turns fenced as data, and records on the run which
+ * facts it carried and which retrieval found them, so a wrong conclusion traces
+ * to the fact that carried it. A change with nothing to recall is worked exactly
+ * as it was before the memory existed.
  *
  * **Every call is told the three levels of prose the record names** (ADR 0031),
  * outermost first: the installation's own line, read from its document at the
@@ -92,7 +94,6 @@ import {
   parseInstallationDocumentDetailed,
 } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
-import { recallFacts } from "../shared/memory.js";
 import {
   answerOverdue,
   appendStep,
@@ -138,10 +139,12 @@ import type { AccountEvents, EventCursor } from "./events.js";
 import type { InstructionDoc } from "./instruction.js";
 import { readInstruction } from "./instruction.js";
 import { clearLegacyAgentState } from "./legacy.js";
-import { forgetMemoryStores, listFacts, type MemoryStore } from "./memory.js";
+import { forgetMemoryStores, listMemory, type MemoryStore, recallFor } from "./memory.js";
 import {
   boundedText,
   chooseStep,
+  embedTexts,
+  judgeRun,
   type ModelAccess,
   ModelError,
   modelAccess,
@@ -151,8 +154,8 @@ import {
   setRunningModelAccess,
   usageMeter,
 } from "./model.js";
-import type { ProseLevel } from "./prose.js";
 import { type AgentMeasure, emitMeasures } from "./otlp.js";
+import type { ProseLevel } from "./prose.js";
 import {
   forgetDrop as dropForgotten,
   forgetPath as dropPathForgotten,
@@ -177,6 +180,7 @@ import {
   readMessageForAnswer,
   runTool,
   TOOLS,
+  type ToolCall,
 } from "./tools.js";
 
 /**
@@ -213,6 +217,16 @@ const TOOL_WAVE_MAX = 4;
  * step.
  */
 export const DONE_CHECKED = "the work, checked against the plan's refusals";
+
+/**
+ * The step the judge leaves on the record (ADR 0038).
+ *
+ * The judge fires on a **suspect plan** — a refused step, then a later step that
+ * succeeded, so the mechanical check above saw a finished step and the claim may
+ * still rest on the refusal. Its verdict is a step of its own, and on a second
+ * `done` it is what the record shows beside the claim.
+ */
+export const JUDGE_CHECKED = "the report, judged against the plan";
 
 /**
  * How close to lapsing the claim is renewed.
@@ -1283,14 +1297,13 @@ export class AgentLoop {
    * stand-in for the runs this change would open, and the runs the loop actually
    * writes are the ones the decision names.
    */
-  private readingCall(
-    accountId: string,
-    event: AccountEvent,
-  ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader } {
+  private readingCall(accountId: string, event: AccountEvent): ToolCall {
+    const embed = this.embedder();
     return {
       ctx: this.ctx,
       accountId,
       readImage: this.eyes,
+      ...(embed ? { embed } : {}),
       run: startRun({
         id: randomUUID(),
         startedBy: {
@@ -1781,22 +1794,24 @@ export class AgentLoop {
        it, so a step does not pay for a read of its own document. */
     let token = state;
     /*
-     * What the memory recalls for this run (ADR 0033): the change it answers, the
-     * facts that change was found to be about, and the group's standing set,
-     * against the store the pass read — the same one reading the decision turn
-     * was handed. The selection is recorded on the run, so a wrong conclusion
-     * traces to the fact that carried it, and every turn of this working is
-     * handed it.
+     * What the memory recalls for this run (ADR 0038): the entities the change
+     * and its facts name, their facts valid at that moment and one hop of their
+     * relations, against the store the pass read — the same one reading the
+     * decision turn was handed. Retrieved by the change's own words, and by
+     * vector too where the installation embeds; the run records which retrieval
+     * it used. The selection is recorded on the run, so a wrong conclusion traces
+     * to the fact that carried it, and every turn of this working is handed it.
      */
     const above = await this.proseAbove(accountId);
-    const selection = recallFacts(
-      (await this.memory()).facts,
+    const selection = await recallFor(
+      access,
+      await this.memory(),
       memoryWords(run, facts),
-      accountId,
     );
     current = recordRecall(
       current,
-      selection.map((fact) => fact.id),
+      selection.facts.map((fact) => fact.id),
+      selection.retrieval,
     );
     let previous: string | null = null;
     /*
@@ -1829,7 +1844,7 @@ export class AgentLoop {
         plan: current.plan,
         prose,
         ...(facts ? { facts } : {}),
-        memory: selection,
+        memory: selection.facts,
         ...(openQuestions?.length ? { openQuestions } : {}),
         ...(current.startedBy.batch?.length ? { batch: current.startedBy.batch } : {}),
         ...(current.startedBy.surfaces ? { surfaces: current.startedBy.surfaces } : {}),
@@ -1949,7 +1964,14 @@ export class AgentLoop {
          */
         const refused = current.plan.filter((step) => step.state === "failed").length;
         const finished = current.plan.filter((step) => step.state === "done").length;
-        const checked = current.plan.filter((step) => step.what === DONE_CHECKED).length;
+        /*
+         * Both checks count: the mechanical one and the judge's are one answer to
+         * "the claim has been looked at", so a `done` after either is accepted
+         * with that step beside it (ADR 0038).
+         */
+        const checked = current.plan.filter(
+          (step) => step.what === DONE_CHECKED || step.what === JUDGE_CHECKED,
+        ).length;
         /*
          * A `done` is a claim about work, and the plan is what stands under it. A
          * run whose plan carries a refused step, or **no step that finished at
@@ -1977,6 +1999,79 @@ export class AgentLoop {
           const kept = await this.store(accountId, current, token);
           if (!kept) return null;
           token = kept;
+          continue;
+        }
+        /*
+         * The mechanical check sees a plan with nothing finished and a plan
+         * carrying a refusal. It cannot see the case ADR 0038 names: a refused
+         * step, a later step that succeeded, and a report standing on both. On
+         * that suspect plan the judge is asked **once**, and its verdict is a
+         * step of the record; the run is then asked once more with it in front.
+         */
+        const judged = current.plan.filter((step) => step.what === JUDGE_CHECKED).length;
+        const firstFailed = current.plan.findIndex((step) => step.state === "failed");
+        const suspect =
+          firstFailed >= 0 &&
+          current.plan.some((step, at) => at > firstFailed && step.state === "done");
+        if (suspect && judged === 0 && roomToAsk) {
+          const judgeStarted = Date.now();
+          const judgeMeter = usageMeter();
+          current = spendRun(current, { calls: 1 });
+          let verdict: { stands: boolean; why: string };
+          try {
+            verdict = await judgeRun(
+              access,
+              {
+                woke: current.startedBy.woke ?? "the run was started by an instruction",
+                ...(prose.group ? { instruction: prose.group } : {}),
+                done: choice.why,
+                plan: current.plan,
+                evidence: current.evidence,
+              },
+              { meter: judgeMeter },
+            );
+          } catch (err) {
+            /*
+             * The judge could not be asked: the call was paid for, so it is on
+             * the tally, and the failure leaves the run where it is rather than
+             * believing a report nobody checked.
+             */
+            current = spendRun(current, {
+              ms: Date.now() - judgeStarted,
+              promptTokens: judgeMeter.promptTokens,
+              completionTokens: judgeMeter.completionTokens,
+              cachedPromptTokens: judgeMeter.cachedTokens,
+            });
+            this.passTokens += judgeMeter.promptTokens + judgeMeter.completionTokens;
+            await this.store(accountId, current, token).catch(() => undefined);
+            throw err;
+          }
+          current = spendRun(current, {
+            ms: Date.now() - judgeStarted,
+            promptTokens: judgeMeter.promptTokens,
+            completionTokens: judgeMeter.completionTokens,
+            cachedPromptTokens: judgeMeter.cachedTokens,
+          });
+          this.passTokens += judgeMeter.promptTokens + judgeMeter.completionTokens;
+          current = this.withStep(
+            current,
+            JUDGE_CHECKED,
+            verdict.stands ? `stands: ${verdict.why}` : `does not stand: ${verdict.why}`,
+            true,
+          );
+          const kept = await this.store(accountId, current, token);
+          if (!kept) return null;
+          token = kept;
+          // A claim that stands is accepted now; one that does not is put back to
+          // the model once, with the verdict in front of it (ADR 0038).
+          if (verdict.stands)
+            return await this.endRun(
+              accountId,
+              current,
+              "done",
+              { at: new Date().toISOString(), why: choice.why },
+              token,
+            );
           continue;
         }
         if (finished === 0)
@@ -2197,6 +2292,7 @@ export class AgentLoop {
          * (ADR 0033).
          */
         const store = await this.memory();
+        const embed = this.embedder();
         const settled = await mapLimit(wave, TOOL_WAVE_MAX, async ({ call }) => {
           try {
             return {
@@ -2209,6 +2305,7 @@ export class AgentLoop {
                   run: current,
                   memory: store,
                   readImage: this.eyes,
+                  ...(embed ? { embed } : {}),
                 },
                 call.name,
                 call.args,
@@ -2777,19 +2874,32 @@ export class AgentLoop {
   }
 
   /**
-   * The installation's memory, as this pass read it (ADR 0033).
+   * The installation's memory, as this pass read it (ADR 0038).
    *
    * Read from the **Master's** own account and never from the group's the run
    * lives in: one memory serves the installation, which is the whole point of it
    * — a group reasons with what the rest of the installation knows. It is read
-   * **once per pass** and the one reading answers the selection a call carries
-   * and the write `memory.remember` makes, so a store of many thousands of facts
-   * is not walked again for every change; a fact written during a pass is visible
+   * **once per pass**, at the pass's clock (which is what the TTL is applied
+   * against), and the one reading answers the retrieval a call carries and the
+   * writes `remember fact` makes, so a store of many thousands of documents is
+   * not walked again for every change; a fact written during a pass is visible
    * to the next one, which is the price of that (`agent/memory.ts`).
    */
   private async memory(): Promise<MemoryStore> {
-    this.reading ??= listFacts(this.ctx, filesAccountId(this.ctx));
+    this.reading ??= listMemory(this.ctx, filesAccountId(this.ctx));
     return await this.reading;
+  }
+
+  /**
+   * The installation's vectors, where its provider offers embeddings
+   * (ADR 0038): a fact is written with the vector its sentence was embedded
+   * into. Absent without the capability, and then a write carries no vector and
+   * the retrieval is exact.
+   */
+  private embedder(): ((text: string) => Promise<number[] | null>) | undefined {
+    const access = this.access;
+    if (!access?.model.embeddings) return undefined;
+    return async (text: string) => (await embedTexts(access, [text]))?.[0] ?? null;
   }
 
   /**

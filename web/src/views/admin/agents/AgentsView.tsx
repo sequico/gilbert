@@ -1,6 +1,6 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { type FactDoc, fetchFacts } from "@/lib/agentAdmin";
+import { type FactView, fetchFacts } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
@@ -59,7 +59,7 @@ export function AgentsView() {
     // change what a tab is.
   }, [groupNames, active]);
 
-  const [facts, setFacts] = useState<FactDoc[]>([]);
+  const [facts, setFacts] = useState<FactView[]>([]);
   const [factProblems, setFactProblems] = useState<string[]>([]);
   const [factTotal, setFactTotal] = useState(0);
   const [factsMore, setFactsMore] = useState(false);

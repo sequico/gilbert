@@ -48,7 +48,7 @@ const { createApp } = await import("./app.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { filesAccountId, writeAppFileAt } = await import("./appFolder.js");
 const { releaseClaim, takeClaim } = await import("./agent/claim.js");
-const { correctFactByPerson, forgetFact, listFacts, rememberFact } = await import(
+const { correctFactByPerson, forgetFact, listMemory, rememberFact } = await import(
   "./agent/memory.js"
 );
 const { runPath } = await import("./agent/runs.js");
@@ -385,7 +385,7 @@ test("a member stops a run of their group, and another group's run is not theirs
 });
 
 test("the memory is read, corrected and removed through the administration door", async () => {
-  const store = await listFacts(master, memoryAccount);
+  const store = await listMemory(master, memoryAccount);
   const learned = await rememberFact(
     master,
     memoryAccount,
@@ -394,7 +394,6 @@ test("the memory is read, corrected and removed through the administration door"
       fact: "the usual shipper",
       run: "surface-run",
       at: new Date().toISOString(),
-      group: memoryAccount,
     },
     store,
   );
@@ -402,11 +401,11 @@ test("the memory is read, corrected and removed through the administration door"
   const listed = await call("/api/admin/memory");
   assert.equal(listed.status, 200);
   const facts = (listed.body as { facts: Array<{ id: string; fact: string }> }).facts;
-  const shown = facts.find((fact) => fact.id === learned.id);
+  const shown = facts.find((fact) => fact.id === learned.fact.id);
   assert.ok(shown, "the fact the agent learned is on the surface");
   assert.equal(shown.fact, "the usual shipper");
 
-  const corrected = await call(`/api/admin/memory/${learned.id}`, {
+  const corrected = await call(`/api/admin/memory/${learned.fact.id}`, {
     method: "PUT",
     body: JSON.stringify({
       subject: "Maersk",
@@ -416,24 +415,24 @@ test("the memory is read, corrected and removed through the administration door"
   assert.equal(corrected.status, 200, JSON.stringify(corrected.body));
 
   // Read back through the store, not through the answer that said it was written.
-  const held = (await listFacts(master, memoryAccount)).facts.find(
-    (fact) => fact.id === learned.id,
+  const held = (await listMemory(master, memoryAccount)).facts.find(
+    (fact) => fact.id === learned.fact.id,
   );
   assert.equal(
     held?.fact,
     "the shipper for containers, and only them",
     "in the Master's memory",
   );
-  assert.equal(held?.origin.by, "run", "the sheet still says the agent concluded it");
+  assert.equal(held?.origin.by, "run", "the fact still says the agent concluded it");
   assert.equal(held?.correction?.who, DEMO, "beside the person whose word is in force");
 
   /*
    * And what the correction is for: the agent's own write does not overwrite it.
    * It is written beside the person's sentence as a **proposal** (ADR 0033), the
    * surface shows both, and a person dismisses it through the door — which leaves
-   * the sheet exactly as the person's word left it.
+   * the fact exactly as the person's word left it.
    */
-  const afterCorrection = await listFacts(master, memoryAccount);
+  const afterCorrection = await listMemory(master, memoryAccount);
   const proposed = await rememberFact(
     master,
     memoryAccount,
@@ -442,12 +441,11 @@ test("the memory is read, corrected and removed through the administration door"
       fact: "what the agent concluded instead",
       run: "surface-run",
       at: new Date().toISOString(),
-      group: memoryAccount,
     },
     afterCorrection,
   );
   assert.equal(
-    proposed.proposal?.fact,
+    proposed.fact.proposal?.fact,
     "what the agent concluded instead",
     "the agent's conclusion is a proposal beside the person's word",
   );
@@ -457,7 +455,7 @@ test("the memory is read, corrected and removed through the administration door"
     withProposal.body as {
       facts: Array<{ id: string; fact: string; proposal?: { fact: string } }>;
     }
-  ).facts.find((fact) => fact.id === learned.id);
+  ).facts.find((fact) => fact.id === learned.fact.id);
   assert.equal(
     shown2?.proposal?.fact,
     "what the agent concluded instead",
@@ -469,12 +467,12 @@ test("the memory is read, corrected and removed through the administration door"
     "beside the sentence a person put in force",
   );
 
-  const dismissed = await call(`/api/admin/memory/${learned.id}/proposal`, {
+  const dismissed = await call(`/api/admin/memory/${learned.fact.id}/proposal`, {
     method: "DELETE",
   });
   assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
-  const afterDismissal = (await listFacts(master, memoryAccount)).facts.find(
-    (fact) => fact.id === learned.id,
+  const afterDismissal = (await listMemory(master, memoryAccount)).facts.find(
+    (fact) => fact.id === learned.fact.id,
   );
   assert.equal(afterDismissal?.proposal, undefined, "dismissing takes the proposal away");
   assert.equal(
@@ -483,22 +481,26 @@ test("the memory is read, corrected and removed through the administration door"
     "and leaves the person's sentence exactly as it was",
   );
 
-  const removed = await call(`/api/admin/memory/${learned.id}`, { method: "DELETE" });
+  const removed = await call(`/api/admin/memory/${learned.fact.id}`, {
+    method: "DELETE",
+  });
   assert.equal(removed.status, 200);
   assert.equal(
-    (await listFacts(master, memoryAccount)).facts.some((fact) => fact.id === learned.id),
+    (await listMemory(master, memoryAccount)).facts.some(
+      (fact) => fact.id === learned.fact.id,
+    ),
     false,
-    "and the sheet is gone from the Master's memory",
+    "and the fact is gone from the Master's memory",
   );
 
-  const gone = await listFacts(master, memoryAccount);
+  const gone = await listMemory(master, memoryAccount);
   await assert.rejects(
     () =>
       correctFactByPerson(
         master,
         memoryAccount,
         {
-          id: learned.id,
+          id: learned.fact.id,
           subject: "Maersk",
           fact: "x",
           who: DEMO,
@@ -510,7 +512,7 @@ test("the memory is read, corrected and removed through the administration door"
     "correcting a fact that is not there is refused, not a silent success",
   );
   await assert.rejects(
-    () => forgetFact(master, memoryAccount, learned.id, gone),
+    () => forgetFact(master, memoryAccount, learned.fact.id, gone),
     (err: unknown) => (err as { code?: string }).code === "fact_not_found",
     "and so is removing one twice",
   );

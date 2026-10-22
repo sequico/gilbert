@@ -4,7 +4,7 @@ import { Bot } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { push } from "@/jmap/push";
 import {
-  type FactDoc,
+  type FactView,
   fetchAgentMetrics,
   fetchGroupArchive,
   fetchGroupRuns,
@@ -172,7 +172,7 @@ function RunDetail({
   group: string;
   id: string;
   month: string;
-  facts: readonly FactDoc[];
+  facts: readonly FactView[];
   /** The row's header, so a running run's open detail follows the poll. */
   version: string;
 }) {
@@ -208,7 +208,7 @@ function RunRow({
   group: string;
   row: RunSummary;
   month: string;
-  facts: readonly FactDoc[];
+  facts: readonly FactView[];
   onStopped: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -302,7 +302,7 @@ function LiveRun({
   group: string;
   /** The group's own account, for the push stream that wakes the live list. */
   accountId?: string;
-  facts: readonly FactDoc[];
+  facts: readonly FactView[];
   /** Keep the list current while it is on screen, for a run still in flight. */
   live?: boolean;
   /**

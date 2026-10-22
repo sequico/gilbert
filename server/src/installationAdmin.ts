@@ -46,8 +46,9 @@
  * is a fact about the account, and a surface that answered a 500 for it would
  * report a bug where there is an installation nobody can administer yet.
  */
-import { type Ctx, ensureAppFolder, filesAccountId, readAppFileAt } from "./appFolder.js";
+
 import { probeModel } from "./agent/model.js";
+import { type Ctx, ensureAppFolder, filesAccountId, readAppFileAt } from "./appFolder.js";
 import { config } from "./config.js";
 import {
   appFolderInstallationStore,
@@ -396,7 +397,10 @@ export async function publishInstallation(
           (previousProvider[key] ?? "") !==
           ((nextProvider as unknown as Record<string, unknown>)?.[key] ?? ""),
       );
-    if (nextProvider && (changed || !nextProvider.structured)) {
+    if (
+      nextProvider &&
+      (changed || !nextProvider.structured || nextProvider.embeddings === undefined)
+    ) {
       const probe = await probeModel({
         model: nextProvider,
         allowPrivateProvider: config.agent.allowPrivateProvider,
@@ -415,6 +419,7 @@ export async function publishInstallation(
           ...nextProvider,
           structured: probe.structured,
           ...(probe.outputTokens === null ? {} : { outputTokens: probe.outputTokens }),
+          embeddings: probe.embeddings,
         },
       };
     }

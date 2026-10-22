@@ -193,6 +193,13 @@ export interface InstallationModel {
    * Absent when it declared none; a call then falls back to a conservative one.
    */
   outputTokens?: number;
+  /**
+   * Whether the provider answers `/embeddings` for this model, read by the same
+   * probe (ADR 0038). Absent on a block written before the capability was
+   * probed, and false on one that cannot embed: the memory is then retrieved by
+   * exact subject alone, which is a retrieval the run records.
+   */
+  embeddings?: boolean;
 }
 
 /**
@@ -484,9 +491,10 @@ export function parseInstallationDocumentDetailed(
     }
     if (!provider || !model || !baseUrl) return undefined;
     /*
-     * What the probe recorded (ADR 0038): the structured-output mode and the
-     * output ceiling the provider declared. A block written before the probe
-     * recorded them carries neither, and is still a provider.
+     * What the probe recorded (ADR 0038): the structured-output mode, the
+     * output ceiling the provider declared, and whether it embeds. A block
+     * written before the probe recorded them carries none, and is still a
+     * provider.
      */
     const structured = v.structured;
     if (
@@ -507,6 +515,13 @@ export function parseInstallationDocumentDetailed(
         outputTokens < 1)
     )
       problems.push(`"agent.provider.outputTokens" must be a positive integer.`);
+    const embeddings = v.embeddings;
+    if (
+      embeddings !== undefined &&
+      embeddings !== null &&
+      typeof embeddings !== "boolean"
+    )
+      problems.push(`"agent.provider.embeddings" must be true or false.`);
     return {
       provider,
       model,
@@ -514,6 +529,7 @@ export function parseInstallationDocumentDetailed(
       apiKey,
       ...(structured === "schema" || structured === "json" ? { structured } : {}),
       ...(typeof outputTokens === "number" ? { outputTokens } : {}),
+      ...(typeof embeddings === "boolean" ? { embeddings } : {}),
     };
   };
 

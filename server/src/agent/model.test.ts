@@ -27,7 +27,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { after, before, beforeEach, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
 import { isRecord } from "../shared/json.js";
-import type { FactDoc } from "../shared/memory.js";
+import type { FactView } from "../shared/memory.js";
 import { freePort, waitForPort } from "../testkit.js";
 
 const MOCK_PORT = await freePort();
@@ -41,7 +41,9 @@ const mock = await import("../mock/index.js");
 const { filesAccountId } = await import("../appFolder.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { appendStep, recordStep, startRun } = await import("../shared/run.js");
-const { MEMORY_VERSION, MEMORY_FACT_MAX } = await import("../shared/memory.js");
+const { entityIdFor, MEMORY_VERSION, MEMORY_FACT_MAX } = await import(
+  "../shared/memory.js"
+);
 const { TOOLS } = await import("./tools.js");
 const {
   assertUsableProvider,
@@ -49,6 +51,7 @@ const {
   callModel,
   chooseStep,
   decideEvent,
+  judgeRun,
   modelAccess,
   ModelError,
   parseAnswerDetailed,
@@ -552,16 +555,12 @@ test("the choosing turn offers the catalogue as tools, from the same argument sp
     properties: Record<string, Record<string, unknown>>;
     additionalProperties: boolean;
   }>;
+  const values = branches.map((one) => one.properties.kind?.enum);
   const fact = branches.find(
-    (one) =>
-      one.properties.kind?.enum instanceof Array &&
-      one.properties.kind.enum[0] === "fact",
+    (_one, at) => Array.isArray(values[at]) && (values[at] as unknown[])[0] === "fact",
   );
   assert.ok(fact);
-  assert.deepEqual(fact.properties.fact, {
-    type: "string",
-    maxLength: MEMORY_FACT_MAX,
-  });
+  assert.equal(fact.properties.fact?.maxLength, MEMORY_FACT_MAX);
   assert.equal(fact.additionalProperties, false);
 });
 
@@ -1072,17 +1071,18 @@ test("the facts the memory recalled are fenced as data in both turns, and a call
   // The memory is written by the agent and by a person, so it is text somebody
   // outside the group decided: it travels inside the fence, in the user turn,
   // and the turn that carries none says nothing about it at all.
-  const recalled: FactDoc[] = [
+  const recalled: FactView[] = [
     {
       v: MEMORY_VERSION,
       id: "f-1",
-      subject: "Maersk",
+      entity: entityIdFor("Maersk"),
+      entityName: "Maersk",
+      predicate: "is",
+      value: { text: "the usual shipper for container bookings" },
       fact: "the usual shipper for container bookings",
       origin: { by: "run", run: "r-0" },
       at: "2026-10-16T10:00:00.000Z",
-      links: [],
-      standing: false,
-      group: "a1",
+      validFrom: "2026-10-16T10:00:00.000Z",
     },
   ];
   const block = (body: string): RegExp =>
@@ -1390,10 +1390,10 @@ test("the choosing turn lists each tool's own argument names", async () => {
     (one) =>
       (one.properties.kind as { enum?: string[] } | undefined)?.enum?.[0] === "fact",
   );
-  assert.deepEqual(fact?.properties.fact, {
-    type: "string",
-    maxLength: MEMORY_FACT_MAX,
-  });
+  assert.equal(
+    (fact?.properties.fact as { maxLength?: number } | undefined)?.maxLength,
+    MEMORY_FACT_MAX,
+  );
 });
 
 test("a long plan reaches the turn in one call, its tail whole and the rest a line each", async () => {
@@ -1419,7 +1419,8 @@ test("a long plan reaches the turn in one call, its tail whole and the rest a li
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(run.plan));
 
   assert.equal(seen.length, 1, "one call, and none to write a summary of the tail");
-  const messages = (seen[0]?.body as { messages?: Array<{ content?: string }> }).messages;
+  const messages = (seen[0] as { body: { messages?: Array<{ content?: string }> } }).body
+    .messages;
   const user = messages?.[1]?.content ?? "";
   assert.ok(user.includes(outcomes[outcomes.length - 1] ?? ""), "the last step is whole");
   assert.ok(!user.includes(outcomes[0] ?? ""), "the first is carried as its beginning");
@@ -1431,6 +1432,57 @@ test("a long plan reaches the turn in one call, its tail whole and the rest a li
   assert.ok(
     user.length < whole / 2,
     `the prompt is ${user.length} characters against the plan's ${whole}`,
+  );
+});
+
+test("the judge asks for a verdict, and refuses an answer without one", async () => {
+  /*
+   * ADR 0038: a report standing on a refused step is not caught by the plan's
+   * own check, so the judge is asked in the provider's structured output and
+   * answers whether the claim stands — never prose.
+   */
+  answerWith({ stands: false, why: "the filing was refused, so nothing was moved" });
+  const verdict = await judgeRun(
+    { model, allowPrivateProvider: true },
+    {
+      woke: "mail created: m-1",
+      instruction: "File what the shippers send.",
+      done: "the booking is filed",
+      plan: [
+        {
+          what: 'place {"action":"file"}',
+          state: "failed",
+          outcome: "refused: needs_authority",
+          needs: null,
+          spoke: false,
+        },
+        {
+          what: 'say {"action":"say"}',
+          state: "done",
+          outcome: "the booking is filed",
+          needs: null,
+          spoke: true,
+        },
+      ],
+      evidence: [],
+    },
+  );
+  assert.deepEqual(verdict, {
+    stands: false,
+    why: "the filing was refused, so nothing was moved",
+  });
+  assert.deepEqual(seen[0]?.body.response_format, { type: "json_object" });
+  assert.match(SYSTEM(0), /judge whether a run's report stands/);
+  assert.match(MESSAGE(0), /the book/);
+
+  answerWith({ stands: "yes" });
+  await assert.rejects(
+    () =>
+      judgeRun(
+        { model, allowPrivateProvider: true },
+        { woke: "mail created: m-1", done: "filed", plan: [], evidence: [] },
+      ),
+    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
   );
 });
 

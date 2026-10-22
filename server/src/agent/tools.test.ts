@@ -51,7 +51,7 @@ const { blocksFromText, buildDraft, knowledgeFolderName } = await import(
   "../shared/knowledge.js"
 );
 const { AGENT_LABEL } = await import("../shared/labels.js");
-const { MEMORY_FACT_MAX, MEMORY_VERSION, parseFactDocumentDetailed } = await import(
+const { MEMORY_FACT_MAX, entityIdFor, parseFactDocumentDetailed } = await import(
   "../shared/memory.js"
 );
 const { finishRun, spendRun, startRun, takeAuthorisation, waitUntil } = await import(
@@ -62,7 +62,7 @@ const { createRun } = await import("./runs.js");
 const { groupMembers } = await import("../groupAccess.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { localPart } = await import("../shared/chat.js");
-const { factPath, listFacts } = await import("./memory.js");
+const { entityPath, factPath, listMemory } = await import("./memory.js");
 const { isEndpointName, jobCall } = await import("./testkit.js");
 const {
   defineTool,
@@ -138,7 +138,7 @@ async function writeTool<T>(name: string, raw: unknown): Promise<T> {
       ctx,
       accountId,
       run: plainRun(),
-      memory: await listFacts(ctx, accountId),
+      memory: await listMemory(ctx, accountId),
     },
     name,
     raw,
@@ -1469,39 +1469,54 @@ test("a question already open on a person is not asked a second time", async () 
   );
 });
 
-test("a link to a subject the memory has no fact about does not lose the fact", async () => {
+test("a name the memory does not hold becomes the entity the fact is about", async () => {
   /*
    * The live failure this pins: the agent named the booking and the container it
    * was working, the memory held no fact about them yet, and the write was
    * refused fourteen times in one morning — each a model call, and the next
-   * attempt dropped the link by hand.
+   * attempt dropped the link by hand. A fact about a subject the memory does not
+   * hold now **creates** the entity (ADR 0038), and a fact whose value is another
+   * entity is a relation, which is what one hop follows.
    */
-  const recorded = await writeTool<{ id: string; notHeld?: string[] }>(
-    "memory.remember",
-    {
-      subject: "container TEMU5974430",
-      fact: "29 blocks of zinc dross, seal 005073",
-      links: ["279726936 5X20 Ennore"],
-    },
-  );
-  assert.deepEqual(recorded.notHeld, ["279726936 5X20 Ennore"]);
+  const recorded = await writeTool<{ id: string; subject: string }>("memory.remember", {
+    subject: "container TEMU5974430",
+    entityKind: "container",
+    predicate: "shipped-from",
+    object: "279726936 5X20 Ennore",
+    fact: "29 blocks of zinc dross",
+  });
+  assert.equal(recorded.subject, "container TEMU5974430");
   const sheet = await readAppFileAt(ctx, accountId, factPath(recorded.id));
   const parsed = parseFactDocumentDetailed(sheet?.text ?? "");
-  assert.ok("fact" in parsed, "the fact is written anyway");
-  assert.deepEqual(parsed.fact.links, [], "only the unknown link is dropped");
+  assert.ok("fact" in parsed, "the fact is written");
+  const held = await listMemory(ctx, accountId);
+  const object = held.entities.find(
+    (entity) => entity.normalized === "279726936 5x20 ennore",
+  );
+  assert.ok(object, "the name the fact named is an entity of its own");
+  assert.deepEqual(
+    parsed.fact.value,
+    { entity: object.id },
+    "and the fact points at it: a relation, not a link to a sheet",
+  );
+  assert.equal(
+    held.entities.find((entity) => entity.id === parsed.fact.entity)?.kind,
+    "container",
+    "the subject's kind is the one the fact stated",
+  );
 });
 
 test("the memory tool records a fact where the installation keeps them", async () => {
-  // The one tool that writes outside the group's account (ADR 0033): the fact
-  // lands in the Master's own memory, and the whole store reads it back.
+  // The one tool that writes outside the group's account (ADR 0033, ADR 0038):
+  // the fact lands in the Master's own memory, and the whole store reads it back.
   const recorded = await writeTool<{ id: string; subject: string }>("memory.remember", {
     subject: "Bologna Express",
+    entityKind: "client",
     fact: "the shipper the office books containers with",
-    standing: true,
   });
   assert.equal(recorded.subject, "Bologna Express");
   const sheet = await readAppFileAt(ctx, accountId, factPath(recorded.id));
-  assert.ok(sheet, "the fact is one sheet in the memory");
+  assert.ok(sheet, "the fact is one document in the memory");
   const parsed = parseFactDocumentDetailed(sheet.text);
   assert.ok("fact" in parsed, "and it is the shape this build writes");
   assert.deepEqual(
@@ -1509,21 +1524,17 @@ test("the memory tool records a fact where the installation keeps them", async (
     { by: "run", run: "r1" },
     "with the run that recorded it",
   );
-  assert.equal(parsed.fact.standing, true, "and what the group keeps standing");
-  assert.equal(
-    parsed.fact.group,
-    accountId,
-    "and the group it is about: the account the run lives in (ADR 0033)",
-  );
+  assert.equal(parsed.fact.predicate, "is", "the relation a fact states by default");
+  assert.equal(parsed.fact.validTo, undefined, "and it is in force");
   assert.ok(
-    (await listFacts(ctx, accountId)).facts.some((fact) => fact.id === recorded.id),
+    (await listMemory(ctx, accountId)).facts.some((fact) => fact.id === recorded.id),
     "the store answers the whole memory, so a selection can be made from it",
   );
 
   // A fact a person wrote is in force: the tool writes the agent's conclusion
   // beside it as a proposal and says so, and the person's sentence is untouched.
   await writeAppFileAt(ctx, accountId, factPath("person-2"), {
-    v: MEMORY_VERSION,
+    v: 3,
     id: "person-2",
     subject: "Maersk",
     fact: "the account's own shipper",
@@ -1556,7 +1567,7 @@ test("the memory tool records a fact where the installation keeps them", async (
   assert.equal(
     parsedPerson.fact.fact,
     "the account's own shipper",
-    "the sheet keeps its sentence",
+    "the document keeps its sentence",
   );
   assert.equal(
     parsedPerson.fact.proposal?.fact,
@@ -1568,17 +1579,30 @@ test("the memory tool records a fact where the installation keeps them", async (
   // Arguments the tool cannot use are refused before the memory is touched.
   await assert.rejects(
     () =>
-      writeTool("memory.remember", { subject: "shipper", fact: "y", standing: "yes" }),
-    /"standing" must be true or false/,
+      writeTool("memory.remember", {
+        subject: "shipper",
+        fact: "y",
+        predicate: "Ships with!",
+      }),
+    /is not a relation/,
+  );
+  await assert.rejects(
+    () =>
+      writeTool("memory.remember", {
+        subject: "shipper",
+        fact: "y",
+        entityKind: "parcel",
+      }),
+    /"entityKind" must be one of/,
   );
   await assert.rejects(
     () => writeTool("memory.remember", { subject: "", fact: "y" }),
     /"subject" must be text/,
   );
+  // A subject shorter than a few characters is one nearly every change
+  // carries, so the catalogue refuses it where the write is asked for
+  // (`subjectProblem`, ADR 0038).
   await assert.rejects(
-    // A subject shorter than a few characters is one nearly every change
-    // carries, so the catalogue refuses it where the write is asked for
-    // (`subjectProblem`, ADR 0033).
     () => writeTool("memory.remember", { subject: "id", fact: "some sentence" }),
     /"subject" must be at least 3 characters/,
   );
@@ -1629,6 +1653,47 @@ test("the memory tool records a fact where the installation keeps them", async (
     const nodeId = found?.file.id;
     if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
   }
+});
+
+test("a run reads when a fact stopped being true, closed facts and all", async () => {
+  /*
+   * The live retrieval carries what is true now (ADR 0038); a run asked "since
+   * when" reads one entity's interval through the same `read` job every run has,
+   * and the closed fact is the answer it could not get any other way.
+   */
+  await writeTool("memory.remember", {
+    subject: "Cargo 77",
+    entityKind: "client",
+    fact: "books on Fridays",
+  });
+  await writeTool("memory.remember", {
+    subject: "Cargo 77",
+    fact: "books on Fridays and Mondays",
+  });
+  const history = await writeTool<{
+    subject: string;
+    facts: Array<{ fact: string; from: string; until?: string; inForce: boolean }>;
+  }>("read", { kind: "memory", subject: "Cargo 77" });
+  assert.equal(history.subject, "Cargo 77");
+  assert.deepEqual(
+    history.facts.map((fact) => fact.fact),
+    ["books on Fridays", "books on Fridays and Mondays"],
+    "oldest first, the one it replaced and the one in force",
+  );
+  assert.equal(history.facts[0]?.inForce, false, "the earlier fact is closed");
+  assert.ok(history.facts[0]?.until, "and says when it stopped being true");
+  assert.equal(history.facts[1]?.inForce, true, "the later one is in force");
+
+  const held = await listMemory(ctx, accountId);
+  for (const fact of held.facts)
+    if (fact.entity === entityIdFor("Cargo 77")) {
+      const found = await readAppFileAt(ctx, accountId, factPath(fact.id));
+      const nodeId = found?.file.id;
+      if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
+    }
+  const entity = await readAppFileAt(ctx, accountId, entityPath(entityIdFor("Cargo 77")));
+  if (typeof entity?.file.id === "string")
+    await destroyAppNode(ctx, accountId, entity.file.id, {});
 });
 
 test("the outward reach is a draft, and no tool submits mail", async () => {

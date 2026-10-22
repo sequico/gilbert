@@ -2,7 +2,7 @@
 
 Status: **in progress**, branch `agents-reloaded`. The decisions are ADR 0038's;
 this file holds only the order, the files each step touches, and what the step must
-prove. F0–F6 are built, F7 is not.
+prove. F0–F7 are built.
 
 ## Where the tree stands
 
@@ -23,15 +23,33 @@ on the retry (`unstable`), one scores half, and the measure costs 115 239 tokens
 the eight dot-free job names (the provider refused `mail.find`: a function name
 matches `^[a-zA-Z0-9_-]+$` only), one schema branch per value, room for a
 reasoning model's answer, one lookup in the decision turn, and the report ending
-the run. The measure found two frictions a person meets: the decision turn
-sometimes answers a **mail** change in prose, which is a refused answer — and
-since the pass consumes the batch, that change is lost rather than asked again —
-and the model reaches for the folder **id** `find` answered where `place file`
-takes a folder's name. The provider block lives outside the repository.
+the run. The measure found two frictions a person meets, and both are closed: the
+decision turn sometimes answers a **mail** change in prose, which is a refused
+answer — and the cursor advances only past what a pass worked, so that change is
+read again while the changes already answered around it are not decided again;
+and the model reaches for the folder **id** `find` answered, which `place file`
+now accepts beside the name and the role. The provider block lives outside the
+repository.
 
 The loop and model suites speak the jobs' protocol: a call is a bare job name,
 `say` with an `action` is the report that ends the run, and a dependency is a
 second answer rather than a `needs` field.
+
+**F7 landed as ADR 0038 states it** (`shared/memory.ts`, `agent/memory.ts`,
+`agent/tools/memory.ts`): entities under `memory/` with a normalized name and
+aliases only as explicit facts; facts with `validFrom`/`validTo`, a contradiction
+closing the one it replaces and a duplicate not written; retrieval by exact
+subject, then similarity, then recency, one hop for relations, with the vectors
+the facts were written with carried in their documents and the index rebuilt at
+boot without a model call; the TTL applied at the pass's read; the "since when"
+read by entity and interval, reached through `read` with `kind: memory`; the
+embeddings capability probed with the provider's others and `retrieval` recorded
+on the run; a per-entity cap; precision and recall measured on a corpus in the
+repository (`agent/eval/memory.ts`). A v3 sheet is read as an entity and an `is`
+fact and is rewritten as this version by the next fact about it, so an existing
+installation loses nothing. The `remember` job's fact takes `entityKind`,
+`predicate` and `object` instead of `links`, and `standing` is gone with the
+group-scoped set — a group's conventions are its instruction's.
 
 **The threshold is measured** (`prompt.ts`, `prompt.test.ts`): a forty-step run
 whose steps answered three kilobytes each is 120 110 characters of outcome, and

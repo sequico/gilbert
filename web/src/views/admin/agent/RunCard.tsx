@@ -1,5 +1,5 @@
 import type { RunDoc, RunState, RunStep, RunStepState } from "@gilbert/shared/run";
-import type { FactDoc, RunListing } from "@/lib/agentAdmin";
+import type { FactView, RunListing } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 
@@ -38,7 +38,7 @@ export function RunCard({
   facts,
 }: {
   listed: RunListing;
-  facts: readonly FactDoc[];
+  facts: readonly FactView[];
 }) {
   const { run, problem } = listed;
   if (!run)
@@ -63,13 +63,13 @@ export function RunCard({
  * that has since been removed is drawn by its id, because that is all the
  * record says about it.
  */
-function recalledFact(id: string, facts: readonly FactDoc[]): string {
+function recalledFact(id: string, facts: readonly FactView[]): string {
   const fact = facts.find((held) => held.id === id);
-  return fact ? `${fact.subject} — ${fact.fact}` : id;
+  return fact ? `${fact.entityName} — ${fact.fact}` : id;
 }
 
 /** The run itself: the change, the rule, the plan with its order, the tally. */
-function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] }) {
+function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }) {
   const {
     startedBy,
     plan,

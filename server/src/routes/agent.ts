@@ -38,7 +38,7 @@ import {
   correctFactByPerson,
   dismissProposal,
   forgetFact,
-  listFacts,
+  listMemory,
   MemoryError,
 } from "../agent/memory.js";
 import { probeReachable, runningModelAccess } from "../agent/model.js";
@@ -90,6 +90,7 @@ import {
   INSTRUCTION_VERSION,
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
+import { factView } from "../shared/memory.js";
 import type { RunDoc, RunSummary } from "../shared/run.js";
 import { finishRun, isInFlight, summarizeRun } from "../shared/run.js";
 import {
@@ -798,40 +799,46 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   );
 
   /**
-   * The installation's memory: every fact the agent reasons from (ADR 0033).
+   * The installation's memory: every fact the agent reasons from (ADR 0033,
+   * ADR 0038).
    *
-   * One reading of the whole graph, each sheet as it is stored — the subject, the
-   * one sentence held true of it, the group it is about, where it came from and
-   * when, and the facts it is linked to. One memory serves the installation, so
-   * this is not per group; a sheet this build cannot read is refused rather than
-   * listed as a blank fact, which is the store's own rule.
+   * One reading of the whole memory, each fact as it is stored with the name of
+   * the entity it is about — its relation, its interval, where it came from and
+   * when, and what the agent proposed against a person's word. One memory serves
+   * the installation, so this is not per group; a document this build cannot read
+   * is said beside the facts rather than shown as a blank one, which is the
+   * store's own rule.
    */
   api.get("/admin/memory", requireSession, requireAdmin, async (c) => {
     try {
       const ctx = await masterCtx(c.get("session"));
-      const { facts, problems } = await listFacts(ctx, memoryAccount(ctx));
+      const store = await listMemory(ctx, memoryAccount(ctx));
       /*
-       * A page, not the whole graph: a memory of thousands of sheets is
+       * A page, not the whole memory: a memory of thousands of documents is
        * megabytes, and the surface draws a list a person scrolls. The order is
-       * the reader's own (subject, then id), and `after` is the last id that
-       * page carried. A cursor naming a sheet that has gone starts from the top
-       * rather than silently skipping what now sorts after it.
+       * the reader's own (entity, then id), and `after` is the last id that page
+       * carried. A cursor naming a fact that has gone starts from the top rather
+       * than silently skipping what now sorts after it.
        */
       const after = c.req.query("after") ?? "";
       const asked = Number.parseInt(c.req.query("limit") ?? "", 10);
       const limit = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 500) : 200;
-      const ordered = [...facts].sort(
-        (a, b) =>
-          a.subject.localeCompare(b.subject, "en") || a.id.localeCompare(b.id, "en"),
-      );
+      const ordered = store.facts
+        .map((fact) => factView(fact, store.index))
+        .sort(
+          (a, b) =>
+            a.entityName.localeCompare(b.entityName, "en") ||
+            b.validFrom.localeCompare(a.validFrom) ||
+            a.id.localeCompare(b.id, "en"),
+        );
       const at = after ? ordered.findIndex((fact) => fact.id === after) : -1;
       const start = at >= 0 ? at + 1 : 0;
       const page = ordered.slice(start, start + limit);
-      // A sheet this build cannot read is said, not hidden: the surface shows it
-      // beside the facts instead of empty space nobody can explain.
+      // A document this build cannot read is said, not hidden: the surface shows
+      // it beside the facts instead of empty space nobody can explain.
       return c.json({
         facts: page,
-        problems,
+        problems: store.problems,
         total: ordered.length,
         more: start + page.length < ordered.length,
       });
@@ -846,7 +853,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * The store does the writing (`correctFactByPerson`) against **this** request's
    * reading of the memory, whose token is the compare-and-set: a correction made
    * against a list that has moved since is refused rather than landing over what
-   * somebody else wrote. The sheet is stamped with the **session's own address** —
+   * somebody else wrote. The fact is stamped with the **session's own address** —
    * the person is whoever this administrator is, never a name the body carries.
    */
   api.put("/admin/memory/:id", requireSession, requireAdmin, async (c) => {
@@ -860,6 +867,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const session = c.get("session");
       const ctx = await masterCtx(session);
       const accountId = memoryAccount(ctx);
+      const store = await listMemory(ctx, accountId);
       const fact = await correctFactByPerson(
         ctx,
         accountId,
@@ -870,9 +878,9 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           who: session.username,
           at: new Date().toISOString(),
         },
-        await listFacts(ctx, accountId),
+        store,
       );
-      return c.json({ fact });
+      return c.json({ fact: factView(fact, store.index) });
     } catch (err) {
       return doorFailure(c, err);
     }
@@ -881,22 +889,18 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   /**
    * Dismiss the agent's proposal against a person's fact (ADR 0033).
    *
-   * The sheet keeps everything it has — its sentence, where it came from, the
-   * person's correction, its links — and loses only the words the agent
-   * concluded. A sheet that carries no proposal is already what a dismissal
-   * leaves, so pressing twice is not an error.
+   * The document keeps everything it has — its sentence, its relation, its
+   * interval, where it came from, the person's correction — and loses only the
+   * words the agent concluded. A document that carries no proposal is already
+   * what a dismissal leaves, so pressing twice is not an error.
    */
   api.delete("/admin/memory/:id/proposal", requireSession, requireAdmin, async (c) => {
     try {
       const ctx = await masterCtx(c.get("session"));
       const accountId = memoryAccount(ctx);
-      const fact = await dismissProposal(
-        ctx,
-        accountId,
-        c.req.param("id") ?? "",
-        await listFacts(ctx, accountId),
-      );
-      return c.json({ fact });
+      const store = await listMemory(ctx, accountId);
+      const fact = await dismissProposal(ctx, accountId, c.req.param("id") ?? "", store);
+      return c.json({ fact: factView(fact, store.index) });
     } catch (err) {
       return doorFailure(c, err);
     }
@@ -905,9 +909,9 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   /**
    * Remove a fact.
    *
-   * The sheet goes with the token this request's reading carried, so a removal
-   * decided against a list that has moved is refused rather than taking a fact
-   * that was just corrected. A sheet that is not there is refused as
+   * The document goes with the token this request's reading carried, so a
+   * removal decided against a list that has moved is refused rather than taking a
+   * fact that was just corrected. A document that is not there is refused as
    * `fact_not_found`: the person was shown it, and "there was nothing to remove"
    * is not what they were told.
    */
@@ -915,7 +919,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     try {
       const ctx = await masterCtx(c.get("session"));
       const accountId = memoryAccount(ctx);
-      const store = await listFacts(ctx, accountId);
+      const store = await listMemory(ctx, accountId);
       await forgetFact(ctx, accountId, c.req.param("id") ?? "", store);
       return c.json({ ok: true });
     } catch (err) {

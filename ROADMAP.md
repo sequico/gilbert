@@ -11,7 +11,8 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   ADR 0038 is its design: it replaces 0027 (the catalogue) and 0031 (the rules),
   amends 0029 (the conversation) and 0030 (the plan), and keeps 0028 (what it
   decides and what only a person decides), 0032 (one installation claims its
-  agent), 0033 (its memory is a graph of facts it recalls), 0034 (a batched drop)
+  agent), 0033 (its memory is entities, typed relations and facts with their
+  interval — rewritten by 0038), 0034 (a batched drop)
   and 0037 (the cursor as reconciliation). What the tree
   carries is a run's durable
   state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the eight jobs

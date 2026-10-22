@@ -28,6 +28,7 @@
 
 import { errorDetail } from "./errors.js";
 import { isInstant, isRecord } from "./json.js";
+import type { Recall } from "./memory.js";
 import { isSurfaceMatrix, type SurfaceMatrix } from "./surfaces.js";
 import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 
@@ -36,7 +37,7 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
  * refused, so a field of the shape below moves this with it — the version is
  * how the change reaches a run an installation has already written.
  */
-export const RUN_VERSION = 5;
+export const RUN_VERSION = 6;
 
 /**
  * The most steps one run may take (ADR 0027).
@@ -49,17 +50,19 @@ export const RUN_VERSION = 5;
 export const RUN_STEPS_MAX = 20;
 
 /**
- * The version before this one, which this build reads as well.
+ * The versions before this one, which this build reads as well.
  *
- * `recalled` is the field this version added (ADR 0033), and a **known** older
- * version is read with the field it does not carry defaulted — an installation
- * that ran the build before this one has runs on its accounts, and refusing them
- * would stop every pass before it worked a change, forever, with no surface to
- * delete them from: the version exists to carry a change to those runs, never to
- * orphan them on an upgrade. A version this build does not know stays refused,
- * because a document written by a newer Gilbert may carry a field whose meaning
- * changed, and reading it as though it had not is worse than saying so.
+ * `recalled` was added by version 5 (ADR 0033) and `retrieval` by this one
+ * (ADR 0038), and a **known** older version is read with the fields it does not
+ * carry defaulted — an installation that ran an earlier build has runs on its
+ * accounts, and refusing them would stop every pass before it worked a change,
+ * forever, with no surface to delete them from: the version exists to carry a
+ * change to those runs, never to orphan them on an upgrade. A version this build
+ * does not know stays refused, because a document written by a newer Gilbert may
+ * carry a field whose meaning changed, and reading it as though it had not is
+ * worse than saying so.
  */
+const RUN_VERSION_WITHOUT_RETRIEVAL = 5;
 const RUN_VERSION_WITHOUT_RECALLED = 4;
 
 /**
@@ -339,6 +342,14 @@ export interface RunEnd {
 }
 
 /**
+ * Which memory retrieval a run used (ADR 0038), in the memory's own words.
+ *
+ * One definition, two documents: the memory's selection answers it and the run
+ * records it, so the two cannot spell the same retrieval differently.
+ */
+export type RunRetrieval = Recall["retrieval"];
+
+/**
  * One run, as it is stored.
  *
  * Every field is written when the run starts, so a document that is missing one
@@ -351,7 +362,7 @@ export interface RunEnd {
  */
 export interface RunDoc {
   /** The schema version; `RUN_VERSION` today. */
-  v: 5;
+  v: 6;
   /** The run's identity: its document's name under `runs/`. */
   id: string;
   /** When the run was opened. Absent on a document written before it existed. */
@@ -375,6 +386,13 @@ export interface RunDoc {
    * a wrong conclusion traceable to the fact that carried it.
    */
   recalled: string[];
+  /**
+   * Which memory retrieval the run's turns used (ADR 0038): `exact` when the
+   * change's words were matched against the known subjects alone, or
+   * `exact+similarity` when the installation embeds and the comparison was also
+   * made by vector. The record says what a wrong conclusion was recalled by.
+   */
+  retrieval: RunRetrieval;
   authorisations: RunAuthorisation[];
   evidence: RunEvidence[];
   /**
@@ -714,9 +732,13 @@ export function parseRunDocumentDetailed(
     return { problem: `Not valid JSON${errorDetail(err)}.` };
   }
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };
-  if (whole.v !== RUN_VERSION && whole.v !== RUN_VERSION_WITHOUT_RECALLED)
+  if (
+    whole.v !== RUN_VERSION &&
+    whole.v !== RUN_VERSION_WITHOUT_RETRIEVAL &&
+    whole.v !== RUN_VERSION_WITHOUT_RECALLED
+  )
     return {
-      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION} and the one before it.`,
+      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION} and the two before it.`,
     };
   if (typeof whole.id !== "string" || !whole.id)
     return { problem: '"id" must be the run\'s name.' };
@@ -756,6 +778,16 @@ export function parseRunDocumentDetailed(
   if (!Array.isArray(recalled) || !recalled.every((id) => typeof id === "string" && !!id))
     return {
       problem: '"recalled" must be the ids of the facts the run recalled.',
+    };
+  /*
+   * A run written before this version carries no `retrieval`, because the field
+   * did not exist when it was written: it reads as the exact retrieval, which is
+   * the only one the build that wrote it had.
+   */
+  const retrieval = whole.retrieval ?? (whole.v === RUN_VERSION ? undefined : "exact");
+  if (retrieval !== "exact" && retrieval !== "exact+similarity")
+    return {
+      problem: '"retrieval" must be "exact" or "exact+similarity".',
     };
   if (
     !Array.isArray(whole.authorisations) ||
@@ -801,6 +833,7 @@ export function parseRunDocumentDetailed(
       touched: whole.touched,
       waiting: whole.waiting,
       recalled,
+      retrieval,
       authorisations: whole.authorisations,
       evidence: whole.evidence,
       ...(whole.answerRefusals === undefined
@@ -860,6 +893,7 @@ export function startRun(input: {
     touched: [],
     waiting: null,
     recalled: [],
+    retrieval: "exact",
     authorisations: [],
     evidence: [],
     spent: { steps: 0, calls: 0, ms: 0 },
@@ -945,16 +979,22 @@ export function touchObject(run: RunDoc, ref: WorkorderRef): RunDoc {
 }
 
 /**
- * Record the facts a call carried from the installation's memory (ADR 0033).
+ * Record the facts a call carried from the installation's memory (ADR 0033),
+ * and which retrieval found them (ADR 0038).
  *
  * One list and never a second: a fact recalled by a later call of the same run
- * is already on it, so the record says which facts the run reasoned from
- * without repeating the same one for every turn. What is written is the id of
- * each sheet — a reference, so a correction of a fact lands in the memory and
- * not in every run that read it — and the order is the order the selection
- * carried them in.
+ * is already on it, so the record says which facts the run reasoned from without
+ * repeating the same one for every turn. What is written is the id of each
+ * document — a reference, so a correction of a fact lands in the memory and not
+ * in every run that read it — and the order is the order the selection carried
+ * them in. The retrieval is the one the turn that recalled them used: a later
+ * turn that embedded nothing does not make an earlier similarity recall exact.
  */
-export function recordRecall(run: RunDoc, ids: readonly string[]): RunDoc {
+export function recordRecall(
+  run: RunDoc,
+  ids: readonly string[],
+  retrieval: RunRetrieval = "exact",
+): RunDoc {
   mustBeRunning(run);
   const recalled = [...run.recalled];
   for (const id of ids) {
@@ -962,7 +1002,11 @@ export function recordRecall(run: RunDoc, ids: readonly string[]): RunDoc {
       throw new Error(`a fact the run "${run.id}" recalled is not one.`);
     if (!recalled.includes(id)) recalled.push(id);
   }
-  return { ...run, recalled };
+  return {
+    ...run,
+    recalled,
+    retrieval: run.retrieval === "exact+similarity" ? run.retrieval : retrieval,
+  };
 }
 
 /**

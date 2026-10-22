@@ -28,10 +28,9 @@
  * — and reads it through the same doors the surfaces use, so the agent sees the
  * same documents a person does. The one that does not is `memory.remember`,
  * which records a fact into the **installation's** own store in the Master's
- * account rather than into any group's (ADR 0033): the memory is one for the
+ * account rather than into any group's (ADR 0038): the memory is one for the
  * whole installation, which is what makes what one group learned worth knowing
- * in the next. The fact still records the **group it is about** — the run's own
- * account — because that is what its `standing` mark is filtered by.
+ * in the next.
  *
  * What a tool is, and the arguments it reads, are defined once beside this file
  * under `tools/`, and each surface defines its own there: mail, chat, files,
@@ -53,8 +52,8 @@ import {
   type ToolCall,
   ToolError,
 } from "./tools/define.js";
-import { isGroupAddress, readMessageForAnswer } from "./tools/mail.js";
 import { JOBS } from "./tools/jobs.js";
+import { isGroupAddress, readMessageForAnswer } from "./tools/mail.js";
 
 export type { AnyTool, ArgSpec, ImageReader, ToolCall };
 export { argSchema, defineTool, isGroupAddress, mayRun, readMessageForAnswer };

@@ -23,8 +23,18 @@ threshold measured and no summary call (`prompt.ts`, `prompt.test.ts`), and the
 trend: a week of runs and failed steps read from the run documents in
 Administration, and each pass and run it ends emitted as OTLP/HTTP logs in the
 OpenTelemetry GenAI shape when `limits.otlp` names a collector (`agent/otlp.ts`,
-`loop.ts`).
-**Not built:** the plan's F7 (the structured memory), and everything in *Owed*.
+`loop.ts`), and **the memory as entities, relations and time** (`shared/memory.ts`,
+`agent/memory.ts`, `agent/tools/memory.ts`): one document per entity and per fact
+under the installation's `memory/`, the entity identified by its normalized name
+with aliases only as explicit facts, a fact carrying the interval it is true for
+and the vector it was written with, a contradicting fact closing the one it
+replaces, a duplicate never written, retrieval by exact subject then similarity
+then recency with relations one hop, the pass applying the TTL, the "since when"
+read by entity and interval, the embeddings capability probed with the provider's
+others, the run recording `retrieval` beside `recalled`, and precision and recall
+measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
+earlier version is read as an entity and an `is` fact without being rewritten.
+**Not built:** everything in *Owed*.
 
 ## What this replaces, and what it keeps
 

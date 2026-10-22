@@ -3,35 +3,39 @@
 Status: Accepted
 
 Implementation: Built.
-is about, one sentence of what is held true of it, the group it is about, where it
-came from and its links — whose shape, parser and the **selection** a call carries
-are
-`server/src/shared/memory.ts`; where the sheet lives, how the store is read and the
-one write the agent makes are `server/src/agent/memory.ts`, writing
+is about, the relation it states, one sentence of what is held true of it, where it
+came from and the **interval it is true for** — whose shape, parser and the
+**selection** a call carries are `server/src/shared/memory.ts`; where the entity
+and the fact documents live, how the store is read and the writes are
+`server/src/agent/memory.ts`, writing `memory/entity-<id>.json` and
 `memory/<id>.json` under the **Master's** own app folder, one memory for the
-installation. Both turns are handed the selection — the subjects the change names,
-their nearest links and the group's standing set, inside a ceiling of facts and of
-characters — fenced as data like every other block of text somebody outside the
-group decided (`server/src/agent/model.ts`), and the loop makes it and reads the
-store from the Master's account (`server/src/agent/loop.ts`). The run records which
-facts its calls carried, as references to the sheets (`recalled`,
-`server/src/shared/run.ts`, version 5), so a conclusion is traceable to the fact
-behind it — and the surface that draws a run resolves each of those ids to its
-sheet. The agent's write is the catalogue's `memory.remember`
-(`server/src/agent/tools.ts`), an act of the class the agent decides alone: it
-records a fact, and against one a person holds it writes its conclusion **beside**
-the person's sentence as a proposal (`FactProposal`), never in place of it. Behind
-the installation's own door (ADR 0027) an administrator reads those sheets and
-answers for them: a correction replaces one in place, keeping its id so every link
-that pointed at it still does, and keeping the origin the sheet had — where the
-conclusion came from and when — while recording the person who made the correction
-beside it (`FactCorrection`, `isInForce`), which puts the fact in force and is also
-what **accepts** a proposal, the sheet it writes carrying none; a dismissal drops
-the proposal and leaves everything else as it was; and a removal takes the sheet
-out entirely — all four written against the state the reading saw
-(`server/src/agent/memory.ts`, `server/src/routes/agent.ts`,
-`web/src/views/admin/agents/AgentMemory.tsx`). The knowledge base stays a second store,
-which is this record's decision and not work owed.
+installation (ADR 0038 states the model: entities with a normalized name and
+explicit aliases, typed relations, a fact closed by the one that contradicts it,
+retrieval by exact subject then similarity then recency with relations one hop,
+the pass's TTL, and the "since when" read). Both turns are handed the selection —
+the entities the change names, their facts valid at that moment and one hop of
+their relations, inside a ceiling of facts and of characters — fenced as data like
+every other block of text somebody outside the group decided
+(`server/src/agent/model.ts`), and the loop makes it and reads the store from the
+Master's account (`server/src/agent/loop.ts`). The run records which facts its
+calls carried and which retrieval found them, as references to the documents
+(`recalled`, `retrieval`, `server/src/shared/run.ts`), so a conclusion is traceable
+to the fact behind it — and the surface that draws a run resolves each of those ids
+to its fact. The agent's write is the catalogue's `remember` (`kind: fact`,
+`server/src/agent/tools/memory.ts`), an act of the class the agent decides alone:
+it records a fact, and against one a person holds it writes its conclusion
+**beside** the person's sentence as a proposal (`FactProposal`), never in place of
+it. Behind the installation's own door (ADR 0027) an administrator reads those
+facts and answers for them: a correction replaces the sentence in place, keeping
+its id, its interval and the entity it is about, and keeping the origin it had —
+where the conclusion came from and when — while recording the person who made the
+correction beside it (`FactCorrection`, `isInForce`), which puts the fact in force
+and is also what **accepts** a proposal, the document it writes carrying none; a
+dismissal drops the proposal and leaves everything else as it was; and a removal
+takes the document out entirely — all four written against the state the reading
+saw (`server/src/agent/memory.ts`, `server/src/routes/agent.ts`,
+`web/src/views/admin/agents/AgentMemory.tsx`). The knowledge base stays a second
+store, which is this record's decision and not work owed.
 
 ## Context
 
@@ -70,23 +74,23 @@ those facts from Administration.
   installation's other documents. What it must never become is a second copy of a
   page: a fact that belongs to the KB is a reference to it, never a paraphrase of
   it.
-- **A fact is one small thing**: the subject it is about (an address, a mailbox,
-  a file, a customer, a shipper, the group itself), **the group it is about** —
-  the account of the run that wrote it — what the agent holds to be true of it in
-  one sentence, where it came from (the run that wrote it, or a person), and when.
-  The links between facts are their own small record, and the
-  sheet is what the store's own parser refuses to read when it is malformed.
+- **A fact is one small thing, with the interval it is true for**: the entity it
+  is about (an address, a mailbox, a file, a customer, a shipper, a group), the
+  typed relation it states, what the agent holds to be true of it in one sentence,
+  where it came from (the run that wrote it, or a person), when, and
+  `validFrom`/`validTo` — an entity is identified by its normalized name, an alias
+  is an explicit fact, and a relation is a fact whose value is another entity
+  (ADR 0038). A contradicting fact **closes** the one it replaces rather than
+  overwriting it, and a duplicate is not written again; the document is what the
+  store's own parser refuses to read when it is malformed.
 - **A call recalls a selection, never the whole graph.** What reaches a call is
-  what the change at hand is about: the group it happened in, the surfaces
-  involved, and the subjects the change names (the booking, the shipper, the
-  client) with their nearest links, inside a ceiling of facts and characters the
-  call carries. What every call also carries is the small **standing set of the
-  group being worked** — what that group keeps about itself — and no other
-  group's: a group's conventions are its own. Every other fact, standing or not,
-  is recalled by its **subject** for **any** group, because one memory serves the
-  installation and a group reasons with what the rest of it knows. What was
-  recalled is written into the run's record, so a wrong conclusion can be traced
-  to the fact that carried it (ADR 0030).
+  what the change at hand is about: the entities its words name, their facts valid
+  at that moment and one hop of their relations, ranked by subject, then
+  similarity, then recency, inside a ceiling of facts and of characters the call
+  carries — and only the top few reach the turn. A fact about a subject the memory
+  does not hold creates the entity. What was recalled, and which retrieval found
+  it, is written into the run's record, so a wrong conclusion can be traced to the
+  fact that carried it (ADR 0030).
 - **A fact is information, never an instruction.** It is read and reasoned over;
   it grants nothing and authorises nothing. The authority classes (ADR 0028) and
   the trust of a sender (ADR 0029) are untouched by anything a fact says, and a
@@ -106,12 +110,13 @@ those facts from Administration.
 
 - The agent's reasoning becomes inspectable: a wrong conclusion traces to the fact
   that carried it, and is corrected in the memory rather than in the prompt.
-- The graph needs the discipline of a page — written deliberately, corrected in
-  place, deleted when it stops being true — because it is recalled on every call:
-  what is not worth saying is not worth remembering.
-- A selection is what keeps the memory from becoming a cost on every call, and
-  the selection is the KB's own problem solved once (a search by subject), not a
-  second ranking invented here.
+- The graph needs the discipline of a page — written deliberately, closed when it
+  stops being true, deleted when it should never have been written — because it is
+  recalled on every turn: what is not worth saying is not worth remembering.
+- A selection is what keeps the memory from becoming a cost on every call, and it
+  is measured by its precision and recall rather than by how much is stored
+  (`server/src/agent/eval/memory.ts`): a wrong fact recalled is worse than a
+  missing one.
 - The Master's account becomes the place where the installation's agent has its
   understanding, which is one more reason the Master is the principal everything
   belongs to (ADR 0009).
@@ -120,8 +125,7 @@ those facts from Administration.
   thing a later change names again (`server/src/agent/tools/memory.ts`). What
   happened once belongs to the run's own record, which is where a reader looks
   for it.
-- What the memory still owes is how a fact stops being carried **without being
-  deleted**: a retired fact leaves the selection and keeps its sheet, and the
-  facts no run ever recalled are the ones a person is shown first when the store
-  is pruned by hand.
+- What the memory still owes is **pruning by hand**: a closed fact leaves the live
+  retrieval and keeps its document, and the facts no run ever recalled are the ones
+  a person is shown first when the store is pruned from Administration.
 <!-- owed: memory-pruning -->

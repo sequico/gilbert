@@ -64,7 +64,7 @@ import { hostAddresses, isPrivateAddress } from "../imageproxy.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
 import type { InstallationDocument, InstallationModel } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
-import type { FactDoc } from "../shared/memory.js";
+import type { FactView } from "../shared/memory.js";
 import type {
   RunAuthorisation,
   RunAuthority,
@@ -80,13 +80,14 @@ import { type ProseLevel, proseForModel } from "./prose.js";
 import { redactSecrets } from "./redact.js";
 import {
   type AnyTool,
-  argSchema,
   type ArgSpec,
+  argSchema,
   READING_TOOLS,
   runTool,
   type ToolCall,
   validatedTool,
 } from "./tools.js";
+
 /** How long one model call may take before it counts as unreachable. */
 const MODEL_TIMEOUT_MS = 60_000;
 
@@ -632,6 +633,13 @@ export type ModelProbe =
       structured: "schema" | "json";
       /** The output ceiling it declares, or null when it declares none. */
       outputTokens: number | null;
+      /**
+       * Whether it also answers `/embeddings` for this model, which is what the
+       * memory's similarity pass exists on (ADR 0038). Absent capabilities are
+       * not a refusal: a provider that cannot embed is one whose memory is
+       * retrieved by exact subject alone.
+       */
+      embeddings: boolean;
     }
   | {
       ok: false;
@@ -698,7 +706,7 @@ export async function probeModel(access: ModelAccess): Promise<ModelProbe> {
           : "bad_url",
     };
   }
-  const { provider, model, baseUrl, apiKey } = access.model;
+  const { model, baseUrl, apiKey } = access.model;
   const base = baseUrl.replace(/\/+$/, "");
   const headers = {
     "content-type": "application/json",
@@ -745,6 +753,7 @@ export async function probeModel(access: ModelAccess): Promise<ModelProbe> {
         ok: true,
         ...(await factsOf(access, headers, base)),
         structured: "schema",
+        embeddings: await embeds(access, headers, base),
       };
     }
     const bad = await refused(both);
@@ -776,9 +785,111 @@ export async function probeModel(access: ModelAccess): Promise<ModelProbe> {
       ok: true,
       ...(await factsOf(access, headers, base)),
       structured: structured === "schema" ? "schema" : "json",
+      embeddings: await embeds(access, headers, base),
     };
   } catch {
     return { ok: false, reason: "unreachable" };
+  }
+}
+
+/**
+ * Whether the provider answers `/embeddings` for the model the installation
+ * chose (ADR 0038).
+ *
+ * One request, at the same moment the other capabilities are probed; a refusal
+ * is not a refusal of the provider — the memory is retrieved by exact subject
+ * without it — so this answers `false` rather than failing the probe. The model
+ * id is the block's own: the installation names one model, and a provider that
+ * needs a second one for embeddings is a provider whose capability this build
+ * does not claim.
+ */
+async function embeds(
+  access: ModelAccess,
+  headers: Record<string, string>,
+  base: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${base}/embeddings`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ model: access.model.model, input: "gilbert" }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      await res.body?.cancel();
+      return false;
+    }
+    const body = (await res.json()) as { data?: Array<{ embedding?: unknown }> };
+    const vector = body.data?.[0]?.embedding;
+    return (
+      Array.isArray(vector) &&
+      vector.length > 0 &&
+      vector.every((value) => typeof value === "number")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The vectors one text or several are written with, where the installation
+ * offers embeddings (ADR 0038), or null where it does not.
+ *
+ * This is the call the memory's write and retrieval make: a fact carries the
+ * vector it was written with, and a turn embeds the change's own words to
+ * compare. A provider failure answers null rather than throwing — the retrieval
+ * then names itself exact on the run's record, and nothing is written with a
+ * vector it did not get.
+ */
+export async function embedTexts(
+  access: ModelAccess,
+  texts: readonly string[],
+): Promise<number[][] | null> {
+  if (!access.model.embeddings || !texts.length) return null;
+  try {
+    await assertUsableProvider(access);
+  } catch {
+    return null;
+  }
+  const base = access.model.baseUrl.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/embeddings`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        ...(access.model.apiKey.trim()
+          ? { authorization: `Bearer ${access.model.apiKey}` }
+          : {}),
+        ...NO_TRAINING_HEADERS,
+      },
+      body: JSON.stringify({ model: access.model.model, input: [...texts] }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      await res.body?.cancel();
+      return null;
+    }
+    const body = (await res.json()) as {
+      data?: Array<{ embedding?: unknown; index?: unknown }>;
+    };
+    const vectors = (body.data ?? [])
+      .slice()
+      .sort((a, b) => Number(a.index ?? 0) - Number(b.index ?? 0))
+      .map((one) => one.embedding);
+    if (
+      vectors.length !== texts.length ||
+      !vectors.every(
+        (vector) =>
+          Array.isArray(vector) &&
+          vector.length > 0 &&
+          vector.every((value: unknown) => typeof value === "number"),
+      )
+    )
+      return null;
+    return vectors as number[][];
+  } catch {
+    return null;
   }
 }
 
@@ -1199,12 +1310,12 @@ export interface DecisionQuestion {
    */
   prose: { installation?: string; group?: string };
   /**
-   * What the installation's memory recalls for this change (ADR 0033) — a
+   * What the installation's memory recalls for this change (ADR 0038) — a
    * selection, never the whole graph, and empty when the memory holds nothing
    * about it. A fact is data: it is read and reasoned over, and it carries no
    * authority whatever it says.
    */
-  memory?: readonly FactDoc[];
+  memory?: readonly FactView[];
   /**
    * What the change itself says, when the reading already has it: the sender,
    * the words, and the message a chat one answers. Carried here so the turn
@@ -1347,6 +1458,105 @@ export async function decideEvent(
   }
   // The loop returns or throws on every path; this is unreachable and stated so.
   throw new ModelError("model_answer_malformed", "The model did not answer.");
+}
+
+/* ------------------------------------------------------------------ */
+/* The judge                                                           */
+/* ------------------------------------------------------------------ */
+
+/** The shape a judgement takes, as the provider's own structured output. */
+const JUDGE_SCHEMA = {
+  name: "judgement",
+  schema: {
+    type: "object",
+    properties: {
+      stands: { type: "boolean" },
+      why: { type: "string" },
+    },
+    required: ["stands", "why"],
+    additionalProperties: false,
+  },
+};
+
+/** What the judge is given: the ask, what the run did, and what it claims (ADR 0038). */
+export interface JudgeQuestion {
+  /** The change that woke the run, in the group's own words. */
+  woke: string;
+  /** The group's one instruction, when it has one. */
+  instruction?: string;
+  /** The sentence the run says stands for its work. */
+  done: string;
+  /** Every step of the plan, with how it ended. */
+  plan: readonly RunStep[];
+  /** The objects the run touched, as the record holds them. */
+  evidence: readonly { claim: string; source: string }[];
+}
+
+/**
+ * Ask whether a report stands on what the run did (ADR 0038, the judge).
+ *
+ * Fires only on a **suspect plan** — the loop decides which, and it is the case
+ * the mechanical check cannot see: a step was refused and a later step
+ * succeeded, so the plan "has a finished step" while the claim may rest on the
+ * refusal. The judge is one structured call over the ask and the record; its
+ * answer is a step on the run, so the second `done` is accepted with the
+ * judgement beside it.
+ */
+export async function judgeRun(
+  access: ModelAccess,
+  question: JudgeQuestion,
+  opts: { meter?: UsageMeter } = {},
+): Promise<{ stands: boolean; why: string }> {
+  const token = randomUUID().slice(0, 8);
+  const steps = question.plan.map((step, at) =>
+    dataBlock(token, [
+      `step ${at + 1}: ${step.what}`,
+      `state: ${step.state}`,
+      `outcome: ${boundedText(step.outcome)}`,
+    ]),
+  );
+  const evidence = question.evidence.length
+    ? question.evidence.map((one) =>
+        dataBlock(token, [one.claim, `touches: ${one.source}`]),
+      )
+    : [dataBlock(token, ["(nothing)"])];
+  const system = [
+    DATA_NOT_INSTRUCTIONS,
+    "You judge whether a run's report stands on what the run did.",
+    "You are given the change that woke it, the group's instruction, every step with how it ended, the objects the run touched, and the sentence it claims.",
+    'Answer one JSON object: {"stands": true|false, "why": "<one sentence>"}.',
+    "It stands only when the work the change asked for is finished and the sentence claims no more than the steps show. A claim resting on a refused step, or on a step that never ran, does not stand.",
+    "You judge the record, never the person: you grant nothing and authorise nothing.",
+  ].join("\n");
+  const user = [
+    "The change that woke this run:",
+    dataBlock(token, [question.woke]),
+    ...(question.instruction
+      ? ["The group's instruction:", dataBlock(token, [question.instruction])]
+      : []),
+    "What the run did, step by step:",
+    ...(steps.length ? steps : [dataBlock(token, ["(nothing)"])]),
+    "The objects the run touched:",
+    ...evidence,
+    "What it claims:",
+    dataBlock(token, [question.done]),
+  ].join("\n");
+  const answer = await callModel(
+    access,
+    { system, user, schema: JUDGE_SCHEMA },
+    opts.meter,
+  );
+  if (
+    !isRecord(answer) ||
+    typeof answer.stands !== "boolean" ||
+    typeof answer.why !== "string" ||
+    !answer.why.trim()
+  )
+    throw new ModelError(
+      "model_answer_malformed",
+      "The judge answered without a verdict: it must say whether the report stands, and why.",
+    );
+  return { stands: answer.stands, why: answer.why.trim() };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1648,12 +1858,12 @@ export interface StepQuestion {
    */
   authorisations?: readonly RunAuthorisation[];
   /**
-   * What the installation's memory recalls for this run (ADR 0033): the
-   * subjects the change and its facts name, their nearest links and the group's
-   * standing set, inside the ceiling — a selection, and empty when the memory
-   * holds nothing about it.
+   * What the installation's memory recalls for this run (ADR 0038): the
+   * entities the change and its facts name, their facts valid at that moment and
+   * one hop of their relations, inside the ceiling — a selection, and empty when
+   * the memory holds nothing about it.
    */
-  memory?: readonly FactDoc[];
+  memory?: readonly FactView[];
   /**
    * Questions this group already has open on a person, from its parked runs.
    * Shown so a second run asks the same thing a second time only when it means

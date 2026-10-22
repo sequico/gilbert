@@ -171,37 +171,53 @@ waits the lease — so a restart never leaves a document to delete by hand
 
 ## What it remembers
 
-**The agent remembers, and every call starts from what it knows** (ADR 0033): a
-graph of small **facts**, each about a **group** and each with the provenance it
-came from, kept in the
+**The agent remembers, and every turn starts from what it knows** (ADR 0038): a
+memory of **entities, typed relations and facts with an interval**, kept in the
 **Master's** own account — one memory for the installation, so a group reasons
 with what the whole installation knows — in a `memory/` folder beside the
-knowledge base, which stays a store of its own. A fact is the subject it is about,
-the group it is about, one sentence of what the agent holds true of it, the run or
-the person it came from, and the facts it links to; the sheet, its parser and the
-**selection** a call
-carries are `server/src/shared/memory.ts`, and where it lives and the one write the
-agent makes are `server/src/agent/memory.ts`. What a call carries is a selection
-and never the whole graph: the subjects the change at hand names, their nearest
-links, and the small standing set **of the group being worked** — the conventions
-that group keeps about itself, and no other group's — inside a ceiling of facts and
-of characters. Any fact, standing or not, is recalled by its subject for any group:
-what one group learned is the installation's knowledge. **Both turns read it**
-(`server/src/agent/model.ts`), it
-travels fenced as data like every other block of text somebody outside the group
-decided, and **what was recalled is written into the run's record** (`recalled`),
-so a wrong conclusion traces to the fact that carried it — the surface resolves
-each of those ids to the fact's subject and sentence — while a change the
-memory holds nothing about is worked exactly as it was before the memory existed.
-The agent records a fact with `remember` (`kind: fact`), within the authority classes, and
-**a fact a person wrote is in force**: the write refuses to overwrite it, in a code,
-rather than correcting it in silence. An installation administrator reads,
-corrects and removes the facts from **Administration → Agent**, through the
-server's own route as the Master — a correction replaces the sheet in place and
-stamps the person on it, so what the agent concludes about that subject
-afterwards is a **proposal** kept beside the person's sentence — a person accepts
-it, which makes those words their own correction, or dismisses it, which leaves
-the sheet as it was — and the next pass reads it with no restart.
+knowledge base, which stays a store of its own. An **entity** is a booking, a
+client, a container, a person: one document under `memory/`, identified by its
+**normalized name** (lowercase, trimmed, inner whitespace collapsed), with an
+explicit `alias` fact for another name it answers to, never a guess. A **fact**
+is a document of its own: the entity it is about, the typed relation it states
+(`is`, `ships-with`, `alias`…), one sentence, where it came from and when, and
+the interval it is true for — `validFrom`, and `validTo` once it stops. A fact
+that contradicts the one in force **closes** it rather than overwriting it, so a
+run can answer "since when", a duplicate is not written again, and a relation is
+a fact whose value is another entity.
+
+The shape, its parsers, the index and the **selection** a turn carries are
+`server/src/shared/memory.ts`; where the documents live, the writes and the
+"since when" read are `server/src/agent/memory.ts`; the two tools are
+`server/src/agent/tools/memory.ts`. A turn **retrieves**, never dumps: the
+change's own words are matched against the known subjects — **exact first, then
+by similarity** where the installation offers embeddings — and what matches is
+ranked by subject, then similarity, then recency, with relations followed **one
+hop**; only the top few reach the turn, inside a ceiling of facts and of
+characters. A fact about a subject the memory does not hold **creates the
+entity**, and the index is rebuilt at boot from the documents and the vectors
+they carry, so it costs no model call. The live retrieval ignores closed facts
+and facts past the memory's **TTL**, which the pass applies when it reads the
+memory; a run that asks when something stopped being true reads the entity's
+interval (`read`, `kind: memory`), closed facts included.
+
+**Both turns read it** (`server/src/agent/model.ts`), it travels fenced as data
+like every other block of text somebody outside the group decided, and **what was
+recalled — and which retrieval found it — is written into the run's record**
+(`recalled`, `retrieval`), so a wrong conclusion traces to the fact that carried
+it, while a change the memory holds nothing about is worked exactly as it was
+before the memory existed. The agent records a fact with `remember` (`kind:
+fact`), within the authority classes, and **a fact a person wrote is in force**:
+the write refuses to overwrite it, in a code, rather than correcting it in
+silence. An installation administrator reads, corrects and removes the facts from
+**Administration → Agent**, through the server's own route as the Master — a
+correction replaces the sentence in place and stamps the person on it, so what the
+agent concludes about that subject afterwards is a **proposal** kept beside the
+person's sentence — a person accepts it, which makes those words their own
+correction, or dismisses it, which leaves the fact as it was — and the next pass
+reads it with no restart. The memory is **measured** by precision and recall of
+the retrieval, not by how much it holds (`server/src/agent/eval/memory.ts`),
+because a wrong fact recalled is worse than a missing one.
 
 ## A group has one instruction, and the areas it works
 

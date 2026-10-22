@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { FactDoc } from "@/lib/agentAdmin";
+import type { FactView } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { confirmDialog } from "@/ui/dialog";
@@ -12,28 +12,29 @@ export function FactCard({
   onRemove,
   onDismissProposal,
 }: {
-  fact: FactDoc;
+  fact: FactView;
   busy: boolean;
   onSave: (id: string, edit: { subject: string; fact: string }) => Promise<void>;
-  onRemove: (fact: FactDoc) => Promise<void>;
-  onDismissProposal: (fact: FactDoc) => Promise<void>;
+  onRemove: (fact: FactView) => Promise<void>;
+  onDismissProposal: (fact: FactView) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [subject, setSubject] = useState(fact.subject);
+  const [subject, setSubject] = useState(fact.entityName);
   const [sentence, setSentence] = useState(fact.fact);
   useEffect(() => {
-    setSubject(fact.subject);
+    setSubject(fact.entityName);
     setSentence(fact.fact);
-  }, [fact.subject, fact.fact]);
-  const dirty = subject !== fact.subject || sentence !== fact.fact;
+  }, [fact.entityName, fact.fact]);
+  const dirty = subject !== fact.entityName || sentence !== fact.fact;
 
   if (!editing)
     return (
       <div className="card">
         <div className="card-head">
-          <h3>{fact.subject}</h3>
+          <h3>{fact.entityName}</h3>
         </div>
         <p>{fact.fact}</p>
+        {fact.objectName && <p className="hint">{fact.objectName}</p>}
         <p className="hint">
           {fact.origin.by === "person"
             ? t(
@@ -73,7 +74,7 @@ export function FactCard({
                 disabled={busy}
                 onClick={() =>
                   void onSave(fact.id, {
-                    subject: fact.subject,
+                    subject: fact.entityName,
                     fact: fact.proposal?.fact ?? fact.fact,
                   })
                 }
@@ -100,7 +101,7 @@ export function FactCard({
             onClick={() =>
               void (async () => {
                 const ok = await confirmDialog({
-                  title: t("Delete “{name}”?", { name: fact.subject }),
+                  title: t("Delete “{name}”?", { name: fact.entityName }),
                   message: t(
                     "The fact leaves the installation's memory, and every call that carried it stops carrying it.",
                   ),
@@ -151,7 +152,7 @@ export function FactCard({
           className="btn btn-ghost"
           disabled={busy}
           onClick={() => {
-            setSubject(fact.subject);
+            setSubject(fact.entityName);
             setSentence(fact.fact);
             setEditing(false);
           }}

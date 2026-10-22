@@ -11,7 +11,7 @@
 import { CornerUpLeft, ListChecks, Search, Send, Smile, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
-import type { FactDoc } from "@/lib/agentAdmin";
+import type { FactView } from "@/lib/agentAdmin";
 import {
   CHAT_MAX_TEXT,
   CHAT_TAIL,
@@ -37,7 +37,7 @@ interface ChatPanelProps {
 }
 
 /** The facts a run recalled, for a surface that does not list the memory. */
-const NO_FACTS: readonly FactDoc[] = [];
+const NO_FACTS: readonly FactView[] = [];
 
 /** One line of a message, for the search results list. */
 function snippet(text: string): string {

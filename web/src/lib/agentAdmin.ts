@@ -16,11 +16,11 @@
  */
 import type { AgentStatus } from "@gilbert/shared/agent";
 import { emptyMetrics, type RunMetrics } from "@gilbert/shared/agentMetrics";
-import type { FactDoc } from "@gilbert/shared/memory";
+import type { FactView } from "@gilbert/shared/memory";
 import type { RunListing, RunSummary } from "@gilbert/shared/run";
 import { apiFetch } from "@/jmap/client";
 
-export type { AgentStatus, FactDoc, RunListing, RunMetrics, RunSummary };
+export type { AgentStatus, FactView, RunListing, RunMetrics, RunSummary };
 
 /** Where the installation's agent is: the claim, and how often a pass is asked for. */
 export async function fetchAgentStatus(): Promise<AgentStatus> {
@@ -127,7 +127,7 @@ export async function fetchRun(
 
 /** One page of the installation's memory, and how much the store holds. */
 export interface FactsReading {
-  facts: FactDoc[];
+  facts: FactView[];
   /** Sheets this build cannot read, each with its reason: said, never hidden. */
   problems: string[];
   /** Every sheet the memory holds, not only this page. */
@@ -143,7 +143,7 @@ export async function fetchFacts(after?: string, limit?: number): Promise<FactsR
   if (limit !== undefined) query.set("limit", String(limit));
   const suffix = query.toString();
   const res = await apiFetch<{
-    facts?: FactDoc[];
+    facts?: FactView[];
     problems?: string[];
     total?: number;
     more?: boolean;
@@ -165,8 +165,8 @@ export async function fetchFacts(after?: string, limit?: number): Promise<FactsR
 export async function correctFact(
   id: string,
   edit: { subject: string; fact: string },
-): Promise<FactDoc> {
-  const res = await apiFetch<{ fact: FactDoc }>(
+): Promise<FactView> {
+  const res = await apiFetch<{ fact: FactView }>(
     `/api/admin/memory/${encodeURIComponent(id)}`,
     {
       method: "PUT",
@@ -183,8 +183,8 @@ export async function correctFact(
  * proposal's words become the person's own correction, which is what puts them
  * in force (ADR 0033); dismissing is this, and it writes no sentence at all.
  */
-export async function dismissProposal(id: string): Promise<FactDoc> {
-  const res = await apiFetch<{ fact: FactDoc }>(
+export async function dismissProposal(id: string): Promise<FactView> {
+  const res = await apiFetch<{ fact: FactView }>(
     `/api/admin/memory/${encodeURIComponent(id)}/proposal`,
     { method: "DELETE" },
   );

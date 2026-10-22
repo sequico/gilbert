@@ -319,6 +319,16 @@ export interface ToolCall {
    */
   readImage?: ImageReader;
   /**
+   * The installation's model's vectors, where it offers them (ADR 0038): a fact
+   * is written with the vector its sentence was embedded into, so the memory's
+   * index is rebuilt at boot from the documents and needs no model call. A
+   * caller without this writes no vector, and the retrieval is exact.
+   *
+   * A function for the same reason `readImage` is one: a catalogue that imported
+   * the model would close a cycle.
+   */
+  embed?: (text: string) => Promise<number[] | null>;
+  /**
    * The installation's memory as the caller's pass read it (ADR 0033).
    *
    * The store is read **once per pass** (`agent/loop.ts`) and the one reading is

@@ -15,7 +15,6 @@ import { areaOfSource } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
-import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
 import { clientOf } from "../util.js";
@@ -29,13 +28,14 @@ import {
 import type { InstructionDoc } from "./instruction.js";
 import type { AnsweredRun, PassSummary, RefusedAnswer } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
+import { recallFor } from "./memory.js";
 import type { ModelAccess } from "./model.js";
 import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type Drop, dropEvent } from "./queue.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
 import { takeOwnCalendarChange } from "./tools/calendar.js";
-import type { ImageReader } from "./tools/content.js";
+import type { ToolCall } from "./tools/define.js";
 import { readMessageForAnswer, sendMail } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
@@ -47,10 +47,7 @@ export interface ChangesDeps {
   /** The group's one instruction, which says whether a change is its work. */
   instructionOf(accountId: string): Promise<InstructionDoc | null>;
   memory(): Promise<MemoryStore>;
-  readingCall(
-    accountId: string,
-    event: AccountEvent,
-  ): { ctx: Ctx; accountId: string; run: RunDoc; readImage: ImageReader };
+  readingCall(accountId: string, event: AccountEvent): ToolCall;
   runAnsweredBy(
     accountId: string,
     event: AccountEvent,
@@ -572,18 +569,12 @@ export async function workChanges(
     byStart ??= runsByStart(held);
     const open = byStart.get(key);
     if (open) {
-      if (open.state === "running") {
-        const worked = await deps.workRun(
-          accountId,
-          withUsage(open, usageMeter()),
-          undefined,
-          openQuestionsOf(held ?? [], open.id),
-        );
-        if (worked) {
-          remember(held, worked);
-          byStart = null;
-        }
-      }
+      /*
+       * The change is answered. A run still running is the **due work's** — the
+       * pass works every running run with no wait before it reads the changes —
+       * so continuing it here as well would work the same document twice on one
+       * pass. Nothing to do for this change.
+       */
       continue;
     }
     /*
@@ -623,7 +614,7 @@ export async function workChanges(
       {
         event,
         prose: await deps.proseAbove(accountId),
-        memory: recallFacts((await deps.memory()).facts, woke, accountId),
+        memory: (await recallFor(deps.access, await deps.memory(), woke)).facts,
         ...(detail ? { detail } : {}),
         ...(document ? { document } : {}),
       },

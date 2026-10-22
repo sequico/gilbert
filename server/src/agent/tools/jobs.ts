@@ -76,7 +76,7 @@ import {
   trashMessage,
   untrashMessage,
 } from "./mail.js";
-import { rememberFactTool } from "./memory.js";
+import { memoryHistoryTool, rememberFactTool } from "./memory.js";
 import { readRunTool } from "./runs.js";
 import { listWorkorders, readWorkorder, settleStep } from "./workorders.js";
 
@@ -226,11 +226,13 @@ export const readJob = job({
   description:
     "Read one known object by its id or path: a message, one of a message's " +
     "attachments, a file, a calendar event, a knowledge page, a chat message, " +
-    "a workorder, or one of this account's runs. Choose what it is in `kind`, and " +
+    "a workorder, one of this account's runs, or what the installation's " +
+    "memory has held about one entity over time (`kind: memory` — the entity's " +
+    "`subject`, and optionally `from`/`to`). Choose what it is in `kind`, and " +
     "give the id that `find` answered for that kind.",
   discriminator: "kind",
   about:
-    "what the object is: message, attachment, file, event, knowledge, chat, workorder or run",
+    "what the object is: message, attachment, file, event, knowledge, chat, workorder, run or memory",
   writes: false,
   always: true,
   routes: {
@@ -242,6 +244,7 @@ export const readJob = job({
     chat: { tool: readChat, area: "chat" },
     workorder: { tool: readWorkorder, area: "workorders" },
     run: { tool: readRunTool, area: null },
+    memory: { tool: memoryHistoryTool, area: "memory" },
   },
 });
 
@@ -365,10 +368,13 @@ export const sayJob = job({
 export const rememberJob = job({
   name: "remember",
   description:
-    "Keep one thing for later runs: `fact` records a subject and one sentence " +
-    "about it in the installation's memory (what stays true beyond this " +
-    "change); `page` proposes a knowledge page from the words you give, for a " +
-    "person to accept. Neither grants anything.",
+    "Keep one thing for later runs: `fact` records a fact about an entity in " +
+    "the installation's memory — the entity's `subject`, the relation " +
+    "(`predicate`, `is` unless it matters) and one sentence (`fact`), plus " +
+    "`object` when the value is another entity and `entityKind` when the fact " +
+    "creates the entity. What stays true beyond this change, never what happened once. " +
+    "`page` proposes a knowledge page from the words you give, for a person to " +
+    "accept. Neither grants anything.",
   discriminator: "kind",
   about: "a fact, or a knowledge page",
   writes: true,

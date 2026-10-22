@@ -1,4 +1,4 @@
-import type { FactDoc } from "@/lib/agentAdmin";
+import type { FactView } from "@/lib/agentAdmin";
 import { GroupInstructionPanel } from "./GroupInstruction";
 import { GroupRuns } from "./GroupRuns";
 
@@ -10,7 +10,7 @@ export function AgentGroup({
 }: {
   group: string;
   accountId?: string;
-  facts: readonly FactDoc[];
+  facts: readonly FactView[];
 }) {
   return (
     <div>

@@ -251,20 +251,42 @@ test("a run records which facts of the installation's memory it recalled", () =>
   assert.ok("run" in stored, "and the list is part of the stored contract");
   assert.deepEqual(stored.run.recalled, ["f-1", "f-2"]);
 
-  // The version before this one carries no `recalled` list, because the field
-  // did not exist when it was written: it reads with an empty one rather than
-  // being refused, so an installation that ran the build before this one keeps
-  // working its runs.
+  // This version records which retrieval the run used, and the version before
+  // it carries neither the field nor a `recalled` list: both read rather than
+  // being refused, so an installation that ran an earlier build keeps working
+  // its runs.
   const { recalled: _none, ...older } = recalled;
   const readOlder = parseRunDocumentDetailed(JSON.stringify({ ...older, v: 4 }));
   assert.ok("run" in readOlder, "the version before this one is a run this build reads");
   assert.deepEqual(readOlder.run.recalled, [], "with nothing recalled");
+  assert.equal(
+    readOlder.run.retrieval,
+    "exact",
+    "and the exact retrieval, the only one it had",
+  );
   assert.equal(
     readOlder.run.v,
     RUN_VERSION,
     "and it reads as the version this build writes",
   );
   assert.equal(readOlder.run.id, "r15", "with the rest of the document untouched");
+
+  const { retrieval: _unused, ...previous } = recalled;
+  const readPrevious = parseRunDocumentDetailed(JSON.stringify({ ...previous, v: 5 }));
+  assert.ok("run" in readPrevious, "the immediately previous version too");
+  assert.equal(readPrevious.run.retrieval, "exact", "which recorded no retrieval");
+  assert.deepEqual(readPrevious.run.recalled, ["f-1", "f-2"]);
+
+  assert.equal(
+    recordRecall(recalled, [], "exact+similarity").retrieval,
+    "exact+similarity",
+    "a similarity pass is recorded as what the run used",
+  );
+  assert.equal(
+    recordRecall(recordRecall(run, ["f-1"], "exact+similarity"), [], "exact").retrieval,
+    "exact+similarity",
+    "and a later exact turn does not retract it",
+  );
 });
 
 test("the budget is a tally the run carries, and it only grows", () => {
@@ -593,10 +615,10 @@ test("a run this build cannot read is reported, with what was wrong", () => {
   const bad = [
     ["not JSON at all", /Not valid JSON/],
     ["[]", /must be a JSON object/],
-    ['{"v":6,"id":"r6"}', /this build reads version 5/],
-    // The one version before this is read (with `recalled` empty); anything
-    // older is a document this build did not write.
-    ['{"v":3,"id":"r3"}', /this build reads version 5/],
+    [JSON.stringify({ v: RUN_VERSION + 1, id: "r6" }), /this build reads version 6/],
+    // The two versions before this are read (with the fields they lack
+    // defaulted); anything older is a document this build did not write.
+    ['{"v":3,"id":"r3"}', /this build reads version 6/],
     [
       '{"v":5,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
       /"id" must be/,

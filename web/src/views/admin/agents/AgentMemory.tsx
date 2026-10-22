@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   correctFact,
   dismissProposal as dismissProposalSheet,
-  type FactDoc,
+  type FactView,
   forgetFact,
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
@@ -18,7 +18,7 @@ export function AgentMemory({
   more = false,
   onMore,
 }: {
-  facts: FactDoc[];
+  facts: FactView[];
   problems: string[];
   error: string | null;
   onChanged: () => Promise<void>;
