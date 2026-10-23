@@ -1436,6 +1436,49 @@ test("the model choosing the same step twice is a stall the record shows", async
   assert.match(run.ended?.why ?? "", /same calls twice/);
 });
 
+test("a call the model keeps proposing is stopped before the token budget", async () => {
+  /*
+   * The repeat ceiling is the difference between a loop the record can name
+   * and a run that spends 120 000 tokens re-reading the same folder. The call
+   * is answered from the earlier step, never made again, but the plan grows;
+   * the third occurrence is where the run stops.
+   */
+  const id = "intake-repeat";
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ facts: {} });
+  for (const n of [1, 2, 3])
+    answerWith({
+      calls: [
+        { name: "find", arguments: { kind: "folders" } },
+        { name: "find", arguments: { kind: "mail", query: String(n) } },
+      ],
+    });
+  await deliver("a change the model repeats");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(
+    run.state,
+    "refused",
+    `the run stopped as a loop (state ${run.state}; why ${run.ended?.why}; plan ${run.plan
+      .map((step) => `${step.what}=${step.state}:${step.outcome ?? ""}`)
+      .join("; ")})`,
+  );
+  assert.ok(
+    run.plan.filter((step) => step.what.startsWith('find {"kind":"folders"}')).length >=
+      3,
+    "the repeated call is on the record three times",
+  );
+  assert.match(
+    run.ended?.why ?? "",
+    /repeated the same call 3 times without making progress/,
+    "and the record says why",
+  );
+});
+
 test("a step that asks a person parks the run on the answer it left", async () => {
   const id = "intake-ask";
   await putInstruction();

@@ -38,12 +38,12 @@ function listed(id: string, run: Record<string, unknown> | null): RunSummary {
 }
 
 describe("the runs' tally", () => {
-  it("sums what the runs spent, and skips what it cannot read", () => {
+  it("sums the plan's steps and what the runs spent, and skips what it cannot read", () => {
     const runs = [
       listed("a", {
         state: "done",
         plan: [{ state: "done" }, { state: "failed" }],
-        spent: { steps: 2, calls: 3, ms: 1000, promptTokens: 100, completionTokens: 40 },
+        spent: { steps: 1, calls: 3, ms: 1000, promptTokens: 100, completionTokens: 40 },
       }),
       listed("b", {
         state: "running",

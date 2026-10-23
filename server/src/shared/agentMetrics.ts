@@ -50,7 +50,9 @@ export function metricsOf(list: readonly RunSummary[], since?: Date): RunMetrics
       if (Number.isFinite(at) && at < since.getTime()) continue;
     }
     total.runs += 1;
-    total.steps += run.spent.steps;
+    // The plan's steps, the same count the run tables draw; the budget's own
+    // step counter is a different fact and is not a report of the work.
+    total.steps += run.steps;
     total.calls += run.spent.calls;
     total.ms += run.spent.ms;
     total.promptTokens += run.spent.promptTokens ?? 0;
