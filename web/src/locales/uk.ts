@@ -631,6 +631,10 @@ export const catalog: Catalog = {
     "Filters & rules": "Фільтри та правила",
     "Filters unavailable": "Фільтри недоступні",
     Rules: "Правила",
+    Run: "Запуск",
+    State: "Стан",
+    Rule: "Правило",
+    Steps: "Кроки",
     "Touched: {touched}.": "Змінено: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Дозволив {by}: {authority} для {target} — «{what}»",

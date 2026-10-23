@@ -222,23 +222,40 @@ function RunRow({
   return (
     <details className="run-row" onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary>
-        <span className="run-row-id">{row.id}</span>
-        <span className={`run-state run-state-${row.problem ? "unreadable" : row.state}`}>
-          {row.problem || !row.state ? t("Not readable") : t(RUN_STATE_LABELS[row.state])}
+        <span className="run-cell run-row-id" title={row.id}>
+          {row.id}
         </span>
-        {row.problem && <span className="run-row-meta">{row.problem}</span>}
-        {row.rule && <span className="run-row-meta">{row.rule}</span>}
-        {row.state && (
-          <span className="run-row-meta">
-            {t("{steps} steps · {calls} calls", {
-              steps: row.spent.steps,
-              calls: row.spent.calls,
-            })}
+        <span className="run-cell">
+          <span
+            className={`run-state run-state-${row.problem ? "unreadable" : row.state}`}
+          >
+            {row.problem || !row.state
+              ? t("Not readable")
+              : t(RUN_STATE_LABELS[row.state])}
           </span>
-        )}
-        {!month && row.state && isInFlight(row.state) && (
-          <StopRun group={group} id={row.id} onStopped={onStopped} />
-        )}
+        </span>
+        <span className="run-cell run-row-meta" title={row.rule ?? undefined}>
+          {row.rule ?? "—"}
+        </span>
+        <span className="run-cell run-cell-num run-row-meta">
+          {row.state
+            ? t("{steps} steps · {calls} calls", {
+                steps: row.spent.steps,
+                calls: row.spent.calls,
+              })
+            : "—"}
+        </span>
+        <span className="run-cell run-row-meta">
+          {(row.startedAt ?? row.ended?.at)
+            ? formatFullDate(row.startedAt ?? row.ended?.at ?? "")
+            : "—"}
+        </span>
+        <span className="run-cell run-cell-action">
+          {!month && row.state && isInFlight(row.state) && (
+            <StopRun group={group} id={row.id} onStopped={onStopped} />
+          )}
+        </span>
+        {row.problem && <span className="run-row-problem">{row.problem}</span>}
       </summary>
       <div className="run-row-body">
         {open &&
@@ -538,7 +555,17 @@ function LiveRun({
           title={runningOnly ? t("Nothing is running") : t("Nothing here yet.")}
         />
       )}
-      <div style={{ marginTop: 12 }}>
+      <div className="run-table" style={{ marginTop: 12 }}>
+        {!runningOnly && (
+          <div className="run-table-head">
+            <span>{t("Run")}</span>
+            <span>{t("State")}</span>
+            <span>{t("Rule")}</span>
+            <span>{t("Steps")}</span>
+            <span>{t("When")}</span>
+            <span>{t("Actions")}</span>
+          </div>
+        )}
         {shown.map((row) =>
           runningOnly ? (
             <LiveRun key={row.id} group={group} row={row} onStopped={() => void load()} />

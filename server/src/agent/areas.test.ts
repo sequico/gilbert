@@ -73,6 +73,26 @@ test("a group cannot declare its way back to a catalogue of forty-five", () => {
   assert.equal(declaredAreas(["mail", "files", "calendar"]).problem, null);
 });
 
+test("the transversal areas do not spend the work-area ceiling", () => {
+  const allowed = declaredAreas([
+    "mail",
+    "files",
+    "calendar",
+    "chat",
+    "knowledge",
+    "memory",
+  ]);
+  assert.equal(allowed.problem, null, "three work areas plus the always-on ones");
+  assert.deepEqual([...allowed.areas].sort(), [
+    "calendar",
+    "chat",
+    "files",
+    "knowledge",
+    "mail",
+    "memory",
+  ]);
+});
+
 test("an area nobody has is refused with the list of the ones there are", () => {
   const refused = declaredAreas(["mail", "invoices"]);
   assert.match(refused.problem ?? "", /"invoices"/);

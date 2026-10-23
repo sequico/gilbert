@@ -1006,6 +1006,12 @@ export const catalog: Catalog = {
 
     "Filters unavailable": "Filtri non disponibili",
     Rules: "Regole",
+    Run: "Esecuzione",
+    State: "Stato",
+    Rule: "Regola",
+    Steps: "Passi",
+    "No work area is ticked: the agent works only the conversation.":
+      "Nessuna area di lavoro è selezionata: l'agente lavora solo la conversazione.",
     "Touched: {touched}.": "Toccato: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizzato da {by}: {authority} per {target} — «{what}»",

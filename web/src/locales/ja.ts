@@ -632,6 +632,10 @@ export const catalog: Catalog = {
     "Filters & rules": "フィルターとルール",
     "Filters unavailable": "フィルターは利用できません",
     Rules: "ルール",
+    Run: "実行",
+    State: "状態",
+    Rule: "ルール",
+    Steps: "ステップ",
     "Touched: {touched}.": "変更対象: {touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} が承認: {target} に対する {authority} — 「{what}」",

@@ -622,6 +622,10 @@ export const catalog: Catalog = {
     "Filters & rules": "过滤器与规则",
     "Filters unavailable": "过滤器不可用",
     Rules: "规则",
+    Run: "运行",
+    State: "状态",
+    Rule: "规则",
+    Steps: "步骤",
     "Touched: {touched}.": "涉及：{touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "由 {by} 授权：{authority}，对象 {target} —“{what}”",

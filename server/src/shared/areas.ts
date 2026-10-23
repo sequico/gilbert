@@ -28,12 +28,16 @@ export const AREA_NAMES = [
 export type AreaName = (typeof AREA_NAMES)[number];
 
 /**
- * How many areas one group's instruction may declare.
+ * How many **work** areas one group's instruction may declare.
  *
  * Three is the ceiling that keeps a turn's catalogue small: an instruction that
  * names five is thirty tools in one answer, which is the failure ADR 0038 exists
  * to undo. A group that needs more writes two instructions' worth of work as two
  * groups, or narrows the one it has.
+ *
+ * The transversal areas (`TRANSVERSAL_AREAS`: the conversation, knowledge and
+ * memory) are in every run whatever the instruction says; they add no tools the
+ * run would otherwise miss, so they do not count against the ceiling.
  */
 export const MAX_DECLARED_AREAS = 3;
 
@@ -73,10 +77,11 @@ export function declaredAreas(areas: readonly string[]): {
       areas: known,
       problem: `There is no area called ${unknown.map((one) => `"${one}"`).join(", ")}. The areas are: ${AREA_NAMES.join(", ")}.`,
     };
-  if (known.length > MAX_DECLARED_AREAS)
+  const work = known.filter((one) => !TRANSVERSAL_AREAS.includes(one));
+  if (work.length > MAX_DECLARED_AREAS)
     return {
       areas: known,
-      problem: `An instruction may declare at most ${MAX_DECLARED_AREAS} areas, and this one declares ${known.length}: ${known.join(", ")}. Split the work into two groups, or narrow what this one does.`,
+      problem: `An instruction may declare at most ${MAX_DECLARED_AREAS} work areas, and this one declares ${work.length}: ${work.join(", ")}. The conversation, knowledge and memory are always on and do not count. Split the work into two groups, or narrow what this one does.`,
     };
   return { areas: known, problem: null };
 }

@@ -638,6 +638,10 @@ export const catalog: Catalog = {
     "Filters & rules": "Filtros y reglas",
     "Filters unavailable": "Filtros no disponibles",
     Rules: "Reglas",
+    Run: "Ejecución",
+    State: "Estado",
+    Rule: "Regla",
+    Steps: "Pasos",
     "Touched: {touched}.": "Tocado: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizado por {by}: {authority} para {target} — «{what}»",

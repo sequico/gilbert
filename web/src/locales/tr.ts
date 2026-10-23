@@ -1289,6 +1289,10 @@ export const catalog: Catalog = {
     Role: "Rol",
     "Rule name": "Kural adı",
     Rules: "Kurallar",
+    Run: "Çalıştırma",
+    State: "Durum",
+    Rule: "Kural",
+    Steps: "Adımlar",
     "Touched: {touched}.": "Dokunulan: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} tarafından yetkilendirildi: {target} için {authority} — “{what}”",
