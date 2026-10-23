@@ -2,24 +2,18 @@
  * One group's instruction, edited from Administration (ADR 0038).
  *
  * Two things a group decides: **in prose** how its agent works, and **which
- * areas** that work is in. The work areas are the whole of what a run may
- * change — reading is free — so the list is capped by the server at three, and a
- * group that needs more writes two instructions' worth of work as two groups.
+ * areas** that work is in. The areas are the whole of what a run may change —
+ * reading is free — and every area may be declared.
  *
- * The conversation is **always on** and is drawn checked and disabled: every run
- * has it (a transversal area), so it is not one of the three work areas and a
- * group does not have to spend one of them on it.
+ * The conversation and memory are **always on** and are drawn checked and
+ * disabled: every run has them (transversal areas), so a group does not choose
+ * them.
  *
  * The matrix that says where a run may act keeps its conservative default (the
  * conversation, and nothing else) and is not drawn here: with the areas declared,
  * a declared area is what wakes the work.
  */
-import {
-  AREA_NAMES,
-  type AreaName,
-  MAX_DECLARED_AREAS,
-  TRANSVERSAL_AREAS,
-} from "@gilbert/shared/areas";
+import { AREA_NAMES, type AreaName } from "@gilbert/shared/areas";
 import { errorMessage } from "@gilbert/shared/errors";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/jmap/client";
@@ -42,12 +36,13 @@ const AREA_LABEL: Record<AreaName, string> = {
   memory: "Memory",
 };
 
-/** The area every run has, drawn checked and disabled: it is not a choice. */
-const ALWAYS_ON: AreaName = "chat";
+/** The areas every run has, drawn checked and disabled: they are not a choice. */
+const ALWAYS_ON: readonly AreaName[] = ["memory", "chat"];
 
-/** The areas as the panel edits them: the always-on conversation is included. */
-function withChat(areas: readonly AreaName[]): AreaName[] {
-  return areas.includes(ALWAYS_ON) ? [...areas] : [...areas, ALWAYS_ON];
+/** The areas as the panel edits them: the always-on ones are included. */
+function withAlwaysOn(areas: readonly AreaName[]): AreaName[] {
+  const next = new Set<AreaName>([...areas, ...ALWAYS_ON]);
+  return [...next];
 }
 
 export function GroupInstructionPanel({ group }: { group: string }) {
@@ -67,7 +62,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
       const next = await readGroupInstruction(id);
       setProse(next);
       setInstruction(next.instruction);
-      setAreas(withChat(next.areas));
+      setAreas(withAlwaysOn(next.areas));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -92,7 +87,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
       const next = await readGroupInstruction(group);
       setProse(next);
       setInstruction(next.instruction);
-      setAreas(withChat(next.areas));
+      setAreas(withAlwaysOn(next.areas));
       setSaved(true);
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 409)) {
@@ -111,7 +106,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
   };
 
   const toggle = (area: AreaName) => {
-    if (area === ALWAYS_ON) return;
+    if (ALWAYS_ON.includes(area)) return;
     setSaved(false);
     setAreas((held) =>
       held.includes(area) ? held.filter((one) => one !== area) : [...held, area],
@@ -119,12 +114,11 @@ export function GroupInstructionPanel({ group }: { group: string }) {
   };
 
   /*
-   * The ceiling counts the **work** areas: the conversation, knowledge and memory
-   * are transversal and every run has them whatever the instruction says, so
-   * ticking one of those cannot spend one of the three.
+   * The always-on areas are drawn after the ones a group chooses, the
+   * conversation last, and a group may declare every other area it works.
    */
-  const workAreas = areas.filter((one) => !TRANSVERSAL_AREAS.includes(one));
-  const listed = [...AREA_NAMES.filter((one) => one !== ALWAYS_ON), ALWAYS_ON];
+  const chosen = areas.filter((one) => !ALWAYS_ON.includes(one));
+  const listed = [...AREA_NAMES.filter((one) => !ALWAYS_ON.includes(one)), ...ALWAYS_ON];
 
   return (
     <div>
@@ -163,7 +157,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               {listed.map((area) => {
-                const always = area === ALWAYS_ON;
+                const always = ALWAYS_ON.includes(area);
                 return (
                   <label
                     key={area}
@@ -177,10 +171,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
                     <input
                       type="checkbox"
                       checked={always || areas.includes(area)}
-                      disabled={
-                        always ||
-                        (!areas.includes(area) && workAreas.length >= MAX_DECLARED_AREAS)
-                      }
+                      disabled={always}
                       onChange={() => toggle(area)}
                     />
                     {t(AREA_LABEL[area])}
@@ -188,9 +179,11 @@ export function GroupInstructionPanel({ group }: { group: string }) {
                 );
               })}
             </div>
-            {workAreas.length === 0 && (
+            {chosen.length === 0 && (
               <p className="hint">
-                {t("No work area is ticked: the agent works only the conversation.")}
+                {t(
+                  "No other area is ticked: the agent works only the conversation and memory.",
+                )}
               </p>
             )}
           </div>

@@ -74,10 +74,10 @@ an agent; the run is the one place where two areas meet.
   knowledge): a tool-level filter cannot say which half of a job is allowed.
 - **The schema follows the areas.** A job shows only the `kind`/`action` the run's
   areas allow; the guard that reads them is the second door, not the first.
-- **An instruction declares at most three work areas**; the conversation,
-  knowledge and memory are always on and do not count. More work areas are
-  refused when saved, because five areas is thirty tools in one turn — the
-  failure this record undoes.
+- **An instruction declares the areas its group works**, with no ceiling: the
+  conversation and memory are always on, and the catalogue a run sees is the
+  selection, not the declaration. A group naming five areas accepts a larger
+  turn.
 - *Correspondence* and *agenda* are the two common selections (mail + files,
   calendar + workorders), not a taxonomy.
 

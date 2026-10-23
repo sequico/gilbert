@@ -1010,8 +1010,8 @@ export const catalog: Catalog = {
     State: "Stato",
     Rule: "Regola",
     Steps: "Passi",
-    "No work area is ticked: the agent works only the conversation.":
-      "Nessuna area di lavoro è selezionata: l'agente lavora solo la conversazione.",
+    "No other area is ticked: the agent works only the conversation and memory.":
+      "Nessun'altra area è selezionata: l'agente lavora solo la conversazione e la memoria.",
     "Touched: {touched}.": "Toccato: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizzato da {by}: {authority} per {target} — «{what}»",

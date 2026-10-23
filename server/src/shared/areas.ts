@@ -28,20 +28,12 @@ export const AREA_NAMES = [
 export type AreaName = (typeof AREA_NAMES)[number];
 
 /**
- * How many **work** areas one group's instruction may declare.
+ * The areas every run gets, whatever its change and instruction say.
  *
- * Three is the ceiling that keeps a turn's catalogue small: an instruction that
- * names five is thirty tools in one answer, which is the failure ADR 0038 exists
- * to undo. A group that needs more writes two instructions' worth of work as two
- * groups, or narrows the one it has.
- *
- * The transversal areas (`TRANSVERSAL_AREAS`: the conversation, knowledge and
- * memory) are in every run whatever the instruction says; they add no tools the
- * run would otherwise miss, so they do not count against the ceiling.
+ * They are always on: the conversation is the interface, memory is what the
+ * installation knows, knowledge is the shared library. They add no tools a run
+ * would otherwise miss, so an instruction naming them spends nothing.
  */
-export const MAX_DECLARED_AREAS = 3;
-
-/** The areas every run gets, whatever its change and instruction say. */
 export const TRANSVERSAL_AREAS: readonly AreaName[] = ["chat", "knowledge", "memory"];
 
 /** Whether a name is one of the areas. */
@@ -63,8 +55,9 @@ export function areaOfSource(source: string): AreaName | null {
  *
  * The declared areas are what an instruction states its group works; a change
  * that lands in an area nobody declared is still worked if its own area is the
- * change's (the change is the trigger, ADR 0038) — this is the ceiling, not the
- * routing.
+ * change's (the change is the trigger, ADR 0038) — this is the statement, not
+ * the routing. Every area may be declared: the ceiling on the catalogue is the
+ * selection of the run, not a limit on what a group says it works.
  */
 export function declaredAreas(areas: readonly string[]): {
   areas: readonly AreaName[];
@@ -76,12 +69,6 @@ export function declaredAreas(areas: readonly string[]): {
     return {
       areas: known,
       problem: `There is no area called ${unknown.map((one) => `"${one}"`).join(", ")}. The areas are: ${AREA_NAMES.join(", ")}.`,
-    };
-  const work = known.filter((one) => !TRANSVERSAL_AREAS.includes(one));
-  if (work.length > MAX_DECLARED_AREAS)
-    return {
-      areas: known,
-      problem: `An instruction may declare at most ${MAX_DECLARED_AREAS} work areas, and this one declares ${work.length}: ${work.join(", ")}. The conversation, knowledge and memory are always on and do not count. Split the work into two groups, or narrow what this one does.`,
     };
   return { areas: known, problem: null };
 }

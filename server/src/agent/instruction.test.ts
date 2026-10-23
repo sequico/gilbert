@@ -173,11 +173,6 @@ test("the parser takes the version this build writes and refuses every other sha
     JSON.stringify({ v: INSTRUCTION_VERSION, instruction: 7 }),
     JSON.stringify({ v: INSTRUCTION_VERSION, instruction: "x", areas: "mail" }),
     JSON.stringify({ v: INSTRUCTION_VERSION, instruction: "x", areas: ["invoices"] }),
-    JSON.stringify({
-      v: INSTRUCTION_VERSION,
-      instruction: "x",
-      areas: ["mail", "files", "calendar", "workorders"],
-    }),
   ]) {
     const parsed = parseInstructionDocumentDetailed(raw);
     assert.ok("problem" in parsed, `${raw} is refused`);

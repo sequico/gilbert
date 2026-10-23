@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { declaredAreas, MAX_DECLARED_AREAS } from "../shared/areas.js";
+import { declaredAreas } from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
 import { TOOLS } from "./tools.js";
@@ -65,32 +65,20 @@ test("the areas of a run are its instruction's and its matrix's, plus the three"
   assert.equal(selectedAreas([], undefined), null, "a run with neither selects nothing");
 });
 
-test("a group cannot declare its way back to a catalogue of forty-five", () => {
-  const four = ["mail", "files", "calendar", "workorders"] as const;
-  const refused = declaredAreas(four);
-  assert.ok(refused.problem, "four areas are refused");
-  assert.match(refused.problem ?? "", new RegExp(String(MAX_DECLARED_AREAS)));
-  assert.equal(declaredAreas(["mail", "files", "calendar"]).problem, null);
-});
-
-test("the transversal areas do not spend the work-area ceiling", () => {
-  const allowed = declaredAreas([
+test("every area may be declared, with no ceiling", () => {
+  const all = [
     "mail",
     "files",
     "calendar",
-    "chat",
+    "contacts",
     "knowledge",
-    "memory",
-  ]);
-  assert.equal(allowed.problem, null, "three work areas plus the always-on ones");
-  assert.deepEqual([...allowed.areas].sort(), [
-    "calendar",
+    "workorders",
     "chat",
-    "files",
-    "knowledge",
-    "mail",
     "memory",
-  ]);
+  ] as const;
+  const declared = declaredAreas(all);
+  assert.equal(declared.problem, null, "all eight are accepted");
+  assert.deepEqual([...declared.areas].sort(), [...all].sort());
 });
 
 test("an area nobody has is refused with the list of the ones there are", () => {
