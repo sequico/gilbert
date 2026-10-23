@@ -91,8 +91,15 @@ The judge is built (it fires only on a suspect plan), the injection test is in
 documents are aligned. What remains: the judge's **calibration** on a human
 sample (and an independent model where one exists), **`pass^k`** over repeated
 trials rather than `pass@1` alone, the **live embeddings** probe, the pruning of
-closed facts, and a memory read that is not rebuilt from the folder on every pass
-(ADR 0038, *Owed*).
+closed facts, a memory read that is not rebuilt from the folder on every pass,
+and the tests still living in `agent/testkit.ts` moved beside the machines they
+pin (ADR 0038, *Owed*). A relay tab whose subscription never verifies hears no
+installation event, and a beat served by a second replica can show the switch a
+pass behind: both are accepted trades, not owed work.
+
+Timed runs have their place reserved (the chat's clock, `ROADMAP.md`), and no
+run is scheduled for a time: the agent lives on changes, and the supervisor's
+pass is the only clock.
 
 ## Open decisions, taken
 
