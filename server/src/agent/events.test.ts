@@ -578,7 +578,9 @@ test("the agent's own calendar write leaves a mark the reading takes once", asyn
     id: "r-calendar",
     startedBy: { rule: "cal", instruction: null, woke: "test" },
   });
-  const listed = (await runTool(TOOLS, { ctx, accountId, run }, "calendar.list", {})) as {
+  const listed = (await runTool(TOOLS, { ctx, accountId, run }, "find", {
+    kind: "calendars",
+  })) as {
     calendars: Array<{ id: string; mayWrite: boolean }>;
   };
   const writable = listed.calendars.find((one) => one.mayWrite);
@@ -587,7 +589,8 @@ test("the agent's own calendar write leaves a mark the reading takes once", asyn
   // The reading's position is taken *before* the write, so what it reports is
   // what the agent did since it.
   const anchor = await anchorEvents(ctx, accountId);
-  const created = (await runTool(TOOLS, { ctx, accountId, run }, "calendar.create", {
+  const created = (await runTool(TOOLS, { ctx, accountId, run }, "event", {
+    action: "create",
     calendar: writable.id,
     title: "Written by the agent",
     start: "2026-10-21T10:00:00",
