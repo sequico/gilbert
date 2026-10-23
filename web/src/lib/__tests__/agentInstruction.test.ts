@@ -14,32 +14,49 @@ import { readGroupInstruction, saveInstruction } from "../agentInstruction";
 
 const GROUP = "team@example.org";
 const PATH = "/api/admin/groups/team%40example.org/prose";
+const SURFACES = {
+  chat: "watch",
+  mail: "watch",
+  files: "off",
+  knowledge: "off",
+  workorder: "off",
+  calendar: "off",
+} as const;
 
 beforeEach(() => {
   apiFetch.mockReset();
 });
 
 describe("the instruction route", () => {
-  it("reads the instruction, the areas and the state", async () => {
+  it("reads the instruction, the areas, what wakes it and the state", async () => {
     apiFetch.mockResolvedValue({
       instruction: "Answer in the group's voice.",
       areas: ["mail", "files"],
+      surfaces: SURFACES,
       state: "s7",
     });
     const prose = await readGroupInstruction(GROUP);
     expect(apiFetch).toHaveBeenCalledWith(PATH);
     expect(prose.state).toBe("s7");
     expect(prose.areas).toEqual(["mail", "files"]);
+    expect(prose.surfaces).toEqual(SURFACES);
   });
 
   it("carries the state the read answered back on a write", async () => {
     apiFetch.mockResolvedValue({ ok: true });
-    await saveInstruction(GROUP, "Answer in the group's voice.", ["mail"], "s7");
+    await saveInstruction(
+      GROUP,
+      "Answer in the group's voice.",
+      ["mail"],
+      SURFACES,
+      "s7",
+    );
     expect(apiFetch).toHaveBeenCalledWith(`${PATH}/instruction`, {
       method: "PUT",
       body: JSON.stringify({
         instruction: "Answer in the group's voice.",
         areas: ["mail"],
+        surfaces: SURFACES,
         ifInState: "s7",
       }),
     });

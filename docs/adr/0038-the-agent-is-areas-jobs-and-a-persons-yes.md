@@ -134,10 +134,14 @@ A group has **one instruction**: a briefing in its own words, read by every run,
 saying what the group is for and how the work is done. It is not a list of
 triggers: the change says what happened, the instruction says what to do about it.
 
-Its **grants** — surfaces, authority classes, whether an outward message becomes a
-draft (ADR 0028, 0041) — bound what a run may do, never which run opens. This
-replaces the rulebook; a group with no instruction has no agent, and a message
-addressed to it is told so once.
+Its **grants** — the areas it works, authority classes, whether an outward
+message becomes a draft (ADR 0028, 0041) — bound what a run may do, never which
+run opens. It also says **what wakes it**: a second list, one mode per surface,
+where the conversation is always `watch`; a change on a surface the wake row
+does not watch costs nothing, and the areas decide only what a run may write.
+The run carries the write matrix its areas gave when it opened, so an edit does
+not move a run in flight. This replaces the rulebook; a group with no instruction has no
+agent, and a message addressed to it is told so once.
 
 ### The change is the trigger; nothing polls
 

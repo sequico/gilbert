@@ -119,6 +119,7 @@ import {
 export { RUN_STEPS_MAX } from "../shared/run.js";
 
 import type { AreaName } from "../shared/areas.js";
+import { writeSurfacesOf } from "../shared/areas.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
@@ -1325,9 +1326,10 @@ export class AgentLoop {
         // The whole drop this run answers, so its plan reads the names instead
         // of listing the folder again (ADR 0034).
         ...(event.also?.length ? { batch: [...event.also] } : {}),
-        // The matrix the instruction carries at this instant (ADR 0038): the run
-        // says where it may act, and a later edit does not move it.
-        surfaces: { ...instruction.surfaces },
+        // The write matrix the areas give at this instant (ADR 0038): the run says
+        // where it may act, and a later edit does not move it. What wakes it is the
+        // instruction's own surfaces, read by the pass.
+        surfaces: writeSurfacesOf(instruction.areas),
       },
     });
     await createRun(this.ctx, accountId, run);

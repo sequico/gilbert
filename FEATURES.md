@@ -231,20 +231,21 @@ modules — **mail**, **files**, **calendar**, **contacts**, **knowledge**,
 `draft`, `event`, `say`, `remember`, `settle`), narrowed to the values whose area
 its instruction declares, with reading, the conversation and memory always
 there. **Reading is free**; a write
-needs its area. An instruction may declare at most **three** areas, which is what
-keeps a turn's catalogue small.
+needs its area, and the conversation and memory are always writable. An
+instruction declares as many areas as its group works: there is no ceiling, and
+a run's catalogue follows the selection.
 
-A change in the group's account wakes the instruction when its area is declared
-or when the instruction's surface matrix wakes it; one change opens **one** run,
-and a run the account already holds for that change is the answer it already has.
-The matrix — one mode per surface, **off**, **watch** or **on demand** — says
-*where* a run may act, never *what*: the authority classes (ADR 0028) still bound
-every act, and a write on a surface the instruction keeps off is refused
-(`surface_off`). Chat is always `watch`, because the conversation is where the
-group calls the agent and where its report is written. The run carries the matrix
-its instruction had when it opened, so an edit does not move a run in flight. An
-instruction written before the areas existed is still read, with no area declared
-and nothing but the conversation on.
+A change in the group's account wakes the instruction when its **wake row**
+watches that surface; one change opens **one** run, and a run the account
+already holds for that change is the answer it already has. The wake row — one mode per surface, **off**, **watch** or **on
+demand** — says *what wakes the agent*; the work a change opens still says *what
+happened*: the authority classes (ADR 0028) bound every act, and a run writes only
+in the areas its instruction declared (`surface_off`). Chat is always `watch`,
+because the conversation is where the group calls the agent and where its report
+is written. The run carries the write matrix its areas gave when it opened, so an
+edit does not move a run in flight; what wakes the next run is read again. An
+instruction of another version is refused with its path, and Administration offers
+to replace it.
 
 The shape and its parser are `server/src/shared/instruction.ts`, the areas are
 `server/src/shared/areas.ts` (the vocabulary both tiers read) and
@@ -259,7 +260,8 @@ installation's own document, carried into every call from the boot; the second i
 read once per pass so an edit is in force at the next one. A level that says
 nothing contributes nothing. **An installation administrator decides** the group's
 instruction, from **Administration → AI Agents → Instruction**: the group is
-chosen, the prose is one field and the areas a list of checkboxes. The launcher is
+chosen, the prose is one field, the areas a list of checkboxes, and what wakes
+the agent a second list where chat is drawn on and dimmed. The launcher is
 offered only to an administrator, and the write goes through the administration's
 own route (`/api/admin/groups/<name>/prose`), which writes as the Master behind
 `requireAdmin` — the decision is a boundary and not a hidden button (owner

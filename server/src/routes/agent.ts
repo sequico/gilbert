@@ -90,6 +90,7 @@ import {
 } from "../shared/agentMetrics.js";
 import { CodedError, errorMessage, isStateMismatch } from "../shared/errors.js";
 import {
+  CHAT_ONLY,
   INSTRUCTION_FILE,
   INSTRUCTION_VERSION,
   parseInstructionDocumentDetailed,
@@ -750,6 +751,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           group: name,
           instruction: held?.instruction ?? "",
           areas: held?.areas ?? [],
+          surfaces: held?.surfaces ?? { ...CHAT_ONLY },
           state,
         });
       } catch (err) {
@@ -764,6 +766,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           group: name,
           instruction: "",
           areas: [],
+          surfaces: { ...CHAT_ONLY },
           state,
           unreadable: err.message,
         });
@@ -787,6 +790,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         const body = await readJson<{
           instruction?: unknown;
           areas?: unknown;
+          surfaces?: unknown;
           ifInState?: unknown;
         }>(c);
         const instruction =
@@ -820,7 +824,12 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           return c.json({ ok: true, instruction: "" });
         }
         const parsed = parseInstructionDocumentDetailed(
-          JSON.stringify({ v: INSTRUCTION_VERSION, instruction, areas }),
+          JSON.stringify({
+            v: INSTRUCTION_VERSION,
+            instruction,
+            areas,
+            ...(body?.surfaces === undefined ? {} : { surfaces: body.surfaces }),
+          }),
         );
         if ("problem" in parsed) return c.json({ error: parsed.problem }, 400);
         await writeAppFileAt(

@@ -13,6 +13,8 @@
  * is the server's (`agent/areas.ts`) — a client has no catalogue to select.
  */
 
+import { SURFACES, type SurfaceMatrix } from "./surfaces.js";
+
 /** The areas the agent works in. */
 export const AREA_NAMES = [
   "mail",
@@ -35,6 +37,33 @@ export type AreaName = (typeof AREA_NAMES)[number];
  * would otherwise miss, so an instruction naming them spends nothing.
  */
 export const TRANSVERSAL_AREAS: readonly AreaName[] = ["chat", "knowledge", "memory"];
+
+/**
+ * The matrix a run may write through, derived from the areas it works.
+ *
+ * The areas are the whole of what a run may change (ADR 0038); the instruction's
+ * own `surfaces` is what **wakes** it. A run therefore carries the areas as a
+ * matrix, with the conversation always writable, so an area ticked for writing
+ * is not refused because its surface was left out of the wake row. The surface an
+ * area writes to is `areaOfSource`, the one mapping both lists read; contacts and
+ * memory have no surface, and their writes are gated by the catalogue and the
+ * authority guard instead.
+ */
+export function writeSurfacesOf(areas: readonly AreaName[]): SurfaceMatrix {
+  const matrix: SurfaceMatrix = {
+    chat: "watch",
+    mail: "off",
+    files: "off",
+    knowledge: "off",
+    workorder: "off",
+    calendar: "off",
+  };
+  for (const surface of SURFACES) {
+    const area = areaOfSource(surface);
+    if (area && areas.includes(area)) matrix[surface] = "watch";
+  }
+  return matrix;
+}
 
 /** Whether a name is one of the areas. */
 export function isAreaName(name: string): name is AreaName {

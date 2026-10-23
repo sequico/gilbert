@@ -129,7 +129,7 @@ export async function runTool(
   if (tool.writes && surface && surfaceModeOf(call.run, surface) === "off")
     throw new ToolError(
       "surface_off",
-      `"${tool.name}" writes ${surface}, and this run's rule keeps ${surface} off.`,
+      `"${tool.name}" writes ${surface}, and this run's areas keep ${surface} off.`,
       403,
     );
   if (!mayRun(tool, call.run, args))

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { declaredAreas } from "../shared/areas.js";
+import { declaredAreas, writeSurfacesOf } from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
 import { TOOLS } from "./tools.js";
@@ -79,6 +79,19 @@ test("every area may be declared, with no ceiling", () => {
   const declared = declaredAreas(all);
   assert.equal(declared.problem, null, "all eight are accepted");
   assert.deepEqual([...declared.areas].sort(), [...all].sort());
+});
+
+test("a run writes through the areas it works, whatever wakes it", () => {
+  const matrix = writeSurfacesOf(["mail", "files", "chat", "memory"]);
+  assert.equal(matrix.mail, "watch", "a declared area may be written");
+  assert.equal(matrix.files, "watch");
+  assert.equal(matrix.chat, "watch", "the conversation is always writable");
+  assert.equal(matrix.calendar, "off", "an undeclared area is not");
+  assert.equal(
+    matrix.knowledge,
+    "off",
+    "knowledge writes need the area, reading is free",
+  );
 });
 
 test("an area nobody has is refused with the list of the ones there are", () => {

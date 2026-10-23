@@ -569,7 +569,7 @@ test("the choosing turn offers the catalogue as tools, from the same argument sp
  * the turn is told it in advance: a model that has to learn it from a refused
  * step has spent a step and a call on a lesson one line teaches.
  */
-test("the surfaces a run's rule keeps off are said, and nothing off says nothing", async () => {
+test("the surfaces a run's areas keep off are said, and nothing off says nothing", async () => {
   const surfaces = {
     chat: "watch" as const,
     mail: "watch" as const,
@@ -591,10 +591,10 @@ test("the surfaces a run's rule keeps off are said, and nothing off says nothing
   );
   assert.match(
     SYSTEM(0),
-    /keeps knowledge, workorder, calendar off: a step that writes one of them is refused/,
+    /areas keep knowledge, workorder, calendar off: a step that writes one of them is refused/,
     "what is off is named, in the editor's order",
   );
-  assert.ok(!SYSTEM(0).includes("keeps chat off"), "and what is watched is not");
+  assert.ok(!SYSTEM(0).includes("areas keep chat off"), "and what is watched is not");
 
   seen = [];
   answers = [];

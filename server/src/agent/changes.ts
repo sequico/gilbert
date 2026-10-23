@@ -192,23 +192,22 @@ function noInstructionNotice(
   const where = surface === "mail" ? "mail" : "the conversation";
   const from = about.from ? ` from ${about.from}` : "";
   const subject = about.subject ? ` (“${about.subject}”)` : "";
-  return `This group has no instruction naming ${where}, so the message${from}${subject} has woken nothing. An administrator can write one in Administration → AI Agents → Instruction.`;
+  return `This group's instruction does not wake on ${where}, so the message${from}${subject} has woken nothing. An administrator can change it in Administration → AI Agents → Instruction.`;
 }
 
 /**
- * Whether the group's instruction names this change: its area is one the
- * instruction declares, or the surface is one its matrix wakes it on.
+ * Whether the instruction wakes on this change: its wake row watches the
+ * surface.
  *
- * The instruction is the whole of the routing (ADR 0038): a group that wrote no
- * area for mail is not woken by mail, and the notice above says so rather than
- * leaving the change unanswered in silence. `watch` is what wakes; `ondemand`
- * says the surface may be written inside a run something else opened, and `off`
- * says nothing may (ADR 0031's three modes, which the instruction carries).
+ * The instruction is the whole of the routing (ADR 0038): a surface the group
+ * did not tick in its wake row wakes nothing, and the notice above says so
+ * rather than leaving the change unanswered in silence. The areas decide what a
+ * run may change, not what wakes it; `ondemand` and `off` do not wake, and the
+ * editor writes `watch` or `off` (a stored `ondemand` survives until its box is
+ * touched). `activity` is the installation's own bookkeeping and wakes nothing.
  */
 function coversChange(instruction: InstructionDoc, event: AccountEvent): boolean {
-  const area = areaOfSource(event.source);
-  if (area === null) return false;
-  if (instruction.areas.includes(area)) return true;
+  if (areaOfSource(event.source) === null) return false;
   return instruction.surfaces[event.source] === "watch";
 }
 

@@ -659,6 +659,23 @@ test("a calendar event written in the group's account wakes a rule that watches 
 });
 
 /**
+ * The areas are what a run may change, the wake row is what opens one (ADR
+ * 0038): mail declared for writing but left out of the wake row keeps the group
+ * quiet on mail. This is the line between the two check lists in the editor.
+ */
+test("an area declared for writing opens nothing unless its surface is watched", async () => {
+  const doc = instructionDoc(["chat"]);
+  doc.areas = ["chat", "mail"];
+  await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, doc);
+  const agent = loop();
+  await agent.start();
+
+  await deliver("a booking confirmation");
+  const summary = await agent.pass();
+  assert.equal(summary.runs, 0, "mail declared for writing still wakes nothing");
+});
+
+/**
  * A mail change is decided by one call over what the process already holds.
  *
  * The words of the message are read before the turn (`changes.ts`), so the turn
@@ -1067,7 +1084,7 @@ test("a group with no instruction answers a mention rather than leaving it in si
   const said = await findChatMessages(
     ctx,
     accountId,
-    "no instruction naming the conversation",
+    "does not wake on the conversation",
     5,
   );
   assert.equal(said.length, 1, "the person is told why nothing happened");
@@ -3232,6 +3249,14 @@ test("every call is told the installation's line and the group's instruction, in
     v: INSTRUCTION_VERSION,
     instruction: standing,
     areas: ["mail"],
+    surfaces: {
+      chat: "watch",
+      mail: "watch",
+      files: "off",
+      knowledge: "off",
+      workorder: "off",
+      calendar: "off",
+    },
   });
   assert.equal(
     (await readInstruction(ctx, accountId))?.instruction,

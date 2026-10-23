@@ -184,12 +184,41 @@ test("an administrator writes a group's instruction through the route, and reads
   });
   assert.equal(wroteLine.status, 200, JSON.stringify(wroteLine.body));
 
+  /*
+   * The wake matrix travels with the instruction: a save that carried no
+   * surfaces used to leave the chat-only default behind, so an instruction
+   * declaring mail stopped waking on mail. The write and the read are the same
+   * document, and the conversation is always a wake.
+   */
+  const third = (await call(base)).body as { state: string };
+  const woke = await call(`${base}/instruction`, {
+    method: "PUT",
+    body: JSON.stringify({
+      instruction: "Be brief.",
+      areas: ["mail", "files"],
+      surfaces: {
+        chat: "watch",
+        mail: "watch",
+        files: "off",
+        knowledge: "off",
+        workorder: "off",
+        calendar: "off",
+      },
+      ifInState: third.state,
+    }),
+  });
+  assert.equal(woke.status, 200, JSON.stringify(woke.body));
+
   const prose = (await call(base)).body as {
     instruction: string;
     areas: string[];
+    surfaces: { chat: string; mail: string; files: string };
   };
   assert.equal(prose.instruction, "Be brief.", "the line is read back as written");
   assert.deepEqual(prose.areas, ["mail", "files"], "and so are the areas it works");
+  assert.equal(prose.surfaces.mail, "watch", "and what wakes it: mail");
+  assert.equal(prose.surfaces.files, "off", "and what does not: files");
+  assert.equal(prose.surfaces.chat, "watch", "the conversation is always a wake");
 });
 
 test("an area nobody has is refused as the caller's, not upstream's", async () => {

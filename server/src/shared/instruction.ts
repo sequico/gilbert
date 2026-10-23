@@ -34,7 +34,7 @@ export interface InstructionDoc {
   instruction: string;
   /** The areas the group works, and the whole of what a run may change. */
   areas: AreaName[];
-  /** Where a run may act, one mode per surface of the group's own account. */
+  /** What wakes the agent, one mode per surface of the group's own account. */
   surfaces: SurfaceMatrix;
 }
 
@@ -44,7 +44,7 @@ export interface InstructionDoc {
  * agent about the chat and about nothing more, and the matrix says exactly that
  * rather than handing it every surface the account has.
  */
-const CHAT_ONLY: SurfaceMatrix = {
+export const CHAT_ONLY: SurfaceMatrix = {
   chat: "watch",
   mail: "off",
   files: "off",

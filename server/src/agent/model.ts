@@ -2026,7 +2026,7 @@ export function parseStepAnswerDetailed(
 /**
  * Where the run may not act, as its own turn is told it.
  *
- * A surface the rule keeps `off` refuses a write at the door (`runTool`), and a
+ * A surface the run's areas keep `off` refuses a write at the door (`runTool`), and a
  * turn that only learns it from that refusal has spent a step and a call on the
  * lesson. One line says it in advance. A matrix with nothing off — and a run
  * whose record carries no matrix — adds nothing, so the prompt is what it was.
@@ -2036,7 +2036,7 @@ export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
   const off = SURFACES.filter((surface) => surfaces[surface] === "off");
   if (!off.length) return [];
   return [
-    `This run's rule keeps ${off.join(", ")} off: a step that writes one of them is refused, so do not propose one.`,
+    `This run's areas keep ${off.join(", ")} off: a step that writes one of them is refused, so do not propose one.`,
   ];
 }
 

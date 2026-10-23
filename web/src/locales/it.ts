@@ -1022,6 +1022,12 @@ export const catalog: Catalog = {
     "Waiting: {what} — asked in {channel} {id}, until {until}":
       "In attesa: {what} — chiesto in {channel} {id}, fino al {until}",
     "Standing instruction": "Istruzione permanente",
+    Areas: "Aree",
+    "What the group's agent may change. Reading is always allowed.":
+      "Cosa può cambiare l'agente del gruppo. La lettura è sempre consentita.",
+    "What wakes the agent": "Cosa sveglia l'agente",
+    "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
+      "Le modifiche su una superficie selezionata vengono portate all'agente automaticamente; selezionare un'area sopra non lo sveglia da sola.",
     "How the group wants its agent to work, on every call it makes.":
       "Come il gruppo vuole che il suo agente lavori, a ogni chiamata che fa.",
 

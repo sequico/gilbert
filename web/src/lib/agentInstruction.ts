@@ -14,6 +14,7 @@
  */
 
 import type { AreaName } from "@gilbert/shared/areas";
+import type { SurfaceMatrix } from "@gilbert/shared/surfaces";
 import { apiFetch } from "@/jmap/client";
 
 /** One group's instruction, as the route answers it. */
@@ -21,6 +22,8 @@ export interface GroupInstruction {
   instruction: string;
   /** The areas the group works: the whole of what a run may change. */
   areas: AreaName[];
+  /** What wakes the agent: one mode per surface of the group's account. */
+  surfaces: SurfaceMatrix;
   /** The account's FileNode state the read saw: what a write is conditioned on. */
   state: string;
   /**
@@ -39,11 +42,12 @@ export async function readGroupInstruction(group: string): Promise<GroupInstruct
   return await apiFetch<GroupInstruction>(prosePath(group));
 }
 
-/** Save the instruction and its areas; an emptied field leaves no document behind. */
+/** Save the instruction, its areas and what wakes the agent; an emptied field leaves no document behind. */
 export async function saveInstruction(
   group: string,
   text: string,
   areas: readonly AreaName[],
+  surfaces: SurfaceMatrix,
   state?: string,
 ): Promise<void> {
   await apiFetch(prosePath(group, "/instruction"), {
@@ -51,6 +55,7 @@ export async function saveInstruction(
     body: JSON.stringify({
       instruction: text,
       areas,
+      surfaces,
       ...(state ? { ifInState: state } : {}),
     }),
   });
