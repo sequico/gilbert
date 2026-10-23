@@ -1548,15 +1548,13 @@ export class AgentLoop {
     const before = this.statusSpent?.date === date ? this.statusSpent.tokens : 0;
     const spent = { date, tokens: before + summary.tokens };
     /*
-     * The measures go to the collector before the document is written, so a
-     * refusal is one of the gaps the document then carries: a week read from the
-     * documents is the measure without a collector, and a collector that is down
-     * is said rather than silently absent (ADR 0038). The operator's environment
-     * wins over the document, as the ADR allows: a collector is a deployment's
-     * fact, and one process may point at a local one without editing the
-     * installation.
+     * The measures go to the collector the installation document names,
+     * before the document is written, so a refusal is one of the gaps the
+     * document then carries: a week read from the documents is the measure
+     * without a collector, and a collector that is down is said rather than
+     * silently absent (ADR 0038).
      */
-    const collector = process.env.GILBERT_AGENT_OTLP?.trim() || this.limits.otlp;
+    const collector = this.limits.otlp;
     if (collector) {
       const measures = [
         ...this.outbox.splice(0),

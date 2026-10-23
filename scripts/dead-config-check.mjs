@@ -97,7 +97,9 @@ const EXCLUDED_PATHS = new Set(["package-lock.json"]);
  * environment at all may read what its job needs and nothing more. `bootstrap.ts`
  * is the handshake: it is the only place that knows how Stalwart is reached,
  * and it reads nothing else. The mock is a fixture that stands in for a server,
- * configured by the test that starts it, and its knobs are its own.
+ * configured by the test that starts it, and its knobs are its own. The eval
+ * harness is a measure a person runs by hand: it starts that mock and names the
+ * provider file and recording it runs with, and it is never a boot.
  */
 const ENV_ALLOWED = new Map([
   ["server/src/bootstrap.ts", "the handshake: where Stalwart is, and who the Master is"],
@@ -108,6 +110,10 @@ const ENV_ALLOWED = new Map([
   [
     "server/src/mock/index.ts",
     "the fixture's own knobs (MOCK_*), set by the test that starts it",
+  ],
+  [
+    "server/src/agent/eval.ts",
+    "the measure: it starts its own mock and names the provider file and recording it runs with",
   ],
 ]);
 

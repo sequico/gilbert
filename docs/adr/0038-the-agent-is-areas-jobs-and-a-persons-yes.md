@@ -321,8 +321,9 @@ the **recorded answers replayed without a key** — is `agent/replay.test.ts`, p
 
 Each run and pass emits the same measures in the OpenTelemetry GenAI shape —
 model, tokens, milliseconds, steps, calls, refusals, ending — to an **OTLP endpoint
-configured in the installation's limits** (or the environment) and to the pass
-document; without an endpoint the documents remain the measure. Cost and refusals are read over time; the run remains the truth.
+configured in the installation's limits**, and to the pass document; without an
+endpoint the documents remain the measure. Cost and refusals are read over time;
+the run remains the truth.
 
 ### Secrets are not readable by the agent
 
