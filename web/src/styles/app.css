@@ -3060,6 +3060,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 /* The runs listing is a table: one column per fact, the same header above it. */
 .run-table {
   --run-cols: minmax(150px, 1.4fr) 110px minmax(90px, .9fr) minmax(150px, 1fr) 150px auto;
+  width: 100%; max-width: 100%;
   overflow-x: auto;
 }
 .run-table-head {
@@ -3088,12 +3089,15 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .run-row-body { padding: 6px 2px 14px; }
 /* The live list in the chat's runs panel: the same table, fewer columns. */
 .run-table.live { --run-cols: 96px minmax(110px, 1fr) 110px auto; }
-.run-live { border-bottom: 1px solid var(--border); padding: 2px 0 6px; }
+.run-live { border-bottom: 1px solid var(--border); padding: 2px 0 6px; min-width: 0; }
 .run-live-row {
   display: grid; grid-template-columns: var(--run-cols); gap: 8px;
-  align-items: center; padding: 6px 2px;
+  align-items: center; padding: 6px 2px; min-width: 0;
 }
-.run-live-about { margin: 2px 0 4px; }
+.run-live-about { margin: 2px 0 4px; overflow-wrap: anywhere; }
+/* The chat's runs drawer: its table stays inside the panel and scrolls there. */
+.chat-runs { min-width: 0; max-width: 100%; overflow-x: hidden; }
+.chat-runs .run-table { width: 100%; max-width: 100%; }
 .run-archive {
   display: flex; align-items: center; gap: 8px; margin: 8px 0 4px;
   font-size: .85em;

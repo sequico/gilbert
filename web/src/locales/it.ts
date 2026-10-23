@@ -916,6 +916,7 @@ export const catalog: Catalog = {
     Administration: "Amministrazione",
     "About Gilbert": "Informazioni su Gilbert",
     About: "Informazioni",
+    Woke: "Evento",
 
     Server: "Server",
     "Server capabilities": "Funzionalità del server",
@@ -1008,7 +1009,7 @@ export const catalog: Catalog = {
     Rules: "Regole",
     Run: "Esecuzione",
     State: "Stato",
-    Rule: "Regola",
+
     Steps: "Passi",
     "No other area is ticked: the agent works only the conversation and memory.":
       "Nessun'altra area è selezionata: l'agente lavora solo la conversazione e la memoria.",

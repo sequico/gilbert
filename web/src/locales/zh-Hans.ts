@@ -624,7 +624,7 @@ export const catalog: Catalog = {
     Rules: "规则",
     Run: "运行",
     State: "状态",
-    Rule: "规则",
+
     Steps: "步骤",
     "Touched: {touched}.": "涉及：{touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":

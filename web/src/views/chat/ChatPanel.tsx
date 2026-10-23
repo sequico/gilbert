@@ -874,7 +874,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
             )}
           </div>
         ) : runsOpen && open ? (
-          <div style={{ padding: 12 }}>
+          <div className="chat-runs" style={{ padding: 12 }}>
             <GroupRuns
               group={open.name}
               accountId={openAccountId ?? undefined}

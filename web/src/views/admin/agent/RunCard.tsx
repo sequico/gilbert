@@ -77,11 +77,13 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
         rule: startedBy.rule,
         change: startedBy.woke ?? "",
       })
-    : t("Started by an instruction in {channel} {id}, woken by {change}.", {
-        channel: startedBy.instruction?.channel ?? "",
-        id: startedBy.instruction?.id ?? "",
-        change: startedBy.woke ?? "",
-      });
+    : startedBy.instruction
+      ? t("Started by an instruction in {channel} {id}, woken by {change}.", {
+          channel: startedBy.instruction.channel,
+          id: startedBy.instruction.id,
+          change: startedBy.woke ?? "",
+        })
+      : `${t("Woke")}: ${startedBy.woke ?? ""}`;
   const tokens = (spent.promptTokens ?? 0) + (spent.completionTokens ?? 0);
   return (
     <div className="run-card">
@@ -109,7 +111,7 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
         <div className="run-foot-chips">
           <span>
             {t("Spent: {steps} steps, {calls} model calls, {ms} ms of work.", {
-              steps: spent.steps,
+              steps: plan.length,
               calls: spent.calls,
               ms: spent.ms,
             })}

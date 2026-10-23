@@ -633,7 +633,7 @@ export const catalog: Catalog = {
     Rules: "Правила",
     Run: "Запуск",
     State: "Стан",
-    Rule: "Правило",
+
     Steps: "Кроки",
     "Touched: {touched}.": "Змінено: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":

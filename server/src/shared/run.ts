@@ -462,7 +462,7 @@ export interface RunSummary {
   state: RunDoc["state"] | null;
   startedAt?: string;
   ended: RunEnd | null;
-  /** The rule the run answers, or null when an instruction opened it. */
+  /** The rule an older run answered; null in a run the group's instruction opened. */
   rule: string | null;
   /** The change that woke it, in the run's own words. */
   woke: string | null;

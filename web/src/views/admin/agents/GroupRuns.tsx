@@ -234,13 +234,16 @@ function RunRow({
               : t(RUN_STATE_LABELS[row.state])}
           </span>
         </span>
-        <span className="run-cell run-row-meta" title={row.rule ?? undefined}>
-          {row.rule ?? "—"}
+        <span
+          className="run-cell run-row-meta"
+          title={row.about ?? row.woke ?? undefined}
+        >
+          {row.about ?? row.woke ?? "—"}
         </span>
         <span className="run-cell run-cell-num run-row-meta">
           {row.state
             ? t("{steps} steps · {calls} calls", {
-                steps: row.spent.steps,
+                steps: row.steps,
                 calls: row.spent.calls,
               })
             : "—"}
@@ -313,7 +316,6 @@ function LiveRun({
       </div>
       {line && (
         <p className="hint run-live-about" title={line}>
-          {row.rule ? `${row.rule} · ` : ""}
           {row.by ? t("{what} — from {who}", { what: line, who: row.by }) : line}
         </p>
       )}
@@ -566,7 +568,7 @@ function LiveRun({
           <div className="run-table-head">
             <span>{t("Run")}</span>
             <span>{t("State")}</span>
-            <span>{t("Rule")}</span>
+            <span>{t("Woke")}</span>
             <span>{t("Steps")}</span>
             <span>{t("When")}</span>
             <span>{t("Actions")}</span>

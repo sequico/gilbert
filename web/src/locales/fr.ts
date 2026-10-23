@@ -647,7 +647,7 @@ export const catalog: Catalog = {
     Rules: "Règles",
     Run: "Exécution",
     State: "État",
-    Rule: "Règle",
+
     Steps: "Étapes",
     "Touched: {touched}.": "Touché : {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
