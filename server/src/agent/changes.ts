@@ -13,7 +13,7 @@ import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
 import { areaOfSource } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
-import { addressesAgent, addressedToAgent } from "../shared/chat.js";
+import { addressedToAgent, addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";

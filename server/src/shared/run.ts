@@ -258,7 +258,7 @@ export function openQuestionsOf(
   for (const run of runs) {
     if (run.state !== "blocked") continue;
     const asked = run.waiting?.asked;
-    if (!asked || asked.channel !== "chat") continue;
+    if (asked?.channel !== "chat") continue;
     questions.push({
       runId: run.id,
       messageId: asked.id,

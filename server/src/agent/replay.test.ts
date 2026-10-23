@@ -11,8 +11,8 @@
  */
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { isRecord } from "../shared/json.js";
 import { type RecordedCall, recordedCalls } from "./eval/replay.js";
 import {

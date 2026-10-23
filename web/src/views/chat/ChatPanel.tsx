@@ -8,6 +8,8 @@
  * composer. Everything here is a view over the chat store; the durable data
  * lives in the group accounts' own Files.
  */
+
+import { type OpenQuestion, openQuestionsOf } from "@gilbert/shared/run";
 import {
   CircleHelp,
   Clock,
@@ -39,7 +41,6 @@ import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
-import { openQuestionsOf, type OpenQuestion } from "@gilbert/shared/run";
 import { GroupRuns, StopRun } from "@/views/admin/agents/GroupRuns";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 

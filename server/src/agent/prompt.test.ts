@@ -3,7 +3,6 @@ import { test } from "node:test";
 import type { RunStep } from "../shared/run.js";
 import type { DecisionQuestion, StepQuestion } from "./model.js";
 import {
-  OUTCOME_IN_PROMPT_MAX,
   READ_IN_PROMPT_MAX,
   STEP_OUTCOME_FULL_MAX,
   STEP_OUTCOME_OLD_MAX,
