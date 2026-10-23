@@ -3086,6 +3086,14 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .run-row-id { font-family: var(--font-mono); font-size: .82em; font-weight: 600; }
 .run-row-meta { font-size: .78em; color: var(--fg-muted); }
 .run-row-body { padding: 6px 2px 14px; }
+/* The live list in the chat's runs panel: the same table, fewer columns. */
+.run-table.live { --run-cols: 96px minmax(110px, 1fr) 110px auto; }
+.run-live { border-bottom: 1px solid var(--border); padding: 2px 0 6px; }
+.run-live-row {
+  display: grid; grid-template-columns: var(--run-cols); gap: 8px;
+  align-items: center; padding: 6px 2px;
+}
+.run-live-about { margin: 2px 0 4px; }
 .run-archive {
   display: flex; align-items: center; gap: 8px; margin: 8px 0 4px;
   font-size: .85em;

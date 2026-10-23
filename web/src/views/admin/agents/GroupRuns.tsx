@@ -294,20 +294,26 @@ function LiveRun({
 }) {
   const line = row.about ?? row.woke;
   return (
-    <div className="run-current" style={{ marginBottom: 6 }}>
-      <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span className={`run-state run-state-${row.state}`}>
-          {row.state && t(RUN_STATE_LABELS[row.state])}
+    <div className="run-live">
+      <div className="run-live-row">
+        <span className="run-cell">
+          <span className={`run-state run-state-${row.state}`}>
+            {row.state && t(RUN_STATE_LABELS[row.state])}
+          </span>
         </span>
-        <span className="run-row-id">{row.id}</span>
-        {row.rule && <span className="run-row-meta">{row.rule}</span>}
-        {row.startedAt && (
-          <span className="run-row-meta">{formatFullDate(row.startedAt)}</span>
-        )}
-        <StopRun group={group} id={row.id} onStopped={onStopped} />
+        <span className="run-cell run-row-id" title={row.id}>
+          {row.id}
+        </span>
+        <span className="run-cell run-row-meta">
+          {row.startedAt ? formatFullDate(row.startedAt) : "—"}
+        </span>
+        <span className="run-cell run-cell-action">
+          <StopRun group={group} id={row.id} onStopped={onStopped} />
+        </span>
       </div>
       {line && (
-        <p className="hint" style={{ margin: "4px 0 0" }} title={line}>
+        <p className="hint run-live-about" title={line}>
+          {row.rule ? `${row.rule} · ` : ""}
           {row.by ? t("{what} — from {who}", { what: line, who: row.by }) : line}
         </p>
       )}
@@ -555,13 +561,21 @@ function LiveRun({
           title={runningOnly ? t("Nothing is running") : t("Nothing here yet.")}
         />
       )}
-      <div className="run-table" style={{ marginTop: 12 }}>
+      <div className={`run-table ${runningOnly ? "live" : ""}`} style={{ marginTop: 12 }}>
         {!runningOnly && (
           <div className="run-table-head">
             <span>{t("Run")}</span>
             <span>{t("State")}</span>
             <span>{t("Rule")}</span>
             <span>{t("Steps")}</span>
+            <span>{t("When")}</span>
+            <span>{t("Actions")}</span>
+          </div>
+        )}
+        {runningOnly && (
+          <div className="run-table-head">
+            <span>{t("State")}</span>
+            <span>{t("Run")}</span>
             <span>{t("When")}</span>
             <span>{t("Actions")}</span>
           </div>
