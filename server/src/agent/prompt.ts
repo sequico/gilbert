@@ -159,8 +159,17 @@ export function clipped(text: string, max = OUTCOME_IN_PROMPT_MAX): string {
 export function stepData(question: StepQuestion): string {
   const token = randomUUID().slice(0, 8);
   const whole = carriedWhole(question.plan);
-  const done = question.plan.map((step, index) =>
-    dataBlock(token, [
+  const seen = new Map<string, number>();
+  const done = question.plan.map((step, index) => {
+    const first = seen.get(step.what);
+    if (first !== undefined)
+      return dataBlock(token, [
+        `step ${index + 1}: ${step.what}`,
+        `state: ${step.state}`,
+        `same call as step ${first + 1}; its answer is there and is not repeated.`,
+      ]);
+    seen.set(step.what, index);
+    return dataBlock(token, [
       `step ${index + 1}: ${step.what}`,
       `state: ${step.state}`,
       // What it waited on, so the model sees the plan's own shape and can name a
@@ -169,8 +178,8 @@ export function stepData(question: StepQuestion): string {
         ? [`waits on: step ${step.needs.step + 1} ending "${step.needs.when}"`]
         : []),
       `outcome: ${outcomeOf(step.outcome, whole.has(index))}`,
-    ]),
-  );
+    ]);
+  });
   return [
     "The change that woke this run:",
     dataBlock(token, [question.woke]),
@@ -209,7 +218,7 @@ export function stepData(question: StepQuestion): string {
           ),
         ]
       : []),
-    "What this run has done so far, and what each step answered:",
+    "What this run has done so far, and what each step answered. A step that says it is the same call as an earlier one is answered there; do not repeat it:",
     ...(done.length ? done : [dataBlock(token, ["(nothing yet)"])]),
     ...(question.plan.some(
       (step, index) => !whole.has(index) && step.outcome.length > STEP_OUTCOME_OLD_MAX,

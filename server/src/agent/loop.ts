@@ -193,17 +193,6 @@ const RUN_CALLS_MAX = 40;
 const RUN_MS_MAX = 5 * 60_000;
 
 /**
- * How many times a run may make the same call before it is stopped as a loop.
- *
- * A call identical to one this run already made is answered from the earlier
- * step, never made again (`loop.ts`'s wave), but a model can keep proposing it;
- * the plan then grows with the same reading until the token budget ends a run
- * that never made progress. Three occurrences are the first and two repeats,
- * which is a loop rather than a second look.
- */
-const RUN_REPEAT_MAX = 3;
-
-/**
  * How many steps of one wave run at once.
  *
  * A model's answer that reaches for the same folder thirteen times is one
@@ -1700,24 +1689,6 @@ export class AgentLoop {
      * rounds with its budget untouched, which is the ending this replaces.
      */
     for (;;) {
-      /*
-       * A model that keeps proposing a call this run already answered is not
-       * making progress: the step is answered from the record (below), but the
-       * plan grows and the next call pays for the same reading again. Stop at
-       * the third occurrence rather than spend the whole token budget on it.
-       */
-      const repeated = repeatedCall(current.plan);
-      if (repeated)
-        return await this.endRun(
-          accountId,
-          current,
-          "refused",
-          {
-            at: new Date().toISOString(),
-            why: `the model repeated the same call ${repeated.times} times without making progress, so the run stopped: ${repeated.what}`,
-          },
-          token,
-        );
       const over = overBudget(current, this.limits.maxRunTokens);
       if (over) {
         return await this.endRun(
@@ -3068,23 +3039,6 @@ function overBudget(run: RunDoc, maxRunTokens: number): string | null {
   if (run.spent.ms >= RUN_MS_MAX) return `it spent ${RUN_MS_MAX} ms of work`;
   const tokens = (run.spent.promptTokens ?? 0) + (run.spent.completionTokens ?? 0);
   if (tokens >= maxRunTokens) return `it spent ${maxRunTokens} tokens`;
-  return null;
-}
-
-/**
- * The first call this run's plan holds more than the repeat ceiling, or null.
- *
- * The plan's `what` is the call and its arguments, so an identical entry is the
- * same reading: three of them are the loop the token budget would otherwise pay
- * for. The earlier outcome is already in the record; the run says it stopped.
- */
-function repeatedCall(plan: RunDoc["plan"]): { what: string; times: number } | null {
-  const seen = new Map<string, number>();
-  for (const step of plan) {
-    const times = (seen.get(step.what) ?? 0) + 1;
-    if (times >= RUN_REPEAT_MAX) return { what: step.what, times };
-    seen.set(step.what, times);
-  }
   return null;
 }
 

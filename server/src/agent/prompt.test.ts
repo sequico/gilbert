@@ -61,6 +61,31 @@ test("an old step's outcome is carried as its beginning, the last few whole", ()
   assert.ok(prompt.includes(`step ${plan.length}`), "the plan's own shape is untouched");
 });
 
+test("a repeated call is shown once, and the repeat points at the answer", () => {
+  const plan: RunStep[] = [
+    {
+      what: 'find {"kind":"folders"}',
+      state: "done",
+      outcome: "the folders it holds",
+      needs: null,
+    },
+    {
+      what: 'find {"kind":"folders"}',
+      state: "done",
+      outcome: "the folders it holds",
+      needs: null,
+    },
+  ];
+  const prompt = stepData({ woke: "chat created: c-1", plan, prose: {} } as StepQuestion);
+
+  assert.equal(
+    prompt.split("the folders it holds").length - 1,
+    1,
+    "the answer is carried once, not once per proposal",
+  );
+  assert.match(prompt, /same call as step 1/, "the repeat names the step that answered");
+});
+
 test("a step a later step waits on is carried whole however old it is", () => {
   const plan: RunStep[] = [
     ended(0),

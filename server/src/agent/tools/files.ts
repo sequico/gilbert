@@ -89,10 +89,12 @@ export const listFiles = defineTool({
         },
       ];
     });
+    // The counts come first: a long listing is clipped by the prompt, and a
+    // clipped answer that does not state its total reads as the whole folder.
     return {
-      nodes: nodes.slice(0, limit),
       total: nodes.length,
       truncated: nodes.length > limit,
+      nodes: nodes.slice(0, limit),
     };
   },
 });
