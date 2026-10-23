@@ -14,7 +14,8 @@
  * - a pass is asked every ten seconds, and one at a time;
  * - a pass that worked and found nothing to do writes nothing at all;
  * - the Master working no group is said once, and once again when it holds one;
- * - a pass that throws is logged and the next one still runs;
+ * - a pass that throws is logged and the next one still runs, except a full
+ *   upload allowance, which pauses the schedule until the window drains;
  * - a claim a peer holds is waited out, not fought for, and not reported as a
  *   failure;
  * - `stop()` gives up the schedule.
@@ -50,8 +51,16 @@ process.env.STALWART_URL = `http://127.0.0.1:${SESSION_PORT}`;
 
 const { environmentConfiguration } = await import("../configuration.js");
 const { installationDefaults } = await import("../shared/installation.js");
-const { resolveGroupAccounts, startAgent, supervise, AGENT_PASS_INTERVAL_MS } =
-  await import("./supervisor.js");
+const {
+  resolveGroupAccounts,
+  startAgent,
+  supervise,
+  AGENT_PASS_INTERVAL_MS,
+  QUOTA_PAUSE_MS,
+} = await import("./supervisor.js");
+// Imported after the environment is staged: `upstream.ts` reads `config.ts`,
+// which resolves `STALWART_URL` when it first loads.
+const { UpstreamError } = await import("../upstream.js");
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -95,13 +104,14 @@ interface StandIn {
   /** The accounts a pass answers it worked: zero is a Master holding no group. */
   accounts: number;
   /** Make the next `count` passes throw instead of working. */
-  failNext: (count: number) => void;
+  failNext: (count: number, reason?: unknown) => void;
   /** Whether the loop's own alarms were given up. */
   stopped: boolean;
 }
 
 function standInLoop(): StandIn {
   let failures = 0;
+  let failure: unknown = new Error("the mail server did not answer");
   let active = 0;
   const state: StandIn = {
     passes: 0,
@@ -110,8 +120,9 @@ function standInLoop(): StandIn {
     held: false,
     accounts: 1,
     stopped: false,
-    failNext: (count: number) => {
+    failNext: (count: number, reason?: unknown) => {
       failures = count;
+      if (reason !== undefined) failure = reason;
     },
     loop: {
       async pass(): Promise<PassSummary> {
@@ -122,7 +133,7 @@ function standInLoop(): StandIn {
         active -= 1;
         if (failures > 0) {
           failures -= 1;
-          throw new Error("the mail server did not answer");
+          throw failure;
         }
         return passSummary(!state.held, state.accounts);
       },
@@ -490,6 +501,37 @@ test("a pass that throws is logged, and the next one still runs", async (t) => {
   assert.match(failuresIn(lines)[0] ?? "", /the mail server did not answer/);
   await waitFor(() => stand.passes >= 4);
   assert.ok(stand.passes >= 4, "and the schedule went on asking");
+});
+
+test("a full upload allowance pauses the schedule instead of spending the next pass", async (t) => {
+  /*
+   * Stalwart counts a rejected upload towards the allowance, so the ordinary
+   * interval keeps an account at its ceiling rather than letting the window
+   * drain. The supervisor waits, then asks again.
+   */
+  const stand = standInLoop();
+  const { lines, log } = collector();
+  let clock = Date.UTC(2026, 9, 23, 12, 0, 0);
+  stand.failNext(1, new UpstreamError("Stalwart rejected the upload (429)", 429));
+  const process = supervise({
+    loop: stand.loop,
+    intervalMs: 10,
+    log,
+    now: () => new Date(clock),
+  });
+  t.after(() => process.stop());
+  await waitFor(() => lines.some((line) => /upload allowance is full/.test(line)));
+  assert.match(
+    lines.join("\n"),
+    /upload allowance is full, so the agent pauses for 15 minutes/,
+    "the pause is said once, with its length",
+  );
+  const asked = stand.passes;
+  await sleep(80);
+  assert.equal(stand.passes, asked, "no pass is asked while the allowance is full");
+  clock += QUOTA_PAUSE_MS;
+  await waitFor(() => stand.passes > asked);
+  assert.ok(stand.passes > asked, "and the schedule asks again once the pause ends");
 });
 
 test("a gap is said when it appears, and said again when it comes back", async (t) => {

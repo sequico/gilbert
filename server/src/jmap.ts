@@ -362,7 +362,7 @@ export class JmapClient {
     if (!res.ok)
       throw new UpstreamError(
         `Stalwart rejected the upload (${res.status})${await refusalDetail(res)}`,
-        502,
+        res.status === 429 ? 429 : 502,
       );
     const parsed = (await res.json()) as { blobId?: unknown };
     if (typeof parsed.blobId !== "string")

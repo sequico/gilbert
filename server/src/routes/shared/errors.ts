@@ -29,6 +29,8 @@ function upstreamFailureMessage(error: string): string {
       return "The mail server refused this request for this account.";
     case "not_found":
       return "The mail server has nothing at that address.";
+    case "upstream_quota":
+      return "The mail server's upload allowance is full right now, so nothing was written. Try again later.";
     default:
       return "The mail server could not complete the request. This is not a problem with your password.";
   }
@@ -54,11 +56,13 @@ export function upstreamFailure(c: Context, err: unknown) {
   if (err instanceof AppFolderError && err.status >= 400 && err.status < 500)
     return c.json(...refusal(err));
   if (err instanceof UpstreamError) {
-    // A 403 is a permission and a 404 a missing object: the code keeps the
-    // reason the mail server distinguished, rather than collapsing both into a
-    // generic upstream failure.
+    // A 403 is a permission, a 404 a missing object and a 429 an exhausted
+    // allowance: the code keeps the reason the mail server distinguished, rather
+    // than collapsing all of them into a generic upstream failure.
     const status =
-      err.status === 401 || err.status === 403 || err.status === 404 ? err.status : 502;
+      err.status === 401 || err.status === 403 || err.status === 404 || err.status === 429
+        ? err.status
+        : 502;
     const error =
       status === 401
         ? "invalid_credentials"
@@ -66,7 +70,9 @@ export function upstreamFailure(c: Context, err: unknown) {
           ? "forbidden"
           : status === 404
             ? "not_found"
-            : "upstream_error";
+            : status === 429
+              ? "upstream_quota"
+              : "upstream_error";
     // The message can carry a refusal detail read from the mail server's own
     // answer; it belongs in the log, not in the response.
     console.error(`[gilbert] upstream failure (${status}):`, err.message);

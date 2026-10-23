@@ -486,6 +486,20 @@ test("an upstream failure answers a fixed sentence, not the mail server's messag
     assert.equal(calls.at(-1)!.status, 502);
     assert.equal(calls.at(-1)!.body.error, "upstream_error");
     assert.doesNotMatch(String(calls.at(-1)!.body.message), /(500)|secret/);
+
+    // A full upload allowance is not a generic failure: it is the one an
+    // administrator can act on, and the account recovers when the window drains.
+    upstreamFailure(
+      fake,
+      new UpstreamError(
+        'Stalwart rejected the upload (429): {"title":"Quota exceeded"}',
+        429,
+      ),
+    );
+    assert.equal(calls.at(-1)!.status, 429);
+    assert.equal(calls.at(-1)!.body.error, "upstream_quota");
+    assert.match(String(calls.at(-1)!.body.message), /upload allowance is full/);
+    assert.doesNotMatch(String(calls.at(-1)!.body.message), /429|Quota exceeded/);
   } finally {
     console.error = quiet;
   }

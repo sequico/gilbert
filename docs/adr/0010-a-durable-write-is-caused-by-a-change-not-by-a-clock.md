@@ -11,20 +11,22 @@ its own (`server/src/sessions.ts`).
 ## Context
 
 Every durable byte lives in Stalwart (ADR 0001), and a document is stored as a
-blob. An account is charged for the blobs it uploads against a finite upload
-quota (1000 files or 50 MB on the servers this is deployed against), and JMAP
-offers no way to remove one: a blob that is no longer referenced is not a blob
-that has been given back. A write is therefore not only work — it is a
-permanent expenditure of the account's budget, counted in documents rather than
-in size.
+blob. An account is charged for the blobs it uploads against a rolling upload
+allowance (1000 files or 50 MB per window, one hour by default on the servers
+this is deployed against), and Stalwart counts a refused upload too: a stream of
+retries holds an account at the ceiling instead of letting the window drain.
+JMAP offers no way to give a blob back; a blob nothing references is temporary
+and the server reclaims it after the window, but until then the allowance is
+spent.
 
-A write on a clock spends that budget on nothing. A sessions document writing
-itself once a minute for as long as anybody is signed in is one account's quota
-gone in about a day, and it is not work: it says that a process is alive, or
-that somebody has used a session recently, and neither fact needs to be durable
-to be true. The symptom is not
-a slow leak but a wall: once an account is past its quota, *every* write in it
-fails, so the next person to save an instruction meets an error about uploads.
+A write on a clock spends that allowance on nothing. A sessions document writing
+itself once a minute for as long as anybody is signed in is one account's
+allowance gone in about a day, and it is not work: it says that a process is
+alive, or that somebody has used a session recently, and neither fact needs to be
+durable to be true. The symptom is not
+a slow leak but a wall: once an account is past its allowance, *every* write in
+it fails until the window drains, so the next person to save an instruction
+meets an error about uploads.
 
 ## Decision
 
@@ -49,14 +51,14 @@ written is held in the process instead.
 
 ## Consequences
 
-- An idle installation consumes no quota, and a busy one consumes it in
-  proportion to work done — which is what a quota can be sized against.
+- An idle installation consumes no allowance, and a busy one consumes it in
+  proportion to work done — which is what an allowance can be sized against.
 - A restart relaxes a sliding session window to the last one written: a session
   idle for longer than that window ends. That is the safe direction for an idle
   timeout, and it is the price of not writing on a clock.
-- The quota is still per account and still finite: an installation must fit its
-  work inside it, and the retention a group decides for its own mail, files and
-  documents is what keeps a busy account from filling.
-- A blob already spent is not recoverable; an account that has been driven past
-  its quota is relieved by raising the quota or by recreating the account, not
-  by this rule.
+- The allowance is per account and finite within its window: an installation
+  must fit its work inside it, and the retention a group decides for its own
+  mail, files and documents is what keeps a busy account from filling.
+- A saturated window drains when uploads stop, so waiting is the first relief;
+  an installation whose work does not fit raises the allowance or grants the
+  account Stalwart's `UnlimitedUploads`, not by this rule.

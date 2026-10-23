@@ -42,7 +42,11 @@
  * reason and the schedule goes on: the next pass is the retry, and a run is a
  * document precisely so a failed pass loses nothing. Nothing is retried in a
  * tight loop, because a pass that failed against a broken Stalwart fails again
- * the moment it is repeated.
+ * the moment it is repeated. **A full upload allowance is the exception**: a
+ * rejected upload spends the allowance too, so the ordinary retry would keep the
+ * account at its ceiling; that pass pauses the schedule long enough for the
+ * server's window to drain (`QUOTA_PAUSE_MS`), and the pause is one line rather
+ * than a failure every interval.
  *
  * **A claim a peer holds is not an error.** The loop answers such a pass without
  * working anything (ADR 0032), which is one installation with one agent: this
@@ -73,7 +77,7 @@ import type { BootConfiguration } from "../bootstrap.js";
 import { groupAccountsDetailed } from "../groupAccess.js";
 import { errorMessage } from "../shared/errors.js";
 import { groupCandidates } from "../shared/sessionAccount.js";
-import { fetchUpstreamSession, upstreamFor } from "../upstream.js";
+import { fetchUpstreamSession, UpstreamError, upstreamFor } from "../upstream.js";
 import { AgentLoop, type PassSummary } from "./loop.js";
 import { modelAccess, setRunningModelAccess } from "./model.js";
 import { agentWakeStatus } from "./wake.js";
@@ -113,6 +117,16 @@ export const AGENT_PASS_INTERVAL_WITH_WAKE_MS = 30_000;
  * in it.
  */
 export const SLOW_PASS_MS = 30_000;
+
+/**
+ * How long a pass waits after the mail server's upload allowance is full.
+ *
+ * Stalwart counts a rejected upload towards the allowance too, so asking again
+ * on the ordinary interval keeps the account at its ceiling instead of letting
+ * the window drain. Fifteen minutes is short enough to notice the allowance
+ * return and long enough that a full window is not spent again.
+ */
+export const QUOTA_PAUSE_MS = 15 * 60_000;
 
 /** How long pushes are gathered before one pass is asked for. */
 const KICK_COALESCE_MS = 500;
@@ -197,9 +211,15 @@ export function supervise(options: SupervisorOptions): AgentProcess {
    * same sentence ten seconds later, and a fault that has gone stops being said.
    */
   let saidGaps = new Set<string>();
+  /**
+   * A full upload allowance pauses the schedule until this instant: a rejected
+   * upload spends the allowance too, so the ordinary retry would keep the
+   * account at the ceiling rather than let the window drain.
+   */
+  let pausedUntil = 0;
 
   function pass(): Promise<void> {
-    if (stopped) return Promise.resolve();
+    if (stopped || now().getTime() < pausedUntil) return Promise.resolve();
     if (inFlight) {
       queued = true;
       return inFlight;
@@ -239,9 +259,16 @@ export function supervise(options: SupervisorOptions): AgentProcess {
           );
         }
       } catch (err) {
-        log(
-          `[gilbert] agent: the pass failed and the next one will try again: ${errorMessage(err)}`,
-        );
+        if (err instanceof UpstreamError && err.status === 429) {
+          pausedUntil = now().getTime() + QUOTA_PAUSE_MS;
+          log(
+            `[gilbert] agent: the mail server's upload allowance is full, so the agent pauses for ${Math.round(QUOTA_PAUSE_MS / 60_000)} minutes`,
+          );
+        } else {
+          log(
+            `[gilbert] agent: the pass failed and the next one will try again: ${errorMessage(err)}`,
+          );
+        }
       } finally {
         if (queued && !stopped) {
           queued = false;
