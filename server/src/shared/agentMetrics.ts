@@ -12,6 +12,7 @@ import type { RunSummary } from "./run.js";
 
 export interface RunMetrics {
   runs: number;
+  /** Plan steps across the runs, the same count the tables draw. */
   steps: number;
   calls: number;
   ms: number;

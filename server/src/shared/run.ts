@@ -150,9 +150,10 @@ interface RunStart {
    */
   wakeFrom?: string | null;
   /**
-   * The surface matrix the group's instruction carried when the run opened
-   * (ADR 0038): what it may write on, and what woke it. A run written before the
-   * matrix carries none, and may write where it did before.
+   * The write matrix the areas gave when the run opened (ADR 0038): what it may
+   * write on. What woke it is the instruction's own surface at the change, read
+   * by the pass; a run written before the matrix carries none, and may write
+   * where it did before.
    */
   surfaces?: SurfaceMatrix;
   /**
@@ -329,7 +330,10 @@ interface RunEvidence {
  * of its ceilings: they say what the work cost, not when the run must stop.
  */
 export interface RunSpent {
-  /** Plan steps that ended. */
+  /**
+   * Steps the step budget charged: a refused act or a wait, not every free read.
+   * The plan's own count is `RunSummary.steps`.
+   */
   steps: number;
   /** Model calls the run made. */
   calls: number;
