@@ -67,15 +67,16 @@ const SUMMARY = {
 };
 
 const FACT = {
-  v: 2,
+  v: 4,
   id: "fact-maersk",
-  subject: "Maersk",
+  entity: "entity-maersk",
+  predicate: "is",
+  value: { text: "the usual shipper" },
   fact: "the usual shipper",
   origin: { by: "run", run: "surface-run" },
   at: "2026-10-17T08:00:00.000Z",
-  links: [],
-  standing: false,
-  group: "g1",
+  validFrom: "2026-10-17T08:00:00.000Z",
+  entityName: "Maersk",
 };
 
 describe("the agent's administration surface", () => {
@@ -115,7 +116,7 @@ describe("the agent's administration surface", () => {
         return answer({
           fact: {
             ...(facts[0] as Record<string, unknown>),
-            subject: (JSON.parse(String(init.body)) as { subject: string }).subject,
+            entityName: (JSON.parse(String(init.body)) as { subject: string }).subject,
             fact: (JSON.parse(String(init.body)) as { fact: string }).fact,
             origin: { by: "person", who: "admin@example.com" },
           },
