@@ -71,6 +71,29 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   key in the installation document (ADR 0009), the rule for which turn uses
   which, and the administration's surface for the pair.
 
+- **An outside agent harness is not adopted — to evaluate, not decided.** The
+  loop, the tool catalogue and the run document are Gilbert's own, and the
+  question left open is whether the transport, or the whole harness, should come
+  from outside. Read from npm and GitHub, the four candidates cost this: `ai`
+  (Vercel, Apache-2.0) ships a major roughly every six months — seven since 2023
+  — with ~650 releases a year, three direct dependencies and its gateway in the
+  tree; `@openai/agents` (MIT) is still `0.x`, so any minor may break it;
+  `@langchain/langgraph` (MIT) is the most disciplined, one major in 2.7 years,
+  but its checkpointer is a database; `mastra` carries 21 direct dependencies
+  that spawn processes, write files and report telemetry, so it cannot run in a
+  container with no writable filesystem; the Claude Agent SDK is not open source
+  and drives a proprietary binary over Anthropic's own auth. The rule that
+  decides any of them is the one already true of every dependency here: **an
+  outside component may enter only if its state is the run document, or it holds
+  no state at all.** Re-open when one of these is true and not before: a second
+  provider family that is not OpenAI-compatible is served; the time goes into
+  parsing a transport rather than into jobs and instructions; the interface
+  needs the turn streamed; `@openai/agents` reaches 1.0 with a session that can
+  be a document. The other direction — Gilbert as an MCP verb surface, with the
+  brain supplied by an operator's own harness — is the same question from the
+  other side: it needs an administrator-approved MCP trust boundary and leaves
+  the installation unable to work alone, so it is part of this same evaluation.
+
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier
   design and named by a client that spoke a different vocabulary; nothing in the
