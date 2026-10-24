@@ -297,6 +297,17 @@ describe("the Trash as a node of its own", () => {
     );
     expect(fake.sets).toHaveLength(0);
   });
+
+  it("is never an upload target", async () => {
+    const fake = server([dir("trash", "Trash", null)]);
+    browse(OWN, OWN, fake.nodes);
+
+    await useFiles.getState().upload("trash", [new File(["x"], "a.txt")]);
+    await useFiles.getState().uploadPlan("trash", { files: [], dirs: [] });
+
+    // Nothing was written: no node was created and no level was set.
+    expect(fake.sets).toHaveLength(0);
+  });
 });
 
 describe("ending what is in the Trash", () => {

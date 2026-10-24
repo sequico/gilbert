@@ -1,4 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import { isTrashFolder } from "@gilbert/shared/trash";
 import type { Id } from "@/jmap/types";
 import { folderPathKey, foldersNeeded } from "@/lib/dropUpload";
 import { isAlreadyExists } from "@/lib/filenode";
@@ -26,6 +27,20 @@ import type { FilesGet, FilesSet, FilesState } from "../types";
  * A slice of the files store: the state is assembled in `../index`, and this
  * function only says what this job does with `set` and `get`.
  */
+/**
+ * Whether an upload is aimed at the Trash, where nothing is put (ADR 0013).
+ *
+ * A node gets into the Trash by being deleted, which is what remembers where it
+ * came from; an upload there would be a document with nowhere to go back to.
+ * The surfaces already refuse the gesture, and this is the same rule one layer
+ * down, where a second caller cannot forget it. A target the store has not read
+ * is left to the server, as everywhere else in this module.
+ */
+function isTrashTarget(get: FilesGet, parentId: Id | null): boolean {
+  const node = parentId ? get().nodes[parentId] : undefined;
+  return Boolean(node) && isTrashFolder(node!);
+}
+
 export function uploadsSlice(
   set: FilesSet,
   get: FilesGet,
@@ -42,6 +57,7 @@ export function uploadsSlice(
      * listing on top of them.
      */
     async upload(parentId, files) {
+      if (isTrashTarget(get, parentId)) return;
       const accountId = get().accountId!;
       /* One run for the whole picker selection, so a file that is taking too
        long is a thing the reader can stop -- together with the files of the
@@ -151,6 +167,7 @@ export function uploadsSlice(
      * comes to scatter files somewhere nobody chose.
      */
     async uploadPlan(parentId, plan) {
+      if (isTrashTarget(get, parentId)) return;
       const accountId = get().accountId!;
       /* One run for the whole dropped tree, so a folder of two hundred items is
        one thing the reader can stop: the file in flight, and every file of the

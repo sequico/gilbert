@@ -74,11 +74,13 @@ Trash: a real top-level folder, created by the first deletion, whose internal
 name is `Trash` and whose label every surface draws translated. A top-level
 folder already carrying that name **is** the Trash — the name is the whole
 identity, as it is for `gilbert`. A folder arrives in it whole, and restoring
-moves it back with everything under it. So the act a person takes on ordinary
-data is reversible everywhere, and what remains final is two things: emptying
-the Trash, and deleting one item inside it for good. Both are final steps in an
-account the member does not own, and both are the ones this record decides
-about.
+moves it back with everything under it. Nothing is **written** into it: a node
+gets there by being deleted, and the product's own writers, the agent's included,
+refuse it as a destination — a Trash a tool could file into would hold nodes
+with no origin to restore them to. So the act a person takes on ordinary data is
+reversible everywhere, and what remains final is two things: emptying the Trash,
+and deleting one item inside it for good. Both are final steps in an account the
+member does not own, and both are the ones this record decides about.
 
 ## Decision
 
