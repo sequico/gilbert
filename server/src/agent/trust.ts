@@ -68,11 +68,19 @@
 
 import { sameAddress } from "../shared/address.js";
 
-/** The property the hops a message made are read from, topmost first. */
-const HOPS = "header:Received:asText:all";
+/**
+ * The JMAP property a message's hops are read from, topmost first.
+ *
+ * Exported because it is a **wire contract with two readers**: this module's
+ * policy asks what the line says, and the mail layer that fetches the message
+ * (`readMessageForAnswer`) must ask the server for exactly this property. Two
+ * spellings of it would leave the policy reading nothing while the fetch looked
+ * right.
+ */
+export const RECEIVED_HOPS = "header:Received:asText:all";
 
 /** The property the agent's own sends are marked with (ADR 0029). */
-const RUN_MARK = "header:X-Gilbert-Run:asText";
+export const RUN_MARK = "header:X-Gilbert-Run:asText";
 
 /**
  * What one received message carries, as the mail layer hands it over: the
@@ -84,7 +92,7 @@ const RUN_MARK = "header:X-Gilbert-Run:asText";
  */
 export interface ReceivedMessage {
   from?: ReadonlyArray<{ email?: string | null }> | null;
-  [HOPS]?: ReadonlyArray<string> | null;
+  [RECEIVED_HOPS]?: ReadonlyArray<string> | null;
   [RUN_MARK]?: string | null;
 }
 
@@ -212,7 +220,7 @@ function markOf(msg: ReceivedMessage): string | null {
  * missing or unreadable is answered as nobody's word rather than guessed at.
  */
 function arrivalOf(msg: ReceivedMessage): Arrival | null {
-  const hop = (msg[HOPS] ?? [])[0];
+  const hop = (msg[RECEIVED_HOPS] ?? [])[0];
   if (typeof hop !== "string") return null;
   if (SUBMISSION.test(hop)) return { kind: "submitted", sender: submitterOf(hop) };
   return PEER.test(hop) ? { kind: "outside" } : null;

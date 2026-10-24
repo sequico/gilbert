@@ -35,7 +35,7 @@ import {
 } from "../../shared/search.js";
 import { replySubject } from "../../shared/text.js";
 import { clientOf } from "../../util.js";
-import { personWord, type TrustRefusal } from "../trust.js";
+import { personWord, RECEIVED_HOPS, RUN_MARK, type TrustRefusal } from "../trust.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
@@ -526,8 +526,8 @@ export async function readMessageForAnswer(
         "inReplyTo",
         "references",
         "messageId",
-        "header:Received:asText:all",
-        "header:X-Gilbert-Run:asText",
+        RECEIVED_HOPS,
+        RUN_MARK,
       ],
       fetchTextBodyValues: true,
       maxBodyValueBytes: MESSAGE_BODY_MAX,
@@ -546,12 +546,8 @@ export async function readMessageForAnswer(
   const from = addressesIn(message.from)[0]?.email ?? null;
   const arrival = {
     from: message.from as ReadonlyArray<{ email?: string | null }> | null,
-    "header:Received:asText:all": message[
-      "header:Received:asText:all"
-    ] as ReadonlyArray<string> | null,
-    "header:X-Gilbert-Run:asText": message["header:X-Gilbert-Run:asText"] as
-      | string
-      | null,
+    [RECEIVED_HOPS]: message[RECEIVED_HOPS] as ReadonlyArray<string> | null,
+    [RUN_MARK]: message[RUN_MARK] as string | null,
   };
   const decision = personWord(arrival, asker);
   return {
