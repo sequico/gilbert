@@ -138,3 +138,42 @@ describe("the request deadline", () => {
     expect(seen.signal?.aborted).toBe(true);
   });
 });
+
+/**
+ * A caller's headers travel in whichever shape the type allows.
+ *
+ * `RequestInit.headers` accepts a record, a `Headers` instance or pairs, and
+ * spreading a `Headers` yields nothing: a caller's headers disappeared in
+ * silence and the request went out with the defaults alone. The defaults stay
+ * (the proxy expects them); what changes is that the caller's are kept.
+ */
+describe("the request's headers", () => {
+  const seenFetch = (seen: { headers?: unknown }) =>
+    vi.fn(async (_url: string, init: RequestInit) => {
+      seen.headers = init.headers;
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+  it("keeps a caller's headers handed in as a record", async () => {
+    const seen: { headers?: unknown } = {};
+    vi.stubGlobal("fetch", seenFetch(seen));
+    await apiFetch("/api/x", { headers: { "x-caller": "1" } });
+    expect(seen.headers).toMatchObject({
+      "x-caller": "1",
+      "x-requested-with": "gilbert",
+    });
+  });
+
+  it("keeps a caller's headers handed in as a Headers instance", async () => {
+    const seen: { headers?: unknown } = {};
+    vi.stubGlobal("fetch", seenFetch(seen));
+    await apiFetch("/api/x", { headers: new Headers({ "x-caller": "2" }) });
+    expect(seen.headers).toMatchObject({
+      "x-caller": "2",
+      "x-requested-with": "gilbert",
+    });
+  });
+});

@@ -181,7 +181,11 @@ export async function apiFetch<T = unknown>(
           ...init,
           headers: {
             ...HEADERS,
-            ...(init.headers as Record<string, string> | undefined),
+            // A caller may hand a `Headers` instance rather than a record, and
+            // spreading one yields nothing: its headers would vanish in silence.
+            ...(init.headers instanceof Headers
+              ? Object.fromEntries(init.headers)
+              : (init.headers as Record<string, string> | undefined)),
           },
           credentials: "same-origin",
           // The caller's signal may cancel the request; the deadline bounds it
