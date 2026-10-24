@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseTrashDocument } from "@gilbert/shared/trash";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
 import { useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
@@ -75,7 +75,7 @@ function server(seed: Obj[]) {
     sets.push(args as Record<string, unknown>);
     const created: Record<string, Obj> = {};
     for (const [key, props] of Object.entries(args.create ?? {})) {
-      const node = { id: `new-${next++}`, myRights: {}, ...props } as Obj;
+      const node = { myRights: {}, ...props, id: `new-${next++}` } as Obj;
       nodes.push(node);
       created[key] = node;
     }
@@ -150,7 +150,15 @@ function browse(accountId: string, ownAccountId: string, nodes: Obj[]): void {
 }
 
 function signedInAs(isAdmin: boolean): void {
-  useSession.setState({ session: { gilbert: { isAdmin } } as never });
+  /*
+   * `status` as well as the session: the files store drops the account it is
+   * browsing whenever the session stops being authenticated, so a test that set
+   * only the session would empty the store under itself.
+   */
+  useSession.setState({
+    status: "authenticated",
+    session: { gilbert: { isAdmin } } as never,
+  });
 }
 
 afterEach(() => {
@@ -165,7 +173,7 @@ afterEach(() => {
     runs: [],
     error: null,
   });
-  useSession.setState({ session: null });
+  useSession.setState({ session: null, status: "anonymous" });
 });
 
 describe("deleting in Files", () => {

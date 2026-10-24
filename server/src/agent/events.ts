@@ -83,8 +83,8 @@ import { CAPABILITIES } from "../shared/capabilities.js";
 import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
 import { isRecord } from "../shared/json.js";
-import { isTrashPath } from "../shared/trash.js";
 import { mailboxesOf } from "../shared/mailboxes.js";
+import { isTrashPath } from "../shared/trash.js";
 import { clientOf } from "../util.js";
 import {
   type AccountEvent,

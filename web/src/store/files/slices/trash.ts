@@ -11,16 +11,15 @@ import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { t as translate } from "@/lib/i18n";
 import {
-  ensureTrashFolder,
   findTrashFolder,
   readTrashOrigins,
+  type TrashRefusal,
   trashFolderId,
   trashRefusal,
-  type TrashRefusal,
   writeTrashOrigins,
 } from "@/lib/trash";
 import { useSession } from "../../session";
-import { readChildren } from "../shared";
+import { ensureTrashFolder, readChildren } from "../shared";
 import type { FilesGet, FilesSet, FilesState } from "../types";
 
 /**

@@ -2498,6 +2498,28 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert no pudo preguntar al servidor de correo por el acceso a {need} de este grupo, así que no puede decir si el Master llega a él: no se cambió nada ni se leyó nada. Vuelva a intentarlo, y si sigue respondiendo así, el servidor de correo es lo que hay que revisar.",
     "Set by {who} on {when}": "Establecido por {who} el {when}",
+    Trash: "Papelera",
+    "Empty trash": "Vaciar la papelera",
+    "Empty the trash?": "¿Vaciar la papelera?",
+    "Everything in it is deleted for good.":
+      "Todo lo que contiene se elimina de forma permanente.",
+    "Trash emptied": "Papelera vaciada",
+    Restored: "Restaurado",
+    "Delete permanently": "Eliminar permanentemente",
+    "Delete “{name}” permanently?": "¿Eliminar «{name}» permanentemente?",
+    "Files cannot be put into the trash.":
+      "Los archivos no se pueden poner en la papelera.",
+    "Moved to trash": "Movido a la papelera",
+    "The trash is empty": "La papelera está vacía",
+    "The trash cannot be merged.": "La papelera no se puede combinar.",
+    "Merging is not offered inside the trash.":
+      "Combinar no se ofrece dentro de la papelera.",
+    "The trash cannot be renamed.": "La papelera no se puede renombrar.",
+    "The trash cannot be moved.": "La papelera no se puede mover.",
+    "Only an administrator can empty a group's trash.":
+      "Solo un administrador puede vaciar la papelera de un grupo.",
+    "Only an administrator can delete a group's files for good.":
+      "Solo un administrador puede eliminar permanentemente los archivos de un grupo.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2758,6 +2780,18 @@ export const catalog: Catalog = {
     "{n} questions waiting for an answer": {
       one: "{n} pregunta en espera de respuesta",
       other: "{n} preguntas en espera de respuesta",
+    },
+    "Restore {n} items": {
+      one: "Restaurar {n} elemento",
+      other: "Restaurar {n} elementos",
+    },
+    "Delete {n} items permanently": {
+      one: "Eliminar {n} elemento permanentemente",
+      other: "Eliminar {n} elementos permanentemente",
+    },
+    "Delete {n} items permanently?": {
+      one: "¿Eliminar {n} elemento permanentemente?",
+      other: "¿Eliminar {n} elementos permanentemente?",
     },
   },
 };

@@ -2469,6 +2469,25 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert не зміг запитати поштовий сервер про {need} цієї групи, тому не може сказати, чи Master має до неї доступ: нічого не змінено й нічого не прочитано. Спробуйте ще раз, а якщо він і далі так відповідає, дивитися треба на поштовий сервер.",
     "Set by {who} on {when}": "Задано {when} ({who})",
+    Trash: "Кошик",
+    "Empty trash": "Очистити кошик",
+    "Empty the trash?": "Очистити кошик?",
+    "Everything in it is deleted for good.": "Усе вміст буде остаточно видалено.",
+    "Trash emptied": "Кошик очищено",
+    Restored: "Відновлено",
+    "Delete permanently": "Видалити назавжди",
+    "Delete “{name}” permanently?": "Видалити «{name}» назавжди?",
+    "Files cannot be put into the trash.": "Файли не можна покласти в кошик.",
+    "Moved to trash": "Переміщено в кошик",
+    "The trash is empty": "Кошик порожній",
+    "The trash cannot be merged.": "Кошик не можна об’єднати.",
+    "Merging is not offered inside the trash.": "Об’єднання в кошику не пропонується.",
+    "The trash cannot be renamed.": "Кошик не можна перейменувати.",
+    "The trash cannot be moved.": "Кошик не можна перемістити.",
+    "Only an administrator can empty a group's trash.":
+      "Очистити кошик групи може лише адміністратор.",
+    "Only an administrator can delete a group's files for good.":
+      "Остаточно видалити файли групи може лише адміністратор.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2915,6 +2934,24 @@ export const catalog: Catalog = {
       few: "{n} питання чекають на відповідь",
       many: "{n} питань чекають на відповідь",
       other: "{n} питання чекають на відповідь",
+    },
+    "Restore {n} items": {
+      one: "Відновити {n} об’єкт",
+      few: "Відновити {n} об’єкти",
+      many: "Відновити {n} об’єктів",
+      other: "Відновити {n} об’єкта",
+    },
+    "Delete {n} items permanently": {
+      one: "Видалити {n} об’єкт назавжди",
+      few: "Видалити {n} об’єкти назавжди",
+      many: "Видалити {n} об’єктів назавжди",
+      other: "Видалити {n} об’єкта назавжди",
+    },
+    "Delete {n} items permanently?": {
+      one: "Видалити {n} об’єкт назавжди?",
+      few: "Видалити {n} об’єкти назавжди?",
+      many: "Видалити {n} об’єктів назавжди?",
+      other: "Видалити {n} об’єкта назавжди?",
     },
   },
 };

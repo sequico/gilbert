@@ -2395,6 +2395,25 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert posta sunucusuna bu grubun {need} hakkında soru soramadı, bu yüzden Master'ın ona erişip erişmediğini söyleyemiyor: hiçbir şey değiştirilmedi ve hiçbir şey okunmadı. Yeniden deneyin; böyle yanıtlamaya devam ederse bakılacak yer posta sunucusudur.",
     "Set by {who} on {when}": "{who} tarafından {when} tarihinde ayarlandı",
+    Trash: "Çöp Kutusu",
+    "Empty trash": "Çöp kutusunu boşalt",
+    "Empty the trash?": "Çöp kutusu boşaltılsın mı?",
+    "Everything in it is deleted for good.": "İçindeki her şey kalıcı olarak silinir.",
+    "Trash emptied": "Çöp kutusu boşaltıldı",
+    Restored: "Geri yüklendi",
+    "Delete permanently": "Kalıcı olarak sil",
+    "Delete “{name}” permanently?": "“{name}” kalıcı olarak silinsin mi?",
+    "Files cannot be put into the trash.": "Dosyalar çöp kutusuna konulamaz.",
+    "Moved to trash": "Çöp kutusuna taşındı",
+    "The trash is empty": "Çöp kutusu boş",
+    "The trash cannot be merged.": "Çöp kutusu birleştirilemez.",
+    "Merging is not offered inside the trash.": "Çöp kutusu içinde birleştirme sunulmaz.",
+    "The trash cannot be renamed.": "Çöp kutusu yeniden adlandırılamaz.",
+    "The trash cannot be moved.": "Çöp kutusu taşınamaz.",
+    "Only an administrator can empty a group's trash.":
+      "Bir grubun çöp kutusunu yalnızca yönetici boşaltabilir.",
+    "Only an administrator can delete a group's files for good.":
+      "Bir grubun dosyalarını yalnızca yönetici kalıcı olarak silebilir.",
   },
   plurals: {
     "({n} deleted first)": {
@@ -2693,6 +2712,18 @@ export const catalog: Catalog = {
     "{n} questions waiting for an answer": {
       one: "{n} yanıt bekleyen soru",
       other: "{n} yanıt bekleyen soru",
+    },
+    "Restore {n} items": {
+      one: "{n} ögeyi geri yükle",
+      other: "{n} ögeyi geri yükle",
+    },
+    "Delete {n} items permanently": {
+      one: "{n} ögeyi kalıcı olarak sil",
+      other: "{n} ögeyi kalıcı olarak sil",
+    },
+    "Delete {n} items permanently?": {
+      one: "{n} öge kalıcı olarak silinsin mi?",
+      other: "{n} öge kalıcı olarak silinsin mi?",
     },
   },
 };

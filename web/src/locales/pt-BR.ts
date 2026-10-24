@@ -2493,6 +2493,27 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "O Gilbert não conseguiu perguntar ao servidor de e-mail sobre {need} deste grupo, então não pode dizer se o Master o alcança: nada foi alterado e nada foi lido. Tente de novo e, se continuar respondendo assim, é o servidor de e-mail que deve ser investigado.",
     "Set by {who} on {when}": "Definido por {who} em {when}",
+    Trash: "Lixeira",
+    "Empty trash": "Esvaziar a lixeira",
+    "Empty the trash?": "Esvaziar a lixeira?",
+    "Everything in it is deleted for good.":
+      "Tudo o que está nela é excluído definitivamente.",
+    "Trash emptied": "Lixeira esvaziada",
+    Restored: "Restaurado",
+    "Delete permanently": "Excluir permanentemente",
+    "Delete “{name}” permanently?": "Excluir “{name}” permanentemente?",
+    "Files cannot be put into the trash.": "Arquivos não podem ser colocados na lixeira.",
+    "Moved to trash": "Movido para a lixeira",
+    "The trash is empty": "A lixeira está vazia",
+    "The trash cannot be merged.": "A lixeira não pode ser mesclada.",
+    "Merging is not offered inside the trash.":
+      "A mesclagem não é oferecida dentro da lixeira.",
+    "The trash cannot be renamed.": "A lixeira não pode ser renomeada.",
+    "The trash cannot be moved.": "A lixeira não pode ser movida.",
+    "Only an administrator can empty a group's trash.":
+      "Só um administrador pode esvaziar a lixeira de um grupo.",
+    "Only an administrator can delete a group's files for good.":
+      "Só um administrador pode excluir definitivamente os arquivos de um grupo.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2748,6 +2769,18 @@ export const catalog: Catalog = {
     "{n} questions waiting for an answer": {
       one: "{n} pergunta aguardando resposta",
       other: "{n} perguntas aguardando resposta",
+    },
+    "Restore {n} items": {
+      one: "Restaurar {n} item",
+      other: "Restaurar {n} itens",
+    },
+    "Delete {n} items permanently": {
+      one: "Excluir {n} item permanentemente",
+      other: "Excluir {n} itens permanentemente",
+    },
+    "Delete {n} items permanently?": {
+      one: "Excluir {n} item permanentemente?",
+      other: "Excluir {n} itens permanentemente?",
     },
   },
 };

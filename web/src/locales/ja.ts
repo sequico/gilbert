@@ -2477,6 +2477,25 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert はこのグループの{need}についてメールサーバーに問い合わせできなかったため、Master がそこに到達するかは判断できません。何も変更されておらず、何も読み取られていません。もう一度お試しください。それでも同じ応答が続く場合は、メールサーバーを確認してください。",
     "Set by {who} on {when}": "{who} が {when} に設定",
+    Trash: "ゴミ箱",
+    "Empty trash": "ゴミ箱を空にする",
+    "Empty the trash?": "ゴミ箱を空にしますか？",
+    "Everything in it is deleted for good.": "中のものはすべて完全に削除されます。",
+    "Trash emptied": "ゴミ箱を空にしました",
+    Restored: "復元しました",
+    "Delete permanently": "完全に削除",
+    "Delete “{name}” permanently?": "「{name}」を完全に削除しますか？",
+    "Files cannot be put into the trash.": "ファイルをゴミ箱に入れることはできません。",
+    "Moved to trash": "ゴミ箱に移動しました",
+    "The trash is empty": "ゴミ箱は空です",
+    "The trash cannot be merged.": "ゴミ箱は結合できません。",
+    "Merging is not offered inside the trash.": "ゴミ箱内では結合は提供されません。",
+    "The trash cannot be renamed.": "ゴミ箱の名前は変更できません。",
+    "The trash cannot be moved.": "ゴミ箱は移動できません。",
+    "Only an administrator can empty a group's trash.":
+      "グループのゴミ箱を空にできるのは管理者だけです。",
+    "Only an administrator can delete a group's files for good.":
+      "グループのファイルを完全に削除できるのは管理者だけです。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2648,6 +2667,15 @@ export const catalog: Catalog = {
     },
     "{n} questions waiting for an answer": {
       other: "回答待ちの質問{n}件",
+    },
+    "Restore {n} items": {
+      other: "{n} 件を復元",
+    },
+    "Delete {n} items permanently": {
+      other: "{n} 件を完全に削除",
+    },
+    "Delete {n} items permanently?": {
+      other: "{n} 件を完全に削除しますか？",
     },
   },
 };

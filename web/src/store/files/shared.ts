@@ -1,5 +1,6 @@
 import { FILENODE_GET, FILENODE_SET, isAppFolder } from "@gilbert/shared/appFolder";
 import { errorMessage } from "@gilbert/shared/errors";
+import { TRASH_FOLDER_NAME } from "@gilbert/shared/trash";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { listChildrenWithState } from "@/lib/appFolder";
@@ -11,6 +12,7 @@ import {
   NameTakenError,
 } from "@/lib/filenode";
 import { t as translate } from "@/lib/i18n";
+import { findTrashFolder } from "@/lib/trash";
 import type { FilesSet } from "./types";
 
 /**
@@ -209,12 +211,35 @@ export async function createDirectory(
 }
 
 /**
+ * The account's Trash folder, creating it on the first delete.
+ *
+ * The first deletion is what makes the folder, so an account that never deletes
+ * never grows one. A create that loses a race is the folder the other writer
+ * made: the server names it, and a second read is the fallback when it does not.
+ * Its name is the reserved one both tiers find it by (`@gilbert/shared/trash`),
+ * and it is the only folder the product makes at the top level for itself.
+ */
+export async function ensureTrashFolder(accountId: Id): Promise<Id> {
+  const existing = await findTrashFolder(accountId);
+  if (existing) return existing;
+  try {
+    return await createDirectory(accountId, null, TRASH_FOLDER_NAME);
+  } catch (err) {
+    if (err instanceof NameTakenError && err.existingId) return err.existingId;
+    const again = await findTrashFolder(accountId);
+    if (again) return again;
+    throw err;
+  }
+}
+
+/**
  * A node as far as the folder walk is concerned: what to call it, whether it is
  * a folder, and which node to write into when it is.
  */
-export type SiblingNode = Pick<FileNode, "id" | "name" | "nodeType">;
-
-/** The level a node sits at, as a map key: a parent id, or the top level. */
+export type SiblingNode = Pick<
+  FileNode,
+  "id" | "name" | "nodeType"
+>; /** The level a node sits at, as a map key: a parent id, or the top level. */
 export const levelKey = (parentId: Id | null): string => parentId ?? "root";
 
 /**

@@ -1281,14 +1281,15 @@ test("a folder is renamed, moved and removed like a document", async () => {
 
   /*
    * The folder arrives whole: deleting moves it into the account's Trash and
-   * nothing under it is lost (ADR 0013).
+   * nothing under it is lost (ADR 0013). The Trash is the account's, so it may
+   * hold what an earlier test left there — this asserts what this test put in.
    */
   const trashed = await callTool<{ nodes: Array<{ path: string }> }>("files.list", {
     path: "Trash",
   });
-  assert.deepEqual(
-    trashed.nodes.map((one) => one.path),
-    ["Trash/2027"],
+  assert.ok(
+    trashed.nodes.some((one) => one.path === "Trash/2027"),
+    "the folder is in the Trash",
   );
   const within = await callTool<{ nodes: Array<{ path: string }> }>("files.list", {
     path: "Trash/2027",

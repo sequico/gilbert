@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   isTrashFolder,
   isTrashPath,
@@ -7,6 +6,7 @@ import {
   withOrigins,
   withoutOrigins,
 } from "@gilbert/shared/trash";
+import { describe, expect, it } from "vitest";
 import { mayEndFiles, trashFolderId, trashRefusal } from "@/lib/trash";
 
 /**

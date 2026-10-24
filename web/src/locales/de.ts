@@ -2536,6 +2536,27 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert konnte den Mailserver nicht nach {need} dieser Gruppe fragen und kann daher nicht sagen, ob der Master darauf zugreift: Es wurde nichts geändert und nichts gelesen. Versuchen Sie es erneut, und wenn die Antwort so bleibt, ist der Mailserver der Punkt, den es zu prüfen gilt.",
     "Set by {who} on {when}": "Gesetzt von {who} am {when}",
+    Trash: "Papierkorb",
+    "Empty trash": "Papierkorb leeren",
+    "Empty the trash?": "Papierkorb leeren?",
+    "Everything in it is deleted for good.": "Alles darin wird endgültig gelöscht.",
+    "Trash emptied": "Papierkorb geleert",
+    Restored: "Wiederhergestellt",
+    "Delete permanently": "Endgültig löschen",
+    "Delete “{name}” permanently?": "„{name}“ endgültig löschen?",
+    "Files cannot be put into the trash.":
+      "Dateien können nicht in den Papierkorb gelegt werden.",
+    "Moved to trash": "In den Papierkorb verschoben",
+    "The trash is empty": "Der Papierkorb ist leer",
+    "The trash cannot be merged.": "Der Papierkorb kann nicht zusammengeführt werden.",
+    "Merging is not offered inside the trash.":
+      "Zusammenführen wird im Papierkorb nicht angeboten.",
+    "The trash cannot be renamed.": "Der Papierkorb kann nicht umbenannt werden.",
+    "The trash cannot be moved.": "Der Papierkorb kann nicht verschoben werden.",
+    "Only an administrator can empty a group's trash.":
+      "Nur ein Administrator kann den Papierkorb einer Gruppe leeren.",
+    "Only an administrator can delete a group's files for good.":
+      "Nur ein Administrator kann die Dateien einer Gruppe endgültig löschen.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2794,6 +2815,18 @@ export const catalog: Catalog = {
     "{n} questions waiting for an answer": {
       one: "{n} Frage wartet auf eine Antwort",
       other: "{n} Fragen warten auf eine Antwort",
+    },
+    "Restore {n} items": {
+      one: "{n} Element wiederherstellen",
+      other: "{n} Elemente wiederherstellen",
+    },
+    "Delete {n} items permanently": {
+      one: "{n} Element endgültig löschen",
+      other: "{n} Elemente endgültig löschen",
+    },
+    "Delete {n} items permanently?": {
+      one: "{n} Element endgültig löschen?",
+      other: "{n} Elemente endgültig löschen?",
     },
   },
 };

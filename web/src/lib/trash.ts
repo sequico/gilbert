@@ -3,11 +3,11 @@ import {
   isTrashFolder,
   parseTrashDocument,
   TRASH_DOCUMENT,
-  TRASH_FOLDER_NAME,
   type TrashDocument,
   type TrashOrigin,
 } from "@gilbert/shared/trash";
 import { client } from "@/jmap/client";
+import type { FileNode, Id } from "@/jmap/types";
 import {
   findAppFolder,
   findInFolderWithState,
@@ -15,8 +15,6 @@ import {
   listChildrenWithState,
   writeAppJson,
 } from "@/lib/appFolder";
-import { createDirectory, NameTakenError } from "@/lib/filenode";
-import type { FileNode, Id } from "@/jmap/types";
 
 /**
  * The account's Trash, and who may end what is in it — the one rule for Files
@@ -91,30 +89,15 @@ export function trashRefusal(
   return kind === "empty" ? "group_files_empty" : "group_files_final";
 }
 
-/** The account's Trash folder, or null when it has never been used. */
+/**
+ * The account's Trash folder, or null when it has never been used.
+ *
+ * The store's own `ensureTrashFolder` is the one that creates it on the first
+ * deletion; a reader asks this and draws nothing when there is no folder yet.
+ */
 export async function findTrashFolder(accountId: Id): Promise<Id | null> {
   const { list } = await listChildrenWithState(accountId, null, [...FOLDER_PROPS]);
   return list.find(isTrashFolder)?.id ?? null;
-}
-
-/**
- * The account's Trash folder, creating it on the first delete.
- *
- * The first delete is what makes the folder, so an account that never deletes
- * never grows one. A create that loses a race is the folder the other writer
- * made: the server names it, and a second read is the fallback when it does not.
- */
-export async function ensureTrashFolder(accountId: Id): Promise<Id> {
-  const existing = await findTrashFolder(accountId);
-  if (existing) return existing;
-  try {
-    return await createDirectory(accountId, null, TRASH_FOLDER_NAME);
-  } catch (err) {
-    if (err instanceof NameTakenError && err.existingId) return err.existingId;
-    const again = await findTrashFolder(accountId);
-    if (again) return again;
-    throw err;
-  }
 }
 
 /**

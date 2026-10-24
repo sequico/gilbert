@@ -2472,6 +2472,25 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert не смог спросить почтовый сервер о {need} этой группы, поэтому не может сказать, есть ли у Master доступ: ничего не изменено и ничего не прочитано. Попробуйте снова, а если сервер продолжит отвечать так же, смотреть нужно на почтовый сервер.",
     "Set by {who} on {when}": "Задано {who}, {when}",
+    Trash: "Корзина",
+    "Empty trash": "Очистить корзину",
+    "Empty the trash?": "Очистить корзину?",
+    "Everything in it is deleted for good.": "Всё содержимое будет удалено навсегда.",
+    "Trash emptied": "Корзина очищена",
+    Restored: "Восстановлено",
+    "Delete permanently": "Удалить навсегда",
+    "Delete “{name}” permanently?": "Удалить «{name}» навсегда?",
+    "Files cannot be put into the trash.": "Файлы нельзя поместить в корзину.",
+    "Moved to trash": "Перемещено в корзину",
+    "The trash is empty": "Корзина пуста",
+    "The trash cannot be merged.": "Корзину нельзя объединить.",
+    "Merging is not offered inside the trash.": "Объединение в корзине не предлагается.",
+    "The trash cannot be renamed.": "Корзину нельзя переименовать.",
+    "The trash cannot be moved.": "Корзину нельзя переместить.",
+    "Only an administrator can empty a group's trash.":
+      "Очистить корзину группы может только администратор.",
+    "Only an administrator can delete a group's files for good.":
+      "Удалить файлы группы навсегда может только администратор.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2919,6 +2938,24 @@ export const catalog: Catalog = {
       few: "{n} вопроса ждут ответа",
       many: "{n} вопросов ждут ответа",
       other: "{n} вопроса ждут ответа",
+    },
+    "Restore {n} items": {
+      one: "Восстановить {n} объект",
+      few: "Восстановить {n} объекта",
+      many: "Восстановить {n} объектов",
+      other: "Восстановить {n} объекта",
+    },
+    "Delete {n} items permanently": {
+      one: "Удалить {n} объект навсегда",
+      few: "Удалить {n} объекта навсегда",
+      many: "Удалить {n} объектов навсегда",
+      other: "Удалить {n} объекта навсегда",
+    },
+    "Delete {n} items permanently?": {
+      one: "Удалить {n} объект навсегда?",
+      few: "Удалить {n} объекта навсегда?",
+      many: "Удалить {n} объектов навсегда?",
+      other: "Удалить {n} объекта навсегда?",
     },
   },
 };

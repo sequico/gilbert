@@ -2479,6 +2479,27 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert kon de mailserver niet vragen naar {need} van deze groep, dus het kan niet zeggen of de Master erbij kan: er is niets gewijzigd en niets gelezen. Probeer het opnieuw, en als het zo blijft antwoorden is de mailserver degene om naar te kijken.",
     "Set by {who} on {when}": "Ingesteld door {who} op {when}",
+    Trash: "Prullenbak",
+    "Empty trash": "Prullenbak leegmaken",
+    "Empty the trash?": "Prullenbak leegmaken?",
+    "Everything in it is deleted for good.": "Alles erin wordt definitief verwijderd.",
+    "Trash emptied": "Prullenbak leeggemaakt",
+    Restored: "Hersteld",
+    "Delete permanently": "Definitief verwijderen",
+    "Delete “{name}” permanently?": "“{name}” definitief verwijderen?",
+    "Files cannot be put into the trash.":
+      "Bestanden kunnen niet in de prullenbak worden geplaatst.",
+    "Moved to trash": "Naar de prullenbak verplaatst",
+    "The trash is empty": "De prullenbak is leeg",
+    "The trash cannot be merged.": "De prullenbak kan niet worden samengevoegd.",
+    "Merging is not offered inside the trash.":
+      "Samenvoegen wordt niet aangeboden in de prullenbak.",
+    "The trash cannot be renamed.": "De prullenbak kan niet worden hernoemd.",
+    "The trash cannot be moved.": "De prullenbak kan niet worden verplaatst.",
+    "Only an administrator can empty a group's trash.":
+      "Alleen een beheerder kan de prullenbak van een groep leegmaken.",
+    "Only an administrator can delete a group's files for good.":
+      "Alleen een beheerder kan de bestanden van een groep definitief verwijderen.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2737,6 +2758,18 @@ export const catalog: Catalog = {
     "{n} questions waiting for an answer": {
       one: "{n} vraag wacht op een antwoord",
       other: "{n} vragen wachten op een antwoord",
+    },
+    "Restore {n} items": {
+      one: "{n} item herstellen",
+      other: "{n} items herstellen",
+    },
+    "Delete {n} items permanently": {
+      one: "{n} item definitief verwijderen",
+      other: "{n} items definitief verwijderen",
+    },
+    "Delete {n} items permanently?": {
+      one: "{n} item definitief verwijderen?",
+      other: "{n} items definitief verwijderen?",
     },
   },
 };

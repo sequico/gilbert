@@ -1,5 +1,5 @@
-import { ChevronRight, File as FileIcon, Folder, HardDrive, Users } from "lucide-react";
 import { isTrashFolder } from "@gilbert/shared/trash";
+import { ChevronRight, File as FileIcon, Folder, HardDrive, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FileNode } from "@/jmap/types";
 import { formatSize } from "@/lib/format";

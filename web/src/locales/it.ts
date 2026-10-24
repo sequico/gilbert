@@ -3454,7 +3454,6 @@ export const catalog: Catalog = {
     "Everything in it is deleted for good.":
       "Tutto ciò che contiene viene eliminato definitivamente.",
     "Trash emptied": "Cestino svuotato",
-    Restore: "Ripristina",
     Restored: "Ripristinato",
     "Delete permanently": "Elimina definitivamente",
     "Delete “{name}” permanently?": "Eliminare “{name}” definitivamente?",

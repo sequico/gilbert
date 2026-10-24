@@ -2392,6 +2392,25 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert 无法就此群组的{need}询问邮件服务器，因此无法判断 Master 是否能访问它：未更改任何内容，也未读取任何内容。请重试；如果服务器始终如此应答，则应检查邮件服务器。",
     "Set by {who} on {when}": "由 {who} 于 {when} 设置",
+    Trash: "回收站",
+    "Empty trash": "清空回收站",
+    "Empty the trash?": "清空回收站？",
+    "Everything in it is deleted for good.": "其中的所有内容都会被永久删除。",
+    "Trash emptied": "回收站已清空",
+    Restored: "已恢复",
+    "Delete permanently": "永久删除",
+    "Delete “{name}” permanently?": "永久删除「{name}」？",
+    "Files cannot be put into the trash.": "文件不能放入回收站。",
+    "Moved to trash": "已移入回收站",
+    "The trash is empty": "回收站为空",
+    "The trash cannot be merged.": "回收站不能合并。",
+    "Merging is not offered inside the trash.": "回收站内不提供合并。",
+    "The trash cannot be renamed.": "回收站不能重命名。",
+    "The trash cannot be moved.": "回收站不能移动。",
+    "Only an administrator can empty a group's trash.":
+      "只有管理员可以清空群组的回收站。",
+    "Only an administrator can delete a group's files for good.":
+      "只有管理员可以永久删除群组的文件。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2547,6 +2566,15 @@ export const catalog: Catalog = {
     "{n} items": { other: "{n} 个项目" },
     "{n} questions waiting for an answer": {
       other: "{n} 个等待回答的问题",
+    },
+    "Restore {n} items": {
+      other: "恢复 {n} 个项目",
+    },
+    "Delete {n} items permanently": {
+      other: "永久删除 {n} 个项目",
+    },
+    "Delete {n} items permanently?": {
+      other: "要永久删除 {n} 个项目吗？",
     },
   },
 };

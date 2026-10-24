@@ -2507,6 +2507,28 @@ export const catalog: Catalog = {
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
       "Gilbert n'a pas pu interroger le serveur de messagerie au sujet des {need} de ce groupe, il ne peut donc pas dire si le Master y accède : rien n'a été modifié et rien n'a été lu. Réessayez, et si la réponse ne change pas, c'est le serveur de messagerie qu'il faut examiner.",
     "Set by {who} on {when}": "Défini par {who} le {when}",
+    Trash: "Corbeille",
+    "Empty trash": "Vider la corbeille",
+    "Empty the trash?": "Vider la corbeille ?",
+    "Everything in it is deleted for good.":
+      "Tout ce qu'elle contient est supprimé définitivement.",
+    "Trash emptied": "Corbeille vidée",
+    Restored: "Restauré",
+    "Delete permanently": "Supprimer définitivement",
+    "Delete “{name}” permanently?": "Supprimer « {name} » définitivement ?",
+    "Files cannot be put into the trash.":
+      "Les fichiers ne peuvent pas être placés dans la corbeille.",
+    "Moved to trash": "Déplacé dans la corbeille",
+    "The trash is empty": "La corbeille est vide",
+    "The trash cannot be merged.": "La corbeille ne peut pas être fusionnée.",
+    "Merging is not offered inside the trash.":
+      "La fusion n'est pas proposée dans la corbeille.",
+    "The trash cannot be renamed.": "La corbeille ne peut pas être renommée.",
+    "The trash cannot be moved.": "La corbeille ne peut pas être déplacée.",
+    "Only an administrator can empty a group's trash.":
+      "Seul un administrateur peut vider la corbeille d'un groupe.",
+    "Only an administrator can delete a group's files for good.":
+      "Seul un administrateur peut supprimer définitivement les fichiers d'un groupe.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2764,6 +2786,18 @@ export const catalog: Catalog = {
     "{n} questions waiting for an answer": {
       one: "{n} question en attente de réponse",
       other: "{n} questions en attente de réponse",
+    },
+    "Restore {n} items": {
+      one: "Restaurer {n} élément",
+      other: "Restaurer {n} éléments",
+    },
+    "Delete {n} items permanently": {
+      one: "Supprimer {n} élément définitivement",
+      other: "Supprimer {n} éléments définitivement",
+    },
+    "Delete {n} items permanently?": {
+      one: "Supprimer {n} élément définitivement ?",
+      other: "Supprimer {n} éléments définitivement ?",
     },
   },
 };

@@ -45,8 +45,8 @@ import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
 import { errorMessage } from "./shared/errors.js";
 import { refusalOf, type SetResponse } from "./shared/jmap.js";
-import { TRASH_FOLDER_NAME } from "./shared/trash.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
+import { TRASH_FOLDER_NAME } from "./shared/trash.js";
 import type { UpstreamSession } from "./upstream.js";
 import { clientOf } from "./util.js";
 
