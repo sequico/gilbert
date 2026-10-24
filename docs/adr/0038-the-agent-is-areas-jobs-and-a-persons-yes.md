@@ -4,7 +4,8 @@ Status: Proposed
 
 Implementation: Partly built. **Built:** areas and their selection
 (`server/src/agent/areas.ts`), the eight jobs and their narrowing
-(`agent/tools/jobs.ts`), one instruction per group
+(`agent/tools/jobs.ts`, and the interface rules the file states held by
+`agent/tools/aci.test.ts`), one instruction per group
 (`agent/instruction.ts`, panel `GroupInstruction.tsx`), the change as trigger with
 the run keyed by it and the one-off clear (`changes.ts`, `loop.ts`, `legacy.ts`),
 the `done` read against its plan (nothing finished → `refused`), the repair of an
@@ -14,10 +15,11 @@ decision turn in the provider's structured output (`model.ts`), the provider pro
 and the declared output ceiling at publish (`installationAdmin.ts`), the two token
 ceilings with the pass document's daily counter (`shared/installation.ts`,
 `shared/agent.ts`, `loop.ts`), and a permanent provider failure stopping the pass,
-and the eval: ten tasks in the repository (`agent/eval/tasks/`), one file each
+and the eval: eleven tasks in the repository (`agent/eval/tasks/`), one file each
 with its message, data and reference, graded with partial credit, a failed task
-tried once more, `pass@1` and cost printed, and the provider put to the
-product's own probe before anything is measured (`eval.ts`), and the turn's
+tried once more, `pass@1` and cost printed beside the refusals a run recovered
+from, one task parking a run on a person's answer and continuing it there, and
+the provider put to the product's own probe before anything is measured (`eval.ts`), and the turn's
 context: the plan's last steps in full and earlier ones a line each, with the
 threshold measured and no summary call (`prompt.ts`, `prompt.test.ts`), and the
 trend: a week of runs and failed steps read from the run documents in

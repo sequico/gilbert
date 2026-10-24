@@ -64,10 +64,9 @@ refusal that repeats is the old failure coming back.
   catalogue kept — and print it in `eval.ts`'s per-task line. A task therefore
   reads `refused=2 recovered=2`, and a run where the two differ is the regression
   this plan exists to catch.
-- **Add** an invariant test in `replay.test.ts` over two run documents — one that
-  recovered and one that repeated the same invented name, the second taken from
-  `eval/recordings/` — so the counter cannot be quietly changed to count
-  something else.
+- **Add** an invariant test in `eval/task.test.ts` over two run documents — one
+  that recovered and one that repeated the same invented name — so the counter
+  cannot be quietly changed to count something else.
 - **Delete** nothing. **Prove** the two documents score differently; a task with
   no refusal reports `recovered=0` rather than nothing.
 

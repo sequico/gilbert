@@ -235,6 +235,14 @@ needs its area, and the conversation and memory are always writable. An
 instruction declares as many areas as its group works: there is no ceiling, and
 a run's catalogue follows the selection.
 
+**A job's shape is the interface the model reads**, and five rules hold it
+(`server/src/agent/tools/aci.test.ts`): a name is one lowercase word containing
+no dot, one verb means one thing, a call is chosen by one `kind`/`action` whose
+every value is named where the turn reads it and carries its own schema branch, a
+refusal names what it accepts, and a tool answers a distillation rather than the
+payload. A value the schema hides and a refusal that says only "bad arguments" are
+each a step the run pays for and learns nothing from.
+
 A change in the group's account wakes the instruction when its **wake row**
 watches that surface; one change opens **one** run, and a run the account
 already holds for that change is the answer it already has. The wake row — one mode per surface, **off**, **watch** or **on
@@ -415,19 +423,24 @@ and each further step adds a line (`server/src/agent/prompt.ts`).
 
 ## The agent is measured on the tasks it has failed
 
-**The agent is measured on ten tasks in the repository** (ADR 0038,
+**The agent is measured on eleven tasks in the repository** (ADR 0038,
 `server/src/agent/eval/tasks/`): one file per task, holding the message that
 arrives, the data it arrives into and the outcome a person would accept — so a
 regression needs no corpus to describe it and no key to read it. `npx tsx
 src/agent/eval.ts` runs them on the mock against the installation's own provider,
 which is put to **the product's own probe** first, and prints `pass@1` — the
 tasks answered whole on the first attempt — beside what the measure cost in
-tokens and model calls. A task with more than one side is graded in halves, and a
-task that fails is tried once more: one that passes only on the second attempt is
-reported `unstable`, not passed. Three of the ten measure silence — no
-instruction, an area the instruction does not declare, the agent switched off —
-and the other seven drive the model. It is a measure a person runs on purpose,
-not the release gate.
+tokens and model calls and the run's own `refused=` and `recovered=` counts: a
+step the catalogue refused, and how many of those the run recovered from by
+calling what the catalogue holds. A task with more than one side is graded in
+halves, and a task that fails is tried once more: one that passes only on the
+second attempt is reported `unstable`, not passed. Three of the eleven measure
+silence — no instruction, an area the instruction does not declare, the agent
+switched off — and the other eight drive the model. **One of them parks**: a
+question only a person can answer, a reply to that very question, and the run
+continuing to its report, so the park and the continuation are measured rather
+than assumed (ADR 0029, 0030). It is a measure a person runs on purpose, not the
+release gate.
 
 ## A drop is one change
 
