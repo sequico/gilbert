@@ -76,7 +76,7 @@ import { MailboxPicker } from "./MailboxPicker";
  */
 const VIEW_ROLES: ReadonlySet<string> = new Set(["all", "flagged", "important"]);
 
-/** No counter prints five digits: a longer one says nothing `9999+` does not. */
+/** A folder-level counter stops at four digits: a longer number adds nothing. */
 function capCount(n: number): string | number {
   return n > 9999 ? "9999+" : n;
 }
@@ -335,7 +335,7 @@ export function MailboxTree() {
    * is the sidebar's subject, so it is always whole and has no such control;
    * the store folds the rest when it moves the foreground (`setAccount`).
    */
-  const { open: openAccounts, toggle: toggleAccount } = useAccountFold();
+  const { open: openAccounts, toggle: toggleAccount } = useAccountFold(accountId);
   const session = useSession((s) => s.session);
   /*
    * Whether the tree in hand is somebody else's: a group mailbox the reader

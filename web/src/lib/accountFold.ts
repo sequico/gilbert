@@ -21,7 +21,7 @@ import { useSession } from "@/store/session";
  * that were open. Nothing here is an account setting: which account a reader
  * happened to unfold on one machine is not a preference to inherit on another.
  */
-export function useAccountFold(): {
+export function useAccountFold(foreground: string | null): {
   /** The accounts that are open. An account absent from it is folded. */
   open: Record<string, boolean>;
   /** Open or fold one account, remembering it for the next visit. */
@@ -29,13 +29,19 @@ export function useAccountFold(): {
 } {
   const owner = useSession((s) => placeOwnerFrom(s));
   const [open, setOpen] = useState<Record<string, boolean>>(() => load(owner));
-  const loadedFor = useRef(owner);
-
+  /*
+   * The record is read again for a different reader, and for a different
+   * account in front: the store has just folded the accounts and written that
+   * down, and nothing here performs the write. Without the second key the row
+   * the reader had opened would sit open over a record that says otherwise.
+   */
+  const readFor = useRef(`${owner ?? ""}/${foreground ?? ""}`);
   useEffect(() => {
-    if (loadedFor.current === owner) return;
-    loadedFor.current = owner;
+    const key = `${owner ?? ""}/${foreground ?? ""}`;
+    if (readFor.current === key) return;
+    readFor.current = key;
     setOpen(load(owner));
-  }, [owner]);
+  }, [owner, foreground]);
 
   return {
     open,
