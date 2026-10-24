@@ -324,18 +324,6 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
   };
 
-  /*
-   * A conversation opens on its newest message. The scroll listener runs while
-   * the tail is still arriving — an empty thread reports a position at the top,
-   * and the previous window's height leaves the viewport at 0 — so the open (and
-   * every reload) pins the bottom explicitly rather than trusting `atBottom`.
-   */
-  useEffect(() => {
-    atBottom.current = true;
-    const el = threadRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [openAccountId, open?.loaded]);
-
   // ----- what the group's agent is doing, live (ADR 0030) -----
   const [runsOpen, setRunsOpen] = useState(false);
 
@@ -355,6 +343,22 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
 
   // ----- search across the selected group's messages -----
   const [searchOpen, setSearchOpen] = useState(false);
+
+  /*
+   * A conversation opens on its newest message. The scroll listener runs while
+   * the tail is still arriving — an empty thread reports a position at the top,
+   * and the previous window's height leaves the viewport at 0 — so the open (and
+   * every reload) pins the bottom explicitly rather than trusting `atBottom`.
+   * The panels the head's buttons open replace the thread; closing one puts the
+   * thread back, and it must come back where it left — at the last message, not
+   * at the top of a conversation that was being read at the bottom.
+   */
+  useEffect(() => {
+    atBottom.current = true;
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [openAccountId, open?.loaded, runsOpen, questionsOpen, searchOpen]);
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ChatMessage[] | null>(null);
   const [searching, setSearching] = useState(false);
