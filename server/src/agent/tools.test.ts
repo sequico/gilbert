@@ -1105,6 +1105,18 @@ test("a mention in the chat is the local part, never the whole address", async (
     id: said.id,
   });
   assert.equal(read.message.text, "Acknowledged, @sq — no harm done.");
+  const answered = await writeTool<{ id: string }>("chat.say", {
+    text: "About that one.",
+    replyTo: said.id,
+  });
+  const withQuote = await callTool<{ quoted?: { text: string } }>("chat.read", {
+    id: answered.id,
+  });
+  assert.equal(
+    withQuote.quoted?.text,
+    "Acknowledged, @sq — no harm done.",
+    "a reply carries the words of the message it answers, not only its id",
+  );
   const asked = await writeTool<{ id: string }>("chat.ask", {
     text: "Is @sq@greensley.company happy with that?",
   });

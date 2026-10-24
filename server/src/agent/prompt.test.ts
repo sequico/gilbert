@@ -164,3 +164,39 @@ test("a chat message longer than the prompt's bound is carried as its beginning"
   assert.ok(prompt.includes("b".repeat(1_000)), "its beginning is");
   assert.ok(prompt.includes("…"), "and the cut is visible");
 });
+
+/**
+ * A quote reply is about the sentence it quotes. The turn that answers it in
+ * words is shown that sentence: a live reply was answered "I do not have the
+ * content of the message you refer to", which is the turn telling the truth
+ * about the prompt it was given.
+ */
+test("a reply carries the message it answers into the turn", () => {
+  const question = {
+    event: { source: "chat", change: "created", where: "c-2" },
+    detail: {
+      from: "sam@example.org",
+      text: "can you send me the links to those?",
+      replyTo: "c-1",
+      quoted: "two invoices are archived: 07/10 and 01/10",
+    },
+  } as DecisionQuestion;
+  const prompt = turnData(question, []);
+
+  assert.ok(
+    prompt.includes("it answers: two invoices are archived: 07/10 and 01/10"),
+    "the quoted words travel with the reply",
+  );
+  assert.ok(prompt.includes("answers: c-1"), "and the id it answers is still named");
+});
+
+test("a quoted message longer than the bound is carried as its beginning", () => {
+  const huge = "q".repeat(READ_IN_PROMPT_MAX + 500);
+  const question = {
+    event: { source: "chat", change: "created", where: "c-3" },
+    detail: { from: "sam@example.org", text: "and those?", quoted: huge },
+  } as DecisionQuestion;
+  const prompt = turnData(question, []);
+  assert.ok(prompt.length < huge.length, "the whole quoted message is not carried");
+  assert.ok(prompt.includes("q".repeat(1_000)), "its beginning is");
+});

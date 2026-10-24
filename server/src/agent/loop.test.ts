@@ -915,6 +915,41 @@ test("a wave asks the server for at most four calls at once", async () => {
   );
 });
 
+test("a quote reply reaches the decision turn with the message it answers", async () => {
+  /*
+   * A reply is about the sentence above it. The live reply that opened this was
+   * answered "I do not have the content of the message you refer to": the change
+   * carried the id of the message quoted and not its words, so the turn answered
+   * a question it had never been shown.
+   */
+  await putInstruction(["chat", "mail"]);
+  const agent = loop();
+  await agent.start();
+
+  const first = await postChatMessage(
+    ctx,
+    accountId,
+    "sam@example.org",
+    "@demo which invoices are archived?",
+  );
+  onCall = () => ({ reply: "two of them" });
+  await agent.pass();
+
+  seen = [];
+  await postChatMessage(ctx, accountId, "sam@example.org", "@demo send me the links", {
+    replyTo: first,
+  });
+  await agent.pass();
+
+  const decision = seen.find((one) => one.user.includes("send me the links"));
+  assert.ok(decision, "the reply reached the decision turn");
+  assert.match(
+    decision.user,
+    /which invoices are archived\?/,
+    "and the sentence it answers travelled with it",
+  );
+});
+
 test("a run says how it ended, unless the ending is already words between them", async () => {
   /*
    * The live run that closed this: a person's chat message was worked, its files

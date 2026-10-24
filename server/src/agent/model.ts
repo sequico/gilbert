@@ -1318,13 +1318,14 @@ export interface DecisionQuestion {
   memory?: readonly FactView[];
   /**
    * What the change itself says, when the reading already has it: the sender,
-   * the words, and the message a chat one answers. Carried here so the turn
+   * the words, and the message a chat one answers — its id and its own words,
+   * because a quote reply is about that sentence. Carried here so the turn
    * answers without a lookup -- one model call and one round trip less for the
    * commonest wakes, a chat message and a mail. The text is bounded where the
    * prompt carries it (`prompt.ts`, `READ_IN_PROMPT_MAX`): one long paste is
    * not the change.
    */
-  detail?: { from: string; text: string; replyTo?: string };
+  detail?: { from: string; text: string; replyTo?: string; quoted?: string };
   /**
    * The document the change names, already read by the process: a file event
    * that points at one document is read once here, so the turn does not spend a

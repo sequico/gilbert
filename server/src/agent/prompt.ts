@@ -73,6 +73,18 @@ export function turnData(question: DecisionQuestion, reads: readonly ReadMade[])
           dataBlock(token, [
             `from: ${question.detail.from}`,
             ...(question.detail.replyTo ? [`answers: ${question.detail.replyTo}`] : []),
+            /*
+             * A quote reply is about the message it quotes: the words travel
+             * with the change, or the turn answers a sentence it was never shown
+             * (a live reply was answered "I do not have the previous message").
+             */
+            ...(question.detail.quoted
+              ? [
+                  `it answers: ${redactText(
+                    clipped(question.detail.quoted, READ_IN_PROMPT_MAX),
+                  )}`,
+                ]
+              : []),
             // Bounded like a reading: the message is somebody else's text, and
             // the turn that decided the change is paid for by the token. A
             // credential pasted into the prose is emptied before it travels

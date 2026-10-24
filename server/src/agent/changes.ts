@@ -10,7 +10,7 @@
  */
 
 import type { Ctx } from "../appFolder.js";
-import { postChatMessage, readChatMessageAt } from "../groupChat.js";
+import { postChatMessage, readChatMessageAt, readChatMessageBy } from "../groupChat.js";
 import { areaOfSource } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { addressedToAgent, addressesAgent } from "../shared/chat.js";
@@ -429,6 +429,15 @@ export async function workChanges(
         ? await readChatMessageAt(deps.ctx, accountId, event.where)
         : null;
     /*
+     * A quote reply means "about that": the message a person answers is part of
+     * the change, not a lookup the turn has to spend. It is read here, once, so
+     * the decision that may answer in words has the sentence it is replying to —
+     * a reply leaves the agent answering a message it was never shown.
+     */
+    const quoted = message?.replyTo
+      ? await readChatMessageBy(deps.ctx, accountId, message.replyTo)
+      : null;
+    /*
      * A mail the change names is read here for the same reason: the turn that
      * decides it is then told the sender's words instead of spending a lookup —
      * a whole model call — on a read this process makes in one request. A
@@ -581,6 +590,7 @@ export async function workChanges(
           from: message.from,
           text: message.text,
           ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+          ...(quoted?.text ? { quoted: quoted.text } : {}),
         }
       : mail?.text
         ? { from: mail.from ?? "", text: mail.text }

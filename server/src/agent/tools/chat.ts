@@ -77,7 +77,8 @@ export const readChat = defineTool({
   description:
     "Read one message of this group's own conversation, by the id a search " +
     "answered with or the address an event names: who posted it, when, its " +
-    "text, and the message it answers.",
+    "text, and the message it answers — with that message's own words, so a " +
+    "reply can be read as what it is about.",
   authority: "reversible",
   writes: false,
   args: { id: { type: "text", about: "a chat message id, from chat.find" } },
@@ -85,7 +86,26 @@ export const readChat = defineTool({
   run: async ({ ctx, accountId }, { id }) => {
     const message = await readChatMessageBy(ctx, accountId, id);
     if (!message) throw notFound(`chat message "${id}" in this account`);
-    return { message: { ...message, text: shorten(message.text, READ_TEXT_MAX) } };
+    /*
+     * The message it answers travels with it: a person writes "@sq" under a
+     * sentence to mean "about that", and an id alone leaves the reader without
+     * the thing it was about.
+     */
+    const quoted = message.replyTo
+      ? await readChatMessageBy(ctx, accountId, message.replyTo)
+      : null;
+    return {
+      message: { ...message, text: shorten(message.text, READ_TEXT_MAX) },
+      ...(quoted
+        ? {
+            quoted: {
+              from: quoted.from,
+              at: quoted.at,
+              text: shorten(quoted.text, READ_TEXT_MAX),
+            },
+          }
+        : {}),
+    };
   },
 });
 
