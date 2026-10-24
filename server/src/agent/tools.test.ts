@@ -1331,6 +1331,18 @@ test("a folder is renamed, moved and removed like a document", async () => {
     "a node already there is not moved again",
   );
 
+  await writeTool("files.write", { path: "Bookings/keep.txt", text: "kept" });
+  await assert.rejects(
+    () => writeTool("files.move", { path: "Bookings/keep.txt", folder: "Trash" }),
+    /is the Trash/,
+    "the Trash is not a destination for a move",
+  );
+  await assert.rejects(
+    () => writeTool("files.write", { path: "Trash/planted.txt", text: "planted" }),
+    /is not a destination/,
+    "the Trash is not a destination for a write",
+  );
+
   await writeTool("files.folder", { path: "Outer/Inner" });
   await assert.rejects(
     () => writeTool("files.move", { path: "Outer", folder: "Outer/Inner" }),

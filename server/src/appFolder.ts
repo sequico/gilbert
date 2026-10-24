@@ -45,6 +45,7 @@ import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
 import { errorMessage } from "./shared/errors.js";
 import { refusalOf, type SetResponse } from "./shared/jmap.js";
+import { TRASH_FOLDER_NAME } from "./shared/trash.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
 import type { UpstreamSession } from "./upstream.js";
 import { clientOf } from "./util.js";
@@ -1145,12 +1146,36 @@ export async function ensureRootFolderPath(
   accountId: string,
   path: string,
 ): Promise<string> {
+  const segments = visibleSegments(path);
+  /*
+   * The Trash is not a place anything is put into: a node gets there by being
+   * deleted, which is what remembers where it came from (ADR 0013). Refused for
+   * every writer here, so no tool can bypass that, and the one caller entitled
+   * to the folder has its own door (`ensureTrashFolder`).
+   */
+  if (segments[0] === TRASH_FOLDER_NAME)
+    throw new AppFolderError(
+      `"${TRASH_FOLDER_NAME}" is the Trash and is not a destination in Files.`,
+      400,
+      "reserved_folder",
+    );
   let current: string | null = null;
-  for (const segment of visibleSegments(path)) {
+  for (const segment of segments) {
     current = await ensureChildFolder(ctx, accountId, current, segment);
   }
   if (current === null) throw new AppFolderError("a folder path needs a name");
   return current;
+}
+
+/**
+ * The account's Trash, creating it on the first deletion.
+ *
+ * The one writer entitled to the folder, which `ensureRootFolderPath` refuses
+ * for everybody else: a Trash that a tool could file into would hold nodes with
+ * no origin to restore them to.
+ */
+export async function ensureTrashFolder(ctx: Ctx, accountId: string): Promise<string> {
+  return ensureChildFolder(ctx, accountId, null, TRASH_FOLDER_NAME);
 }
 
 /**

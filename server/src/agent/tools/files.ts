@@ -11,6 +11,7 @@ import {
   type Ctx,
   documentType,
   ensureRootFolderPath,
+  ensureTrashFolder,
   type FileNodeLike,
   fileChildren,
   findVisibleFile,
@@ -33,9 +34,9 @@ import { refusalOf } from "../../shared/jmap.js";
 import { isRecord } from "../../shared/json.js";
 import {
   isTrashFolder,
+  isTrashPath,
   parseTrashDocument,
   TRASH_DOCUMENT,
-  TRASH_FOLDER_NAME,
   type TrashOrigin,
   uniqueName,
   withOrigins,
@@ -503,7 +504,7 @@ export const deleteDocument = defineTool({
      * inside `gilbert`, because a person reaches it from the Files view — and it
      * is made by the first deletion.
      */
-    const trashId = await ensureRootFolderPath(ctx, accountId, TRASH_FOLDER_NAME);
+    const trashId = await ensureTrashFolder(ctx, accountId);
     /*
      * A node already in the Trash is not moved again: its restore target is
      * already the past, and ending it for good is a person's act in Files
@@ -575,6 +576,16 @@ export const moveFile = defineTool({
     if (isTrashFolder(held.file))
       throw new ToolError("bad_arguments", `"${path}" is the Trash; it is not moved.`);
     const to = folder.replace(/\/+$/, "");
+    /*
+     * The Trash is not a destination: a node gets there by `files.delete`, which
+     * is what records where it came from (ADR 0013). A move would leave it with
+     * nothing to restore it to.
+     */
+    if (isTrashPath(to))
+      throw new ToolError(
+        "bad_arguments",
+        `"${to}" is the Trash; files.delete moves a node there and records where it came from.`,
+      );
     if (held.directory && (to === path || to.startsWith(`${path}/`)))
       throw new ToolError(
         "bad_arguments",

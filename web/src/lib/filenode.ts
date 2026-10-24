@@ -117,6 +117,8 @@ export function canDropFileNode(
 ): boolean {
   const dragged = nodes[draggedId];
   if (!dragged) return false;
+  /* The Trash is not dragged anywhere: deleting is how it comes and goes. */
+  if (isTrashFolder(dragged)) return false;
   if (targetId === null) return dragged.parentId != null;
   if (targetId === draggedId) return false;
   if (dragged.parentId === targetId) return false;

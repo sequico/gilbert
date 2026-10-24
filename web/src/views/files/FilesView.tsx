@@ -959,7 +959,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                 <tr
                   key={n.id}
                   className={`${selection.has(n.id) ? "selected" : ""} ${n.nodeType === "directory" && canDropFileNodes(files.nodes, draggingIds, n.id) ? "drop-target" : ""}`}
-                  draggable
+                  draggable={!isTrashFolder(n)}
                   onDragStart={(e) => {
                     /* Dragging a row that is part of the selection drags all of
                        it; dragging one outside the selection means that row. */

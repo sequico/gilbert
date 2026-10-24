@@ -63,6 +63,15 @@ describe("canDropFileNodes", () => {
     dir: node("dir", null, "directory"),
     inside: node("inside", "dir"),
   };
+  /* The Trash is the folder by that name at the top level (ADR 0013). */
+  const trash: FileNode = { ...node("trash", null, "directory"), name: "Trash" };
+
+  it("refuses the Trash as a target and as the thing dragged", () => {
+    const withTrash = { ...nodes, trash };
+    expect(canDropFileNodes(withTrash, ["root1"], "trash")).toBe(false);
+    expect(canDropFileNodes(withTrash, ["trash"], "dir")).toBe(false);
+    expect(canDropFileNodes(withTrash, ["trash"], null)).toBe(false);
+  });
 
   it("allows a drop only when every file can make it", () => {
     expect(canDropFileNodes(nodes, ["root1", "root2"], "dir")).toBe(true);
