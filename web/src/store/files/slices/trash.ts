@@ -68,17 +68,17 @@ async function landIn(
   parentId: Id | null,
   wanted: Array<{ id: Id; name: string }>,
 ): Promise<{ moved: Array<{ id: Id; name: string }>; failure: Error | null }> {
-  const level = await readChildren(accountId, parentId);
-  const taken = new Set(level.map((n) => n.name));
-  const update: Record<Id, { parentId: Id | null; name: string }> = {};
-  const landing: Array<{ id: Id; name: string }> = [];
-  for (const { id, name } of wanted) {
-    const free = uniqueName(taken, name);
-    taken.add(free);
-    update[id] = { parentId, name: free };
-    landing.push({ id, name: free });
-  }
   try {
+    const level = await readChildren(accountId, parentId);
+    const taken = new Set(level.map((n) => n.name));
+    const update: Record<Id, { parentId: Id | null; name: string }> = {};
+    const landing: Array<{ id: Id; name: string }> = [];
+    for (const { id, name } of wanted) {
+      const free = uniqueName(taken, name);
+      taken.add(free);
+      update[id] = { parentId, name: free };
+      landing.push({ id, name: free });
+    }
     const res = await client.call<SetResponse>(FILENODE_SET, { accountId, update });
     const failed = Object.values(res.notUpdated ?? {})[0];
     /* What landed is what the server did not refuse: a partial set still moved

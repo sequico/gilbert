@@ -1782,7 +1782,9 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   for a member, and the store refuses the effect whatever called it. **Nothing
   empties itself** — there is no age at which an item disappears. The folder is
   named `Trash` internally and drawn with a translated label; it is not offered
-  as a destination when saving attachments or attaching one from Files.
+  as a destination when saving attachments or attaching one from Files. The
+  folder's name `Trash` is its identity: a top-level folder already carrying it
+  is the Trash, as the hidden `gilbert` folder is Gilbert's own.
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds the
   settings file and signature images, and the Files view drops it from the listing.
 

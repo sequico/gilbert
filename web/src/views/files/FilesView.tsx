@@ -102,14 +102,16 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   /* The one question the Trash entry asks (ADR 0013). */
   const mayEnd = useMayEndFiles();
   /*
-   * Whether the folder on screen is the Trash, or somewhere inside it.
+   * The path from the top of the account down to the folder on screen, and
+   * whether the Trash is on it.
    *
    * What the actions become there: Delete ends the node for good instead of
    * moving it, Restore puts it back where it came from, and nothing is uploaded
    * into it. Read from the path rather than from one id, because a trashed
    * folder opens like any other and its contents are inside the Trash too.
    */
-  const inTrash = files.pathTo(parentId).some(isTrashFolder);
+  const path = files.pathTo(parentId);
+  const inTrash = path.some(isTrashFolder);
   /** The Trash folder itself, for the actions that only apply directly in it. */
   const trashId = trashFolderId(files);
 
@@ -306,7 +308,6 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     sort,
     folderCounts,
   );
-  const path = files.pathTo(parentId);
 
   /*
    * One definition for the three sortable headers.

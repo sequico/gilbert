@@ -71,12 +71,14 @@ and a read receipt the submission refused.
 Files answers the same question with a different shape, because the server shows
 no rank there either. A node deleted from Files is **moved** into the account's
 Trash: a real top-level folder, created by the first deletion, whose internal
-name is `Trash` and whose label every surface draws translated. A folder arrives
-in it whole, and restoring moves it back with everything under it. So the act a
-person takes on ordinary data is reversible everywhere, and what remains final is
-two things: emptying the Trash, and deleting one item inside it for good. Both
-are final steps in an account the member does not own, and both are the ones
-this record decides about.
+name is `Trash` and whose label every surface draws translated. A top-level
+folder already carrying that name **is** the Trash — the name is the whole
+identity, as it is for `gilbert`. A folder arrives in it whole, and restoring
+moves it back with everything under it. So the act a person takes on ordinary
+data is reversible everywhere, and what remains final is two things: emptying
+the Trash, and deleting one item inside it for good. Both are final steps in an
+account the member does not own, and both are the ones this record decides
+about.
 
 ## Decision
 
@@ -262,6 +264,12 @@ administrator's to ask for, and asking is the action this record keeps.
   was open across the change. It is the same order of staleness ADR 0001 already
   accepts for the client's view of its own privilege, and the server's own door
   is the one that closes it.
+- **The Trash's name is the folder.** A top-level folder a person already keeps
+  under the name `Trash` is the Trash, exactly as the `gilbert` folder is
+  Gilbert's: its contents show in the Trash and an emptying ends them. An
+  account that wants a folder by that name for its own use needs another name.
+  This client refuses to rename or move the folder; another client that does
+  puts it out of this rule's reach until the next deletion makes a new one.
 - **A restore is a move, and it is only as exact as what was remembered.** The
   origin — the folder and the name — is kept in the account's
   `gilbert/trash.json`; a folder that is gone when the node comes back sends it

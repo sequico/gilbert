@@ -1,4 +1,4 @@
-import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
+import { APP_DOCUMENT_TYPE, FOLDER_PROPS } from "@gilbert/shared/appFolder";
 import {
   isTrashFolder,
   parseTrashDocument,
@@ -93,12 +93,7 @@ export function trashRefusal(
 
 /** The account's Trash folder, or null when it has never been used. */
 export async function findTrashFolder(accountId: Id): Promise<Id | null> {
-  const { list } = await listChildrenWithState(accountId, null, [
-    "id",
-    "name",
-    "nodeType",
-    "parentId",
-  ]);
+  const { list } = await listChildrenWithState(accountId, null, [...FOLDER_PROPS]);
   return list.find(isTrashFolder)?.id ?? null;
 }
 
