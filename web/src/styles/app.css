@@ -1354,7 +1354,11 @@ a.menu-item:hover { color: var(--fg); }
 .compose-btn svg { color: var(--accent); }
 .collapsed .compose-btn { width: 52px; padding: 0; justify-content: center; margin-left: auto; margin-right: auto; }
 .collapsed .compose-btn span { display: none; }
-.nav-section { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 4px; font-size: .75em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+/* The sidebar's heading type: a section's label, and an account folded under
+   the one in front. Small, spaced capitals are what tell an account from a
+   folder; an account holding something unseen says so in weight and colour. */
+.nav-section, .nav-item .account-title { font-size: .75em; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+.nav-section { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 4px; font-weight: 700; }
 .nav-section .icon-btn { width: 24px; height: 24px; }
 /* Outweighs `.sidebar .nav-section { display: flex }` further down, which otherwise draws a cut-off heading in the collapsed strip. */
 .collapsed .nav-section, .app-body.collapsed .sidebar .nav-section { display: none; }
@@ -1398,9 +1402,9 @@ a.menu-item:hover { color: var(--fg); }
 .nav-item.account-row { width: calc(100% - 8px); padding: 0 12px 0 30px; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; gap: 8px; }
 .nav-item.account-row .nav-twisty { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
 .nav-item.account-row .nav-twisty:hover { background: none; }
-.nav-item.account-row .account-title { overflow: hidden; text-overflow: ellipsis; font-size: .75em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+.nav-item.account-row .account-title { overflow: hidden; text-overflow: ellipsis; }
 .nav-item.account-row:hover .account-title { color: var(--fg-muted); }
-.nav-item.account-row.unread .account-title { color: var(--fg); font-weight: 800; }
+.nav-item.account-row.unread .account-title { color: var(--fg); font-weight: 700; }
 /* The rail shows icons alone; a row that is only a title would be an empty pill. */
 .collapsed .nav-item.account-row { display: none; }
 /* Folder rows keep the expand chevron in a gutter to the LEFT of the icon, so a
