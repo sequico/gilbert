@@ -37,12 +37,6 @@ export function useAccountFold(): {
     setOpen(load(owner));
   }, [owner]);
 
-  /** One write path, so what is on screen and what is remembered cannot part. */
-  const write = (next: Record<string, boolean>) => {
-    setOpen(next);
-    save(owner, next);
-  };
-
   return {
     open,
     toggle: (accountId) => {
@@ -50,7 +44,8 @@ export function useAccountFold(): {
       const next = { ...open };
       if (next[accountId]) delete next[accountId];
       else next[accountId] = true;
-      write(next);
+      setOpen(next);
+      save(owner, next);
     },
   };
 }
