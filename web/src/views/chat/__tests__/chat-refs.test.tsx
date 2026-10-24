@@ -105,7 +105,7 @@ describe("a reference in the conversation", () => {
     await click(host.querySelectorAll<HTMLButtonElement>(".chat-ref")[1]!);
 
     expect(`${window.location.pathname}${window.location.search}`).toBe(
-      "/calendar/day/2026-11-03?event=ev-3",
+      "/calendar/day/2026-11-03",
     );
     expect(host.querySelectorAll(".chat-ref")).toHaveLength(2);
   });

@@ -201,8 +201,15 @@ test("a reference is a kind and an id, and an event carries its day", () => {
     "url:https://example.com",
     "event:ev-3",
     "event:ev-3@3/11/2026",
+    "event:ev-3@2026-02-31",
+    "file:node-1@2026-11-03",
   ])
     assert.equal(parseChatRef(bad), null, `"${bad}" is not a reference`);
+  assert.deepEqual(
+    parseChatRef("file:node@1"),
+    { kind: "file", id: "node@1" },
+    "an id that holds an @ is not truncated by the day's own separator",
+  );
 });
 
 test("a message carrying a reference this build cannot draw is not a message", () => {

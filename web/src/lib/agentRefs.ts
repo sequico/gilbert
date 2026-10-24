@@ -32,8 +32,9 @@ export function refHref(ref: ChatRef): string {
     case "contact":
       return `/contacts/${id}`;
     case "event":
-      // A calendar route names a day; the event itself is named so the day is
-      // read beside it rather than guessed.
-      return `/calendar/day/${ref.date ?? ""}?event=${id}`;
+      // A calendar route names a day, which is why an event reference carries
+      // one: the link lands on that day. Opening the event itself is the
+      // calendar's own work, and a parameter nothing reads would only claim it.
+      return `/calendar/day/${ref.date}`;
   }
 }

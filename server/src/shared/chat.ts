@@ -97,16 +97,14 @@ interface ChatMessageDoc {
 /**
  * One object a chat message points at.
  *
- * `kind` is the surface, `id` is what that surface's tool answered, and `date`
- * is the day an event is on — a calendar route names a day, so a link to an
- * event without one could not land.
+ * `kind` is the surface and `id` is what that surface's tool answered. An
+ * **event carries the day it is on**, because a calendar route names a day: the
+ * union is where that rule lives, so the render cannot be handed an event it
+ * could not open.
  */
-export interface ChatRef {
-  kind: "thread" | "file" | "contact" | "event";
-  id: string;
-  /** The day an event is on, as `YYYY-MM-DD`; absent for every other kind. */
-  date?: string;
-}
+export type ChatRef =
+  | { kind: "thread" | "file" | "contact"; id: string }
+  | { kind: "event"; id: string; date: string };
 
 /** One member's read marker: which message they have read up to. */
 interface ChatMarkerDoc {
@@ -161,17 +159,18 @@ const REF_KINDS = new Set(["thread", "file", "contact", "event"]);
 export function isChatRef(x: unknown): x is ChatRef {
   if (!isRecord(x)) return false;
   const ref = x as Record<string, unknown>;
-  return (
-    typeof ref.kind === "string" &&
-    REF_KINDS.has(ref.kind) &&
-    typeof ref.id === "string" &&
-    ref.id.trim() !== "" &&
-    (ref.date === undefined ||
-      (typeof ref.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ref.date))) &&
-    // An event is on a day, and a calendar route names one: an event reference
-    // without its day could not land, so it is not a reference.
-    (ref.kind !== "event" || typeof ref.date === "string")
-  );
+  if (typeof ref.kind !== "string" || !REF_KINDS.has(ref.kind)) return false;
+  if (typeof ref.id !== "string" || ref.id.trim() === "") return false;
+  // An outcome and its day: an event has one, and nothing else may.
+  if (ref.kind === "event") return typeof ref.date === "string" && isDay(ref.date);
+  return ref.date === undefined;
+}
+
+/** Whether a value is a calendar day, `YYYY-MM-DD`, and a real one. */
+function isDay(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const at = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(at.getTime()) && at.toISOString().startsWith(value);
 }
 
 /**
@@ -183,15 +182,17 @@ export function isChatRef(x: unknown): x is ChatRef {
 export function parseChatRef(raw: string): ChatRef | null {
   const at = raw.indexOf(":");
   if (at <= 0) return null;
-  const [id, date] = raw
-    .slice(at + 1)
-    .trim()
-    .split("@", 2);
-  const ref: Record<string, unknown> = {
-    kind: raw.slice(0, at).trim(),
-    id: (id ?? "").trim(),
-  };
-  if (date) ref.date = date.trim();
+  const rest = raw.slice(at + 1).trim();
+  /*
+   * The day is what follows the **last** `@`, and only when it is a day: an id
+   * is opaque and may hold one of its own, so a tail that is not a date stays
+   * part of the id rather than truncating it in silence.
+   */
+  const sign = rest.lastIndexOf("@");
+  const tail = sign > 0 ? rest.slice(sign + 1) : "";
+  const id = sign > 0 && isDay(tail) ? rest.slice(0, sign) : rest;
+  const ref: Record<string, unknown> = { kind: raw.slice(0, at).trim(), id };
+  if (isDay(tail)) ref.date = tail;
   return isChatRef(ref) ? ref : null;
 }
 
