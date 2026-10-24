@@ -1267,27 +1267,36 @@ test("a folder is renamed, moved and removed like a document", async () => {
   );
 
   const word = takeAuthorisation(plainRun(), {
-    what: "remove the empty folder",
+    what: "move the folder to the Trash",
     authority: "destructive",
     act: { target: "Bookings/2027", content: null },
     by: "ada@example.org",
     at: new Date().toISOString(),
     from: { channel: "chat", id: "msg-folder" },
   });
-  await assert.rejects(
-    () =>
-      runTool(TOOLS, { ctx, accountId, run: word }, "files.delete", {
-        path: "Bookings/2027",
-      }),
-    /still holds/,
-    "a folder with something in it is refused, not emptied",
-  );
-
-  await writeTool("files.move", { path: "Bookings/2027/a.txt", folder: "Bookings" });
   const gone = await runTool(TOOLS, { ctx, accountId, run: word }, "files.delete", {
     path: "Bookings/2027",
   });
-  assert.deepEqual(gone, { path: "Bookings/2027", removed: true });
+  assert.deepEqual(gone, { path: "Bookings/2027", trashed: true });
+
+  /*
+   * The folder arrives whole: deleting moves it into the account's Trash and
+   * nothing under it is lost (ADR 0013).
+   */
+  const trashed = await callTool<{ nodes: Array<{ path: string }> }>("files.list", {
+    path: "Trash",
+  });
+  assert.deepEqual(
+    trashed.nodes.map((one) => one.path),
+    ["Trash/2027"],
+  );
+  const within = await callTool<{ nodes: Array<{ path: string }> }>("files.list", {
+    path: "Trash/2027",
+  });
+  assert.deepEqual(
+    within.nodes.map((one) => one.path),
+    ["Trash/2027/a.txt"],
+  );
 
   await writeTool("files.folder", { path: "Outer/Inner" });
   await assert.rejects(

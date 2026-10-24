@@ -9,7 +9,6 @@
 import {
   appFolderState,
   type Ctx,
-  destroyAppNode,
   documentType,
   ensureRootFolderPath,
   type FileNodeLike,
@@ -19,9 +18,11 @@ import {
   findVisibleNode,
   nodeStamp,
   pathSegments,
+  readAppJsonForWrite,
   readVisibleFileBytes,
   unusedVisibleName,
   updateAppNode,
+  writeAppFileAt,
   writeBlobIntoVisibleFolder,
   writeBytesIntoVisibleFolder,
 } from "../../appFolder.js";
@@ -30,6 +31,13 @@ import { APP_FOLDER_NAME, FILE_PROPS } from "../../shared/appFolder.js";
 import { CAPABILITIES } from "../../shared/capabilities.js";
 import { refusalOf } from "../../shared/jmap.js";
 import { isRecord } from "../../shared/json.js";
+import {
+  parseTrashDocument,
+  TRASH_DOCUMENT,
+  TRASH_FOLDER_NAME,
+  uniqueName,
+  withOrigins,
+} from "../../shared/trash.js";
 import { clientOf } from "../../util.js";
 import {
   argsRecord,
@@ -434,12 +442,47 @@ export const overwriteDocument = defineTool({
   },
 });
 
+/**
+ * Remember where a node sat before it was moved to the Trash.
+ *
+ * `gilbert/trash.json` is the one document that answers a restore (ADR 0013),
+ * and it is a read-modify-write like every other app-folder document: the write
+ * carries the state its read saw, and a lost compare-and-set is read again. A
+ * failure here is swallowed by the caller: the node is in the Trash either way,
+ * and a restore without an origin puts it at the top level of Files.
+ */
+async function rememberTrashOrigin(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  from: string | null,
+): Promise<void> {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+    const read = await readAppJsonForWrite(ctx, accountId, TRASH_DOCUMENT);
+    const doc = read.kind === "ok" ? parseTrashDocument(read.doc) : { origins: {} };
+    const state = await appFolderState(ctx, accountId);
+    try {
+      await writeAppFileAt(
+        ctx,
+        accountId,
+        TRASH_DOCUMENT,
+        withOrigins(doc, { [id]: from }),
+        { ifInState: state },
+      );
+      return;
+    } catch (err) {
+      if (retryStateMismatch(err, attempt)) break;
+    }
+  }
+}
+
 export const deleteDocument = defineTool({
   name: "files.delete",
   description:
-    "Remove a document of this account's own Files, or a folder that is empty, " +
-    "by its path. A folder still holding something is refused rather than " +
-    "emptied. The act is the node: a person's word for it names what is removed.",
+    "Move a document or a folder of this account's own Files to its Trash, by " +
+    "the path it carries. A folder arrives with everything under it, and " +
+    "nothing is destroyed: a person restores it or empties the Trash from " +
+    "Files. The act is the node: a person's word for it names what is moved.",
   authority: "destructive",
   writes: true,
   surface: "files",
@@ -450,17 +493,24 @@ export const deleteDocument = defineTool({
   run: async ({ ctx, accountId }, { path }) => {
     const held = await findVisibleNode(ctx, accountId, path);
     if (!held?.file.id) throw notFound(`node "${path}" in this account's Files`);
-    if (held.directory) {
-      const children = await fileChildren(ctx, accountId, String(held.file.id), ["id"]);
-      if (children.length)
-        throw new ToolError(
-          "folder_not_empty",
-          `"${path}" still holds ${children.length} item(s); move or remove them first.`,
-          409,
-        );
-    }
-    await destroyAppNode(ctx, accountId, String(held.file.id));
-    return { path, removed: true };
+    const id = String(held.file.id);
+    /*
+     * The Trash is a top-level folder of the account's own Files — not one
+     * inside `gilbert`, because a person reaches it from the Files view — and it
+     * is made by the first deletion.
+     */
+    const trashId = await ensureRootFolderPath(ctx, accountId, TRASH_FOLDER_NAME);
+    const inside = await fileChildren(ctx, accountId, trashId, [
+      "id",
+      "name",
+      "nodeType",
+    ]);
+    const taken = new Set(inside.map((n) => String(n.name ?? "")));
+    const name = uniqueName(taken, String(held.file.name ?? ""));
+    const from = held.file.parentId == null ? null : String(held.file.parentId);
+    await writeNode(ctx, accountId, id, { parentId: trashId, name });
+    await rememberTrashOrigin(ctx, accountId, id, from).catch(() => undefined);
+    return { path, trashed: true };
   },
 });
 
