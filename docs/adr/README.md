@@ -108,16 +108,20 @@ is, not what a user sees.
   only once it is empty, so a stopped merge leaves both folders standing. The
   entry is offered for exactly two folders and drawn always, disabled until the
   selection is one it can act on.
-- **0013 — A group's mail is deleted by an administrator only.** A group mailbox
+- **0013 — A group's data is ended by an administrator only.** A group mailbox
   is reached by membership rather than by a share, so the mail server tells one
   member's delete from another's by nothing and offers no rank inside a group;
   the rule is the client's. Moving, binning, labelling, archiving and forwarding
-  all stay, and the three things that end a message for good — deleting it out
-  of Deleted Items or Junk Mail, emptying one of those folders, and deleting a
+  all stay, and the things that end a message for good — deleting it out of
+  Deleted Items or Junk Mail, emptying one of those folders, and deleting a
   folder together with its mail — are refused for every member but an
   installation administrator, each refusal saying which one it is and what still
-  works. It is a rule the product keeps, not a boundary: another client destroys
-  the same mail.
+  works. Files answers the same question with a move: deleting a node puts it in
+  the account's own Trash, whole, and restoring moves it back; emptying the Trash
+  and ending one item inside it for good are the same administrator's decision in
+  a group and the reader's own in their own account, and nothing empties on a
+  clock. It is a rule the product keeps, not a boundary: another client destroys
+  the same mail and empties the same Trash.
 - **0014 — What notifies a closed Gilbert: the permission door, every mailbox, and chat.** A push subscription belongs to the
   principal that registered it and is served for every account that principal is
   a **member** of, so one row covers the reader's own mailbox and each of their

@@ -67,9 +67,13 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   gets no per-group section and no per-group copy (`gilbert-global-contacts`).
 - **Files**: ownership follows the browsed context (`store/files/`
   `openAccount`); a doc created while browsing the group account is the
-  group's. The composer's "Attach from Files" picker lists every probed
-  account, group mailboxes included, and copies the blob into the sender's
-  account at attach time.
+  group's. Deleting in Files is a **move into that account's Trash** (ADR 0013):
+  a folder arrives whole, a restore returns it where it came from, and emptying
+  the Trash or ending one item in it for good is an installation administrator's
+  in a group and the reader's own in their own files. The composer's "Attach from
+  Files" picker lists every probed account, group mailboxes included, and copies
+  the blob into the sender's account at attach time; the Trash is not a place it
+  attaches from.
 - **Shared/group contacts in the composer**: a group mailbox's books answer
   in the recipient picker, To-field suggestions and "All contacts" **without
   each member adding the book** — membership is the subscription
@@ -105,6 +109,15 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   and the reader's own mailbox are one answer to it. It is a rule the client
   keeps, not a boundary — another client on the same account destroys the same
   mail.
+- **Ending the group's data in Files (ADR 0013)**: the same rule on the other
+  surface. Deleting is a move into the group's Trash, which every member may
+  take; **Empty trash** and **Delete permanently** — the two steps that end a
+  node for good — are refused for everybody but an installation administrator.
+  The rule lives in `lib/trash.ts` (`mayEndFiles`, `trashRefusal`), its guards
+  sit on the effects in `store/files/slices/trash.ts` (`emptyTrash`,
+  `destroyForever`), and the surfaces ask it through
+  `views/files/trashActions.ts`. A Trash is emptied by a person and never on a
+  clock.
 
 ## Working rules
 

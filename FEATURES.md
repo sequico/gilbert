@@ -71,12 +71,14 @@ process (ADR 0027–0033 below): the loop that works a run is there,
 and a pass is asked for when Stalwart pushes a change, with ten seconds as the
 floor without a working stream and thirty with one.
 
-The one thing a member cannot do with group-owned mail is **end it**: the mail
+The one thing a member cannot do with group-owned data is **end it**: the mail
 server tells one member's delete from another's by nothing and offers no rank
 inside a group, so the refusal is this client's rule, and ending a message — out
 of Deleted Items or Junk Mail, by emptying either, or by deleting a folder with
-its mail — is an installation administrator's decision (ADR 0013). Everything
-else a member does to move mail around still works.
+its mail — or ending what sits in a group's Files Trash — by emptying it, or by
+deleting one item for good — is an installation administrator's decision
+(ADR 0013). Everything else a member does to move mail and files around still
+works, including deleting in Files, which moves the node into the group's Trash.
 
 # Agents
 
@@ -1766,6 +1768,20 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   walked or created in the dialog. Offered for one attachment as much as ten. A
   file the chosen folder already holds is reported rather than replaced
   (ADR 0011).
+- **A Trash in every account, and Delete is a move into it** (ADR 0013). Deleting
+  a file or a folder — in the reader's own files or in a group's — moves it into
+  that account's **Trash**, a real top-level folder created by the first deletion,
+  whole with its subtree. A name the Trash already holds is numbered
+  (`report (2).pdf`) rather than refused. **Restore** puts an item back where it
+  came from, the whole tree with it; a folder that no longer exists sends it to
+  the top level of Files instead of failing. Inside the Trash, **Delete
+  permanently** ends one item for good, and **Empty trash** is in the context
+  menu of the Trash row and of the Trash listing. In a group's files those two
+  are an installation administrator's decision: the entries are drawn disabled
+  for a member, and the store refuses the effect whatever called it. **Nothing
+  empties itself** — there is no age at which an item disappears. The folder is
+  named `Trash` internally and drawn with a translated label; it is not offered
+  as a destination when saving attachments or attaching one from Files.
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds the
   settings file and signature images, and the Files view drops it from the listing.
 
