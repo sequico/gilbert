@@ -1390,6 +1390,19 @@ a.menu-item:hover { color: var(--fg); }
    folder icon -- and the name beside it -- left of every short-named row's. */
 .nav-item .nav-twisty { flex: 0 0 auto; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-faint); border-radius: 4px; }
 .nav-item .nav-twisty:hover { background: var(--bg-active); }
+/* An account under the one in front: a row that presses like a folder and
+   reads as a heading. Its title keeps the section's small caps -- smaller than
+   a folder's name, so the row is an account and not one more folder -- and it
+   carries the account's unseen total only while it is folded, where the folder
+   rows that would say so are not on screen. */
+.nav-item.account-row { width: calc(100% - 8px); padding: 0 12px 0 30px; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; gap: 8px; }
+.nav-item.account-row .nav-twisty { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+.nav-item.account-row .nav-twisty:hover { background: none; }
+.nav-item.account-row .account-title { overflow: hidden; text-overflow: ellipsis; font-size: .75em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+.nav-item.account-row:hover .account-title { color: var(--fg-muted); }
+.nav-item.account-row.unread .account-title { color: var(--fg); font-weight: 800; }
+/* The rail shows icons alone; a row that is only a title would be an empty pill. */
+.collapsed .nav-item.account-row { display: none; }
 /* Folder rows keep the expand chevron in a gutter to the LEFT of the icon, so a
    folder with subfolders and one without still line up on their icon. */
 .nav-item.folder-row { --folder-indent: 0px; position: relative; padding-left: calc(30px + var(--folder-indent)); }

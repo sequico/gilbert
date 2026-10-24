@@ -1177,6 +1177,13 @@ the account whose tree is on screen.
 - **A group's tree is drawn whole** (ADR 0017), subscribed or not, because group
   folders arrive unsubscribed. Which tree is whose is asked of the session, so it
   holds from the first frame.
+- **Every account under the one in front is folded to a single row**: a chevron,
+  the account's name in the sidebar's small-caps heading style, and — while
+  folded — the account's unread total, bold when there is any. Opening the row
+  shows that account's folders and drops the number; the account in front has no
+  such row and is always whole. Bringing another account to the front folds all
+  the rest again. Which rows are open is this browser's, per reader: kept for the
+  tab, and across sessions only on a device marked as the reader's own.
 - **Mark all as read**, optionally including subfolders. **Folder colours** per
   mailbox id. **Unread counts** per folder, live.
 - **Storage quota** bar under the tree where the server reports one: the account on

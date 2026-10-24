@@ -221,10 +221,17 @@ describe("the labels section", () => {
   let host: HTMLDivElement;
   let root: Root;
 
-  /** The nav's own rows in document order: section headers and labelled rows. */
+  /**
+   * The nav's own rows in document order: section headers, labelled rows, and
+   * the folded accounts under them -- whose title is not a `.nav-label`.
+   */
   const outline = () =>
     Array.from(document.querySelectorAll(".nav-section, .nav-item")).map((el) =>
-      (el.querySelector(".nav-label") ?? el.querySelector("span"))?.textContent?.trim(),
+      (
+        el.querySelector(".nav-label") ??
+        el.querySelector(".account-title") ??
+        el.querySelector("span")
+      )?.textContent?.trim(),
     );
 
   const mount = () => {
@@ -295,10 +302,11 @@ describe("the labels section", () => {
       "Labels",
       "Starred",
       "Mine",
-      // The other account's section, after the labels and not among them.
+      // The other account, after the labels and not among them -- and folded,
+      // so its tree is not drawn until the reader opens it.
       "team@example.org",
-      "Team Inbox",
     ]);
+    expect(outline()).not.toContain("Team Inbox");
   });
 
   it("lists the group's own catalog when the group is in the foreground", () => {

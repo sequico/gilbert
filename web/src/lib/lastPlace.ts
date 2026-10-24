@@ -9,7 +9,9 @@ import { accountKey, loadJson, saveJson } from "@/lib/storage";
  * record holds all three, keyed by the reader rather than by the surface,
  * because they are one answer to one question. The same record carries the
  * shape of the two folder trees (`openFolders`): where a tree was left, and
- * which of its folders were open, are one answer to one question too.
+ * which of its folders were open, are one answer to one question too. The
+ * accounts opened under the one in front (`openAccounts`) are the same kind of
+ * answer about the mail sidebar.
  *
  * Device-local on purpose. It changes on nearly every click, so syncing it
  * would rewrite the account's settings file that often, and "where I was
@@ -39,6 +41,13 @@ interface LastPlace {
    * never opened it.
    */
   openFolders?: Partial<Record<TreeKind, Record<string, boolean>>>;
+  /**
+   * Which other mail accounts the reader has opened under the one in front,
+   * keyed by account id, with only the open ones named (`accountFold.ts`). The
+   * tab keeps its own copy in session storage; this is the one that outlives
+   * the tab, and it is written only on a device marked as the reader's own.
+   */
+  openAccounts?: Record<string, boolean>;
   /**
    * How each file folder was last ordered on this device, keyed by account and
    * folder (`folderKey`).
@@ -138,6 +147,22 @@ export function rememberOpenFolders(
     ...place,
     openFolders: { ...place.openFolders, [kind]: open },
   });
+}
+
+/** Which mail accounts one reader has opened under the account in front. */
+export function loadOpenAccounts(
+  owner: string | null | undefined,
+): Record<string, boolean> {
+  return loadPlace(owner).openAccounts ?? {};
+}
+
+/** Remember which accounts are open, leaving every other surface as it was. */
+export function rememberOpenAccounts(
+  owner: string | null | undefined,
+  open: Record<string, boolean>,
+): void {
+  if (!owner) return;
+  saveJson(accountKey(owner, "lastPlace"), { ...loadPlace(owner), openAccounts: open });
 }
 
 /**

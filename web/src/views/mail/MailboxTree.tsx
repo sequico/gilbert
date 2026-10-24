@@ -41,6 +41,7 @@ import {
 } from "react";
 import { Link, useLocation } from "wouter";
 import type { Id, Mailbox } from "@/jmap/types";
+import { useAccountFold } from "@/lib/accountFold";
 import { CALENDAR_COLORS } from "@/lib/calendarColors";
 import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { useEffectiveLabels, useIsGroupMailbox } from "@/lib/effectiveLabels";
@@ -311,6 +312,11 @@ export function MailboxTree() {
   // Tree: A–Z at every level (Inbox pinned to the top of the root), subfolders nested and
   // collapsed by default. Expansion state is remembered per folder.
   const { open: expanded, setFolder, openKeys } = useOpenFolders("mail");
+  /*
+   * Which of the other accounts are open under this one. The foreground's tree
+   * is the sidebar's subject, so it is always whole and has no such control.
+   */
+  const { open: openAccounts, toggle: toggleAccount } = useAccountFold(accountId);
   const session = useSession((s) => s.session);
   /*
    * Whether the tree in hand is somebody else's: a group mailbox the reader
@@ -683,36 +689,61 @@ export function MailboxTree() {
         {/* The other mailboxes, under the account on screen: group mailboxes
             under the reader's own, and the reader's own under a group they
             opened. Each section is that account's folder tree from the cache;
-            opening a folder there switches the active account to its owner. */}
+            opening a folder there switches the active account to its owner.
+
+            Folded until the reader opens it, and folded again as soon as
+            another account is brought to the front. A folded account carries
+            what it holds unseen, because the rows that would say so are not on
+            screen; open, it drops the number and the folder rows speak for
+            themselves. Its title keeps the section's small caps, so the row
+            reads as an account rather than as one more folder. */}
         {extraAccounts.map((a) => {
           const tree = extraTrees[a.info.accountId];
           if (!tree) return null;
+          const folded = !openAccounts[a.info.accountId];
+          const unread = Object.values(a.tree).reduce(
+            (n, m) => n + (m.unreadEmails ?? 0),
+            0,
+          );
           return (
             <Fragment key={a.info.accountId}>
-              <div className="nav-section">
-                <span title={a.info.name}>{a.info.name}</span>
-              </div>
-              {tree.rows.map(
-                ({ m, depth, hasChildren, open, hiddenUnread, childUnread }) => (
-                  <FolderRow
-                    key={m.id}
-                    mailbox={m}
-                    label={mailboxDisplayName(m)}
-                    depth={depth}
-                    hasChildren={hasChildren}
-                    open={open}
-                    expandedKey={folderKey(a.info.accountId, m.id)}
-                    hiddenUnread={hiddenUnread}
-                    childUnread={childUnread}
-                    currentId={a.info.accountId === accountId ? currentId : undefined}
-                    readOnly
-                    openAccount={a.info.accountId}
-                    dragging={false}
-                    acceptsFolder={false}
-                    actions={actions}
-                  />
-                ),
-              )}
+              <button
+                type="button"
+                className={`nav-item account-row${folded && unread ? " unread" : ""}`}
+                title={a.info.name}
+                aria-expanded={!folded}
+                onClick={() => toggleAccount(a.info.accountId)}
+              >
+                <span className="nav-twisty" aria-hidden="true">
+                  {folded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                </span>
+                <span className="account-title">{a.info.name}</span>
+                {folded && unread > 0 && (
+                  <span className="nav-count">{unread > 9999 ? "9999+" : unread}</span>
+                )}
+              </button>
+              {!folded &&
+                tree.rows.map(
+                  ({ m, depth, hasChildren, open, hiddenUnread, childUnread }) => (
+                    <FolderRow
+                      key={m.id}
+                      mailbox={m}
+                      label={mailboxDisplayName(m)}
+                      depth={depth}
+                      hasChildren={hasChildren}
+                      open={open}
+                      expandedKey={folderKey(a.info.accountId, m.id)}
+                      hiddenUnread={hiddenUnread}
+                      childUnread={childUnread}
+                      currentId={a.info.accountId === accountId ? currentId : undefined}
+                      readOnly
+                      openAccount={a.info.accountId}
+                      dragging={false}
+                      acceptsFolder={false}
+                      actions={actions}
+                    />
+                  ),
+                )}
             </Fragment>
           );
         })}
