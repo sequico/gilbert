@@ -1,10 +1,11 @@
 # Plan — the agent's interface, proved
 
-Status: **proposed**, not started. The decisions are ADR 0038's (`agent/tools/jobs.ts`,
-one instruction per group, the run as the record), 0030's (the run document) and
-0041's (an outward message is a draft); this file holds only the order, the files
-each unit touches, and what the unit must prove. Nothing here adds a dependency,
-changes the run document, or designs a new capability.
+Status: **done**. All five units are in the tree: the interface rules are stated in
+`agent/tools/jobs.ts` and held by `agent/tools/aci.test.ts`; the eval counts the
+refusals a run recovered from and follows a run a person answers; the eleventh
+task parks a run on a question and continues it there; and the documents say so.
+Nothing here adds a dependency, changes the run document, or designs a new
+capability.
 
 ## Why this plan exists
 
@@ -22,7 +23,7 @@ never happening has no eval task. This plan closes those three, in that order.
 
 - **Add** nothing. **Delete** nothing.
 - **Prove** the starting point by running the eval on the current tree
-  (`server/src/agent/eval.ts`, ten tasks) and recording in the commit message:
+  (`server/src/agent/eval.ts`, eleven tasks) and recording in the commit message:
   `pass@1`, tokens, model calls, seconds, and the per-task `refused=` the report
   already prints. Those numbers are what the units below must beat; without them
   "the interface is better" is a claim with no score.
@@ -98,7 +99,7 @@ measure.
 - **Add** to ADR 0038's `Implementation` line `tools/aci.test.ts`, the recovered
   count and the parked task, once unit 3 lands.
 - **Delete** nothing. **Prove** a grep for the eight job names in `FEATURES.md`
-  finds them, and no document claims the eval has ten tasks once there are eleven.
+  finds them, and no document counts the eval's tasks wrong.
 
 ## Order, and what closes this plan
 

@@ -10,7 +10,7 @@ Built: areas and their selection, the eight jobs and their narrowing, one
 instruction per group, the change as trigger with the run keyed by it, the one-off
 clear, the `done` read against its plan, the repair of an invalid call, the
 credential filter, the native protocol with the provider probe at publish, the two
-token ceilings, and the eval: ten tasks in the repository (`agent/eval/tasks/`),
+token ceilings, and the eval: eleven tasks in the repository (`agent/eval/tasks/`),
 one file each with its message, data and reference, seven of them driving the
 model, partial credit on a task with more than one side, a failed task retried
 once, `pass@1` and cost printed, and the provider put to the product's own probe
@@ -64,7 +64,7 @@ the run document holds every outcome in full.
 | **F1 — the contact** | `model.ts`, `loop.ts`, `changes.ts`, `shared/installation.ts`, `shared/agent.ts`, `installationAdmin.ts`, `routes/agent.ts` | the third task passes through `tools`; a provider is refused when its block is written unless it carries `tools` and a native JSON mode, with reachability at connect; the output ceiling is read with the capabilities and caps every `max_tokens`; transient failures back off, permanent ones stop the pass; a spent day reads nothing, the cursor advances only past what was worked, and one pass takes the batch `changes.ts` already bounds (`CHANGES_PER_PASS`) |
 | **F2 — eight jobs** | `agent/tools/jobs.ts`, `tools.ts`, `areas.ts`, `define.ts`, fixtures | every one of the 45 endpoint tools has a home or is dropped; each job shows only the `kind`/`action` its run's areas allow; `read`, `find`, `say`, `remember` are always present; zero argument refusals |
 | **F3 — repair** | `model.ts`, `loop.ts` | a plan with one bad and one good call leaves the good one on the record |
-| **F4 — the measure** | `eval.ts`, `agent/eval/tasks/` | ten tasks **in the repository**, one file each with its message, data and reference; the runner passes the **same**
+| **F4 — the measure** | `eval.ts`, `agent/eval/tasks/` | eleven tasks **in the repository**, one file each with its message, data and reference; the runner passes the **same**
 provider check as the product, not a relaxed one; at least six drive the model;
 partial credit; retry of failures; `pass@1` and cost printed |
 | **F5 — context** | prompt builder, step projection | the threshold is measured; the last steps in full and earlier ones one line each, no summary call; a long run costs less than with the whole plan |
