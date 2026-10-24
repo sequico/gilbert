@@ -83,6 +83,7 @@ import { CAPABILITIES } from "../shared/capabilities.js";
 import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
 import { isRecord } from "../shared/json.js";
+import { isTrashPath } from "../shared/trash.js";
 import { mailboxesOf } from "../shared/mailboxes.js";
 import { clientOf } from "../util.js";
 import {
@@ -455,6 +456,13 @@ export async function readAccountEvents(
          * knowledge and workorders are the group's; these are the agent's.
          */
         if (path && isAgentPath(path)) continue;
+        /*
+         * What sits in the Trash is not the group's work. Deleting a node moves
+         * it there (ADR 0013), so the move is the delete: a rule woken by it
+         * would be reading a document the person had just taken off the folder
+         * it names.
+         */
+        if (path && isTrashPath(path)) continue;
         if (!path && change === "destroyed") {
           /*
            * A removal nobody can name is not actionable: the node is gone, its

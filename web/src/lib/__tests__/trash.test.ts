@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isTrashFolder,
+  isTrashPath,
   parseTrashDocument,
   uniqueName,
   withOrigins,
@@ -41,6 +42,13 @@ describe("the Trash folder", () => {
     };
     expect(trashFolderId({ nodes: nodes as never })).toBe("b");
     expect(trashFolderId({ nodes: { a: nodes.a } as never })).toBeNull();
+  });
+
+  it("is the first segment of a visible path, and only there", () => {
+    expect(isTrashPath("Trash/report.pdf")).toBe(true);
+    expect(isTrashPath("Trash")).toBe(true);
+    expect(isTrashPath("Work/Trash/report.pdf")).toBe(false);
+    expect(isTrashPath("Trashy/report.pdf")).toBe(false);
   });
 });
 
