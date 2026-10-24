@@ -83,6 +83,9 @@ export const listFiles = defineTool({
       return [
         {
           path: folder ? `${folder}/${node.name}` : node.name,
+          // The id is what a chat reference opens a file by (`file:<id>`,
+          // ADR 0039): a path is how a person names it, an id is what the route takes.
+          id: String(node.id ?? ""),
           nodeType: node.nodeType === "directory" ? "directory" : "file",
           size: typeof node.size === "number" ? node.size : null,
           modified: nodeStamp(node),
@@ -143,6 +146,7 @@ export const readNode = defineTool({
       readImage,
     );
     return {
+      id: String(found.file.id ?? ""),
       name: found.name,
       type,
       size: typeof found.file.size === "number" ? found.file.size : null,

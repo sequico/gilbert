@@ -1218,13 +1218,19 @@ test("a folder is renamed, moved and removed like a document", async () => {
   await writeTool("files.folder", { path: "Bookings/2026" });
   await writeTool("files.write", { path: "Bookings/2026/a.txt", text: "a" });
   await writeTool("files.rename", { path: "Bookings/2026", name: "2027" });
-  const listed = await callTool<{ nodes: Array<{ path: string }> }>("files.list", {
+  const listed = await callTool<{
+    nodes: Array<{ path: string; id?: string }>;
+  }>("files.list", {
     path: "Bookings/2027",
   });
   assert.deepEqual(
     listed.nodes.map((one) => one.path),
     ["Bookings/2027/a.txt"],
     "the folder is renamed with what it holds",
+  );
+  assert.ok(
+    listed.nodes.every((one) => typeof one.id === "string" && one.id !== ""),
+    "and each row carries the id a chat reference opens the file by",
   );
 
   const word = takeAuthorisation(plainRun(), {
