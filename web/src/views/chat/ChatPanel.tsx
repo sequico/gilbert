@@ -466,7 +466,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const followRef = useCallback(
     (ref: ChatRef) => {
       if (openAccountId) setAccount(openAccountId);
-      setLocation(refHref(ref));
+      setLocation(refHref(ref, openAccountId));
     },
     [openAccountId, setAccount, setLocation],
   );

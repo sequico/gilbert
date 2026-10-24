@@ -13,6 +13,9 @@ describe("refHref", () => {
     expect(refHref({ kind: "thread", id: "t-1" })).toBe("/search/t-1");
     expect(refHref({ kind: "file", id: "node-7" })).toBe("/files/node-7");
     expect(refHref({ kind: "contact", id: "card-9" })).toBe("/contacts/card-9");
+    expect(refHref({ kind: "contact", id: "card-9" }, "g1")).toBe(
+      "/contacts/card-9?account=g1",
+    );
     expect(refHref({ kind: "event", id: "ev-3", date: "2026-11-03" })).toBe(
       "/calendar/day/2026-11-03",
     );

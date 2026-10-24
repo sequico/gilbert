@@ -430,13 +430,10 @@ export async function workChanges(
         : null;
     /*
      * A quote reply means "about that": the message a person answers is part of
-     * the change, not a lookup the turn has to spend. It is read here, once, so
-     * the decision that may answer in words has the sentence it is replying to —
-     * a reply leaves the agent answering a message it was never shown.
+     * the change, not a lookup the turn has to spend. It is read where the
+     * turn's own detail is built — after a reply that answers a run has already
+     * continued it and gone, so that path pays one read and not two.
      */
-    const quoted = message?.replyTo
-      ? await readChatMessageBy(deps.ctx, accountId, message.replyTo)
-      : null;
     /*
      * A mail the change names is read here for the same reason: the turn that
      * decides it is then told the sender's words instead of spending a lookup —
@@ -585,6 +582,15 @@ export async function workChanges(
      * The installation's own line and the group's standing instruction reach the
      * decision turn: the turn reads the change against both (ADR 0038).
      */
+    /*
+     * The sentence a quote reply is about. Read once, here: the path that
+     * answers a run has already continued it and left, so this read is paid only
+     * by the change that may answer in words — the one that answered "I do not
+     * have the content of the message you refer to" without it.
+     */
+    const quoted = message?.replyTo
+      ? await readChatMessageBy(deps.ctx, accountId, message.replyTo)
+      : null;
     const detail = message
       ? {
           from: message.from,

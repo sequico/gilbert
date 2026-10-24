@@ -10,6 +10,7 @@
  * reads as the place it opens rather than as an id.
  */
 import type { ChatRef } from "@gilbert/shared/chat";
+import { cardPath } from "@/lib/contactAddress";
 
 /** The surface a reference opens, as the word the rest of the app uses. */
 export const REF_LABEL: Record<ChatRef["kind"], string> = {
@@ -19,8 +20,14 @@ export const REF_LABEL: Record<ChatRef["kind"], string> = {
   event: "Calendar",
 };
 
-/** The route a reference opens, inside the mount prefix the router adds. */
-export function refHref(ref: ChatRef): string {
+/**
+ * The route a reference opens, inside the mount prefix the router adds.
+ *
+ * `account` is the conversation's own, and only the surfaces whose route names
+ * one use it: a card is addressed by account and id because Stalwart's ids are
+ * per-account, and the same id in two books is two cards.
+ */
+export function refHref(ref: ChatRef, account?: string | null): string {
   const id = encodeURIComponent(ref.id);
   switch (ref.kind) {
     case "thread":
@@ -30,7 +37,7 @@ export function refHref(ref: ChatRef): string {
     case "file":
       return `/files/${id}`;
     case "contact":
-      return `/contacts/${id}`;
+      return cardPath({ id: ref.id, accountId: account ?? null });
     case "event":
       // A calendar route names a day, which is why an event reference carries
       // one: the link lands on that day. Opening the event itself is the
