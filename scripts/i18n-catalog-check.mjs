@@ -95,8 +95,12 @@ import {
  *
  * 214 -> 216: a run row's unreadable label and its steps/calls summary
  * (`views/admin/agents/GroupRuns.tsx`).
+ *
+ * 232 -> 0: every catalogue carries every source string, so the budget has no
+ * headroom left and the strict rule stands — a new source string arrives with
+ * its translations in the same change.
  */
-const MISSING_MAX = 232;
+const MISSING_MAX = 0;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

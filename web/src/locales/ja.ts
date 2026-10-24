@@ -2178,6 +2178,290 @@ export const catalog: Catalog = {
     "{left} still moving; one press closes at most {max} runs.":
       "残り {left} 件が進行中です。1 回で最大 {max} 件まで停止します。",
     "Nobody holds the agent.": "エージェントを保持しているプロセスはありません。",
+    "AI Agents": "AI エージェント",
+    "Gilbert Agents": "Gilbert エージェント",
+    "not-applicable": "該当なし",
+    "{template} · rev {rev}": "{template} · 第{rev}版",
+    "From {template}": "{template} から",
+    "after {sections}": "{sections} の後",
+    "{label}: {value}": "{label}: {value}",
+    "Finish the open steps, or set them skipped with a reason, before completing.":
+      "完了する前に、未完了のステップを終えるか、理由を付けてスキップに設定してください。",
+    "A closed workorder is kept for ever.": "閉じた作業指示は永久に保存されます。",
+    "Select a template": "テンプレートを選択",
+    "No template with a revision in force": "有効な版があるテンプレートがありません",
+    "One per {item}": "{item} ごとに 1 件",
+    "{item} key": "{item} のキー",
+    "Remove item": "項目を削除",
+    "Add {item}": "{item} を追加",
+    "The template's steps could not be read.":
+      "テンプレートのステップを読み取れませんでした。",
+    "The parts are the groups the template assigns sections to; the global checklist holds the rest.":
+      "パートは、テンプレートがセクションを割り当てるグループです。残りは全体のチェックリストに入ります。",
+    All: "すべて",
+    "Could not load the workorders": "作業指示を読み込めませんでした",
+    "No workorders yet": "作業指示はまだありません",
+    "To be implemented": "未実装です。",
+    "Select a workorder, or create one.":
+      "作業指示を選択するか、新しく作成してください。",
+    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires {version} or newer, and sign-in refuses anything older.":
+      "Stalwart はバージョン番号をメールクライアントに公開しないため、Gilbert はサーバーがエディションを返す場合にそれを表示します。Gilbert は {version} 以降を必要とし、それより古いものはサインイン時に拒否されます。",
+    "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what Gilbert needs from the server is the line above.":
+      "Gilbert 自身のバージョンは、ビルド元のコミットの日付に、そのコミットがどこから来たかを続けたものです: {example} は 2026 年 8 月 30 日付のコミットからビルドされ、プルリクエスト 129 で取り込まれました。プルリクエストを経ていないコミットは、代わりに短い SHA を示します — {sha}。このバージョンは Stalwart については何も語りません。Gilbert がサーバーに求めるものは上の行にあります。",
+    "Only languages Gilbert has been translated into appear here.":
+      "ここには Gilbert が翻訳済みの言語だけが表示されます。",
+    "Filters are not available for this account.":
+      "このアカウントではフィルターを利用できません。",
+    "Sort incoming mail automatically. Rules run on the server, so they work for every client you use.":
+      "受信メールを自動で振り分けます。ルールはサーバー上で実行されるため、お使いのどのクライアントでも機能します。",
+    "Live updates are {state}.": "ライブ更新は{state}です。",
+    "This invitation could not be read.": "この招待を読み取れませんでした。",
+    "Cancelled event": "中止された予定",
+    "Invitation reply": "招待への返信",
+    "Invitation (in your calendar)": "招待（カレンダー内）",
+    Invitation: "招待",
+    Accepted: "承諾済み",
+    Declined: "辞退済み",
+    "System labels": "システムラベル",
+    Collapse: "折りたたむ",
+    Expand: "展開",
+    "This installation does not load remote images through its proxy.":
+      "このインストールでは、プロキシ経由でリモート画像を読み込みません。",
+    Added: "追加済み",
+    "Key: {key}": "キー: {key}",
+    "Show when": "表示する条件",
+    "Condition variant": "条件のバリアント",
+    "Condition value": "条件の値",
+    "Choose a value": "値を選択",
+    "Show only after": "次の後に表示",
+    "Prerequisite section": "前提セクション",
+    "Choose a section": "セクションを選択",
+    "This prerequisite no longer exists.": "この前提セクションは存在しません。",
+    "Remove prerequisite": "前提を削除",
+    "Add prerequisite": "前提を追加",
+    "No process defined yet.": "プロセスはまだ定義されていません。",
+    Variants: "バリアント",
+    "per {item}": "{item} ごと",
+    "No steps.": "ステップがありません。",
+    "Add variant": "バリアントを追加",
+    "A workorder picks one value per variant; a section or a step shows only where the chosen value matches its condition.":
+      "作業指示はバリアントごとに 1 つの値を選びます。セクションやステップは、選ばれた値がその条件に一致する場合にのみ表示されます。",
+    "No variants yet.": "バリアントはまだありません。",
+    Variant: "バリアント",
+    "Remove variant": "バリアントを削除",
+    Value: "値",
+    "Remove value": "値を削除",
+    "Add value": "値を追加",
+    "Add section": "セクションを追加",
+    "Sections run in order, and each holds the steps carried out inside it.":
+      "セクションは順番に進み、それぞれのセクションで行うステップを保持します。",
+    "No sections yet.": "セクションはまだありません。",
+    "Untitled section": "無題のセクション",
+    "Remove section": "セクションを削除",
+    "Add a section to start writing the process.":
+      "セクションを追加して、プロセスの作成を始めてください。",
+    Section: "セクション",
+    "Competent group": "担当グループ",
+    "Repeat for each item": "項目ごとに繰り返す",
+    "Item, e.g. Container": "項目（例: コンテナ）",
+    Item: "項目",
+    "Item field": "項目のフィールド",
+    "Remove field": "フィールドを削除",
+    "Add field": "フィールドを追加",
+    "Add step": "ステップを追加",
+    Step: "ステップ",
+    "Remove step": "ステップを削除",
+    "rev. {n}": "第{n}版",
+    "New checklist template": "新しいチェックリストテンプレート",
+    "Rename page": "ページ名を変更",
+    "Retire “{title}”?": "「{title}」を公開終了しますか？",
+    "It leaves the tree but stays on record, with its revisions; find it again by showing retired articles.":
+      "ツリーからは外れますが、改訂とともに記録には残ります。公開終了したページを表示すれば、再び見つかります。",
+    Retire: "公開終了",
+    "Delete “{title}”?": "「{title}」を削除しますか？",
+    "The pages and folders inside it go too.":
+      "中のページとフォルダーも一緒に削除されます。",
+    "Checklist template": "チェックリストテンプレート",
+    Retired: "公開終了",
+    "Search pages": "ページを検索",
+    "Clear search": "検索をクリア",
+    "Only checklist templates": "チェックリストテンプレートのみ",
+    Results: "検索結果",
+    "Nothing found.": "見つかりませんでした。",
+    "No knowledge base yet.": "ナレッジベースはまだありません。",
+    "No pages yet.": "ページはまだありません。",
+    "Select a page, or create one.": "ページを選択するか、新しく作成してください。",
+    Title: "タイトル",
+    Tags: "タグ",
+    "Tags, comma separated": "タグ（カンマ区切り）",
+    "In force": "発効中",
+    "Pending until {date}": "{date} に発効予定",
+    "Used by": "使用している作業指示",
+    "Show retired pages": "公開終了したページを表示",
+    Approve: "承認",
+    History: "履歴",
+    "This folder holds an approved article; retire or move it first.":
+      "このフォルダーには承認済みのページがあります。先に公開終了するか移動してください。",
+    "Date it takes effect": "発効日",
+    "No revisions yet.": "改訂はまだありません。",
+    "Approved {date} by {who}": "{who} が {date} に承認",
+    "In force from {date}": "{date} から発効",
+    "This account is not set up for file storage.":
+      "このアカウントはファイル保存用に設定されていません。",
+    "New address book in a group": "グループに新しいアドレス帳",
+    "This account is not set up for contacts.":
+      "このアカウントは連絡先用に設定されていません。",
+    "Merge contacts": "連絡先を統合",
+    "Contacts merged": "連絡先を統合しました",
+    "The contacts were merged, but the other one could not be deleted: {error}":
+      "連絡先は統合されましたが、もう一方を削除できませんでした: {error}",
+    "The contacts were merged, but the other one is still there.":
+      "連絡先は統合されましたが、もう一方はまだ残っています。",
+    Photo: "写真",
+    "One of the two contacts is no longer there, so there is nothing to merge.":
+      "2 件の連絡先のうち 1 件がすでにないため、統合するものがありません。",
+    "{a} and {b} become one contact. Where they disagree, choose the value to keep; everything else is combined.":
+      "{a} と {b} は 1 件の連絡先になります。値が異なる項目では残す値を選んでください。それ以外はすべて結合されます。",
+    "The two contacts have no conflicting values, so they are combined as they are.":
+      "2 件の連絡先に競合する値はないため、そのまま結合されます。",
+    "Gilbert AI interface": "Gilbert AI インターフェース",
+    "Open questions": "未回答の質問",
+    "Questions waiting for an answer": "回答待ちの質問",
+    "Timed runs": "定期実行",
+    "What the agent is doing": "エージェントの動作",
+    "No question is waiting for an answer.": "回答待ちの質問はありません。",
+    "New calendar in a group": "グループに新しいカレンダー",
+    "This account is not set up for calendars.":
+      "このアカウントはカレンダー用に設定されていません。",
+    "One JSON document in the Master's Files; a publish applies at the next boot.":
+      "Master のファイルにある 1 つの JSON ドキュメントです。公開すると次回の起動時に適用されます。",
+    "Require an account to change its password. The requirement is enforced by the server; administrators cannot force one another.":
+      "アカウントにパスワードの変更を要求します。この要求はサーバーが強制するため、管理者どうしで強制することはできません。",
+    "Could not be read on this session": "このセッションでは読み取れませんでした",
+    "Gilbert's own labels. Its agent applies them to a message, and they cannot be changed here.":
+      "Gilbert 独自のラベルです。エージェントがメールに付けるもので、ここでは変更できません。",
+    "Which theme to use: system, light, dark, or Gilbert's own.":
+      "使用するテーマ: システム、ライト、ダーク、または Gilbert 独自のもの。",
+    "Show folders that Files normally hides.":
+      "通常はファイルが隠しているフォルダーを表示します。",
+    "No description available.": "説明はありません。",
+    "The installation's model": "このインストールのモデル",
+    "Every agent call runs on this model. Applies at the next pass.":
+      "エージェントの呼び出しはすべてこのモデルで実行されます。次回のパスから適用されます。",
+    "No model: the agent stays idle.": "モデルなし: エージェントは待機したままです。",
+    Provider: "プロバイダー",
+    Model: "モデル",
+    "Base URL": "ベース URL",
+    "https://api.openai.com/v1": "https://api.openai.com/v1",
+    "API key": "API キー",
+    "Paste the key here": "ここにキーを貼り付け",
+    "A typed key replaces the stored one; empty keeps it. No read hands it back.":
+      "入力したキーは保存済みのキーを置き換えます。空欄ならそのまま保持されます。読み取りで返されることはありません。",
+    "Name a provider first: a key belongs to a model.":
+      "先にプロバイダーを指定してください。キーはモデルに属します。",
+    "This provider needs no key": "このプロバイダーはキーを必要としません",
+    "Model connected": "モデルに接続しました",
+    "No model named": "モデルが指定されていません",
+    "The API key was refused": "API キーが拒否されました",
+    "The URL was not found": "URL が見つかりませんでした",
+    "The provider is rate-limiting this installation":
+      "プロバイダーがこのインストールのレート制限をかけています",
+    "The provider refused the call": "プロバイダーが呼び出しを拒否しました",
+    "The provider's address is not allowed on this installation":
+      "このインストールではプロバイダーのアドレスが許可されていません",
+    "The provider's URL is not valid": "プロバイダーの URL が正しくありません",
+    "The provider could not be reached": "プロバイダーに到達できませんでした",
+    "Checking the model…": "モデルを確認しています…",
+    "Standing rule": "常設のルール",
+    "Above every group's instruction. Applies at the next pass.":
+      "すべてのグループの指示より優先されます。次回のパスから適用されます。",
+    "No installation document yet.": "インストールのドキュメントはまだありません。",
+    Facts: "事実",
+    "One fact per sheet. A person's correction is in force; the agent proposes against it.":
+      "1 枚に 1 つの事実です。人による修正は有効で、エージェントはそれに対して提案します。",
+    "Load more": "さらに読み込む",
+    "A key needs a provider: name one above, then save the key.":
+      "キーにはプロバイダーが必要です。上で指定してからキーを保存してください。",
+    "Saved; applies at the next pass.": "保存しました。次回のパスから適用されます。",
+    "Agents on": "エージェントを有効にする",
+    "Held by {who} since {when}, and believed until {until}.":
+      "{who} が {when} から保持し、{until} まで有効とみなされます。",
+    "A pass every {n} s.": "{n} 秒ごとにパスを実行します。",
+    "AI agents are turned off. No pass works anything and no model call is made.":
+      "AI エージェントはオフです。パスは何も処理せず、モデルの呼び出しも行いません。",
+    Period: "期間",
+    "All time": "全期間",
+    Runs: "実行回数",
+    "Steps taken": "実行したステップ",
+    "Model calls": "モデル呼び出し",
+    "Failed steps": "失敗したステップ",
+    "Work time": "作業時間",
+    "Prompt tokens": "プロンプトトークン",
+    "Cached tokens": "キャッシュ済みトークン",
+    "Uncached tokens": "キャッシュなしトークン",
+    "Completion tokens": "補完トークン",
+    "By group": "グループ別",
+    "No group mailbox in this session.":
+      "このセッションにグループメールボックスはありません。",
+    Tokens: "トークン",
+    Overview: "概要",
+    Memory: "メモリ",
+    Knowledge: "ナレッジ",
+    Instruction: "指示",
+    Areas: "領域",
+    "What the group's agent may change. Reading is always allowed.":
+      "グループのエージェントが変更できる範囲です。読み取りは常に許可されています。",
+    "No other area is ticked: the agent works only the conversation and memory.":
+      "他の領域が選択されていないため、エージェントは会話とメモリだけを扱います。",
+    "What wakes the agent": "エージェントを起動するもの",
+    "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
+      "チェックした対象の変更はエージェントに自動で届きます。上の領域にチェックを入れても、それだけで起動するわけではありません。",
+    Stop: "停止",
+    "Not readable": "読み取り不可",
+    "{steps} steps · {calls} calls": "{steps} ステップ · {calls} 呼び出し",
+    "{runs} runs · {calls} model calls · {failed} failed steps · {tokens} tokens":
+      "{runs} 回の実行 · {calls} 回のモデル呼び出し · {failed} 件の失敗したステップ · {tokens} トークン",
+    Archived: "アーカイブ済み",
+    "Current runs": "進行中の実行",
+    Woke: "起動のきっかけ",
+    "A person ({who}) wrote this on {when} — it is in force, so the agent proposes against it and never overwrites it.":
+      "人（{who}）が {when} にこれを書きました。有効なため、エージェントはそれに対して提案し、上書きすることはありません。",
+    "The run {run} learned this on {when}.":
+      "実行 {run} が {when} にこれを学習しました。",
+    "A person ({who}) corrected it on {when} — it is in force, so the agent proposes against it and never overwrites it.":
+      "人（{who}）が {when} にこれを修正しました。有効なため、エージェントはそれに対して提案し、上書きすることはありません。",
+    Accept: "受け入れる",
+    "The fact leaves the installation's memory, and every call that carried it stops carrying it.":
+      "この事実はインストールのメモリから削除され、これを運んでいた呼び出しは今後それを運びません。",
+    Fact: "事実",
+    "Not run yet": "未実行",
+    Worked: "実行済み",
+    "Not reached": "未到達",
+    "out-of-budget": "予算超過",
+    "Started by the rule {rule}, woken by {change}.":
+      "ルール {rule} により開始、{change} により起動。",
+    "Started by an instruction in {channel} {id}, woken by {change}.":
+      "{channel} {id} の指示により開始、{change} により起動。",
+    Surfaces: "対象",
+    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
+      "消費: {steps} ステップ、{calls} 回のモデル呼び出し、{ms} ミリ秒の作業。",
+    "Recalled: {facts}.": "読み出した事実: {facts}。",
+    "Ended {when}: {why}": "{when} に終了: {why}",
+    "After step {n} if it ended {outcome}":
+      "終了結果が {outcome} の場合、ステップ {n} の後",
+    "What it answered": "回答内容",
+    OK: "OK",
+    Confirm: "確認",
+    "That move is not allowed.": "その移動は許可されていません。",
+    "The calendar did not answer in time.": "カレンダーが時間内に応答しませんでした。",
+    Individual: "個人",
+    Application: "アプリケーション",
+    Note: "メモ",
+    "Reaching a group's {need} happens as the Master, and the Master is not granted on this group: the documents live in the group's own account, so grant it on the group in the mail server's directory.":
+      "グループの{need}に到達するのは Master として行われますが、このグループには Master が付与されていません。ドキュメントはグループ自身のアカウントにあるため、メールサーバーのディレクトリでそのグループに対して付与してください。",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbert はこのグループの{need}についてメールサーバーに問い合わせできなかったため、Master がそこに到達するかは判断できません。何も変更されておらず、何も読み取られていません。もう一度お試しください。それでも同じ応答が続く場合は、メールサーバーを確認してください。",
+    "Set by {who} on {when}": "{who} が {when} に設定",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2344,5 +2628,11 @@ export const catalog: Catalog = {
         other:
           "すべての{n}件のメッセージが完全に削除されます。先にゴミ箱へは入らないため、これは元に戻せません。",
       },
+    "{n} items": {
+      other: "{n}件",
+    },
+    "{n} questions waiting for an answer": {
+      other: "回答待ちの質問{n}件",
+    },
   },
 };

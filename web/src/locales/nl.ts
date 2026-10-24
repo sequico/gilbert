@@ -2182,6 +2182,287 @@ export const catalog: Catalog = {
     "{left} still moving; one press closes at most {max} runs.":
       "{left} nog in beweging: één druk sluit hoogstens {max} uitvoeringen.",
     "Nobody holds the agent.": "Niemand houdt de agent.",
+    // ── Workorders, checklist templates, the knowledge base and the agent ──
+    "AI Agents": "AI-agenten",
+    "Gilbert Agents": "Gilbert-agenten",
+    "not-applicable": "Niet van toepassing",
+    "{template} · rev {rev}": "{template} · rev. {rev}",
+    "From {template}": "Vanuit {template}",
+    "after {sections}": "na {sections}",
+    "{label}: {value}": "{label}: {value}",
+    "Finish the open steps, or set them skipped with a reason, before completing.":
+      "Rond de open stappen af, of markeer ze met een reden als overgeslagen, voordat u afrondt.",
+    "A closed workorder is kept for ever.":
+      "Een gesloten werkorder wordt voor altijd bewaard.",
+    "Select a template": "Een sjabloon selecteren",
+    "No template with a revision in force": "Geen sjabloon met een geldige revisie",
+    "One per {item}": "Eén per {item}",
+    "{item} key": "{item}-sleutel",
+    "Remove item": "Item verwijderen",
+    "Add {item}": "{item} toevoegen",
+    "The template's steps could not be read.":
+      "De stappen van het sjabloon konden niet worden gelezen.",
+    "The parts are the groups the template assigns sections to; the global checklist holds the rest.":
+      "De onderdelen zijn de groepen waaraan het sjabloon secties toewijst; de globale checklist bevat de rest.",
+    All: "Alle",
+    "Could not load the workorders": "Kon de werkorders niet laden",
+    "No workorders yet": "Nog geen werkorders",
+    "To be implemented": "Nog te implementeren",
+    "Select a workorder, or create one.": "Selecteer een werkorder of maak er een aan.",
+    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires {version} or newer, and sign-in refuses anything older.":
+      "Stalwart publiceert zijn versienummer niet aan mailclients, dus Gilbert meldt de editie waar de server er een geeft. Gilbert vereist {version} of nieuwer, en aanmelden weigert alles wat ouder is.",
+    "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what Gilbert needs from the server is the line above.":
+      "Gilberts eigen versie is de datum van de commit waaruit het is gebouwd, gevolgd door waar die commit vandaan kwam: {example} is gebouwd uit een commit van 30 augustus 2026 die binnenkwam via pull request 129. Een commit die niet via een pull request binnenkwam, draagt in plaats daarvan de korte SHA — {sha}. De versie zegt bewust niets over Stalwart; wat Gilbert van de server nodig heeft, staat in de regel hierboven.",
+    "Only languages Gilbert has been translated into appear here.":
+      "Hier verschijnen alleen talen waarnaar Gilbert is vertaald.",
+    "Filters are not available for this account.":
+      "Filters zijn niet beschikbaar voor dit account.",
+    "Sort incoming mail automatically. Rules run on the server, so they work for every client you use.":
+      "Sorteer inkomende mail automatisch. Regels draaien op de server en werken dus in elke client die u gebruikt.",
+    "Live updates are {state}.": "Live-updates zijn {state}.",
+    "This invitation could not be read.": "Deze uitnodiging kon niet worden gelezen.",
+    "Cancelled event": "Afgezegde afspraak",
+    "Invitation reply": "Antwoord op uitnodiging",
+    "Invitation (in your calendar)": "Uitnodiging (in uw agenda)",
+    Invitation: "Uitnodiging",
+    Accepted: "Geaccepteerd",
+    Declined: "Geweigerd",
+    "System labels": "Systeemlabels",
+    Collapse: "Samenvouwen",
+    Expand: "Uitvouwen",
+    "This installation does not load remote images through its proxy.":
+      "Deze installatie laadt externe afbeeldingen niet via haar proxy.",
+    Added: "Toegevoegd",
+    "Key: {key}": "Sleutel: {key}",
+    "Show when": "Tonen wanneer",
+    "Condition variant": "Voorwaardevariant",
+    "Condition value": "Voorwaardewaarde",
+    "Choose a value": "Kies een waarde",
+    "Show only after": "Alleen tonen na",
+    "Prerequisite section": "Voorafgaande sectie",
+    "Choose a section": "Kies een sectie",
+    "This prerequisite no longer exists.": "Deze voorafgaande sectie bestaat niet meer.",
+    "Remove prerequisite": "Voorafgaande sectie verwijderen",
+    "Add prerequisite": "Voorafgaande sectie toevoegen",
+    "No process defined yet.": "Nog geen proces gedefinieerd.",
+    Variants: "Varianten",
+    "per {item}": "per {item}",
+    "No steps.": "Geen stappen.",
+    "Add variant": "Variant toevoegen",
+    "A workorder picks one value per variant; a section or a step shows only where the chosen value matches its condition.":
+      "Een werkorder kiest één waarde per variant; een sectie of stap verschijnt alleen waar de gekozen waarde aan de voorwaarde voldoet.",
+    "No variants yet.": "Nog geen varianten.",
+    Variant: "Variant",
+    "Remove variant": "Variant verwijderen",
+    Value: "Waarde",
+    "Remove value": "Waarde verwijderen",
+    "Add value": "Waarde toevoegen",
+    "Add section": "Sectie toevoegen",
+    "Sections run in order, and each holds the steps carried out inside it.":
+      "Secties worden op volgorde uitgevoerd en elke sectie bevat de stappen die erin worden uitgevoerd.",
+    "No sections yet.": "Nog geen secties.",
+    "Untitled section": "Sectie zonder titel",
+    "Remove section": "Sectie verwijderen",
+    "Add a section to start writing the process.":
+      "Voeg een sectie toe om het proces te gaan schrijven.",
+    Section: "Sectie",
+    "Competent group": "Bevoegde groep",
+    "Repeat for each item": "Herhalen voor elk item",
+    "Item, e.g. Container": "Item, bijv. container",
+    Item: "Item",
+    "Item field": "Itemveld",
+    "Remove field": "Veld verwijderen",
+    "Add field": "Veld toevoegen",
+    "Add step": "Stap toevoegen",
+    Step: "Stap",
+    "Remove step": "Stap verwijderen",
+    "rev. {n}": "rev. {n}",
+    "New checklist template": "Nieuw checklistsjabloon",
+    "Rename page": "Pagina hernoemen",
+    "Retire “{title}”?": "‘{title}’ intrekken?",
+    "It leaves the tree but stays on record, with its revisions; find it again by showing retired articles.":
+      "Het verlaat de boom maar blijft bewaard, met zijn revisies; u vindt het terug door ingetrokken artikelen te tonen.",
+    Retire: "Intrekken",
+    "Delete “{title}”?": "‘{title}’ verwijderen?",
+    "The pages and folders inside it go too.": "De pagina's en mappen erin gaan ook mee.",
+    "Checklist template": "Checklistsjabloon",
+    Retired: "Ingetrokken",
+    "Search pages": "Pagina's zoeken",
+    "Clear search": "Zoekopdracht wissen",
+    "Only checklist templates": "Alleen checklistsjablonen",
+    Results: "Resultaten",
+    "Nothing found.": "Niets gevonden.",
+    "No knowledge base yet.": "Nog geen kennisbank.",
+    "No pages yet.": "Nog geen pagina's.",
+    "Select a page, or create one.": "Selecteer een pagina of maak er een aan.",
+    Title: "Titel",
+    Tags: "Tags",
+    "Tags, comma separated": "Tags, gescheiden door komma's",
+    "In force": "Van kracht",
+    "Pending until {date}": "In afwachting tot {date}",
+    "Used by": "Gebruikt door",
+    "Show retired pages": "Ingetrokken pagina's tonen",
+    Approve: "Goedkeuren",
+    History: "Geschiedenis",
+    "This folder holds an approved article; retire or move it first.":
+      "Deze map bevat een goedgekeurd artikel; trek het eerst in of verplaats het.",
+    "Date it takes effect": "Datum van inwerkingtreding",
+    "No revisions yet.": "Nog geen revisies.",
+    "Approved {date} by {who}": "Goedgekeurd op {date} door {who}",
+    "In force from {date}": "Van kracht vanaf {date}",
+    "This account is not set up for file storage.":
+      "Dit account is niet ingericht voor bestandsopslag.",
+    "New address book in a group": "Nieuw adresboek in een groep",
+    "This account is not set up for contacts.":
+      "Dit account is niet ingericht voor contacten.",
+    "Merge contacts": "Contacten samenvoegen",
+    "Contacts merged": "Contacten samengevoegd",
+    "The contacts were merged, but the other one could not be deleted: {error}":
+      "De contacten zijn samengevoegd, maar het andere contact kon niet worden verwijderd: {error}",
+    "The contacts were merged, but the other one is still there.":
+      "De contacten zijn samengevoegd, maar het andere contact staat er nog.",
+    Photo: "Foto",
+    "One of the two contacts is no longer there, so there is nothing to merge.":
+      "Een van de twee contacten bestaat niet meer, dus er valt niets samen te voegen.",
+    "{a} and {b} become one contact. Where they disagree, choose the value to keep; everything else is combined.":
+      "{a} en {b} worden één contact. Waar ze verschillen kiest u de waarde die u wilt houden; al het overige wordt samengevoegd.",
+    "The two contacts have no conflicting values, so they are combined as they are.":
+      "De twee contacten hebben geen tegenstrijdige waarden en worden dus samengevoegd zoals ze zijn.",
+    "Gilbert AI interface": "Gilbert AI-interface",
+    "Open questions": "Openstaande vragen",
+    "Questions waiting for an answer": "Vragen die op een antwoord wachten",
+    "Timed runs": "Tijdgestuurde uitvoeringen",
+    "What the agent is doing": "Wat de agent doet",
+    "No question is waiting for an answer.": "Er wacht geen vraag op een antwoord.",
+    "New calendar in a group": "Nieuwe agenda in een groep",
+    "This account is not set up for calendars.":
+      "Dit account is niet ingericht voor agenda's.",
+    "One JSON document in the Master's Files; a publish applies at the next boot.":
+      "Eén JSON-document in de Bestanden van de Master; een publicatie gaat in bij de volgende start.",
+    "Require an account to change its password. The requirement is enforced by the server; administrators cannot force one another.":
+      "Een account verplichten zijn wachtwoord te wijzigen. De verplichting wordt door de server afgedwongen; beheerders kunnen elkaar niet dwingen.",
+    "Could not be read on this session": "Kon in deze sessie niet worden gelezen",
+    "Gilbert's own labels. Its agent applies them to a message, and they cannot be changed here.":
+      "Gilberts eigen labels. Zijn agent past ze op een bericht toe, en ze kunnen hier niet worden gewijzigd.",
+    "Which theme to use: system, light, dark, or Gilbert's own.":
+      "Welk thema te gebruiken: systeem, licht, donker of dat van Gilbert.",
+    "Show folders that Files normally hides.":
+      "Mappen tonen die Bestanden normaal verbergt.",
+    "No description available.": "Geen beschrijving beschikbaar.",
+    "The installation's model": "Het model van de installatie",
+    "Every agent call runs on this model. Applies at the next pass.":
+      "Elke aanroep van de agent gebruikt dit model. Geldt vanaf de volgende doorgang.",
+    "No model: the agent stays idle.": "Geen model: de agent blijft inactief.",
+    Provider: "Aanbieder",
+    Model: "Model",
+    "Base URL": "Basis-URL",
+    "https://api.openai.com/v1": "https://api.openai.com/v1",
+    "API key": "API-sleutel",
+    "Paste the key here": "Plak de sleutel hier",
+    "A typed key replaces the stored one; empty keeps it. No read hands it back.":
+      "Een ingevoerde sleutel vervangt de opgeslagen sleutel; leeg laten houdt hem. Geen enkele uitlezing geeft hem terug.",
+    "Name a provider first: a key belongs to a model.":
+      "Noem eerst een aanbieder: een sleutel hoort bij een model.",
+    "This provider needs no key": "Deze aanbieder heeft geen sleutel nodig",
+    "Model connected": "Model verbonden",
+    "No model named": "Geen model opgegeven",
+    "The API key was refused": "De API-sleutel is geweigerd",
+    "The URL was not found": "De URL is niet gevonden",
+    "The provider is rate-limiting this installation":
+      "De aanbieder beperkt het aantal aanroepen van deze installatie",
+    "The provider refused the call": "De aanbieder heeft de aanroep geweigerd",
+    "The provider's address is not allowed on this installation":
+      "Het adres van de aanbieder is niet toegestaan op deze installatie",
+    "The provider's URL is not valid": "De URL van de aanbieder is ongeldig",
+    "The provider could not be reached": "De aanbieder kon niet worden bereikt",
+    "Checking the model…": "Model wordt gecontroleerd…",
+    "Standing rule": "Vaste regel",
+    "Above every group's instruction. Applies at the next pass.":
+      "Gaat boven de instructie van elke groep. Geldt vanaf de volgende doorgang.",
+    "No installation document yet.": "Nog geen installatiedocument.",
+    Facts: "Feiten",
+    "One fact per sheet. A person's correction is in force; the agent proposes against it.":
+      "Eén feit per blad. De correctie van een persoon is van kracht; de agent stelt wijzigingen voor maar overschrijft die nooit.",
+    "Load more": "Meer laden",
+    "A key needs a provider: name one above, then save the key.":
+      "Een sleutel heeft een aanbieder nodig: noem er hierboven een en sla de sleutel dan op.",
+    "Saved; applies at the next pass.": "Opgeslagen; geldt vanaf de volgende doorgang.",
+    "Agents on": "Agenten actief",
+    "Held by {who} since {when}, and believed until {until}.":
+      "Vastgehouden door {who} sinds {when}, en geldig geacht tot {until}.",
+    "A pass every {n} s.": "Een doorgang elke {n} s.",
+    "AI agents are turned off. No pass works anything and no model call is made.":
+      "AI-agenten staan uit. Geen enkele doorgang werkt iets af en er wordt geen modelaanroep gedaan.",
+    Period: "Periode",
+    "All time": "Alle tijd",
+    Runs: "Uitvoeringen",
+    "Steps taken": "Uitgevoerde stappen",
+    "Model calls": "Modelaanroepen",
+    "Failed steps": "Mislukte stappen",
+    "Work time": "Werktijd",
+    "Prompt tokens": "Prompt-tokens",
+    "Cached tokens": "Gecachte tokens",
+    "Uncached tokens": "Niet-gecachte tokens",
+    "Completion tokens": "Completion-tokens",
+    "By group": "Per groep",
+    "No group mailbox in this session.": "Geen groepsmailbox in deze sessie.",
+    Tokens: "Tokens",
+    Overview: "Overzicht",
+    Memory: "Geheugen",
+    Knowledge: "Kennis",
+    Instruction: "Instructie",
+    Areas: "Gebieden",
+    "What the group's agent may change. Reading is always allowed.":
+      "Wat de agent van de groep mag wijzigen. Lezen is altijd toegestaan.",
+    "No other area is ticked: the agent works only the conversation and memory.":
+      "Er is geen ander gebied aangevinkt: de agent werkt alleen het gesprek en het geheugen.",
+    "What wakes the agent": "Wat de agent wekt",
+    "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
+      "Wijzigingen op een aangevinkt oppervlak worden automatisch naar de agent gebracht; een gebied hierboven aanvinken wekt hem niet vanzelf.",
+    Stop: "Stoppen",
+    "Not readable": "Niet leesbaar",
+    "{steps} steps · {calls} calls": "{steps} stappen · {calls} aanroepen",
+    "{runs} runs · {calls} model calls · {failed} failed steps · {tokens} tokens":
+      "{runs} uitvoeringen · {calls} modelaanroepen · {failed} mislukte stappen · {tokens} tokens",
+    Archived: "Gearchiveerd",
+    "Current runs": "Huidige uitvoeringen",
+    Woke: "Gewekt door",
+    "A person ({who}) wrote this on {when} — it is in force, so the agent proposes against it and never overwrites it.":
+      "Een persoon ({who}) schreef dit op {when} — het is van kracht, dus de agent stelt wijzigingen voor maar overschrijft het nooit.",
+    "The run {run} learned this on {when}.": "De uitvoering {run} leerde dit op {when}.",
+    "A person ({who}) corrected it on {when} — it is in force, so the agent proposes against it and never overwrites it.":
+      "Een persoon ({who}) corrigeerde dit op {when} — het is van kracht, dus de agent stelt wijzigingen voor maar overschrijft het nooit.",
+    Accept: "Accepteren",
+    "The fact leaves the installation's memory, and every call that carried it stops carrying it.":
+      "Het feit verdwijnt uit het geheugen van de installatie, en elke aanroep die het meedroeg draagt het niet meer.",
+    Fact: "Feit",
+    "Not run yet": "Nog niet uitgevoerd",
+    Worked: "Uitgevoerd",
+    "Not reached": "Niet bereikt",
+    "out-of-budget": "Budget uitgeput",
+    "Started by the rule {rule}, woken by {change}.":
+      "Gestart door de regel {rule}, gewekt door {change}.",
+    "Started by an instruction in {channel} {id}, woken by {change}.":
+      "Gestart door een instructie in {channel} {id}, gewekt door {change}.",
+    Surfaces: "Oppervlakken",
+    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
+      "Besteed: {steps} stappen, {calls} modelaanroepen, {ms} ms werk.",
+    "Recalled: {facts}.": "Opgehaald: {facts}.",
+    "Ended {when}: {why}": "Beëindigd {when}: {why}",
+    "After step {n} if it ended {outcome}": "Na stap {n} als de uitkomst {outcome} is",
+    "What it answered": "Het antwoord",
+    OK: "OK",
+    Confirm: "Bevestigen",
+    "That move is not allowed.": "Die verplaatsing is niet toegestaan.",
+    "The calendar did not answer in time.": "De agenda antwoordde niet op tijd.",
+    Individual: "Individueel",
+    Application: "Applicatie",
+    Note: "Notitie",
+    "Reaching a group's {need} happens as the Master, and the Master is not granted on this group: the documents live in the group's own account, so grant it on the group in the mail server's directory.":
+      "Het bereiken van {need} van een groep gebeurt als de Master, en de Master is op deze groep niet gemachtigd: de documenten staan in het eigen account van de groep, dus machtig hem op de groep in de map van de mailserver.",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbert kon de mailserver niet vragen naar {need} van deze groep, dus het kan niet zeggen of de Master erbij kan: er is niets gewijzigd en niets gelezen. Probeer het opnieuw, en als het zo blijft antwoorden is de mailserver degene om naar te kijken.",
+    "Set by {who} on {when}": "Ingesteld door {who} op {when}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2433,5 +2714,13 @@ export const catalog: Catalog = {
         other:
           "Alle {n} berichten worden permanent verwijderd. Ze gaan niet eerst naar de Prullenbak, dus dit kan niet ongedaan worden gemaakt.",
       },
+    "{n} items": {
+      one: "{n} item",
+      other: "{n} items",
+    },
+    "{n} questions waiting for an answer": {
+      one: "{n} vraag wacht op een antwoord",
+      other: "{n} vragen wachten op een antwoord",
+    },
   },
 };

@@ -2236,6 +2236,290 @@ export const catalog: Catalog = {
     "{left} still moving; one press closes at most {max} runs.":
       "{left} laufen noch: ein Druck schließt höchstens {max} Läufe.",
     "Nobody holds the agent.": "Niemand hält den Agenten.",
+    "AI Agents": "KI-Agenten",
+    "Gilbert Agents": "Gilbert-Agenten",
+    "not-applicable": "Nicht zutreffend",
+    "{template} · rev {rev}": "{template} · Rev. {rev}",
+    "From {template}": "Aus {template}",
+    "after {sections}": "nach {sections}",
+    "{label}: {value}": "{label}: {value}",
+    "Finish the open steps, or set them skipped with a reason, before completing.":
+      "Schließen Sie die offenen Schritte ab oder setzen Sie sie mit einer Begründung auf übersprungen, bevor Sie abschließen.",
+    "A closed workorder is kept for ever.":
+      "Ein geschlossener Arbeitsauftrag bleibt dauerhaft erhalten.",
+    "Select a template": "Vorlage auswählen",
+    "No template with a revision in force": "Keine Vorlage mit gültiger Revision",
+    "One per {item}": "Eines je {item}",
+    "{item} key": "{item}-Schlüssel",
+    "Remove item": "Eintrag entfernen",
+    "Add {item}": "{item} hinzufügen",
+    "The template's steps could not be read.":
+      "Die Schritte der Vorlage konnten nicht gelesen werden.",
+    "The parts are the groups the template assigns sections to; the global checklist holds the rest.":
+      "Die Teile sind die Gruppen, denen die Vorlage Abschnitte zuweist; die globale Checkliste enthält den Rest.",
+    All: "Alle",
+    "Could not load the workorders": "Die Arbeitsaufträge konnten nicht geladen werden",
+    "No workorders yet": "Noch keine Arbeitsaufträge",
+    "To be implemented": "Noch nicht umgesetzt",
+    "Select a workorder, or create one.":
+      "Wählen Sie einen Arbeitsauftrag aus oder erstellen Sie einen.",
+    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires {version} or newer, and sign-in refuses anything older.":
+      "Stalwart veröffentlicht seine Versionsnummer nicht gegenüber Mail-Clients, daher meldet Gilbert die Edition, wo der Server eine nennt. Gilbert setzt {version} oder neuer voraus, und die Anmeldung lehnt Älteres ab.",
+    "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what Gilbert needs from the server is the line above.":
+      "Gilberts eigene Version ist das Datum des Commits, aus dem es gebaut wurde, gefolgt von der Herkunft dieses Commits: {example} wurde aus einem Commit vom 30. August 2026 gebaut, der über Pull Request 129 kam. Ein Commit, der nicht über einen kam, trägt stattdessen seinen kurzen SHA — {sha}. Die Version sagt bewusst nichts über Stalwart; was Gilbert vom Server benötigt, steht in der Zeile darüber.",
+    "Only languages Gilbert has been translated into appear here.":
+      "Hier erscheinen nur Sprachen, in die Gilbert übersetzt wurde.",
+    "Filters are not available for this account.":
+      "Filter sind für dieses Konto nicht verfügbar.",
+    "Sort incoming mail automatically. Rules run on the server, so they work for every client you use.":
+      "Sortieren Sie eingehende Mail automatisch. Regeln laufen auf dem Server und gelten daher in jedem Client, den Sie verwenden.",
+    "Live updates are {state}.": "Live-Aktualisierungen sind {state}.",
+    "This invitation could not be read.": "Diese Einladung konnte nicht gelesen werden.",
+    "Cancelled event": "Abgesagter Termin",
+    "Invitation reply": "Antwort auf Einladung",
+    "Invitation (in your calendar)": "Einladung (in Ihrem Kalender)",
+    Invitation: "Einladung",
+    Accepted: "Angenommen",
+    Declined: "Abgelehnt",
+    "System labels": "System-Labels",
+    Collapse: "Einklappen",
+    Expand: "Ausklappen",
+    "This installation does not load remote images through its proxy.":
+      "Diese Installation lädt entfernte Bilder nicht über ihren Proxy.",
+    Added: "Hinzugefügt",
+    "Key: {key}": "Schlüssel: {key}",
+    "Show when": "Anzeigen, wenn",
+    "Condition variant": "Bedingungsvariante",
+    "Condition value": "Bedingungswert",
+    "Choose a value": "Wert wählen",
+    "Show only after": "Nur anzeigen nach",
+    "Prerequisite section": "Vorausgehender Abschnitt",
+    "Choose a section": "Abschnitt wählen",
+    "This prerequisite no longer exists.": "Diese Voraussetzung existiert nicht mehr.",
+    "Remove prerequisite": "Voraussetzung entfernen",
+    "Add prerequisite": "Voraussetzung hinzufügen",
+    "No process defined yet.": "Noch kein Ablauf definiert.",
+    Variants: "Varianten",
+    "per {item}": "je {item}",
+    "No steps.": "Keine Schritte.",
+    "Add variant": "Variante hinzufügen",
+    "A workorder picks one value per variant; a section or a step shows only where the chosen value matches its condition.":
+      "Ein Arbeitsauftrag wählt je Variante einen Wert; ein Abschnitt oder ein Schritt erscheint nur, wenn der gewählte Wert seine Bedingung erfüllt.",
+    "No variants yet.": "Noch keine Varianten.",
+    Variant: "Variante",
+    "Remove variant": "Variante entfernen",
+    Value: "Wert",
+    "Remove value": "Wert entfernen",
+    "Add value": "Wert hinzufügen",
+    "Add section": "Abschnitt hinzufügen",
+    "Sections run in order, and each holds the steps carried out inside it.":
+      "Abschnitte laufen der Reihe nach ab, und jeder enthält die Schritte, die in ihm ausgeführt werden.",
+    "No sections yet.": "Noch keine Abschnitte.",
+    "Untitled section": "Unbenannter Abschnitt",
+    "Remove section": "Abschnitt entfernen",
+    "Add a section to start writing the process.":
+      "Fügen Sie einen Abschnitt hinzu, um den Ablauf zu schreiben.",
+    Section: "Abschnitt",
+    "Competent group": "Zuständige Gruppe",
+    "Repeat for each item": "Für jedes Element wiederholen",
+    "Item, e.g. Container": "Element, z. B. Container",
+    Item: "Element",
+    "Item field": "Elementfeld",
+    "Remove field": "Feld entfernen",
+    "Add field": "Feld hinzufügen",
+    "Add step": "Schritt hinzufügen",
+    Step: "Schritt",
+    "Remove step": "Schritt entfernen",
+    "rev. {n}": "Rev. {n}",
+    "New checklist template": "Neue Checklistenvorlage",
+    "Rename page": "Seite umbenennen",
+    "Retire “{title}”?": "„{title}“ zurückziehen?",
+    "It leaves the tree but stays on record, with its revisions; find it again by showing retired articles.":
+      "Sie verlässt den Baum, bleibt aber mit ihren Revisionen im Bestand; über die zurückgezogenen Seiten finden Sie sie wieder.",
+    Retire: "Zurückziehen",
+    "Delete “{title}”?": "„{title}“ löschen?",
+    "The pages and folders inside it go too.":
+      "Die Seiten und Ordner darin werden mitgelöscht.",
+    "Checklist template": "Checklistenvorlage",
+    Retired: "Zurückgezogen",
+    "Search pages": "Seiten durchsuchen",
+    "Clear search": "Suche löschen",
+    "Only checklist templates": "Nur Checklistenvorlagen",
+    Results: "Ergebnisse",
+    "Nothing found.": "Nichts gefunden.",
+    "No knowledge base yet.": "Noch keine Wissensdatenbank.",
+    "No pages yet.": "Noch keine Seiten.",
+    "Select a page, or create one.": "Wählen Sie eine Seite aus oder erstellen Sie eine.",
+    Title: "Titel",
+    Tags: "Schlagwörter",
+    "Tags, comma separated": "Schlagwörter, durch Kommas getrennt",
+    "In force": "In Kraft",
+    "Pending until {date}": "In Kraft ab {date}",
+    "Used by": "Verwendet von",
+    "Show retired pages": "Zurückgezogene Seiten anzeigen",
+    Approve: "Genehmigen",
+    History: "Verlauf",
+    "This folder holds an approved article; retire or move it first.":
+      "Dieser Ordner enthält eine genehmigte Seite; ziehen Sie sie zuerst zurück oder verschieben Sie sie.",
+    "Date it takes effect": "Gültig ab",
+    "No revisions yet.": "Noch keine Revisionen.",
+    "Approved {date} by {who}": "Genehmigt am {date} von {who}",
+    "In force from {date}": "In Kraft seit {date}",
+    "This account is not set up for file storage.":
+      "Dieses Konto ist nicht für die Dateispeicherung eingerichtet.",
+    "New address book in a group": "Neues Adressbuch in einer Gruppe",
+    "This account is not set up for contacts.":
+      "Dieses Konto ist nicht für Kontakte eingerichtet.",
+    "Merge contacts": "Kontakte zusammenführen",
+    "Contacts merged": "Kontakte zusammengeführt",
+    "The contacts were merged, but the other one could not be deleted: {error}":
+      "Die Kontakte wurden zusammengeführt, aber der andere konnte nicht gelöscht werden: {error}",
+    "The contacts were merged, but the other one is still there.":
+      "Die Kontakte wurden zusammengeführt, aber der andere ist noch vorhanden.",
+    Photo: "Foto",
+    "One of the two contacts is no longer there, so there is nothing to merge.":
+      "Einer der beiden Kontakte ist nicht mehr vorhanden, es gibt also nichts zusammenzuführen.",
+    "{a} and {b} become one contact. Where they disagree, choose the value to keep; everything else is combined.":
+      "{a} und {b} werden zu einem Kontakt. Wo sie voneinander abweichen, wählen Sie den Wert, der bleiben soll; alles andere wird zusammengeführt.",
+    "The two contacts have no conflicting values, so they are combined as they are.":
+      "Die beiden Kontakte haben keine abweichenden Werte und werden daher unverändert zusammengeführt.",
+    "Gilbert AI interface": "Gilbert-KI-Oberfläche",
+    "Open questions": "Offene Fragen",
+    "Questions waiting for an answer": "Fragen, die auf eine Antwort warten",
+    "Timed runs": "Zeitgesteuerte Läufe",
+    "What the agent is doing": "Was der Agent gerade tut",
+    "No question is waiting for an answer.": "Keine Frage wartet auf eine Antwort.",
+    "New calendar in a group": "Neuer Kalender in einer Gruppe",
+    "This account is not set up for calendars.":
+      "Dieses Konto ist nicht für Kalender eingerichtet.",
+    "One JSON document in the Master's Files; a publish applies at the next boot.":
+      "Ein JSON-Dokument in den Dateien des Masters; eine Veröffentlichung gilt ab dem nächsten Start.",
+    "Require an account to change its password. The requirement is enforced by the server; administrators cannot force one another.":
+      "Verlangen Sie von einem Konto, sein Passwort zu ändern. Die Vorgabe wird vom Server durchgesetzt; Administratoren können sie einander nicht auferlegen.",
+    "Could not be read on this session": "In dieser Sitzung nicht lesbar",
+    "Gilbert's own labels. Its agent applies them to a message, and they cannot be changed here.":
+      "Gilberts eigene Labels. Sein Agent setzt sie auf eine Nachricht, und hier lassen sie sich nicht ändern.",
+    "Which theme to use: system, light, dark, or Gilbert's own.":
+      "Welches Design verwendet wird: System, Hell, Dunkel oder Gilberts eigenes.",
+    "Show folders that Files normally hides.":
+      "Ordner anzeigen, die Dateien normalerweise ausblendet.",
+    "No description available.": "Keine Beschreibung verfügbar.",
+    "The installation's model": "Das Modell der Installation",
+    "Every agent call runs on this model. Applies at the next pass.":
+      "Jeder Aufruf des Agenten läuft auf diesem Modell. Gilt ab dem nächsten Durchlauf.",
+    "No model: the agent stays idle.": "Kein Modell: Der Agent bleibt untätig.",
+    Provider: "Anbieter",
+    Model: "Modell",
+    "Base URL": "Basis-URL",
+    "https://api.openai.com/v1": "https://api.openai.com/v1",
+    "API key": "API-Schlüssel",
+    "Paste the key here": "Schlüssel hier einfügen",
+    "A typed key replaces the stored one; empty keeps it. No read hands it back.":
+      "Ein eingetippter Schlüssel ersetzt den gespeicherten; leer behält ihn. Kein Lesevorgang gibt ihn zurück.",
+    "Name a provider first: a key belongs to a model.":
+      "Benennen Sie zuerst einen Anbieter: Ein Schlüssel gehört zu einem Modell.",
+    "This provider needs no key": "Dieser Anbieter benötigt keinen Schlüssel",
+    "Model connected": "Modell verbunden",
+    "No model named": "Kein Modell benannt",
+    "The API key was refused": "Der API-Schlüssel wurde abgelehnt",
+    "The URL was not found": "Die URL wurde nicht gefunden",
+    "The provider is rate-limiting this installation":
+      "Der Anbieter begrenzt die Anfragen dieser Installation",
+    "The provider refused the call": "Der Anbieter hat den Aufruf abgelehnt",
+    "The provider's address is not allowed on this installation":
+      "Die Adresse des Anbieters ist auf dieser Installation nicht zulässig",
+    "The provider's URL is not valid": "Die URL des Anbieters ist ungültig",
+    "The provider could not be reached": "Der Anbieter konnte nicht erreicht werden",
+    "Checking the model…": "Modell wird geprüft…",
+    "Standing rule": "Stehende Regel",
+    "Above every group's instruction. Applies at the next pass.":
+      "Über der Anweisung jeder Gruppe. Gilt ab dem nächsten Durchlauf.",
+    "No installation document yet.": "Noch kein Installationsdokument.",
+    Facts: "Fakten",
+    "One fact per sheet. A person's correction is in force; the agent proposes against it.":
+      "Ein Fakt pro Karte. Was eine Person korrigiert hat, gilt; der Agent schlägt dazu nur Änderungen vor.",
+    "Load more": "Mehr laden",
+    "A key needs a provider: name one above, then save the key.":
+      "Ein Schlüssel braucht einen Anbieter: Benennen Sie oben einen und speichern Sie dann den Schlüssel.",
+    "Saved; applies at the next pass.": "Gespeichert; gilt ab dem nächsten Durchlauf.",
+    "Agents on": "Agenten aktiv",
+    "Held by {who} since {when}, and believed until {until}.":
+      "Gehalten von {who} seit {when}, anerkannt bis {until}.",
+    "A pass every {n} s.": "Ein Durchlauf alle {n} s.",
+    "AI agents are turned off. No pass works anything and no model call is made.":
+      "KI-Agenten sind ausgeschaltet. Kein Durchlauf bearbeitet etwas, und es wird kein Modell aufgerufen.",
+    Period: "Zeitraum",
+    "All time": "Gesamter Zeitraum",
+    Runs: "Läufe",
+    "Steps taken": "Ausgeführte Schritte",
+    "Model calls": "Modellaufrufe",
+    "Failed steps": "Fehlgeschlagene Schritte",
+    "Work time": "Arbeitszeit",
+    "Prompt tokens": "Prompt-Tokens",
+    "Cached tokens": "Zwischengespeicherte Tokens",
+    "Uncached tokens": "Nicht zwischengespeicherte Tokens",
+    "Completion tokens": "Completion-Tokens",
+    "By group": "Nach Gruppe",
+    "No group mailbox in this session.": "Keine Gruppen-Mailbox in dieser Sitzung.",
+    Tokens: "Tokens",
+    Overview: "Übersicht",
+    Memory: "Gedächtnis",
+    Knowledge: "Wissen",
+    Instruction: "Anweisung",
+    Areas: "Bereiche",
+    "What the group's agent may change. Reading is always allowed.":
+      "Was der Agent der Gruppe ändern darf. Lesen ist immer erlaubt.",
+    "No other area is ticked: the agent works only the conversation and memory.":
+      "Kein weiterer Bereich ist angehakt: Der Agent bearbeitet nur die Konversation und das Gedächtnis.",
+    "What wakes the agent": "Was den Agenten weckt",
+    "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
+      "Änderungen auf einer angehakten Oberfläche werden dem Agenten automatisch gemeldet; ein oben angehakter Bereich weckt ihn nicht von selbst.",
+    Stop: "Stoppen",
+    "Not readable": "Nicht lesbar",
+    "{steps} steps · {calls} calls": "{steps} Schritte · {calls} Aufrufe",
+    "{runs} runs · {calls} model calls · {failed} failed steps · {tokens} tokens":
+      "{runs} Läufe · {calls} Modellaufrufe · {failed} fehlgeschlagene Schritte · {tokens} Tokens",
+    Archived: "Archiv",
+    "Current runs": "Aktuelle Läufe",
+    Woke: "Auslöser",
+    "A person ({who}) wrote this on {when} — it is in force, so the agent proposes against it and never overwrites it.":
+      "Eine Person ({who}) hat dies am {when} geschrieben — es gilt, daher macht der Agent nur Vorschläge dazu und überschreibt es nie.",
+    "The run {run} learned this on {when}.": "Der Lauf {run} hat dies am {when} gelernt.",
+    "A person ({who}) corrected it on {when} — it is in force, so the agent proposes against it and never overwrites it.":
+      "Eine Person ({who}) hat es am {when} korrigiert — es gilt, daher macht der Agent nur Vorschläge dazu und überschreibt es nie.",
+    Accept: "Übernehmen",
+    "The fact leaves the installation's memory, and every call that carried it stops carrying it.":
+      "Der Fakt verlässt das Gedächtnis der Installation, und jeder Aufruf, der ihn mitführte, führt ihn nicht mehr mit.",
+    Fact: "Fakt",
+    "Not run yet": "Nicht gelaufen",
+    Worked: "Ausgeführt",
+    "Not reached": "Nicht erreicht",
+    "out-of-budget": "Budget erschöpft",
+    "Started by the rule {rule}, woken by {change}.":
+      "Gestartet durch die Regel {rule}, geweckt durch {change}.",
+    "Started by an instruction in {channel} {id}, woken by {change}.":
+      "Gestartet durch eine Anweisung in {channel} {id}, geweckt durch {change}.",
+    Surfaces: "Oberflächen",
+    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
+      "Verbraucht: {steps} Schritte, {calls} Modellaufrufe, {ms} ms Arbeit.",
+    "Recalled: {facts}.": "Erinnert: {facts}.",
+    "Ended {when}: {why}": "Beendet {when}: {why}",
+    "After step {n} if it ended {outcome}":
+      "Nach Schritt {n}, wenn der Ausgang {outcome} ist",
+    "What it answered": "Was er geantwortet hat",
+    OK: "OK",
+    Confirm: "Bestätigen",
+    "That move is not allowed.": "Dieses Verschieben ist nicht zulässig.",
+    "The calendar did not answer in time.":
+      "Der Kalender hat nicht rechtzeitig geantwortet.",
+    Individual: "Einzelperson",
+    Application: "Anwendung",
+    Note: "Notiz",
+    "Reaching a group's {need} happens as the Master, and the Master is not granted on this group: the documents live in the group's own account, so grant it on the group in the mail server's directory.":
+      "Der Zugriff auf {need} einer Gruppe erfolgt als der Master, und der Master ist für diese Gruppe nicht berechtigt: Die Dokumente liegen im eigenen Konto der Gruppe, daher berechtigen Sie ihn für die Gruppe im Verzeichnis des Mailservers.",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether the Master reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbert konnte den Mailserver nicht nach {need} dieser Gruppe fragen und kann daher nicht sagen, ob der Master darauf zugreift: Es wurde nichts geändert und nichts gelesen. Versuchen Sie es erneut, und wenn die Antwort so bleibt, ist der Mailserver der Punkt, den es zu prüfen gilt.",
+    "Set by {who} on {when}": "Gesetzt von {who} am {when}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -2490,5 +2774,10 @@ export const catalog: Catalog = {
         other:
           "Alle {n} Nachrichten werden endgültig gelöscht. Sie gehen nicht zuerst in den Papierkorb, daher kann dies nicht rückgängig gemacht werden.",
       },
+    "{n} items": { one: "{n} Element", other: "{n} Elemente" },
+    "{n} questions waiting for an answer": {
+      one: "{n} Frage wartet auf eine Antwort",
+      other: "{n} Fragen warten auf eine Antwort",
+    },
   },
 };
