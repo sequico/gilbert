@@ -2441,6 +2441,16 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "No hay ninguna otra área marcada: el agente trabaja solo en la conversación y la memoria.",
     "What wakes the agent": "Qué despierta al agente",
+    "AI Agents can always write memory":
+      "Los agentes de IA siempre pueden escribir en la memoria",
+    "AI Agents can always write on their chat":
+      "Los agentes de IA siempre pueden escribir en su chat",
+    "AI Agents are always awaken by chat messages":
+      "Los agentes de IA siempre se activan con los mensajes del chat",
+    "AI Agents cannot be awaken by memory changes":
+      "Los agentes de IA no pueden activarse por cambios en la memoria",
+    "AI Agents cannot be awaken by contacts changes":
+      "Los agentes de IA no pueden activarse por cambios en los contactos",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "Los cambios en una superficie marcada se llevan al agente automáticamente; marcar un área arriba no lo despierta por sí solo.",
     Stop: "Detener",

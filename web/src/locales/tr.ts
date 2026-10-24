@@ -2338,6 +2338,16 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "Başka hiçbir alan işaretli değil: ajan yalnızca yazışma ve hafıza üzerinde çalışır.",
     "What wakes the agent": "Ajanı neyin uyandırdığı",
+    "AI Agents can always write memory":
+      "Yapay zekâ ajanları her zaman hafızaya yazabilir",
+    "AI Agents can always write on their chat":
+      "Yapay zekâ ajanları her zaman kendi sohbetlerine yazabilir",
+    "AI Agents are always awaken by chat messages":
+      "Yapay zekâ ajanları her zaman sohbet mesajlarıyla uyandırılır",
+    "AI Agents cannot be awaken by memory changes":
+      "Yapay zekâ ajanları hafıza değişiklikleriyle uyandırılamaz",
+    "AI Agents cannot be awaken by contacts changes":
+      "Yapay zekâ ajanları kişi değişiklikleriyle uyandırılamaz",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "İşaretli bir yüzeydeki değişiklikler ajana otomatik olarak iletilir; yukarıda bir alanı işaretlemek onu kendi başına uyandırmaz.",
     Stop: "Durdur",

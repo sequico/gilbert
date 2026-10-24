@@ -1033,6 +1033,16 @@ export const catalog: Catalog = {
     "What the group's agent may change. Reading is always allowed.":
       "Cosa può cambiare l'agente del gruppo. La lettura è sempre consentita.",
     "What wakes the agent": "Cosa sveglia l'agente",
+    "AI Agents can always write memory":
+      "Gli agenti AI possono sempre scrivere nella memoria",
+    "AI Agents can always write on their chat":
+      "Gli agenti AI possono sempre scrivere nella loro chat",
+    "AI Agents are always awaken by chat messages":
+      "Gli agenti AI vengono sempre svegliati dai messaggi della chat",
+    "AI Agents cannot be awaken by memory changes":
+      "Gli agenti AI non possono essere svegliati da modifiche alla memoria",
+    "AI Agents cannot be awaken by contacts changes":
+      "Gli agenti AI non possono essere svegliati da modifiche ai contatti",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "Le modifiche su una superficie selezionata vengono portate all'agente automaticamente; selezionare un'area sopra non lo sveglia da sola.",
     "How the group wants its agent to work, on every call it makes.":

@@ -2416,6 +2416,15 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "Других областей не отмечено: агент работает только с чатом и памятью.",
     "What wakes the agent": "Что будит агента",
+    "AI Agents can always write memory": "ИИ-агенты всегда могут писать в память",
+    "AI Agents can always write on their chat":
+      "ИИ-агенты всегда могут писать в свой чат",
+    "AI Agents are always awaken by chat messages":
+      "ИИ-агенты всегда пробуждаются сообщениями в чате",
+    "AI Agents cannot be awaken by memory changes":
+      "ИИ-агенты не пробуждаются изменениями в памяти",
+    "AI Agents cannot be awaken by contacts changes":
+      "ИИ-агенты не пробуждаются изменениями в контактах",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "Изменения на отмеченной поверхности доходят до агента автоматически; отметка области выше сама его не будит.",
     Stop: "Остановить",

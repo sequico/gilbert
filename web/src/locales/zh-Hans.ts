@@ -2341,6 +2341,11 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "未勾选其他范围：代理只处理会话和记忆。",
     "What wakes the agent": "唤醒代理的时机",
+    "AI Agents can always write memory": "AI 代理始终可以写入记忆",
+    "AI Agents can always write on their chat": "AI 代理始终可以在自己的聊天中写入",
+    "AI Agents are always awaken by chat messages": "AI 代理始终会被聊天消息唤醒",
+    "AI Agents cannot be awaken by memory changes": "AI 代理不会被记忆的变更唤醒",
+    "AI Agents cannot be awaken by contacts changes": "AI 代理不会被联系人的变更唤醒",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "已勾选界面上的更改会自动提交给代理；仅勾选上方的范围本身并不会唤醒它。",
     Stop: "停止",

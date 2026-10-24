@@ -2420,6 +2420,15 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "他の領域が選択されていないため、エージェントは会話とメモリだけを扱います。",
     "What wakes the agent": "エージェントを起動するもの",
+    "AI Agents can always write memory": "AI エージェントは常にメモリに書き込めます",
+    "AI Agents can always write on their chat":
+      "AI エージェントは常に自分のチャットに書き込めます",
+    "AI Agents are always awaken by chat messages":
+      "AI エージェントは常にチャットのメッセージで起動します",
+    "AI Agents cannot be awaken by memory changes":
+      "AI エージェントはメモリの変更では起動しません",
+    "AI Agents cannot be awaken by contacts changes":
+      "AI エージェントは連絡先の変更では起動しません",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "チェックした対象の変更はエージェントに自動で届きます。上の領域にチェックを入れても、それだけで起動するわけではありません。",
     Stop: "停止",

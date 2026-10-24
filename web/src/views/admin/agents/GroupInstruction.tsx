@@ -8,12 +8,14 @@
  *
  * The conversation and memory are **always on** as areas and are drawn checked
  * and disabled: every run has them (transversal areas), so a group does not
- * choose them. Chat is also always on in the wake row, drawn checked and dimmed:
- * the conversation is where the group calls the agent.
+ * choose them. The wake row draws **the same areas in the same order**, one
+ * surface each: chat checked and dimmed (the conversation is where the group
+ * calls the agent), and memory and contacts unchecked and dimmed, because no
+ * change on either is a surface that can wake a run.
  */
-import { AREA_NAMES, type AreaName } from "@gilbert/shared/areas";
+import { AREA_NAMES, type AreaName, surfaceOfArea } from "@gilbert/shared/areas";
 import { errorMessage } from "@gilbert/shared/errors";
-import { SURFACES, type SurfaceMatrix, type SurfaceName } from "@gilbert/shared/surfaces";
+import type { SurfaceMatrix, SurfaceName } from "@gilbert/shared/surfaces";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/jmap/client";
 import {
@@ -37,22 +39,6 @@ const AREA_LABEL: Record<AreaName, string> = {
 
 /** The areas every run has, drawn checked and disabled: they are not a choice. */
 const ALWAYS_ON: readonly AreaName[] = ["memory", "chat"];
-
-/** The surface labels, translated where they are drawn. */
-const SURFACE_LABEL: Record<SurfaceName, string> = {
-  chat: "Chat",
-  mail: "Mail",
-  files: "Files",
-  knowledge: "Knowledge",
-  workorder: "Workorders",
-  calendar: "Calendar",
-};
-
-/** The surfaces in the wake row: the conversation is always last and always on. */
-const WAKE_ORDER: readonly SurfaceName[] = [
-  ...SURFACES.filter((one) => one !== "chat"),
-  "chat",
-];
 
 /** The areas as the panel edits them: the always-on ones are included. */
 function withAlwaysOn(areas: readonly AreaName[]): AreaName[] {
@@ -187,9 +173,16 @@ export function GroupInstructionPanel({ group }: { group: string }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               {listed.map((area) => {
                 const always = ALWAYS_ON.includes(area);
+                const why =
+                  area === "memory"
+                    ? t("AI Agents can always write memory")
+                    : area === "chat"
+                      ? t("AI Agents can always write on their chat")
+                      : undefined;
                 return (
                   <label
                     key={area}
+                    title={always ? why : undefined}
                     style={{
                       display: "flex",
                       gap: 6,
@@ -224,26 +217,45 @@ export function GroupInstructionPanel({ group }: { group: string }) {
               )}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              {WAKE_ORDER.map((surface) => {
-                const always = surface === "chat";
-                const watched = always || surfaces?.[surface] === "watch";
+              {listed.map((area) => {
+                /*
+                 * One row per area, in the areas row's own order: the wake row is
+                 * that list read as surfaces, not a second list to reconcile.
+                 * Chat is the one surface always watched; memory and contacts have
+                 * no surface at all, so they are drawn unchecked and say why.
+                 */
+                const surface = surfaceOfArea(area);
+                const always = area === "chat";
+                const cannotWake = surface === null;
+                const watched =
+                  always || (surface !== null && surfaces?.[surface] === "watch");
+                const why = always
+                  ? t("AI Agents are always awaken by chat messages")
+                  : area === "memory"
+                    ? t("AI Agents cannot be awaken by memory changes")
+                    : cannotWake
+                      ? t("AI Agents cannot be awaken by contacts changes")
+                      : undefined;
                 return (
                   <label
-                    key={surface}
+                    key={area}
+                    title={always || cannotWake ? why : undefined}
                     style={{
                       display: "flex",
                       gap: 6,
                       alignItems: "center",
-                      opacity: always ? 0.6 : 1,
+                      opacity: always || cannotWake ? 0.6 : 1,
                     }}
                   >
                     <input
                       type="checkbox"
                       checked={watched}
-                      disabled={always || busy}
-                      onChange={() => toggleWake(surface)}
+                      disabled={always || cannotWake || busy}
+                      onChange={() => {
+                        if (surface) toggleWake(surface);
+                      }}
                     />
-                    {t(SURFACE_LABEL[surface])}
+                    {t(AREA_LABEL[area])}
                   </label>
                 );
               })}
