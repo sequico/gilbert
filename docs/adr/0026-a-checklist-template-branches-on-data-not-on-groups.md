@@ -5,8 +5,11 @@ Status: Accepted
 Implementation: Built. The rules and their resolver are `KnowledgeChecklist`,
 its `variants`/`sections`/`steps`, the conditions, the section **gate**
 (`KnowledgeSection.requires`) and `resolveChecklist` in
-`server/src/shared/knowledge.ts`; the write door is `server/src/knowledgeAdmin.ts`
-and `server/src/routes/knowledge.ts`; the template's own body is derived (`checklistBlocks`).
+`server/src/shared/knowledge.ts`; the coherence a write refuses is
+`checklistProblem` (`shared/knowledge.ts`), called by `checkedDraft` in
+`server/src/knowledge/editors.ts` for both a create and a save; the write door is
+`server/src/knowledgeAdmin.ts` and `server/src/routes/knowledge.ts`; the
+template's own body is derived (`checklistBlocks`).
 The authoring surface is Gilbert's own (`web/src/views/knowledge/ChecklistSurface.tsx`).
 The instance side is `server/src/shared/workorder.ts` and
 `server/src/workorderAdmin.ts`, with the panel `web/src/views/workorder/` (ADR 0024):
@@ -61,6 +64,15 @@ on the page's draft and every revision:
   naming no section — one an editor removed — is **tolerated** rather than
   hiding the section for ever, and the editor never offers a section that
   already depends on this one, so a cycle cannot be written.
+- **A condition names a value the template declares**, and a definition that
+  cannot hold is refused where it is written: `checklistProblem` refuses a
+  branch on a variant the definition does not declare (or on a value it does not
+  offer), a variant or section declared twice, a duplicate step key and a
+  variant with no value. The shape alone cannot see any of them, and the editor
+  that draws the options is not the boundary — the agent proposes pages and a
+  template can be written over the account's own JMAP — so the refusal is at the
+  write (`checkedDraft`, `server/src/knowledge/editors.ts`), which is the one
+  door both a create and a save pass.
 - A **repeat** (`{ item, fields }`) is instantiated once per **item** the
   workorder names (the containers, stated at creation). A step's identity is its
   **path**, which carries the item (`loading[CONT-1].seal`), so the same step in

@@ -896,7 +896,12 @@ to three other sections have been **completed once**), and a **repeat** that
 turns a section into a loop per item (one per container). The chosen variant
 value holds **everywhere** — across sections and inside a loop. The rules are the
 template an administrator approves and versions, and the page's body and search
-text are **derived** from them, so the rules are the one copy.
+text are **derived** from them, so the rules are the one copy. **A rule that could
+never hold is refused where it is saved**: a condition naming a variant the
+template does not declare, or a value it does not offer, a variant or a section
+declared twice, a repeated step key, a variant with no value — the editor draws
+no such thing, but the write is the door (the agent proposes pages too), and the
+silent alternative is a section that materialises on no workorder.
 
 The tree marks a template with a red checklist icon; it is made with **New
 checklist template**; the **Templates** filter narrows the tree to the templates

@@ -108,8 +108,9 @@ async function resolveArticleFolder(
  * A checklist stores the template's id and revision and never a copy of the
  * controlled text, so every label and every branch is resolved from the
  * revision here. A template that cannot be read — one the Master cannot reach,
- * or a revision that is not there — leaves its rules unresolved and is a
- * finding, not a surface taken down.
+ * or a revision that is not there — leaves its rules unresolved: `checklist`
+ * answers null, the workorder still reads (and says the steps could not be
+ * resolved), and the surface is not taken down by one unreadable document.
  */
 async function readTemplateDef(
   reader: TemplateReader,
