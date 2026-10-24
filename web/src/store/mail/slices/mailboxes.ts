@@ -8,6 +8,7 @@ import type {
   QueryResponse,
   SetResponse,
 } from "@/jmap/types";
+import { descendantsOf, foldersByParent } from "@/lib/folderOrder";
 import { plural, t } from "@/lib/i18n";
 import { destroyRefusal, folderDestroyTakesMail, mayDestroy } from "@/lib/mailDelete";
 import { mailRouteAccount } from "@/lib/mailLink";
@@ -237,18 +238,8 @@ export function mailboxesSlice(
     },
 
     descendantMailboxIds(mailboxId) {
-      const all = Object.values(get().mailboxes);
-      const out: Id[] = [mailboxId];
-      const walk = (parent: Id) => {
-        for (const m of all) {
-          if ((m.parentId ?? null) === parent) {
-            out.push(m.id);
-            walk(m.id);
-          }
-        }
-      };
-      walk(mailboxId);
-      return out;
+      const tree = foldersByParent(get().mailboxes);
+      return [mailboxId, ...descendantsOf(tree, mailboxId).map((m) => m.id)];
     },
 
     async markMailboxRead(mailboxId, includeChildren = false) {

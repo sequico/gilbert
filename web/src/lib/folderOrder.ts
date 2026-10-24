@@ -41,18 +41,19 @@ export function foldersByParent(
 }
 
 /**
- * What sits unseen beneath one folder, at any depth: its children's unread and
- * theirs.
+ * Every folder beneath one, at any depth, parents before their children.
  *
- * The buckets are the caller's, because the two readers ask about different
- * sets -- the sidebar counts what it draws, a folder's menu everything it would
- * mark read -- and only the walk is the same.
+ * The buckets are the caller's, because the readers ask about different sets --
+ * the sidebar counts what it draws, a folder's menu everything it would mark
+ * read -- and only the walk is the same.
  */
+export function descendantsOf(byParent: Map<Id | null, Mailbox[]>, id: Id): Mailbox[] {
+  return (byParent.get(id) ?? []).flatMap((c) => [c, ...descendantsOf(byParent, c.id)]);
+}
+
+/** What sits unseen beneath one folder, at any depth. */
 export function unreadUnder(byParent: Map<Id | null, Mailbox[]>, id: Id): number {
-  return (byParent.get(id) ?? []).reduce(
-    (n, c) => n + (c.unreadEmails ?? 0) + unreadUnder(byParent, c.id),
-    0,
-  );
+  return descendantsOf(byParent, id).reduce((n, m) => n + (m.unreadEmails ?? 0), 0);
 }
 
 /**
