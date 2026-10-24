@@ -818,7 +818,6 @@ export function localizeSession(
   };
 }
 
-/** Resolve a possibly-relative upstream URL template against STALWART_URL. */
 /**
  * Resolve a URL Stalwart handed us against the server we were configured to
  * talk to.
