@@ -119,11 +119,12 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 - **Snooze** — unsupported by JMAP and Stalwart, and Gilbert stores no password,
   so nothing could act on a mailbox while you are away.
 
-- **A translation anybody has checked.** Twelve languages ship (English plus
-  eleven translations), and their extraction is done — what each one is, which are
-  out of Beta and what is still owed is
-  [FEATURES.md](FEATURES.md#interface-language). Reading a few hundred strings
-  and saying so is the most useful contribution available right now.
+- **An interface language is added by hand.** English is the interface's language
+  and Italiano its one translation
+  ([FEATURES.md](FEATURES.md#interface-language)). Another language joins when a
+  person has written its catalogue and read it, and the entry in
+  `web/src/lib/languages.ts` comes second: the catalogue first, the entry second.
+  A catalogue produced by a machine is not shipped as a language.
 
 - **Right-to-left languages.** Arabic, Hebrew and Persian are held back
   deliberately, not for want of translators: RTL is bidi and layout work

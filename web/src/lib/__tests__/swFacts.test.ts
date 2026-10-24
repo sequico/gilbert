@@ -10,7 +10,7 @@ import {
   type WorkerFacts,
   workerAccounts,
 } from "@/lib/swFacts";
-import { catalog as de } from "@/locales/de";
+import { catalog as itCatalog } from "@/locales/it";
 
 /**
  * The briefing is the only thing standing between a notification action and a
@@ -84,15 +84,16 @@ describe("the worker's briefing", () => {
 
   it("carries the worker's text in the language the tab is in", async () => {
     // The worker has no catalogue. Everything it will say has to be said here
-    // first, or a German reader gets English buttons on their lock screen.
-    setCatalog("de", de);
+    // first, or a reader of a translation gets English buttons on their lock
+    // screen.
+    setCatalog("it", itCatalog);
     const { store } = fakeCaches();
     await publishWorkerFacts([own]);
     const facts = written(store);
-    expect(facts.strings.archive).toBe("Archivieren");
-    expect(facts.strings.markRead).toBe("Als gelesen markieren");
-    expect(facts.strings.newMail).toBe("Neue E-Mail");
-    expect(facts.strings.noSubject).toBe("(kein Betreff)");
+    expect(facts.strings.archive).toBe("Archivia");
+    expect(facts.strings.markRead).toBe("Segna come letto");
+    expect(facts.strings.newMail).toBe("Nuova posta");
+    expect(facts.strings.noSubject).toBe("(senza oggetto)");
     expect(facts.strings.failed).not.toBe("");
   });
 

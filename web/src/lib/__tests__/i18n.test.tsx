@@ -193,66 +193,49 @@ describe("tc", () => {
 });
 
 /**
- * loadLanguage races two catalogue imports against each other whenever the
- * language changes twice in quick succession. The locale modules below are
- * replaced with promises the tests release by hand, so the order in which the
- * imports resolve is under the test's control rather than the disk's.
+ * loadLanguage races a catalogue import against a newer request whenever the
+ * language changes twice in quick succession. The Italian module below is
+ * replaced with a promise the tests release by hand, so the order in which the
+ * request and the import resolve is under the test's control rather than the
+ * disk's.
  */
-const { deGate, frGate, releaseDe, releaseFr } = vi.hoisted(() => {
-  let releaseDe!: (c: Catalog) => void;
-  let releaseFr!: (c: Catalog) => void;
+const { itGate, releaseIt } = vi.hoisted(() => {
+  let releaseIt!: (c: Catalog) => void;
   return {
-    deGate: new Promise<Catalog>((resolve) => (releaseDe = resolve)),
-    frGate: new Promise<Catalog>((resolve) => (releaseFr = resolve)),
-    releaseDe,
-    releaseFr,
+    itGate: new Promise<Catalog>((resolve) => (releaseIt = resolve)),
+    releaseIt,
   };
 });
 
-vi.mock("../../locales/de.ts", async () => ({ catalog: await deGate }));
-vi.mock("../../locales/fr.ts", async () => ({ catalog: await frGate }));
-vi.mock("../../locales/es.ts", () => {
-  throw new Error("simulated catalogue failure");
-});
+vi.mock("../../locales/it.ts", async () => ({ catalog: await itGate }));
 
-const frCatalog: Catalog = {
-  strings: { Archive: "Archiver" },
+const itCatalog: Catalog = {
+  strings: { Archive: "Archivia" },
   plurals: {},
 };
 
 describe("loadLanguage", () => {
   it("applies a catalogue whose import is still in flight when asked", async () => {
-    const loading = loadLanguage("de");
-    releaseDe(de);
+    const loading = loadLanguage("it");
+    releaseIt(itCatalog);
     await loading;
-    expect(currentLanguage()).toBe("de");
-    expect(t("Archive")).toBe("Archivieren");
+    expect(currentLanguage()).toBe("it");
+    expect(t("Archive")).toBe("Archivia");
   });
 
   it("ignores an older catalogue that lands after a newer request", async () => {
-    // The older request (French) resolves last. Before the fix, the last
-    // import to resolve called setCatalog, so the stale French catalogue
-    // would win and the UI would keep the language nobody chose.
-    const stale = loadLanguage("fr");
-    const newer = loadLanguage("de");
-    releaseDe(de); // the newer request lands first
+    /*
+     * The older request (Italian) resolves last. Before the fix, the last
+     * import to resolve called setCatalog, so the stale Italian catalogue
+     * would win and the UI would keep the language nobody chose.
+     */
+    const stale = loadLanguage("it");
+    const newer = loadLanguage("en");
     await newer;
-    expect(currentLanguage()).toBe("de");
-    releaseFr(frCatalog); // the stale one lands late and must be discarded
+    expect(currentLanguage()).toBe("en");
+    releaseIt(itCatalog); // the stale one lands late and must be discarded
     await stale;
-    expect(currentLanguage()).toBe("de");
-    expect(t("Archive")).toBe("Archivieren");
-  });
-
-  it("lets an older failure fall back without overriding a newer request", async () => {
-    const older = loadLanguage("es"); // fails fast and would fall back to en
-    const newer = loadLanguage("de");
-    await older;
-    // The stale failure must not have applied its English fallback while the
-    // German catalogue was still (or not yet) in force.
-    releaseDe(de);
-    await newer;
-    expect(currentLanguage()).toBe("de");
-    expect(t("Archive")).toBe("Archivieren");
+    expect(currentLanguage()).toBe("en");
+    expect(t("Archive")).toBe("Archive");
   });
 });

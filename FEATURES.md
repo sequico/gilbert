@@ -1914,35 +1914,35 @@ reset to defaults.
 
 ## Interface language
 
-Twelve languages — English and eleven translations — chosen in **Appearance →
-Language**, separate from the date-and-time locale: wanting German dates on an
-English interface is a real preference, and so is the reverse.
+**English is the interface's language**, and **Italiano is its one translation**,
+chosen in **Appearance → Language**, separate from the date-and-time locale:
+wanting German dates on an English interface is a real preference, and so is the
+reverse.
 
 | | |
 | --- | --- |
-| English | the source language, and what every other catalogue falls back to |
-| Nederlands · Türkçe | read by a native speaker, and no longer Beta |
-| Deutsch · Español · Français · Italiano · Português (Brasil) | Beta |
-| Русский · Українська · 简体中文 · 日本語 | Beta |
+| English | the source language, and what the catalogue falls back to |
+| Italiano | the one translation shipped, marked Beta |
 
-**Nine of the eleven translations are marked Beta.** The catalogues were produced
-by AI against standard dictionaries and have not been read by anybody who speaks
-the language, which is stated in Settings next to a link for reporting anything
-that reads wrongly. Dutch was read and corrected by a native speaker in September
-2026, and Turkish was contributed and checked by one in October 2026; both ship
-without the Beta mark. A language loses the Beta mark when a speaker has read it
-and said so, which is a deliberate act by a person and not something a percentage
-earns.
+**The translation is marked Beta.** `it` was produced by AI against standard
+dictionaries and has not been read by anybody who speaks Italian, which is stated
+in Settings next to a link for reporting anything that reads wrongly. A language
+loses the Beta mark when a speaker has read the catalogue and said so, which is a
+deliberate act by a person and not something a percentage earns.
+
+**A language is added by hand.** Another entry in the picker arrives with its
+catalogue written and read by somebody who speaks it — the catalogue first, the
+entry in `lib/languages.ts` second — never with a machine translation offered as
+if it were a language.
 
 - **A missing entry renders its English source**, so deleting a bad line is a valid
   fix and a catalogue is never half-broken.
 - **Plurals are asked for, never assumed.** `Intl.PluralRules` decides the form, so
-  Russian and Ukrainian get their three (1 письмо, 2–4 письма, 5+ писем) and
-  Japanese and Chinese the one they have, with counters doing the work a plural
-  would: 通 for messages, 件 for conversations.
+  a language with three forms gets three and one with a single form gets the one
+  it has, with counters doing the work a plural would in a language that has none.
 
-The interface language also feeds the *automatic* date locale, so 日本語 gives
-Japanese month and weekday names without setting the region, and `<html lang>`
+The interface language also feeds the *automatic* date locale, so Italiano gives
+Italian month and weekday names without setting the region, and `<html lang>`
 follows it. Only languages with a catalogue shipped appear in the picker.
 
 The **sign-in form offers the same picker**, before any account is known: the
