@@ -756,7 +756,8 @@ the session holds group mailboxes.
   **references** — a mail thread, a file, a contact, a calendar event — and the
   conversation draws each as a chip. The chip opens the object **below** the panel,
   which stays where it is: the conversation is what the reader is looking at, and a
-  link in it is a look aside. The reference is a **kind and an id**, never an
+  link in it is a look aside. The reference is a **kind and an id** — plus the
+  account the object was found in, and the day an event is on — never an
   address: the id is what the agent's own tools answered, the address is composed
   where the chip is drawn, and a URL written in the text stays text — so a mail a
   stranger wrote cannot dictate a link Gilbert draws, and a chip never leaks the

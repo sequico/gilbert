@@ -1131,16 +1131,22 @@ test("a mention in the chat is the local part, never the whole address", async (
     refs: ["thread:euaaaabf", "file:node-7", "event:ev-3@2026-11-03"],
   });
   const referenced = await callTool<{
-    message: { refs?: Array<{ kind: string; id: string; date?: string }> };
+    message: {
+      refs?: Array<{ kind: string; id: string; date?: string; account?: string }>;
+    };
   }>("chat.read", { id: withRefs.id });
   assert.deepEqual(
-    referenced.message.refs,
+    referenced.message.refs?.map(({ kind, id, date }) => ({ kind, id, date })),
     [
-      { kind: "thread", id: "euaaaabf" },
-      { kind: "file", id: "node-7" },
+      { kind: "thread", id: "euaaaabf", date: undefined },
+      { kind: "file", id: "node-7", date: undefined },
       { kind: "event", id: "ev-3", date: "2026-11-03" },
     ],
     "the objects a message points at are stored as kinds and ids, never addresses",
+  );
+  assert.ok(
+    referenced.message.refs?.every((one) => one.account === accountId),
+    "and each names the account it was found in, so a link is not resolved against another",
   );
   await assert.rejects(
     () =>
@@ -1204,6 +1210,33 @@ test("a mention in the chat is the local part, never the whole address", async (
   assert.ok(
     readPerson.message.mentions?.some((one) => one.id === person),
     "the mention is marked as the person it names",
+  );
+
+  /*
+   * The account a reference lives in is the server's to say (ADR 0039): a
+   * group's own objects are the group's, and a **card is the installation's** —
+   * the one directory in the Master's account — so a link written in a group's
+   * conversation must not be resolved against the group.
+   */
+  const homed = (await runTool(
+    TOOLS,
+    { ctx, accountId: group, run: plainRun() },
+    "chat.say",
+    { text: "Two references.", refs: ["thread:t-1", "contact:card-1"] },
+  )) as { id: string };
+  const readHomed = (await runTool(
+    READING_TOOLS,
+    { ctx, accountId: group, run: plainRun() },
+    "chat.read",
+    { id: homed.id },
+  )) as { message: { refs?: Array<{ kind: string; account?: string }> } };
+  assert.deepEqual(
+    readHomed.message.refs?.map((one) => [one.kind, one.account]),
+    [
+      ["thread", group],
+      ["contact", filesAccountId(ctx)],
+    ],
+    "a group's thread names the group, and a card names the installation",
   );
 });
 

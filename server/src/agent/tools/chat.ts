@@ -6,7 +6,7 @@
  * conversation rather than from a mailbox.
  */
 
-import type { Ctx } from "../../appFolder.js";
+import { type Ctx, filesAccountId } from "../../appFolder.js";
 import { groupMembers } from "../../groupAccess.js";
 import { findChatMessages, postChatMessage, readChatMessageBy } from "../../groupChat.js";
 import {
@@ -252,6 +252,19 @@ function refsArg(args: Record<string, unknown>): ChatRef[] {
   return refs;
 }
 
+/**
+ * The account each reference lives in, as the server knows it: a group's own
+ * objects are the run's account, and **the contacts are the installation's** —
+ * the one directory in the Master's account — so a card's link is not resolved
+ * against the group it was mentioned in.
+ */
+function refsHomed(ctx: Ctx, accountId: string, refs: readonly ChatRef[]): ChatRef[] {
+  return refs.map((ref) => ({
+    ...ref,
+    account: ref.kind === "contact" ? filesAccountId(ctx) : accountId,
+  }));
+}
+
 export const sayInChat = defineTool({
   name: "chat.say",
   description:
@@ -288,7 +301,7 @@ export const sayInChat = defineTool({
     const id = await postChatMessage(ctx, accountId, ctx.username, text, {
       ...(replyTo ? { replyTo } : {}),
       ...(await mentionsOf(ctx, accountId, text)),
-      ...(refs.length ? { refs } : {}),
+      ...(refs.length ? { refs: refsHomed(ctx, accountId, refs) } : {}),
     });
     return { id };
   },

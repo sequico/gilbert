@@ -36,6 +36,11 @@ day it is on. Nothing else.
   `id` is exactly what that surface's tool answered. The pair is validated where
   the message is written (`chat.say`), so a document that names a kind this build
   cannot draw is not a message at all.
+- **The account is the server's to say.** Each reference carries the account the
+  object was found in, because they are not all the conversation's: a group's
+  thread or file is the group's, and a **contact is the installation's** — the one
+  directory in the Master's account — so a link a group writes must not be
+  resolved against the group.
 - **The address is composed where the chip is drawn**, from the kind and the id,
   never stored. A message therefore cannot point anywhere but at an object of the
   account it was written in, and a URL a sender dictates is not a reference: it is

@@ -100,11 +100,14 @@ interface ChatMessageDoc {
  * `kind` is the surface and `id` is what that surface's tool answered. An
  * **event carries the day it is on**, because a calendar route names a day: the
  * union is where that rule lives, so the render cannot be handed an event it
- * could not open.
+ * could not open. `account` is where the object lives, written by the tool: a
+ * group's thread is the group's, and the installation's contacts are the
+ * Master's, so a link may not assume the reader's account.
  */
 export type ChatRef =
-  | { kind: "thread" | "file" | "contact"; id: string }
-  | { kind: "event"; id: string; date: string };
+  | { kind: "thread" | "file"; id: string; account?: string }
+  | { kind: "contact"; id: string; account?: string }
+  | { kind: "event"; id: string; date: string; account?: string };
 
 /** One member's read marker: which message they have read up to. */
 interface ChatMarkerDoc {
@@ -161,6 +164,7 @@ export function isChatRef(x: unknown): x is ChatRef {
   const ref = x as Record<string, unknown>;
   if (typeof ref.kind !== "string" || !REF_KINDS.has(ref.kind)) return false;
   if (typeof ref.id !== "string" || ref.id.trim() === "") return false;
+  if (ref.account !== undefined && typeof ref.account !== "string") return false;
   // An outcome and its day: an event has one, and nothing else may.
   if (ref.kind === "event") return typeof ref.date === "string" && isDay(ref.date);
   return ref.date === undefined;

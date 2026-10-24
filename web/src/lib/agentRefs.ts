@@ -27,7 +27,7 @@ export const REF_LABEL: Record<ChatRef["kind"], string> = {
  * one use it: a card is addressed by account and id because Stalwart's ids are
  * per-account, and the same id in two books is two cards.
  */
-export function refHref(ref: ChatRef, account?: string | null): string {
+export function refHref(ref: ChatRef): string {
   const id = encodeURIComponent(ref.id);
   switch (ref.kind) {
     case "thread":
@@ -37,7 +37,9 @@ export function refHref(ref: ChatRef, account?: string | null): string {
     case "file":
       return `/files/${id}`;
     case "contact":
-      return cardPath({ id: ref.id, accountId: account ?? null });
+      // A card is the installation's, not the group's, and `ref.account` is
+      // where the tool found it — the route names it for the same reason.
+      return cardPath({ id: ref.id, accountId: ref.account ?? null });
     case "event":
       // A calendar route names a day, which is why an event reference carries
       // one: the link lands on that day. Opening the event itself is the
