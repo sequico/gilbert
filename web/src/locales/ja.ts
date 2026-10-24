@@ -636,6 +636,12 @@ export const catalog: Catalog = {
     State: "状態",
 
     Steps: "ステップ",
+    Limits: "制限",
+    "Tokens per run": "実行あたりのトークン",
+    "Tokens per day": "1日あたりのトークン",
+    "Steps per run": "実行あたりのステップ",
+    "Every limit must be a whole number of at least one.":
+      "各制限は1以上の整数である必要があります。",
     "Touched: {touched}.": "変更対象: {touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} が承認: {target} に対する {authority} — 「{what}」",

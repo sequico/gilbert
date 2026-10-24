@@ -642,6 +642,12 @@ export const catalog: Catalog = {
     State: "Estado",
 
     Steps: "Passos",
+    Limits: "Limites",
+    "Tokens per run": "Tokens por execução",
+    "Tokens per day": "Tokens por dia",
+    "Steps per run": "Passos por execução",
+    "Every limit must be a whole number of at least one.":
+      "Cada limite deve ser um número inteiro de pelo menos um.",
     "Touched: {touched}.": "Tocado: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizado por {by}: {authority} para {target} — “{what}”",

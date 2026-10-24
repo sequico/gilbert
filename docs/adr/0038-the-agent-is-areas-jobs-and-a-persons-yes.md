@@ -273,6 +273,11 @@ spent the provider's default budget before writing anything.
   none — so a reasoning model has room and a run cannot burn without end; reaching
   it ends `out-of-budget` naming the token, and when what is left cannot pay for a
   call the run ends **before** asking.
+- **The run has a step ceiling** (`limits.maxRunSteps`, in admin; the shared
+  `RUN_STEPS_MAX` as its default): a run whose plan has taken that many steps
+  ends `out-of-budget` naming the step count. It is the plan's own count — the
+  steps a reader sees — not a counter nobody can read; a call that costs several
+  steps still ends on the internal charge.
 - **The installation has a daily ceiling** (`limits.maxDailyTokens`), counted in the
   pass's own document — one write per pass, not per call — and reset lazily when the
   date changes. Past it no new run opens, a run already open finishes its own

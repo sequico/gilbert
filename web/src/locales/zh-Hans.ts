@@ -626,6 +626,12 @@ export const catalog: Catalog = {
     State: "状态",
 
     Steps: "步骤",
+    Limits: "限制",
+    "Tokens per run": "每次运行的令牌数",
+    "Tokens per day": "每日令牌数",
+    "Steps per run": "每次运行的步骤数",
+    "Every limit must be a whole number of at least one.":
+      "每个限制必须是不小于 1 的整数。",
     "Touched: {touched}.": "涉及：{touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "由 {by} 授权：{authority}，对象 {target} —“{what}”",

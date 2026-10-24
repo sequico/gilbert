@@ -359,6 +359,30 @@ describe("the agent's administration surface", () => {
     );
   });
 
+  it("sizes the agent's ceilings under General, beside their defaults", async () => {
+    /*
+     * The token and step ceilings are the agent's own, so they sit beside the
+     * model and the standing rule rather than only in the raw installation
+     * document: a person who has to raise one should not have to edit JSON.
+     */
+    stubServer();
+    await render();
+    await act(async () => {
+      [...host.querySelectorAll<HTMLButtonElement>('button[role="tab"]')]
+        .find((one) => one.textContent === "General")
+        ?.click();
+    });
+    await flush();
+
+    const shown = text();
+    expect(shown).toContain("Limits");
+    expect(shown).toContain("Tokens per run");
+    expect(shown).toContain("Tokens per day");
+    expect(shown).toContain("Steps per run");
+    expect(shown).toContain("120000");
+    expect(shown).toContain("2000000");
+  });
+
   it("follows the groups the Master is in: a removed group loses its tab", async () => {
     /*
      * The tabs are the session's group mailboxes, read live. A group the Master

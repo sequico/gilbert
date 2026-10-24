@@ -1388,17 +1388,16 @@ test("a done with nothing finished and no step left to ask ends refused, not out
   await putInstruction();
   const agent = loop();
   await agent.start();
-  await createRun(
-    ctx,
-    accountId,
-    spendRun(
-      startRun({
-        id,
-        startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
-      }),
-      { steps: RUN_STEPS_MAX - 1 },
-    ),
-  );
+  let held = startRun({
+    id,
+    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+  });
+  for (let at = 0; at < RUN_STEPS_MAX - 1; at++)
+    held = recordStep(appendStep(held, `step ${at}`), at, {
+      state: "failed",
+      outcome: "refused: this attempt did not finish",
+    });
+  await createRun(ctx, accountId, spendRun(held, { steps: RUN_STEPS_MAX - 1 }));
 
   answerWith({ done: "nothing to do" });
   await agent.pass();
@@ -2761,7 +2760,7 @@ test("an answer cannot run past the steps a run has left", async () => {
   assert.ok(held, "the run is still readable");
   assert.match(
     held.plan.map((step) => step.outcome).join(" "),
-    /more steps than the run had left|left in the run's budget/,
+    /more steps than the run had left|left in the run's budget|step budget/,
     "and the refused answer is on the record",
   );
 });

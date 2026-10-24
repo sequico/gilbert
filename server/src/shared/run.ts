@@ -40,7 +40,8 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 export const RUN_VERSION = 6;
 
 /**
- * The most steps one run may take (ADR 0027).
+ * The most steps one run may take (ADR 0027), unless the installation says
+ * otherwise in `limits.maxRunSteps`.
  *
  * A ceiling of the loop's own, not a field of the run: a run measured against a
  * ceiling it carried itself is a run that could raise it. It is also the most

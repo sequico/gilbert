@@ -1011,6 +1011,12 @@ export const catalog: Catalog = {
     State: "Stato",
 
     Steps: "Passi",
+    Limits: "Limiti",
+    "Tokens per run": "Token per esecuzione",
+    "Tokens per day": "Token al giorno",
+    "Steps per run": "Passi per esecuzione",
+    "Every limit must be a whole number of at least one.":
+      "Ogni limite deve essere un numero intero di almeno uno.",
     "No other area is ticked: the agent works only the conversation and memory.":
       "Nessun'altra area è selezionata: l'agente lavora solo la conversazione e la memoria.",
     "Touched: {touched}.": "Toccato: {touched}.",

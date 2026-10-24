@@ -184,10 +184,10 @@ import {
  *
  * Steps, time and model calls: the run stops when any of the three is spent, so
  * a loop that cannot finish stops and says so (ADR 0030). The step ceiling is
- * `@gilbert/shared`'s (one answer may not carry more), and the two here are the
- * loop's own; neither is configuration, because an installation has one model
- * and one agent, and the number a run may spend is not a question the
- * administration is asked.
+ * the installation's (`limits.maxRunSteps`, defaulting to the shared
+ * `RUN_STEPS_MAX`); the two here are the loop's own, because an installation has
+ * one model and one agent, and how many calls or how long a run may take is not
+ * a question the administration is asked.
  */
 const RUN_CALLS_MAX = 40;
 const RUN_MS_MAX = 5 * 60_000;
@@ -1684,12 +1684,12 @@ export class AgentLoop {
      * that asks for more steps than the run has left, and a call the account
      * refuses are each a step that ended, and each spends a step of the budget
      * (`loop.ts`'s wave below). The run therefore stops on the budget it
-     * declares — twenty steps, forty calls, five minutes — and not on a counter
-     * nobody reading the record can see: a live run died after three all-refused
+     * declares — the installation's step ceiling, forty calls, five minutes —
+     * and not on a counter nobody reading the record can see: a live run died after three all-refused
      * rounds with its budget untouched, which is the ending this replaces.
      */
     for (;;) {
-      const over = overBudget(current, this.limits.maxRunTokens);
+      const over = overBudget(current, this.limits);
       if (over) {
         return await this.endRun(
           accountId,
@@ -1858,7 +1858,7 @@ export class AgentLoop {
          * nothing, rather than spending its last step on the question and
          * closing `out-of-budget`, which would blame the clock.
          */
-        const roomToAsk = current.spent.steps + 1 < RUN_STEPS_MAX;
+        const roomToAsk = current.plan.length + 1 < this.limits.maxRunSteps;
         if (gap && checked === 0 && roomToAsk) {
           current = this.withStep(current, DONE_CHECKED, gap, false);
           const kept = await this.store(accountId, current, token);
@@ -1966,16 +1966,17 @@ export class AgentLoop {
        * The budget is the only ceiling a refusal reaches (ADR 0030): a refusal
        * spends the step it cost, and nothing else ends the run here.
        */
-      const room = RUN_STEPS_MAX - current.spent.steps;
-      const asked = choice.calls.reduce((sum, call) => {
+      const planRoom = this.limits.maxRunSteps - current.plan.length;
+      const spendRoom = RUN_STEPS_MAX - current.spent.steps;
+      const askedSpend = choice.calls.reduce((sum, call) => {
         const tool = this.catalogue.find((one) => one.name === call.name);
         return sum + (tool?.spend.steps ?? 0);
       }, 0);
-      if (asked > room) {
+      if (choice.calls.length > planRoom || askedSpend > spendRoom) {
         current = this.withStep(
           current,
           "the model's answer",
-          `refused: it asked for ${asked} steps with ${room} left in the run's budget`,
+          `refused: it asked for ${choice.calls.length} steps with ${planRoom} left in the run's plan, and ${askedSpend} of the ${spendRoom} step budget`,
           false,
         );
         const kept = await this.store(accountId, current, token);
@@ -2305,7 +2306,11 @@ export class AgentLoop {
         const checked = current.plan.filter(
           (step) => step.what === DONE_CHECKED || step.what === JUDGE_CHECKED,
         ).length;
-        if (refused > 0 && checked === 0 && current.spent.steps + 1 < RUN_STEPS_MAX) {
+        if (
+          refused > 0 &&
+          checked === 0 &&
+          current.plan.length + 1 < this.limits.maxRunSteps
+        ) {
           current = this.withStep(
             current,
             DONE_CHECKED,
@@ -3033,12 +3038,16 @@ function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDo
 }
 
 /** The ceiling a run has spent, or null when it has budget left (ADR 0027, 0038). */
-function overBudget(run: RunDoc, maxRunTokens: number): string | null {
+function overBudget(run: RunDoc, limits: InstallationDocument["limits"]): string | null {
+  if (run.plan.length >= limits.maxRunSteps) return `it took ${limits.maxRunSteps} steps`;
+  // The plan is the work a reader sees; this is the internal step budget a
+  // refused act is charged against, so a tool that costs several steps still
+  // ends a run that only made a few.
   if (run.spent.steps >= RUN_STEPS_MAX) return `it took ${RUN_STEPS_MAX} steps`;
   if (run.spent.calls >= RUN_CALLS_MAX) return `it made ${RUN_CALLS_MAX} model calls`;
   if (run.spent.ms >= RUN_MS_MAX) return `it spent ${RUN_MS_MAX} ms of work`;
   const tokens = (run.spent.promptTokens ?? 0) + (run.spent.completionTokens ?? 0);
-  if (tokens >= maxRunTokens) return `it spent ${maxRunTokens} tokens`;
+  if (tokens >= limits.maxRunTokens) return `it spent ${limits.maxRunTokens} tokens`;
   return null;
 }
 

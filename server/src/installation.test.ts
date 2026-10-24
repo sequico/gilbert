@@ -64,6 +64,36 @@ test("the first boot creates the document, conditionally on the account's state"
   );
 });
 
+test("a run's step ceiling is the document's, and its absence the default", async () => {
+  const defaults = installationDefaults();
+  const { maxRunSteps: _held, ...withoutSteps } = defaults.limits;
+  const sized = {
+    ...defaults,
+    secret: "a-secret-long-enough-to-seal-a-session",
+    limits: { ...defaults.limits, maxRunSteps: 2 },
+  };
+  const loaded = await readInstallation(
+    fakeStore({ read: async () => JSON.stringify(sized) }),
+  );
+  assert.equal(loaded.document.limits.maxRunSteps, 2, "the document sizes the run");
+
+  const inherited = await readInstallation(
+    fakeStore({
+      read: async () =>
+        JSON.stringify({
+          ...defaults,
+          secret: "a-secret-long-enough-to-seal-a-session",
+          limits: withoutSteps,
+        }),
+    }),
+  );
+  assert.equal(
+    inherited.document.limits.maxRunSteps,
+    defaults.limits.maxRunSteps,
+    "a document that names no step ceiling keeps the default",
+  );
+});
+
 test("a document that is already there is adopted, not replaced", async () => {
   const store = fakeStore({
     read: async () => otherBootDocument("somebody-elses-secret"),

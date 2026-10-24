@@ -42,6 +42,7 @@
 
 import { errorDetail } from "./errors.js";
 import { isRecord } from "./json.js";
+import { RUN_STEPS_MAX } from "./run.js";
 
 /** The document's name inside the Master account's `gilbert` app folder. */
 export const INSTALLATION_FILE = "installation.json";
@@ -120,6 +121,12 @@ interface InstallationLimits {
    * remainder cannot pay for is not made.
    */
   maxRunTokens: number;
+  /**
+   * ADR 0038: the most steps one run may take, counted from the plan it
+   * accumulates. A run that reaches it ends `out-of-budget` before it asks
+   * again; the default is the shared `RUN_STEPS_MAX`.
+   */
+  maxRunSteps: number;
   /**
    * ADR 0038: the tokens the whole installation may spend in one day, counted
    * in the pass's own document and reset when the date changes. Past it no new
@@ -289,6 +296,7 @@ export function installationDefaults(): InstallationDocument {
       loginRateLimit: 10, // LOGIN_RATE_LIMIT
       apiRateLimit: 1200, // API_RATE_LIMIT (0 turns the limiter off)
       maxRunTokens: 120_000, // ADR 0038
+      maxRunSteps: RUN_STEPS_MAX, // ADR 0038
       maxDailyTokens: 2_000_000, // ADR 0038
       otlp: "", // ADR 0038: no collector; the documents are the measure
     },
@@ -651,6 +659,12 @@ export function parseInstallationDocumentDetailed(
         "limits.maxRunTokens",
         limits.maxRunTokens,
         defaults.limits.maxRunTokens,
+        1,
+      ),
+      maxRunSteps: readAtLeast(
+        "limits.maxRunSteps",
+        limits.maxRunSteps,
+        defaults.limits.maxRunSteps,
         1,
       ),
       maxDailyTokens: readAtLeast(

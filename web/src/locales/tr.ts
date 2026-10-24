@@ -1293,6 +1293,12 @@ export const catalog: Catalog = {
     State: "Durum",
 
     Steps: "Adımlar",
+    Limits: "Sınırlar",
+    "Tokens per run": "Çalıştırma başına token",
+    "Tokens per day": "Günlük token",
+    "Steps per run": "Çalıştırma başına adım",
+    "Every limit must be a whole number of at least one.":
+      "Her sınır en az bir olan bir tam sayı olmalıdır.",
     "Touched: {touched}.": "Dokunulan: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} tarafından yetkilendirildi: {target} için {authority} — “{what}”",

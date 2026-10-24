@@ -635,6 +635,12 @@ export const catalog: Catalog = {
     State: "Стан",
 
     Steps: "Кроки",
+    Limits: "Ліміти",
+    "Tokens per run": "Токенів на запуск",
+    "Tokens per day": "Токенів на день",
+    "Steps per run": "Кроків на запуск",
+    "Every limit must be a whole number of at least one.":
+      "Кожен ліміт має бути цілим числом не менше одиниці.",
     "Touched: {touched}.": "Змінено: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Дозволив {by}: {authority} для {target} — «{what}»",

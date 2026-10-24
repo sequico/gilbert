@@ -32,6 +32,48 @@ export interface InstallationFields {
   instruction: string;
 }
 
+/** The three ceilings an administrator sizes for the agent, as fields. */
+export interface InstallationLimitsFields {
+  /** Tokens one run may spend, prompt and completion together. */
+  maxRunTokens: number;
+  /** Tokens the whole installation may spend in one day. */
+  maxDailyTokens: number;
+  /** Steps one run may take, counted from its plan. */
+  maxRunSteps: number;
+}
+
+/**
+ * The limits the document names, or the defaults it leaves alone.
+ *
+ * Read leniently for the same reason as the model: a document being edited
+ * must still show a number, and the server validates the whole thing on
+ * publish. A value that is not a whole number of at least one is the default,
+ * not a second opinion about what the ceiling means.
+ */
+export function installationLimits(text: string | null): InstallationLimitsFields {
+  const defaults = installationDefaults().limits;
+  const fields: InstallationLimitsFields = {
+    maxRunTokens: defaults.maxRunTokens,
+    maxDailyTokens: defaults.maxDailyTokens,
+    maxRunSteps: defaults.maxRunSteps,
+  };
+  if (!text) return fields;
+  let whole: unknown;
+  try {
+    whole = JSON.parse(text);
+  } catch {
+    return fields;
+  }
+  if (!isRecord(whole) || !isRecord(whole.limits)) return fields;
+  const limits = whole.limits;
+  for (const key of Object.keys(fields) as Array<keyof InstallationLimitsFields>) {
+    const held = limits[key];
+    if (typeof held === "number" && Number.isInteger(held) && held >= 1)
+      fields[key] = held;
+  }
+  return fields;
+}
+
 /** Read the stored document, and what a boot would make of it. */
 export async function fetchInstallation(): Promise<InstallationView> {
   const res = await apiFetch<{ installation: InstallationView }>(

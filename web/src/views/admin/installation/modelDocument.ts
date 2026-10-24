@@ -1,5 +1,8 @@
 import { isRecord } from "@gilbert/shared/json";
-import { installationModel } from "@/lib/installationAdmin";
+import {
+  installationModel,
+  type InstallationLimitsFields,
+} from "@/lib/installationAdmin";
 
 /**
  * The three things a save can say about the model's key, which is never shown.
@@ -72,6 +75,21 @@ export function withInstructionField(text: string, instruction: string): string 
     null,
     2,
   );
+}
+
+/**
+ * The document with the agent's three ceilings set.
+ *
+ * The limits are the installation's own section, and a save from the agent's
+ * General tab writes only the fields it shows: the model, its key and the
+ * instruction are read from the stored document again before this patch, so a
+ * limits save cannot carry an old copy of them back over a newer one.
+ */
+export function withLimitsFields(text: string, limits: InstallationLimitsFields): string {
+  const whole = parseObject(text);
+  if (!whole) return text;
+  const held = isRecord(whole.limits) ? whole.limits : {};
+  return JSON.stringify({ ...whole, limits: { ...held, ...limits } }, null, 2);
 }
 
 /**
