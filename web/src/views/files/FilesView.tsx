@@ -534,17 +534,17 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    * downloadable, so a selection holding none offers no Download.
    */
   const groupActions = (list: FileNode[]) => {
-    const files = downloadable(list);
+    const withBytes = downloadable(list);
     return (
       <>
-        {files.length > 0 && (
+        {withBytes.length > 0 && (
           <MenuItem
             icon={<Download size={16} />}
-            label={plural(files.length, {
+            label={plural(withBytes.length, {
               one: "Download {n} file",
               other: "Download {n} files",
             })}
-            onClick={() => downloadAll(files)}
+            onClick={() => downloadAll(withBytes)}
           />
         )}
         {inTrash && list.every((n) => n.parentId === trashId) && (

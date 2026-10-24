@@ -85,7 +85,7 @@ export function FilesTree() {
   const draggingIds = useFiles((s) => s.draggingIds);
   const setDragging = useFiles((s) => s.setDragging);
   /* The one question the Trash entry asks (ADR 0013). */
-  const mayEndFiles = useMayEndFiles();
+  const mayEnd = useMayEndFiles();
 
   useEffect(() => {
     if (available && !treeLoaded) void loadTree();
@@ -397,7 +397,7 @@ export function FilesTree() {
           <MenuItem
             icon={<Trash2 size={16} />}
             label={t("Empty trash")}
-            disabled={!mayEndFiles}
+            disabled={!mayEnd}
             onClick={() => void emptyTrashAsked()}
           />
         )}

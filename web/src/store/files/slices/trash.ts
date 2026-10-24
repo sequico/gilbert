@@ -67,7 +67,7 @@ async function landIn(
   accountId: Id,
   parentId: Id | null,
   wanted: Array<{ id: Id; name: string }>,
-): Promise<{ moved: Array<{ id: Id; name: string }>; failure: unknown }> {
+): Promise<{ moved: Array<{ id: Id; name: string }>; failure: Error | null }> {
   const level = await readChildren(accountId, parentId);
   const taken = new Set(level.map((n) => n.name));
   const update: Record<Id, { parentId: Id | null; name: string }> = {};
@@ -81,10 +81,51 @@ async function landIn(
   try {
     const res = await client.call<SetResponse>(FILENODE_SET, { accountId, update });
     const failed = Object.values(res.notUpdated ?? {})[0];
-    if (failed) throw new Error(setErrorMessage(failed));
-    return { moved: landing, failure: null };
+    /* What landed is what the server did not refuse: a partial set still moved
+       the rest, and those are the names and origins worth keeping. */
+    const moved = landing.filter(({ id }) => !res.notUpdated?.[id]);
+    return { moved, failure: failed ? new Error(setErrorMessage(failed)) : null };
   } catch (err) {
-    return { moved: [], failure: err };
+    return { moved: [], failure: err instanceof Error ? err : new Error(String(err)) };
+  }
+}
+
+/**
+ * End nodes that are already in the Trash, and let go of what it remembered.
+ *
+ * The one destructive write in Files, shared by the two actions that take it:
+ * `emptyTrash` (everything the Trash holds) and `destroyForever` (what the
+ * reader picked). Both cascade, because a folder goes with what is in it, and
+ * both forget the origins of what is gone. `everything` says the call named the
+ * whole Trash, so the document is emptied rather than edited — which also drops
+ * the stale origins of items that left the Trash some other way, such as a drag
+ * out to a folder.
+ *
+ * A refusal is returned rather than thrown: what went is gone and the rest is
+ * not, and the caller says so.
+ */
+async function destroyInTrash(
+  accountId: Id,
+  ids: Id[],
+  opts: { everything?: boolean } = {},
+): Promise<Error | null> {
+  try {
+    const res = await client.call<SetResponse>(FILENODE_SET, {
+      accountId,
+      destroy: ids,
+      onDestroyRemoveChildren: true,
+    });
+    const gone = ids.filter((id) => !res.notDestroyed?.[id]);
+    if (gone.length)
+      await writeTrashOrigins(accountId, (doc) =>
+        opts.everything && gone.length === ids.length
+          ? { origins: {} }
+          : withoutOrigins(doc, gone),
+      ).catch(() => undefined);
+    const failed = Object.values(res.notDestroyed ?? {})[0];
+    return failed ? new Error(setErrorMessage(failed)) : null;
+  } catch (err) {
+    return err instanceof Error ? err : new Error(String(err));
   }
 }
 
@@ -227,25 +268,14 @@ export function trashSlice(
       if (!trashId) return;
       const inside = await readChildren(accountId, trashId);
       if (!inside.length) return;
-      const res = await client.call<SetResponse>(FILENODE_SET, {
+      const failure = await destroyInTrash(
         accountId,
-        destroy: inside.map((n) => n.id),
-        onDestroyRemoveChildren: true,
-      });
-      const gone = inside.map((n) => n.id).filter((id) => !res.notDestroyed?.[id]);
-      if (gone.length)
-        /*
-         * An emptied Trash remembers nothing: the whole document goes rather
-         * than an entry per node, which also drops the stale origins of items
-         * that left the Trash some other way (a drag out to a folder).
-         */
-        await writeTrashOrigins(accountId, (doc) =>
-          gone.length === inside.length ? { origins: {} } : withoutOrigins(doc, gone),
-        ).catch(() => undefined);
+        inside.map((n) => n.id),
+        { everything: true },
+      );
       await get().loadChildren(trashId);
       void get().loadTree();
-      const failed = Object.values(res.notDestroyed ?? {})[0];
-      if (failed) throw new Error(setErrorMessage(failed));
+      if (failure) throw failure;
     },
 
     async destroyForever(ids) {
@@ -262,20 +292,10 @@ export function trashSlice(
        */
       const list = ids.filter((id) => get().pathTo(id).some(isTrashFolder));
       if (!list.length) return;
-      const res = await client.call<SetResponse>(FILENODE_SET, {
-        accountId,
-        destroy: list,
-        onDestroyRemoveChildren: true,
-      });
-      const gone = list.filter((id) => !res.notDestroyed?.[id]);
-      if (gone.length)
-        await writeTrashOrigins(accountId, (doc) => withoutOrigins(doc, gone)).catch(
-          () => undefined,
-        );
+      const failure = await destroyInTrash(accountId, list);
       await get().loadChildren(trashId);
       void get().loadTree();
-      const failed = Object.values(res.notDestroyed ?? {})[0];
-      if (failed) throw new Error(setErrorMessage(failed));
+      if (failure) throw failure;
     },
   };
 }
