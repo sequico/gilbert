@@ -8,6 +8,12 @@
 node_modules
 **/node_modules
 **/dist
+# The compiler's incremental cache, which `.gitignore` already keeps out of the
+# tree for the same reason: `tsc` reads it to decide nothing needs re-emitting,
+# and the outputs it describes are excluded two lines up. Carried into a build
+# context, it makes `npm run build` succeed with no `dist` to copy -- which is
+# what failed the release of 2026-10-25 with "COPY /app/server/dist: not found".
+**/*.tsbuildinfo
 .git
 **/.git
 # `.env` at any depth: `web/.env.local` is Vite's own convention, and a name
