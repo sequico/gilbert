@@ -294,6 +294,8 @@ describe("ending what is in the Trash", () => {
 
     expect(fake.nodes.find((n) => n.id === "f")).toBeUndefined();
     expect(fake.nodes.find((n) => n.id === "trash")).toBeDefined();
+    /* An emptied Trash remembers nothing at all. */
+    expect(parseTrashDocument(fake.document("trash.json")).origins).toEqual({});
   });
 
   it("lets the reader end one item of their own trash for good", async () => {

@@ -7,6 +7,7 @@ import { canDropFileNodes } from "@/lib/filenode";
 import type { MergePlan, MergeTree } from "@/lib/folderMerge";
 import { mergeBlockedMessage, planMerge } from "@/lib/folderMerge";
 import { t as translate } from "@/lib/i18n";
+import { trashFolderId } from "@/lib/trash";
 import {
   createDirectory,
   endRun,
@@ -215,8 +216,8 @@ export function foldersSlice(
        * final step ADR 0013 keeps for the reader's own files and an installation
        * administrator — and the menu that offers it is disabled there too.
        */
-      const parent = keep.parentId ? get().nodes[keep.parentId] : undefined;
-      if (parent && isTrashFolder(parent))
+      const trashId = trashFolderId(get());
+      if (trashId !== null && keep.parentId === trashId)
         throw new Error(translate("Merging is not offered inside the trash."));
 
       /*
