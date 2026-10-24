@@ -270,7 +270,8 @@ export const sayInChat = defineTool({
       max: 200,
       about:
         'objects of this group\'s account the message points at, as "kind:id" — ' +
-        'thread, file, contact, or event as "event:id@YYYY-MM-DD"',
+        "thread (a message's threadId), file (a Files node), contact (a card), or " +
+        'event as "event:id@YYYY-MM-DD"; every id is one a read answered',
     },
   },
   parse: (raw: unknown) => {

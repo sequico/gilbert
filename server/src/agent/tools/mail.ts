@@ -41,7 +41,12 @@ import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
 
 /** The properties a search hit carries: enough to choose what to read next. */
-const HIT_PROPS = ["id", "subject", "from", "receivedAt", "keywords"];
+/**
+ * The properties a search answers with — enough to choose what to read next,
+ * and the **thread** a message belongs to, which is the id a chat reference
+ * opens a conversation by (`thread:<id>`, ADR 0039).
+ */
+const HIT_PROPS = ["id", "threadId", "subject", "from", "receivedAt", "keywords"];
 
 /** The properties a message is read with — its text, and no more of it than this. */
 const MESSAGE_PROPS = [

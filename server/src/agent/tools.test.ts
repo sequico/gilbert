@@ -630,12 +630,21 @@ test("the reading tools answer from the group's account", async () => {
   // A message found by the search grammar, then read by the id it answered.
   const delivered = await deliver("a booking confirmation");
   const other = await deliver("an unrelated note");
-  const found = await tool<{ messages: Array<{ id?: string }> }>("mail.find", {
-    query: "subject:booking",
-  });
+  const found = await tool<{ messages: Array<{ id?: string; threadId?: string }> }>(
+    "mail.find",
+    {
+      query: "subject:booking",
+    },
+  );
   assert.ok(
     found.messages.some((message) => message.id === delivered),
     "the message is found by its subject",
+  );
+  assert.ok(
+    found.messages.some(
+      (message) => message.id === delivered && typeof message.threadId === "string",
+    ),
+    "and a hit carries its thread, which is the id a conversation link opens",
   );
   assert.ok(
     !found.messages.some((message) => message.id === other),
