@@ -291,6 +291,11 @@ export function foldersSlice(
 
     async rename(id, name) {
       const accountId = get().accountId!;
+      // The Trash is the product's own folder: renaming it would put it out of
+      // reach of the rule that finds it, and the next delete would make a second.
+      const held = get().nodes[id];
+      if (held && isTrashFolder(held))
+        throw new Error(translate("The trash cannot be renamed."));
       const res = await client.call<SetResponse>(FILENODE_SET, {
         accountId,
         update: { [id]: { name } },

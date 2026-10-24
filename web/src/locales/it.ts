@@ -3466,6 +3466,7 @@ export const catalog: Catalog = {
     "The trash is empty": "Il cestino è vuoto",
     "Merging is not offered inside the trash.": "L'unione non è disponibile nel cestino.",
     "The trash cannot be moved.": "Il cestino non può essere spostato.",
+    "The trash cannot be renamed.": "Il cestino non può essere rinominato.",
     "Moved to trash": "Spostato nel cestino",
     "The calendar did not answer in time.": "Il calendario non ha risposto in tempo.",
     "Set by {who} on {when}": "Impostato da {who} il {when}",

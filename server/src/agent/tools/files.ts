@@ -32,6 +32,7 @@ import { CAPABILITIES } from "../../shared/capabilities.js";
 import { refusalOf } from "../../shared/jmap.js";
 import { isRecord } from "../../shared/json.js";
 import {
+  isTrashFolder,
   parseTrashDocument,
   TRASH_DOCUMENT,
   TRASH_FOLDER_NAME,
@@ -552,6 +553,8 @@ export const moveFile = defineTool({
   run: async ({ ctx, accountId }, { path, folder }) => {
     const held = await findVisibleNode(ctx, accountId, path);
     if (!held?.file.id) throw notFound(`node "${path}" in this account's Files`);
+    if (isTrashFolder(held.file))
+      throw new ToolError("bad_arguments", `"${path}" is the Trash; it is not moved.`);
     const to = folder.replace(/\/+$/, "");
     if (held.directory && (to === path || to.startsWith(`${path}/`)))
       throw new ToolError(
@@ -586,6 +589,8 @@ export const renameFile = defineTool({
   run: async ({ ctx, accountId }, { path, name }) => {
     const held = await findVisibleNode(ctx, accountId, path);
     if (!held?.file.id) throw notFound(`node "${path}" in this account's Files`);
+    if (isTrashFolder(held.file))
+      throw new ToolError("bad_arguments", `"${path}" is the Trash; it is not renamed.`);
     await writeNode(ctx, accountId, String(held.file.id), { name });
     return { path, name };
   },
