@@ -69,6 +69,18 @@ import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
 import { MailboxPicker } from "./MailboxPicker";
 
+/**
+ * The roles that hold the same messages as the folders they look at: All mail,
+ * Flagged and Important are the mail seen another way, not places it is filed.
+ * Their unread is the unread of a folder already counted.
+ */
+const VIEW_ROLES: ReadonlySet<string> = new Set(["all", "flagged", "important"]);
+
+/** No counter prints five digits: a longer one says nothing `9999+` does not. */
+function capCount(n: number): string | number {
+  return n > 9999 ? "9999+" : n;
+}
+
 const ROLE_ICONS: Record<string, ReactNode> = {
   inbox: <Inbox size={20} />,
   drafts: <File size={20} />,
@@ -166,6 +178,11 @@ interface MailTree {
   rows: MailTreeRow[];
   childrenOf: (id: Id | null) => Mailbox[];
   subtreeUnread: (id: Id) => number;
+  /**
+   * What the whole account holds unseen, over the folders this tree draws --
+   * the number a folded account carries, and what opening it would show.
+   */
+  unread: number;
 }
 
 /**
@@ -219,6 +236,10 @@ function buildMailTree(
   );
   const byParent = foldersByParent(mailboxes, all);
   const rows: MailTreeRow[] = [];
+  const unread = all.reduce(
+    (n, m) => (m.role && VIEW_ROLES.has(m.role) ? n : n + (m.unreadEmails ?? 0)),
+    0,
+  );
   const subtreeUnread = (id: Id): number =>
     (byParent.get(id) ?? []).reduce(
       (n, c) => n + c.unreadEmails + subtreeUnread(c.id),
@@ -246,6 +267,7 @@ function buildMailTree(
     rows,
     childrenOf: (id: Id | null) => byParent.get(id) ?? [],
     subtreeUnread,
+    unread,
   };
 }
 
@@ -701,15 +723,11 @@ export function MailboxTree() {
           const tree = extraTrees[a.info.accountId];
           if (!tree) return null;
           const folded = !openAccounts[a.info.accountId];
-          const unread = Object.values(a.tree).reduce(
-            (n, m) => n + (m.unreadEmails ?? 0),
-            0,
-          );
           return (
             <Fragment key={a.info.accountId}>
               <button
                 type="button"
-                className={`nav-item account-row${folded && unread ? " unread" : ""}`}
+                className={`nav-item account-row${folded && tree.unread ? " unread" : ""}`}
                 title={a.info.name}
                 aria-expanded={!folded}
                 onClick={() => toggleAccount(a.info.accountId)}
@@ -718,8 +736,8 @@ export function MailboxTree() {
                   {folded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                 </span>
                 <span className="account-title">{a.info.name}</span>
-                {folded && unread > 0 && (
-                  <span className="nav-count">{unread > 9999 ? "9999+" : unread}</span>
+                {folded && tree.unread > 0 && (
+                  <span className="nav-count">{capCount(tree.unread)}</span>
                 )}
               </button>
               {!folded &&
@@ -1004,7 +1022,7 @@ const FolderRow = memo(function FolderRow({
               : undefined
           }
         >
-          {count > 9999 ? "9999+" : count}
+          {capCount(count)}
         </span>
       )}
       {count > 0 && <span className="nav-dot" />}

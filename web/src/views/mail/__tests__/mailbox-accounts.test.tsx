@@ -55,10 +55,14 @@ const OWN = {
   inbox: box("inbox", "Inbox", 2, "inbox"),
   work: box("work", "Work", 1),
 };
-/** Six unseen in all: five in the inbox, one filed. */
+/**
+ * Six unseen in all: five in the inbox, one filed. The view folder holds the
+ * same six messages, so counting it would say twelve.
+ */
 const TEAM = {
   t1: box("t1", "Team Inbox", 5, "inbox"),
   t2: box("t2", "Jobs", 1),
+  t3: box("t3", "All mail", 6, "all"),
 };
 const SALES = { s1: box("s1", "Sales Inbox", 0, "inbox") };
 
