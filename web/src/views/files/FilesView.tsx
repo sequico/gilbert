@@ -501,11 +501,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    * is about.
    */
   const canMerge = (list: FileNode[]) =>
-    /* Not inside the Trash: a merge destroys the folder given up, which is the
-       final step this record keeps for the reader's own files and an
-       administrator (ADR 0013). */
+    /* Not the Trash and not inside it: a merge destroys the folder given up,
+       which is the final step this record keeps for the reader's own files and
+       an administrator (ADR 0013). */
     !inTrash &&
     list.length === 2 &&
+    !list.some(isTrashFolder) &&
     list.every((n) => n.nodeType === "directory") &&
     list.every(
       (n) => n.myRights?.mayDelete !== false && n.myRights?.mayAddChildren !== false,
@@ -524,6 +525,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    */
   const groupActions = (list: FileNode[]) => {
     const withBytes = downloadable(list);
+    /*
+     * The Trash is not a node a selection moves or deletes: its own menu carries
+     * what it may do (ADR 0013), so a selection holding it acts on the rest, and
+     * the counts say what will actually happen.
+     */
+    const actionable = list.filter((n) => !isTrashFolder(n));
     return (
       <>
         {withBytes.length > 0 && (
@@ -546,14 +553,16 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             onClick={() => void restoreNodes(list)}
           />
         )}
-        <MenuItem
-          icon={<FolderInput size={16} />}
-          label={plural(list.length, {
-            one: "Move {n} item…",
-            other: "Move {n} items…",
-          })}
-          onClick={() => setMoveNodes(list)}
-        />
+        {actionable.length > 0 && (
+          <MenuItem
+            icon={<FolderInput size={16} />}
+            label={plural(actionable.length, {
+              one: "Move {n} item…",
+              other: "Move {n} items…",
+            })}
+            onClick={() => setMoveNodes(actionable)}
+          />
+        )}
         {/*
          * Always here, and usable only for two folders. A menu entry that
          * appears and disappears leaves the reader wondering whether it exists
@@ -568,25 +577,27 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           onClick={() => setMergeNodes(list)}
         />
         <MenuSep />
-        <MenuItem
-          danger
-          icon={<Trash2 size={16} />}
-          label={
-            inTrash
-              ? plural(list.length, {
-                  one: "Delete {n} item permanently",
-                  other: "Delete {n} items permanently",
-                })
-              : plural(list.length, {
-                  one: "Delete {n} item",
-                  other: "Delete {n} items",
-                })
-          }
-          /* Inside the Trash the entry ends the nodes, so it is offered only
-             where the rule allows that. */
-          disabled={inTrash && !mayEnd}
-          onClick={() => void removeNodes(list)}
-        />
+        {actionable.length > 0 && (
+          <MenuItem
+            danger
+            icon={<Trash2 size={16} />}
+            label={
+              inTrash
+                ? plural(actionable.length, {
+                    one: "Delete {n} item permanently",
+                    other: "Delete {n} items permanently",
+                  })
+                : plural(actionable.length, {
+                    one: "Delete {n} item",
+                    other: "Delete {n} items",
+                  })
+            }
+            /* Inside the Trash the entry ends the nodes, so it is offered only
+               where the rule allows that. */
+            disabled={inTrash && !mayEnd}
+            onClick={() => void removeNodes(actionable)}
+          />
+        )}
       </>
     );
   };
@@ -757,7 +768,6 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         />
         {!inTrash && (
           <button className="btn btn-sm" onClick={() => void newFolderAsked(parentId)}>
-            {" "}
             <FolderPlus size={16} /> {t("New folder")}
           </button>
         )}

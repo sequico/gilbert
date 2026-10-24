@@ -217,6 +217,8 @@ export function foldersSlice(
        * administrator — and the menu that offers it is disabled there too.
        */
       const trashId = trashFolderId(get());
+      if (isTrashFolder(keep) || isTrashFolder(merge))
+        throw new Error(translate("The trash cannot be merged."));
       if (trashId !== null && keep.parentId === trashId)
         throw new Error(translate("Merging is not offered inside the trash."));
 

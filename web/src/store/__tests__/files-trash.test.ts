@@ -272,6 +272,33 @@ describe("restoring from the Trash", () => {
   });
 });
 
+describe("the Trash as a node of its own", () => {
+  it("is never trashed, moved, renamed or merged", async () => {
+    const fake = server([
+      dir("trash", "Trash", null),
+      dir("work", "Work", null),
+      file("f", "a.txt", "work"),
+    ]);
+    browse(OWN, OWN, fake.nodes);
+    signedInAs(false);
+
+    await useFiles.getState().trash(["trash"]);
+    await expect(useFiles.getState().moveMany(["trash"], null)).rejects.toThrow(
+      /cannot be moved/,
+    );
+    await expect(useFiles.getState().rename("trash", "Elsewhere")).rejects.toThrow(
+      /cannot be renamed/,
+    );
+    await expect(useFiles.getState().mergeFolders("trash", "work")).rejects.toThrow(
+      /trash/i,
+    );
+    await expect(useFiles.getState().mergeFolders("work", "trash")).rejects.toThrow(
+      /trash/i,
+    );
+    expect(fake.sets).toHaveLength(0);
+  });
+});
+
 describe("ending what is in the Trash", () => {
   it("refuses a group's trash to a member before any call reaches the server", async () => {
     const fake = server([dir("trash", "Trash", null), file("f", "a.txt", "trash")]);
