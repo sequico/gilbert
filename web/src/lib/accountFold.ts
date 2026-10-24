@@ -69,7 +69,9 @@ function sessionKey(owner: string | null): string {
 function load(owner: string | null): Record<string, boolean> {
   try {
     const raw = storageOf("session")?.getItem(sessionKey(owner));
-    if (raw) return JSON.parse(raw) as Record<string, boolean>;
+    // Storage is a trust boundary: anything that is not a record reads as none.
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === "object") return parsed;
   } catch {
     /* an unreadable record is an account folded, not a broken sidebar */
   }
