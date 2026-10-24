@@ -421,6 +421,71 @@ export function isKnowledgeChecklist(x: unknown): x is KnowledgeChecklist {
   );
 }
 
+/**
+ * What a checklist says that can never be satisfied, or null when it is coherent.
+ *
+ * The shape check above accepts any condition, and one naming a variant the
+ * template does not declare **never holds** — so its section materialises never,
+ * silently, on every workorder that binds the revision. The editor that draws
+ * the options is not the boundary: the agent proposes pages, and a template can
+ * be written over the account's own JMAP. The write is where the inconsistency
+ * is refused, so this lives beside the shape and not in a client.
+ */
+export function checklistProblem(checklist: KnowledgeChecklist): string | null {
+  const variants = new Map<string, Set<string>>();
+  for (const variant of checklist.variants) {
+    if (variants.has(variant.key))
+      return `The variant "${variant.key}" is declared twice.`;
+    const values = new Set<string>();
+    for (const value of variant.values) {
+      if (!value.value.trim())
+        return `The variant "${variant.key}" offers an empty value.`;
+      if (values.has(value.value))
+        return `The variant "${variant.key}" offers "${value.value}" twice.`;
+      values.add(value.value);
+    }
+    if (!values.size)
+      return `The variant "${variant.key}" offers no value, so nothing can satisfy it.`;
+    variants.set(variant.key, values);
+  }
+  const sections = new Set<string>();
+  for (const section of checklist.sections) {
+    if (sections.has(section.key))
+      return `The section "${section.key}" is declared twice.`;
+    sections.add(section.key);
+    const branch = conditionProblem(
+      section.condition,
+      variants,
+      `The section "${section.key}"`,
+    );
+    if (branch) return branch;
+    const steps = new Set<string>();
+    for (const step of section.steps) {
+      if (steps.has(step.key))
+        return `The step "${step.key}" is declared twice in "${section.key}".`;
+      steps.add(step.key);
+      const bad = conditionProblem(step.condition, variants, `The step "${step.key}"`);
+      if (bad) return bad;
+    }
+  }
+  return null;
+}
+
+/** One condition, checked against the variants a template declares. */
+function conditionProblem(
+  condition: KnowledgeCondition | undefined,
+  variants: Map<string, Set<string>>,
+  where: string,
+): string | null {
+  if (!condition) return null;
+  const values = variants.get(condition.variant);
+  if (!values)
+    return `${where} branches on "${condition.variant}", which this template does not declare.`;
+  if (!values.has(condition.equals))
+    return `${where} branches on "${condition.variant} = ${condition.equals}", which the variant does not offer.`;
+  return null;
+}
+
 export function isKnowledgeDraft(x: unknown): x is KnowledgeDraft {
   return (
     isRecord(x) &&

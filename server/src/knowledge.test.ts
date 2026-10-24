@@ -512,6 +512,44 @@ test("a page created with a checklist definition is a checklist template", async
   );
 });
 
+test("a template whose rules can never be satisfied is refused at the door", async () => {
+  /*
+   * A condition names a variant and one of its values. One naming a variant the
+   * template does not declare can never hold, so its section would materialise
+   * on no workorder, for ever, and silently — the shape check cannot see it.
+   * The write is the door, because the editor that draws the options is not the
+   * boundary: the agent proposes pages, and a template can be written over the
+   * account's own JMAP.
+   */
+  const res = await post("/api/knowledge/create", {
+    scope: "company",
+    title: "Impossible rules",
+    checklist: {
+      variants: [
+        {
+          key: "company",
+          label: "Company",
+          values: [{ value: "north", label: "North" }],
+        },
+      ],
+      sections: [
+        {
+          key: "deposit",
+          label: "Deposit",
+          condition: { variant: "region", equals: "north" },
+          steps: [{ key: "load", label: "Load" }],
+        },
+      ],
+    },
+  });
+  assert.equal(res.status, 400, JSON.stringify(res.body));
+  assert.equal(
+    (res.body as { error?: string }).error,
+    "checklist_inconsistent",
+    "the door says which thing it refused",
+  );
+});
+
 test("a template's draft carries the definition and its derived steps", async () => {
   const res = await post("/api/knowledge/create", {
     scope: "company",

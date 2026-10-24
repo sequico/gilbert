@@ -29,6 +29,7 @@ import {
   buildFolderDoc,
   buildRevision,
   buildState,
+  checklistProblem,
   DRAFT_FILE,
   isChecklistTemplate,
   isKnowledgeFolderDoc,
@@ -108,6 +109,21 @@ export async function folderOrder(
  * folder an article already holds gets a numbered sibling, because a create is
  * a create and not a way to replace a controlled document.
  */
+/**
+ * Build a draft from an input, refusing rules that can never be satisfied.
+ *
+ * One door for both writers — a create and a save — so a condition naming a
+ * variant the template does not declare is refused before anything is written,
+ * wherever the rules came from: the editor, the agent's proposal, or a raw write
+ * over the account's own JMAP.
+ */
+function checkedDraft(spec: Parameters<typeof buildDraft>[0]): KnowledgeDraft {
+  const draft = buildDraft(spec);
+  const problem = draft.checklist ? checklistProblem(draft.checklist) : null;
+  if (problem) throw new KnowledgeAdminError("checklist_inconsistent", problem, 400);
+  return draft;
+}
+
 export async function createArticle(
   admin: LiveSession,
   target: KnowledgeTarget,
@@ -140,7 +156,7 @@ export async function createArticle(
   const id = knowledgeId();
   const now = new Date().toISOString();
   const by = admin.username;
-  const draft = buildDraft({
+  const draft = checkedDraft({
     id,
     title: docTitle,
     tags: [],
@@ -384,12 +400,14 @@ export async function writeDraft(spec: {
         "That article is retired and is kept on record, so it is not edited.",
         409,
       );
-    // The builders mint the fields this version owns; merging over what was
-    // read carries any field a later version added through untouched, and the
-    // lifecycle pointers (which this save does not change) with them.
+    /*
+     * The rules are checked for **coherence** by the builder itself: a condition
+     * naming a variant the template does not declare can never hold, and its
+     * section would silently never materialise on any workorder.
+     */
     const draft: KnowledgeDraft = {
       ...(existingDraft ?? {}),
-      ...buildDraft({
+      ...checkedDraft({
         id,
         title: titleFor(input.title),
         tags: input.tags,

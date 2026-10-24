@@ -7,6 +7,7 @@ import {
   buildState,
   checklistBlocks,
   checklistGroups,
+  checklistProblem,
   compareKnowledgeSiblings,
   conditionClause,
   emptyChecklist,
@@ -648,5 +649,128 @@ test("a state document that predates the retirement marker is still a state", ()
       retired: { by: "g", at: "2026-10-02T00:00:00.000Z" },
     } as KnowledgeState),
     true,
+  );
+});
+
+/**
+ * A checklist the shape accepts and no workorder could ever satisfy (ADR 0026).
+ *
+ * The shape is all `isKnowledgeChecklist` answers; `checklistProblem` answers
+ * whether the rules can hold at all, because a branch that never holds hides a
+ * section from every workorder in silence.
+ */
+test("a checklist's branches are checked against the variants it declares", () => {
+  const coherent = {
+    variants: [
+      {
+        key: "company",
+        label: "Company",
+        values: [
+          { value: "north", label: "North" },
+          { value: "south", label: "South" },
+        ],
+      },
+    ],
+    sections: [
+      {
+        key: "deposit",
+        label: "Deposit",
+        condition: { variant: "company", equals: "north" },
+        steps: [
+          { key: "load", label: "Load" },
+          {
+            key: "seal",
+            label: "Seal",
+            condition: { variant: "company", equals: "south" },
+          },
+        ],
+      },
+    ],
+  };
+  assert.equal(
+    checklistProblem(coherent),
+    null,
+    "a branch on a declared value is coherent",
+  );
+  assert.equal(
+    checklistProblem({
+      ...coherent,
+      sections: [
+        { ...coherent.sections[0]!, condition: { variant: "region", equals: "north" } },
+      ],
+    }),
+    'The section "deposit" branches on "region", which this template does not declare.',
+  );
+  assert.equal(
+    checklistProblem({
+      ...coherent,
+      variants: [
+        {
+          ...coherent.variants[0]!,
+          key: "company",
+          values: [{ value: "north", label: "N" }],
+        },
+      ],
+      sections: [
+        { ...coherent.sections[0]!, condition: { variant: "company", equals: "east" } },
+      ],
+    }),
+    'The section "deposit" branches on "company = east", which the variant does not offer.',
+  );
+  assert.equal(
+    checklistProblem({
+      ...coherent,
+      variants: [
+        {
+          ...coherent.variants[0]!,
+          key: "company",
+          values: [{ value: "north", label: "N" }],
+        },
+      ],
+      sections: [
+        {
+          key: "deposit",
+          label: "Deposit",
+          steps: [
+            {
+              key: "load",
+              label: "Load",
+              condition: { variant: "company", equals: "east" },
+            },
+          ],
+        },
+      ],
+    }),
+    'The step "load" branches on "company = east", which the variant does not offer.',
+  );
+  assert.equal(
+    checklistProblem({
+      ...coherent,
+      variants: [coherent.variants[0]!, coherent.variants[0]!],
+    }),
+    'The variant "company" is declared twice.',
+  );
+  assert.equal(
+    checklistProblem({
+      ...coherent,
+      sections: [coherent.sections[0]!, coherent.sections[0]!],
+    }),
+    'The section "deposit" is declared twice.',
+  );
+  assert.equal(
+    checklistProblem({
+      ...coherent,
+      sections: [
+        {
+          key: "deposit",
+          label: "Deposit",
+          steps: [
+            { key: "load", label: "Load" },
+            { key: "load", label: "Load again" },
+          ],
+        },
+      ],
+    }),
+    'The step "load" is declared twice in "deposit".',
   );
 });
