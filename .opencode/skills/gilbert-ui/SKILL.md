@@ -46,8 +46,8 @@ spelling of the same action is that defect wearing a costume**.
   plus the two-pixel `.list-loading` bar when the previous content can stay. Never
   draw placeholder rows for content that is about to arrive.
 - **Counters and badges**: one markup per idea — `.nav-count` for a folder's
-  unread count, a `.tag` for a label, a badge only for a pending queue. A number
-  in a new pill is a new visual language.
+  unread count and for a folded account's, a `.tag` for a label, a badge only for
+  a pending queue. A number in a new pill is a new visual language.
 - **Tags and chips**: `.tag` (a label), `.folder-tag` (where a row lives),
   `.attachment` (a file, whole chip clickable, `.viewable` cursor `zoom-in`).
 - **Colours and spacing come from tokens**: `var(--bg)`, `--bg-elev`,

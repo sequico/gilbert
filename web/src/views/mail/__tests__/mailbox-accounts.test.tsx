@@ -180,6 +180,38 @@ describe("the accounts under the one in front", () => {
     expect(folderRows()).toEqual(["Inbox"]);
   });
 
+  it("keeps one reader's fold to that reader", () => {
+    mount();
+    click(accountRow("team@example.org")!);
+
+    // Somebody else signs in on this browser: the record is keyed by reader,
+    // and this one never opened anything.
+    act(() => {
+      useSession.setState({
+        session: {
+          accounts: {
+            a2: { name: "other@example.org", isPersonal: true },
+            g1: { name: "team@example.org", isPersonal: false },
+          },
+          primaryAccounts: { [CAP.mail]: "a2" },
+          capabilities: {},
+          state: "s2",
+        } as unknown as JmapSession,
+      });
+      useMail.setState({
+        accountId: "a2",
+        ownAccountId: "a2",
+        mailboxes: OWN,
+        mailAccounts: [
+          { accountId: "a2", name: "other@example.org", kind: "own" },
+          { accountId: "g1", name: "team@example.org", kind: "group" },
+        ],
+      });
+    });
+
+    expect(accountRow("team@example.org")!.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("folds them even when the account is switched with the sidebar closed", () => {
     mount();
     click(accountRow("team@example.org")!);
