@@ -881,15 +881,17 @@ export const editDraft = defineTool({
 });
 
 /**
- * Send one message from this group's own identity: written into Sent, then
- * submitted (ADR 0029).
+ * Send the product's own one-line notice from this group's identity: written
+ * into Sent, then submitted (ADR 0038, the switched-off notice).
  *
- * One door for both acts that send — the question to a person with access and the
- * message that reaches somebody outside — so the two cannot disagree about the
- * identity they send as, the folder the message is filed in, or the shape a
- * submission takes.
+ * **It is not a tool and no run can reach it.** The catalogue has no send
+ * (ADR 0041: an outward message is a draft a person sends); this is the loop's
+ * answer to a message addressed to an agent that is off, and the name says so —
+ * a general `sendMail` beside the tools is an invitation to make a tool of it.
+ * The identity is the account's own first sending identity, never a `From:` a
+ * caller supplies.
  */
-export async function sendMail(
+export async function sendNotice(
   ctx: Ctx,
   accountId: string,
   message: { to: string; subject: string; text: string },

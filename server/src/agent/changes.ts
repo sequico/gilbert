@@ -36,7 +36,7 @@ import { type Drop, dropEvent } from "./queue.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
 import { takeOwnCalendarChange } from "./tools/calendar.js";
 import type { ToolCall } from "./tools/define.js";
-import { readMessageForAnswer, sendMail } from "./tools/mail.js";
+import { readMessageForAnswer, sendNotice } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
 export interface ChangesDeps {
@@ -284,7 +284,7 @@ export async function offPath(
          * check waits until the owner decides whether the agent's own mailbox
          * is a public front or a members' one.
          */
-        await sendMail(deps.ctx, accountId, {
+        await sendNotice(deps.ctx, accountId, {
           to: message.from,
           subject: OFF_NOTICE,
           text: OFF_NOTICE,
