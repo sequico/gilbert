@@ -35,6 +35,19 @@ test("an empty or non-text credential field is left alone", () => {
   assert.deepEqual(value, { password: "", token: 42, authorization: "   " });
 });
 
+test("a credential-named field holding an object is withheld whole", () => {
+  /*
+   * The field filter walks keys, and a token that holds `{ access, refresh }`
+   * hides both behind names no pattern recognises. The container is what the
+   * name points at, so the container is what is withheld.
+   */
+  const { value, withheld } = redactSecrets({
+    oauth: { token: { access: "a", refresh: "r" }, expires: 3600 },
+  });
+  assert.deepEqual(withheld, ["oauth.token"]);
+  assert.deepEqual(value, { oauth: { token: WITHHELD, expires: 3600 } });
+});
+
 test("a value that is not an object passes through", () => {
   assert.deepEqual(redactSecrets("plain"), { value: "plain", withheld: [] });
   assert.deepEqual(redactSecrets(null), { value: null, withheld: [] });

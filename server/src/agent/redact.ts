@@ -50,7 +50,17 @@ export function redactSecrets(value: unknown): { value: unknown; withheld: strin
     if (!held || typeof held !== "object") return held;
     const out: Record<string, unknown> = {};
     for (const [key, one] of Object.entries(held as Record<string, unknown>)) {
-      if (SECRET_NAMES.test(key) && typeof one === "string" && one.trim()) {
+      /*
+       * A field named like a credential loses its value when the value is text,
+       * and when it is an object or a list: a `token` that holds
+       * `{ access, refresh }` hides both under keys no name-based filter can
+       * recognise. A number, a boolean and a blank string are left alone, because
+       * a credential is not one of those and withholding them hides nothing.
+       */
+      const named = SECRET_NAMES.test(key);
+      const container = one !== null && typeof one === "object";
+      const text = typeof one === "string" && one.trim() !== "";
+      if (named && (container || text)) {
         out[key] = WITHHELD;
         withheld.push(path ? `${path}.${key}` : key);
         continue;
