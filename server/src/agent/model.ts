@@ -2303,7 +2303,7 @@ export async function chooseStep(
         refused.push({
           name: call.name,
           args: call.args,
-          problem: nearestTool(catalogue, call.name, errorMessage(err)),
+          problem: refusedByCatalogue(errorMessage(err), catalogue),
         });
       }
     }
@@ -2327,24 +2327,21 @@ export async function chooseStep(
 }
 
 /**
- * A refusal that names a tool the catalogue actually holds.
+ * A refusal that names the catalogue it refused.
  *
  * A model that invented `mail.search` was told "There is no tool named
- * mail.search" and sent the same name again: nothing told it what the mail tools
- * *are* called. When the refused name shares a surface with tools the catalogue
- * holds, their names are added to the sentence, so the next turn has the answer
+ * mail.search" and sent the same name again: nothing told it what the tools
+ * *are* called. The names a run can call are added to the sentence — the run's
+ * own selection, since that is what it may use — so the next turn has the answer
  * in front of it instead of another guess.
+ *
+ * The names are bare words with no dot (ADR 0038), and that is the rule the
+ * invention broke: a sentence that repeated the dotted mistake without saying so
+ * taught the model nothing — which is what a "nearest name" matched on a `mail.`
+ * prefix became once the catalogue had no dotted names left.
  */
-function nearestTool(
-  catalogue: readonly AnyTool[],
-  name: string,
-  problem: string,
-): string {
-  const surface = name.split(".")[0] ?? "";
-  if (!surface) return problem;
-  const same = catalogue
-    .filter((tool) => tool.name.startsWith(`${surface}.`))
-    .map((tool) => tool.name);
-  if (!same.length) return problem;
-  return `${problem} The ${surface} tools are: ${same.join(", ")}.`;
+function refusedByCatalogue(problem: string, catalogue: readonly AnyTool[]): string {
+  const names = catalogue.map((tool) => tool.name);
+  if (!names.length) return problem;
+  return `${problem} The tools this run may call are bare names with no dot: ${names.join(", ")}.`;
 }

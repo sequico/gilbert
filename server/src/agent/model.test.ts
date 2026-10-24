@@ -932,6 +932,11 @@ test("a call the catalogue does not hold is refused alone, and the rest of the p
     /catalogue|no tool named/i,
     "the refusal names the tool it meant",
   );
+  assert.match(
+    refused[0]?.problem ?? "",
+    /\bfind\b.*\bread\b|\bread\b.*\bfind\b/s,
+    "and it names the bare words this run may call, so the next turn need not guess",
+  );
 
   // Nothing of the answer could be made: that is the answer refused, and the model
   // is told what the catalogue holds.
