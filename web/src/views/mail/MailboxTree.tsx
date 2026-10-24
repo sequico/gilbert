@@ -336,9 +336,10 @@ export function MailboxTree() {
   const { open: expanded, setFolder, openKeys } = useOpenFolders("mail");
   /*
    * Which of the other accounts are open under this one. The foreground's tree
-   * is the sidebar's subject, so it is always whole and has no such control.
+   * is the sidebar's subject, so it is always whole and has no such control;
+   * the store folds the rest when it moves the foreground (`setAccount`).
    */
-  const { open: openAccounts, toggle: toggleAccount } = useAccountFold(accountId);
+  const { open: openAccounts, toggle: toggleAccount } = useAccountFold();
   const session = useSession((s) => s.session);
   /*
    * Whether the tree in hand is somebody else's: a group mailbox the reader

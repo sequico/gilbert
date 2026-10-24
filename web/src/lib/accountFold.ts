@@ -11,7 +11,9 @@ import { useSession } from "@/store/session";
  * account is folded until the reader opens it. Absence is "folded", which is
  * also what a change of foreground leaves behind: bringing an account to the
  * front puts every other one back in the list folded, because the shape they
- * were opened into belonged to the account that was in front before.
+ * were opened into belonged to the account that was in front before. That
+ * switch is the mail store's (`setAccount` calls `forgetOpenAccounts`), not the
+ * sidebar's -- an account can be opened with no sidebar mounted to see it.
  *
  * The record is the reader's and this browser's. The tab holds it in session
  * storage, so a reload does not lose it; across sessions only a device marked
@@ -19,7 +21,7 @@ import { useSession } from "@/store/session";
  * that were open. Nothing here is an account setting: which account a reader
  * happened to unfold on one machine is not a preference to inherit on another.
  */
-export function useAccountFold(foreground: string | null): {
+export function useAccountFold(): {
   /** The accounts that are open. An account absent from it is folded. */
   open: Record<string, boolean>;
   /** Open or fold one account, remembering it for the next visit. */
@@ -28,7 +30,6 @@ export function useAccountFold(foreground: string | null): {
   const owner = useSession((s) => placeOwnerFrom(s));
   const [open, setOpen] = useState<Record<string, boolean>>(() => load(owner));
   const loadedFor = useRef(owner);
-  const previousForeground = useRef(foreground);
 
   useEffect(() => {
     if (loadedFor.current === owner) return;
@@ -42,15 +43,6 @@ export function useAccountFold(foreground: string | null): {
     save(owner, next);
   };
 
-  useEffect(() => {
-    const was = previousForeground.current;
-    previousForeground.current = foreground;
-    // A boot that lands on an account is not a change of foreground: what the
-    // device remembered was recorded while this account was already in front.
-    if (!was || !foreground || was === foreground) return;
-    if (Object.keys(open).length) write({});
-  }, [foreground]);
-
   return {
     open,
     toggle: (accountId) => {
@@ -61,6 +53,17 @@ export function useAccountFold(foreground: string | null): {
       write(next);
     },
   };
+}
+
+/**
+ * Fold every account under the one in front.
+ *
+ * Called where the foreground actually moves (`setAccount` in the mail store),
+ * because that is the fact and not a sidebar that happens to be mounted: an
+ * account opened from Settings leaves the sidebar no moment at which to notice.
+ */
+export function forgetOpenAccounts(owner: string | null): void {
+  save(owner, {});
 }
 
 /** The tab's key for one reader's record, beside the one `lastPlace` keeps. */

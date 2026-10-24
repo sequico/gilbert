@@ -168,7 +168,7 @@ describe("the accounts under the one in front", () => {
     expect(accountRow("sales@example.org")!.getAttribute("aria-expanded")).toBe("true");
 
     act(() => {
-      useMail.setState({ accountId: "g2", mailboxes: SALES });
+      useMail.getState().setAccount("g2");
     });
 
     // The account brought forward has no row of its own, and neither of the
@@ -178,6 +178,22 @@ describe("the accounts under the one in front", () => {
     expect(accountRow("me@example.org")!.getAttribute("aria-expanded")).toBe("false");
     // Only the account now in front is drawn whole.
     expect(folderRows()).toEqual(["Inbox"]);
+  });
+
+  it("folds them even when the account is switched with the sidebar closed", () => {
+    mount();
+    click(accountRow("team@example.org")!);
+    act(() => root.unmount());
+    host.remove();
+
+    // Settings › Folders opens an account with no sidebar to notice the
+    // change, and the record still has to be the folded one.
+    act(() => {
+      useMail.getState().setAccount("g2");
+    });
+
+    mount();
+    expect(accountRow("team@example.org")!.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("keeps the record for the tab when the sidebar reloads", () => {

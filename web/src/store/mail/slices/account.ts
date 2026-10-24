@@ -1,5 +1,6 @@
 import { client } from "@/jmap/client";
 import type { GetResponse, Id, Mailbox } from "@/jmap/types";
+import { forgetOpenAccounts } from "@/lib/accountFold";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { type MailAccountInfo, mailAccountCandidates } from "@/lib/mailAccounts";
 import { useSession } from "../../session";
@@ -37,6 +38,14 @@ export function accountSlice(
 
     setAccount(accountId) {
       if (accountId === get().accountId) return;
+      /*
+       * The account being left behind had its own unfolded accounts; every
+       * other one starts folded under the account now in front. Neither boot
+       * nor sign-out is such a switch: there is no account on the other side
+       * of it, and what the device remembered stands as it was left.
+       */
+      if (get().accountId && accountId)
+        forgetOpenAccounts(placeOwnerFrom(useSession.getState()));
       // Nothing held in full belongs to the account being left behind.
       resetBodyOrder();
       /*
