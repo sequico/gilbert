@@ -1,5 +1,6 @@
 import { FILENODE_SET } from "@gilbert/shared/appFolder";
 import { errorMessage } from "@gilbert/shared/errors";
+import { isTrashFolder } from "@gilbert/shared/trash";
 import { ChevronRight, Folder, HardDrive, Home, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
@@ -107,7 +108,7 @@ export function SaveToFilesDialog({
         if (!live) return;
         setFolders(
           sortFiles(
-            listed.filter((n) => n.nodeType === "directory"),
+            listed.filter((n) => n.nodeType === "directory" && !isTrashFolder(n)),
             DEFAULT_FILES_SORT,
           ),
         );

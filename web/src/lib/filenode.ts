@@ -7,7 +7,9 @@
  * a create that sends it, masks directories out of `FileNode/query` results,
  * and reports rights as a single `mayWrite` rather than the four separate ones.
  */
+import { isTrashFolder } from "@gilbert/shared/trash";
 import type { FileNode, Id } from "@/jmap/types";
+import { t } from "@/lib/i18n";
 import { descendantIds } from "./folderMove";
 import { NODE_MIME } from "./mime";
 
@@ -120,8 +122,30 @@ export function canDropFileNode(
   if (dragged.parentId === targetId) return false;
   const target = nodes[targetId];
   if (target?.nodeType !== "directory") return false;
+  /*
+   * The Trash is entered by deleting, which is what remembers where the node
+   * came from (ADR 0013). A drop would move it in without that, leaving a node
+   * whose restore can only guess the top level, so no drag lands there.
+   */
+  if (isTrashFolder(target)) return false;
   if (target.myRights && !target.myRights.mayAddChildren) return false;
   return !descendantIds(nodes, draggedId).has(targetId);
+}
+
+/**
+ * What a node is called on screen.
+ *
+ * One folder is named by the product rather than by the person who filed it:
+ * the Trash carries the reserved internal name the two tiers find it by
+ * (`@gilbert/shared/trash`), and every surface draws it translated instead — the
+ * tree, the listing, the breadcrumbs and the dialogs that name a folder. One
+ * function because a second `t("Trash")` somewhere is how one surface ends up
+ * saying the internal name while its neighbour says the reader's language.
+ */
+export function fileNodeLabel(
+  node: Pick<FileNode, "name" | "parentId" | "nodeType">,
+): string {
+  return isTrashFolder(node) ? t("Trash") : node.name;
 }
 
 /**

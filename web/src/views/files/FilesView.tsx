@@ -1,5 +1,6 @@
 import { FILENODE_GET } from "@gilbert/shared/appFolder";
 import { errorMessage } from "@gilbert/shared/errors";
+import { isTrashFolder } from "@gilbert/shared/trash";
 import {
   ArrowDown,
   ArrowUp,
@@ -16,6 +17,7 @@ import {
   Home,
   MoreVertical,
   Pencil,
+  RotateCcw,
   Share2,
   Trash2,
   Upload,
@@ -28,13 +30,20 @@ import type { FileNode, Id } from "@/jmap/types";
 import { triggerDownload } from "@/lib/download";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
 import { EVENTS } from "@/lib/events";
-import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
+import {
+  canDropFileNodes,
+  fileNodeLabel,
+  isShared,
+  NODE_MIME,
+  readDraggedIds,
+} from "@/lib/filenode";
 import { sortFiles, useFilesSort } from "@/lib/fileSort";
 import { formatListDate, formatSize } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { type FilesSortKey, loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
 import { rangeIds } from "@/lib/listSelection";
 import { previewKind } from "@/lib/preview";
+import { trashFolderId } from "@/lib/trash";
 import { countChildren, useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
 import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
@@ -44,6 +53,7 @@ import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
 import { LazyFilePreviewDialog, LazyShareDialog } from "../lazyPieces";
+import { emptyTrashAsked, useMayEndFiles } from "./trashActions";
 
 export function FilesView({ nodeId }: { nodeId?: string }) {
   const [, navigate] = useLocation();
@@ -89,6 +99,19 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const draggingIds = files.draggingIds;
   const setDragging = files.setDragging;
   const inputRef = useRef<HTMLInputElement>(null);
+  /* The one question the Trash entry asks (ADR 0013). */
+  const mayEnd = useMayEndFiles();
+  /*
+   * Whether the folder on screen is the Trash, or somewhere inside it.
+   *
+   * What the actions become there: Delete ends the node for good instead of
+   * moving it, Restore puts it back where it came from, and nothing is uploaded
+   * into it. Read from the path rather than from one id, because a trashed
+   * folder opens like any other and its contents are inside the Trash too.
+   */
+  const inTrash = files.pathTo(parentId).some(isTrashFolder);
+  /** The Trash folder itself, for the actions that only apply directly in it. */
+  const trashId = trashFolderId(files);
 
   /** Ask for a name and create the folder in the view's own parent, once. */
   const newFolder = async () => {
@@ -198,12 +221,19 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   ]);
 
   // The sidebar's primary button asks for an upload here, the way it asks the
-  // calendar for a new event.
+  // calendar for a new event. Nothing is uploaded into the Trash: an item gets
+  // there by being deleted, which is what remembers where it came from.
   useEffect(() => {
-    const open = () => inputRef.current?.click();
+    const open = () => {
+      if (inTrash) {
+        toast.error(t("Files cannot be put into the trash."));
+        return;
+      }
+      inputRef.current?.click();
+    };
     window.addEventListener(EVENTS.filesUpload, open);
     return () => window.removeEventListener(EVENTS.filesUpload, open);
-  }, []);
+  }, [inTrash]);
 
   // Ensure ancestors are loaded for breadcrumbs
   useEffect(() => {
@@ -313,6 +343,15 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     e.preventDefault();
     e.stopPropagation();
     setDropping(false);
+    /* Nothing is put into the Trash by dragging: an item gets there by being
+       deleted, which is what remembers where it came from. */
+    if (e.dataTransfer.types.includes("Files")) {
+      const target = into ? files.nodes[into] : undefined;
+      if (inTrash || (target && isTrashFolder(target))) {
+        toast.error(t("Files cannot be put into the trash."));
+        return;
+      }
+    }
     if (e.dataTransfer.types.includes(NODE_MIME)) {
       const ids = readDraggedIds(e.dataTransfer);
       setDragging([]);
@@ -473,6 +512,10 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    * is about.
    */
   const canMerge = (list: FileNode[]) =>
+    /* Not inside the Trash: a merge destroys the folder given up, which is the
+       final step this record keeps for the reader's own files and an
+       administrator (ADR 0013). */
+    !inTrash &&
     list.length === 2 &&
     list.every((n) => n.nodeType === "directory") &&
     list.every(
@@ -504,6 +547,16 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             onClick={() => downloadAll(files)}
           />
         )}
+        {inTrash && list.every((n) => n.parentId === trashId) && (
+          <MenuItem
+            icon={<RotateCcw size={16} />}
+            label={plural(list.length, {
+              one: "Restore {n} item",
+              other: "Restore {n} items",
+            })}
+            onClick={() => void restoreNodes(list)}
+          />
+        )}
         <MenuItem
           icon={<FolderInput size={16} />}
           label={plural(list.length, {
@@ -529,10 +582,20 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         <MenuItem
           danger
           icon={<Trash2 size={16} />}
-          label={plural(list.length, {
-            one: "Delete {n} item",
-            other: "Delete {n} items",
-          })}
+          label={
+            inTrash
+              ? plural(list.length, {
+                  one: "Delete {n} item permanently",
+                  other: "Delete {n} items permanently",
+                })
+              : plural(list.length, {
+                  one: "Delete {n} item",
+                  other: "Delete {n} items",
+                })
+          }
+          /* Inside the Trash the entry ends the nodes, so it is offered only
+             where the rule allows that. */
+          disabled={inTrash && !mayEnd}
           onClick={() => void removeNodes(list)}
         />
       </>
@@ -541,16 +604,42 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
 
   const removeNodes = async (list: FileNode[]) => {
     if (!list.length) return;
-    const title =
-      list.length === 1
-        ? t("Delete “{name}”?", { name: list[0]!.name })
+    /*
+     * Two actions wearing one word. Outside the Trash, Delete moves the nodes
+     * into it (ADR 0013) and every byte is still there. Inside it, the same word
+     * would move them nowhere, so the entry ends them for good instead -- and it
+     * is drawn disabled where the rule refuses that (a group's files, for a
+     * member).
+     */
+    const title = inTrash
+      ? list.length === 1
+        ? t("Delete “{name}” permanently?", { name: fileNodeLabel(list[0]!) })
+        : plural(list.length, {
+            one: "Delete {n} item permanently?",
+            other: "Delete {n} items permanently?",
+          })
+      : list.length === 1
+        ? t("Delete “{name}”?", { name: fileNodeLabel(list[0]!) })
         : plural(list.length, { one: "Delete {n} item?", other: "Delete {n} items?" });
-    if (!(await confirmDialog({ title, confirmLabel: t("Delete"), danger: true })))
-      return;
+    const confirmLabel = inTrash ? t("Delete permanently") : t("Delete");
+    if (!(await confirmDialog({ title, confirmLabel, danger: true }))) return;
     try {
-      await files.destroy(list.map((n) => n.id));
+      if (inTrash) await files.destroyForever(list.map((n) => n.id));
+      else await files.trash(list.map((n) => n.id));
       setSelection(new Set());
-      toast.success(t("Deleted"));
+      toast.success(inTrash ? t("Deleted") : t("Moved to trash"));
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  };
+
+  /** Put trashed nodes back where they came from, their subtrees with them. */
+  const restoreNodes = async (list: FileNode[]) => {
+    if (!list.length) return;
+    try {
+      await files.restore(list.map((n) => n.id));
+      setSelection(new Set());
+      toast.success(t("Restored"));
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -650,10 +739,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                */}
               {i === path.length - 1 ? (
                 <span className="current" aria-current="page">
-                  {n.name}
+                  {fileNodeLabel(n)}
                 </span>
               ) : (
-                <button onClick={() => navigate(`/files/${n.id}`)}>{n.name}</button>
+                <button onClick={() => navigate(`/files/${n.id}`)}>
+                  {fileNodeLabel(n)}
+                </button>
               )}
             </span>
           ))}
@@ -668,13 +759,15 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           hidden
           onChange={(e) => {
             const l = Array.from(e.target.files ?? []);
-            if (l.length) void files.upload(parentId, l);
+            if (l.length && !inTrash) void files.upload(parentId, l);
             e.target.value = "";
           }}
         />
-        <button className="btn btn-sm" onClick={() => void newFolder()}>
-          <FolderPlus size={16} /> {t("New folder")}
-        </button>
+        {!inTrash && (
+          <button className="btn btn-sm" onClick={() => void newFolder()}>
+            <FolderPlus size={16} /> {t("New folder")}
+          </button>
+        )}
       </div>
       {files.runs.length > 0 && (
         <div
@@ -817,9 +910,13 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         {files.loading && !nodes.length ? (
           <Spinner />
         ) : !nodes.length ? (
-          <Empty icon={<FolderOpen size={40} />} title={t("This folder is empty")}>
-            {t("Drag files here or use Upload.")}
-          </Empty>
+          parentId === trashId ? (
+            <Empty icon={<Trash2 size={40} />} title={t("The trash is empty")} />
+          ) : (
+            <Empty icon={<FolderOpen size={40} />} title={t("This folder is empty")}>
+              {t("Drag files here or use Upload.")}
+            </Empty>
+          )
         ) : (
           <table className={`files-table ${sel.length ? "has-selection" : ""}`}>
             <thead>
@@ -896,7 +993,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     <div
                       className={`f-name ${n.nodeType === "directory" ? "is-folder" : ""}`}
                     >
-                      {n.nodeType === "directory" ? (
+                      {isTrashFolder(n) ? (
+                        <Trash2 size={18} />
+                      ) : n.nodeType === "directory" ? (
                         <Folder size={18} />
                       ) : (
                         <File size={18} />
@@ -909,7 +1008,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                        * navigated would also mean a click meant to tick a row,
                        * or to start a drag, left the folder instead.
                        */}
-                      <span>{n.name}</span>
+                      <span>{fileNodeLabel(n)}</span>
                       {isShared(n) && (
                         <Share2 size={13} className="faint" aria-label={t("Shared")} />
                       )}
@@ -952,7 +1051,20 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         trigger={menu.trigger}
         width={200}
       >
-        {!menuNode && (
+        {!menuNode && inTrash && (
+          /*
+           * The Trash has one action of its own: end what is in it. Nothing is
+           * uploaded into it and no folder is made in it, because a node gets
+           * there by being deleted.
+           */
+          <MenuItem
+            icon={<Trash2 size={16} />}
+            label={t("Empty trash")}
+            disabled={!mayEnd}
+            onClick={() => void emptyTrashAsked()}
+          />
+        )}
+        {!menuNode && !inTrash && (
           <>
             <MenuItem
               icon={<Upload size={16} />}
@@ -979,7 +1091,22 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           </>
         )}
         {menuNode && targets(menuNode).length > 1 && groupActions(targets(menuNode))}
-        {menuNode && targets(menuNode).length <= 1 && (
+        {menuNode && targets(menuNode).length <= 1 && isTrashFolder(menuNode) && (
+          <>
+            <MenuItem
+              icon={<FolderOpen size={16} />}
+              label={t("Open")}
+              onClick={() => navigate(`/files/${menuNode.id}`)}
+            />
+            <MenuItem
+              icon={<Trash2 size={16} />}
+              label={t("Empty trash")}
+              disabled={!mayEnd}
+              onClick={() => void emptyTrashAsked()}
+            />
+          </>
+        )}
+        {menuNode && targets(menuNode).length <= 1 && !isTrashFolder(menuNode) && (
           <>
             {menuNode.nodeType === "directory" ? (
               <MenuItem
@@ -1009,6 +1136,13 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                   onClick={() => download(menuNode)}
                 />
               </>
+            )}
+            {inTrash && menuNode.parentId === trashId && (
+              <MenuItem
+                icon={<RotateCcw size={16} />}
+                label={t("Restore")}
+                onClick={() => void restoreNodes([menuNode])}
+              />
             )}
             <MenuItem
               icon={<Pencil size={16} />}
@@ -1043,8 +1177,8 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             <MenuItem
               danger
               icon={<Trash2 size={16} />}
-              label={t("Delete")}
-              disabled={!menuNode.myRights?.mayDelete}
+              label={inTrash ? t("Delete permanently") : t("Delete")}
+              disabled={inTrash ? !mayEnd : !menuNode.myRights?.mayDelete}
               onClick={() => void removeNodes([menuNode])}
             />
           </>
@@ -1136,7 +1270,7 @@ export function MoveDialog({
   const path = files.pathTo(cur);
   const title =
     nodes.length === 1
-      ? t("Move \u201c{name}\u201d", { name: nodes[0]!.name })
+      ? t("Move \u201c{name}\u201d", { name: fileNodeLabel(nodes[0]!) })
       : plural(nodes.length, { one: "Move {n} item", other: "Move {n} items" });
   return (
     <Dialog
@@ -1187,10 +1321,10 @@ export function MoveDialog({
             {/* The folder the reader is in is words; the ones above it are ways back. */}
             {i === path.length - 1 ? (
               <span className="current" aria-current="page">
-                {n.name}
+                {fileNodeLabel(n)}
               </span>
             ) : (
-              <button onClick={() => setCur(n.id)}>{n.name}</button>
+              <button onClick={() => setCur(n.id)}>{fileNodeLabel(n)}</button>
             )}
           </span>
         ))}
@@ -1198,7 +1332,7 @@ export function MoveDialog({
       {dirs.map((d) => (
         <button key={d.id} className="menu-item" onClick={() => setCur(d.id)}>
           <Folder size={16} />
-          <span className="grow">{d.name}</span>
+          <span className="grow">{fileNodeLabel(d)}</span>
           <ChevronRight size={14} />
         </button>
       ))}
@@ -1311,7 +1445,7 @@ function MergeFoldersDialog({
                * break on breaks inside itself.
                */}
               <span className="grow" style={{ overflowWrap: "anywhere" }}>
-                {n.name}
+                {fileNodeLabel(n)}
               </span>
             </span>
             <small>

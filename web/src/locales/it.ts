@@ -3448,6 +3448,25 @@ export const catalog: Catalog = {
     OK: "OK",
     Confirm: "Conferma",
     "That move is not allowed.": "Questo spostamento non è consentito.",
+    Trash: "Cestino",
+    "Empty trash": "Svuota il cestino",
+    "Empty the trash?": "Svuotare il cestino?",
+    "Everything in it is deleted for good.":
+      "Tutto ciò che contiene viene eliminato definitivamente.",
+    "Trash emptied": "Cestino svuotato",
+    Restore: "Ripristina",
+    Restored: "Ripristinato",
+    "Delete permanently": "Elimina definitivamente",
+    "Delete “{name}” permanently?": "Eliminare “{name}” definitivamente?",
+    "Only an administrator can empty a group's trash.":
+      "Solo un amministratore può svuotare il cestino di un gruppo.",
+    "Only an administrator can delete a group's files for good.":
+      "Solo un amministratore può eliminare definitivamente i file di un gruppo.",
+    "Files cannot be put into the trash.": "I file non possono essere messi nel cestino.",
+    "The trash is empty": "Il cestino è vuoto",
+    "Merging is not offered inside the trash.": "L'unione non è disponibile nel cestino.",
+    "The trash cannot be moved.": "Il cestino non può essere spostato.",
+    "Moved to trash": "Spostato nel cestino",
     "The calendar did not answer in time.": "Il calendario non ha risposto in tempo.",
     "Set by {who} on {when}": "Impostato da {who} il {when}",
     "Reaching a group's {need} happens as the Master, and the Master is not granted on this group: the documents live in the group's own account, so grant it on the group in the mail server's directory.":
@@ -3467,6 +3486,18 @@ export const catalog: Catalog = {
     },
 
     "Delete {n} items": { one: "Elimina {n} elemento", other: "Elimina {n} elementi" },
+    "Delete {n} items permanently": {
+      one: "Elimina {n} elemento definitivamente",
+      other: "Elimina {n} elementi definitivamente",
+    },
+    "Delete {n} items permanently?": {
+      one: "Eliminare {n} elemento definitivamente?",
+      other: "Eliminare {n} elementi definitivamente?",
+    },
+    "Restore {n} items": {
+      one: "Ripristina {n} elemento",
+      other: "Ripristina {n} elementi",
+    },
     "Delete {n} items?": {
       one: "Eliminare {n} elemento?",
       other: "Eliminare {n} elementi?",

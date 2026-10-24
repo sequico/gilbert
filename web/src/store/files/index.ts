@@ -3,6 +3,7 @@ import { useSession } from "../session";
 import { dragSlice } from "./slices/drag";
 import { foldersSlice } from "./slices/folders";
 import { textSlice } from "./slices/text";
+import { trashSlice } from "./slices/trash";
 import { treeSlice } from "./slices/tree";
 import { uploadsSlice } from "./slices/uploads";
 import type { FilesState } from "./types";
@@ -27,6 +28,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   ...treeSlice(set, get),
   ...foldersSlice(set, get),
   ...uploadsSlice(set, get),
+  ...trashSlice(set, get),
   ...textSlice(set, get),
   ...dragSlice(set, get),
 }));

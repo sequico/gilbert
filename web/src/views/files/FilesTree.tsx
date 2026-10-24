@@ -1,4 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import { isTrashFolder } from "@gilbert/shared/trash";
 import {
   ChevronDown,
   ChevronRight,
@@ -16,15 +17,23 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import type { FileNode, Id } from "@/jmap/types";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
-import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
+import {
+  canDropFileNodes,
+  fileNodeLabel,
+  isShared,
+  NODE_MIME,
+  readDraggedIds,
+} from "@/lib/filenode";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { refreshSharesInto } from "@/lib/sharedCollections";
+import { trashFolderId } from "@/lib/trash";
 import { useFiles } from "@/store/files";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
+import { emptyTrashAsked, useMayEndFiles } from "./trashActions";
 
 /**
  * The shared accounts on offer are kept current: the session is re-read, the
@@ -75,6 +84,8 @@ export function FilesTree() {
      the other. See the note on `draggingId` in the store. */
   const draggingIds = useFiles((s) => s.draggingIds);
   const setDragging = useFiles((s) => s.setDragging);
+  /* The one question the Trash entry asks (ADR 0013). */
+  const mayEndFiles = useMayEndFiles();
 
   useEffect(() => {
     if (available && !treeLoaded) void loadTree();
@@ -128,8 +139,15 @@ export function FilesTree() {
   if (!available) return null;
 
   const dirs = dirIds.map((id) => nodes[id]).filter((n): n is FileNode => Boolean(n));
+  /*
+   * The Trash's own contents are drawn in the listing and not nested under its
+   * row: a file manager's tree has one Trash branch, and a trashed folder shown
+   * there would offer the actions of a live one — rename, share, delete — on
+   * something already deleted.
+   */
+  const trashId = trashFolderId({ nodes });
   const childrenOf = (parentId: Id | null) =>
-    dirs.filter((d) => (d.parentId ?? null) === parentId);
+    parentId === trashId ? [] : dirs.filter((d) => (d.parentId ?? null) === parentId);
   const canDropOn = (targetId: Id | null) =>
     canDropFileNodes(nodes, draggingIds, targetId);
 
@@ -145,6 +163,13 @@ export function FilesTree() {
 
   /** Files dropped from outside land in the folder they were dropped on. */
   const dropFiles = async (parentId: Id | null, dt: DataTransfer) => {
+    /* Nothing is put into the Trash by dragging: an item gets there by being
+       deleted, which is what remembers where it came from. */
+    const target = parentId ? nodes[parentId] : undefined;
+    if (target && isTrashFolder(target)) {
+      toast.error(t("Files cannot be put into the trash."));
+      return;
+    }
     const entries = entriesFromDrop(dt);
     const flat = Array.from(dt.files);
     /* The entries carry the tree, and its folders are created even when they
@@ -204,7 +229,7 @@ export function FilesTree() {
             setMenuNode(d);
             menu.openAt(e.clientX, e.clientY);
           }}
-          draggable
+          draggable={!isTrashFolder(d)}
           onDragStart={(e) => {
             e.dataTransfer.setData(NODE_MIME, d.id);
             e.dataTransfer.effectAllowed = "move";
@@ -230,8 +255,14 @@ export function FilesTree() {
           >
             {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
-          {open && kids.length ? <FolderOpen size={17} /> : <Folder size={17} />}
-          <span className="grow truncate">{d.name}</span>
+          {isTrashFolder(d) ? (
+            <Trash2 size={17} />
+          ) : open && kids.length ? (
+            <FolderOpen size={17} />
+          ) : (
+            <Folder size={17} />
+          )}
+          <span className="grow truncate">{fileNodeLabel(d)}</span>
           {isShared(d) && <Share2 size={12} className="faint" aria-label={t("Shared")} />}
         </div>
         {open && kids.map((k) => row(k, depth + 1))}
@@ -336,24 +367,39 @@ export function FilesTree() {
         trigger={menu.trigger}
         width={210}
       >
-        <MenuItem
-          icon={<FolderPlus size={16} />}
-          label={t("New folder")}
-          onClick={async () => {
-            const name = await promptDialog({
-              title: t("New folder"),
-              placeholder: t("Folder name"),
-            });
-            if (!name?.trim()) return;
-            try {
-              await useFiles.getState().mkdir(menuNode?.id ?? null, name.trim());
-              if (menuNode) openKeys([folderKey(accountId, menuNode.id)]);
-            } catch (err) {
-              toast.error(errorMessage(err));
-            }
-          }}
-        />
-        {menuNode && (
+        {(!menuNode || !isTrashFolder(menuNode)) && (
+          <MenuItem
+            icon={<FolderPlus size={16} />}
+            label={t("New folder")}
+            onClick={async () => {
+              const name = await promptDialog({
+                title: t("New folder"),
+                placeholder: t("Folder name"),
+              });
+              if (!name?.trim()) return;
+              try {
+                await useFiles.getState().mkdir(menuNode?.id ?? null, name.trim());
+                if (menuNode) openKeys([folderKey(accountId, menuNode.id)]);
+              } catch (err) {
+                toast.error(errorMessage(err));
+              }
+            }}
+          />
+        )}
+        {menuNode && isTrashFolder(menuNode) && (
+          /*
+           * The Trash is not a folder like the others: it cannot be renamed,
+           * moved, shared or deleted, and the one action it has ends what is in
+           * it — offered here and unusable where the rule refuses it (ADR 0013).
+           */
+          <MenuItem
+            icon={<Trash2 size={16} />}
+            label={t("Empty trash")}
+            disabled={!mayEndFiles}
+            onClick={() => void emptyTrashAsked()}
+          />
+        )}
+        {menuNode && !isTrashFolder(menuNode) && (
           <>
             <MenuItem
               icon={<Pencil size={16} />}
@@ -387,7 +433,7 @@ export function FilesTree() {
               onClick={async () => {
                 if (
                   !(await confirmDialog({
-                    title: t("Delete “{name}”?", { name: menuNode.name }),
+                    title: t("Delete “{name}”?", { name: fileNodeLabel(menuNode) }),
                     message: t("Everything inside it goes too."),
                     confirmLabel: t("Delete"),
                     danger: true,
@@ -395,9 +441,10 @@ export function FilesTree() {
                 )
                   return;
                 try {
-                  await useFiles.getState().destroy([menuNode.id]);
+                  /* A delete is a move into the account's Trash (ADR 0013). */
+                  await useFiles.getState().trash([menuNode.id]);
                   if (currentId === menuNode.id) navigate("/files");
-                  toast.success(t("Deleted"));
+                  toast.success(t("Moved to trash"));
                 } catch (err) {
                   toast.error(errorMessage(err));
                 }

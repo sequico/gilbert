@@ -1,4 +1,5 @@
 import { ChevronRight, File as FileIcon, Folder, HardDrive, Users } from "lucide-react";
+import { isTrashFolder } from "@gilbert/shared/trash";
 import { useEffect, useState } from "react";
 import type { FileNode } from "@/jmap/types";
 import { formatSize } from "@/lib/format";
@@ -61,7 +62,9 @@ export function FilePicker({
 
   const nodes = (files.children[cur ?? "root"] ?? [])
     .map((id) => files.nodes[id])
-    .filter((n): n is FileNode => Boolean(n));
+    .filter((n): n is FileNode => Boolean(n))
+    /* Nothing is attached out of the Trash: a node there is on its way out. */
+    .filter((n) => !isTrashFolder(n));
   const path = files.pathTo(cur);
   const chosen = Object.values(picked);
   const viewingShare = files.accountId !== files.ownAccountId;

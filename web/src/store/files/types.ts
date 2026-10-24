@@ -233,7 +233,49 @@ export interface FilesState {
   move(id: Id, parentId: Id | null): Promise<void>;
   /** Move several at once, in one round trip -- see the note on the implementation. */
   moveMany(ids: Id[], parentId: Id | null): Promise<void>;
-  destroy(ids: Id[]): Promise<void>;
+  /**
+   * What Delete does in Files: **move** the nodes into the account's Trash.
+   *
+   * Nothing is destroyed (ADR 0013). A folder arrives with everything under it,
+   * because a move reparents the node and its subtree stays where it is. The
+   * Trash is a real top-level folder of the account being browsed — the reader's
+   * own or a group's — created by the first deletion, and a name the folder
+   * already holds is numbered on arrival rather than refused.
+   *
+   * The place each node came from is written into the account's `trash.json` in
+   * the same action, because the Trash no longer says it: that is what `restore`
+   * returns to. Failing to remember it does not fail the move — the node is in
+   * the Trash either way, and a restore without an origin puts it at the top
+   * level of Files.
+   */
+  trash(ids: Id[]): Promise<void>;
+  /**
+   * Put trashed nodes back where they came from, whole.
+   *
+   * A folder comes back with its subtree, which never left it. A destination
+   * recorded in `trash.json` that is gone — deleted while the node sat in the
+   * Trash — is the top level of Files instead, and a name the destination now
+   * holds is numbered. The origins it consumed are forgotten in the same action.
+   */
+  restore(ids: Id[]): Promise<void>;
+  /**
+   * End everything in the Trash for good.
+   *
+   * The one destructive action left in Files, and it is the reader's own trash
+   * or an administrator's anywhere (ADR 0013): the store refuses it with the
+   * rule's own code turned into a sentence, whatever called it. Nothing is
+   * emptied on a clock: the Trash grows until somebody asks for this.
+   */
+  emptyTrash(): Promise<void>;
+  /**
+   * End named nodes of the Trash for good, whole folders included.
+   *
+   * Offered only on what sits directly in the Trash, and guarded exactly as
+   * `emptyTrash` is: it is the same final step taken one item at a time, and a
+   * rule that covered only the emptying would be one a member walks around one
+   * file per click.
+   */
+  destroyForever(ids: Id[]): Promise<void>;
   refresh(ids: Id[]): Promise<void>;
   setDragging(ids: Id[]): void;
   /** Every directory in the account, for the tree in the sidebar. */

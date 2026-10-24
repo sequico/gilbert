@@ -1,5 +1,6 @@
 import { FILENODE_SET } from "@gilbert/shared/appFolder";
 import { errorMessage } from "@gilbert/shared/errors";
+import { isTrashFolder } from "@gilbert/shared/trash";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, Id, SetResponse } from "@/jmap/types";
 import { canDropFileNodes } from "@/lib/filenode";
@@ -194,10 +195,7 @@ async function runMergeSteps(
 export function foldersSlice(
   set: FilesSet,
   get: FilesGet,
-): Pick<
-  FilesState,
-  "mkdir" | "mergeFolders" | "rename" | "move" | "moveMany" | "destroy"
-> {
+): Pick<FilesState, "mkdir" | "mergeFolders" | "rename" | "move" | "moveMany"> {
   return {
     async mkdir(parentId, name) {
       const id = await createDirectory(get().accountId!, parentId, name);
@@ -212,6 +210,14 @@ export function foldersSlice(
       const merge = get().nodes[mergeId];
       if (keep?.nodeType !== "directory" || merge?.nodeType !== "directory")
         throw new Error(translate("Merging takes two folders."));
+      /*
+       * Not inside the Trash. A merge destroys the folder given up, which is the
+       * final step ADR 0013 keeps for the reader's own files and an installation
+       * administrator — and the menu that offers it is disabled there too.
+       */
+      const parent = keep.parentId ? get().nodes[keep.parentId] : undefined;
+      if (parent && isTrashFolder(parent))
+        throw new Error(translate("Merging is not offered inside the trash."));
 
       /*
        * The row first, the scan second. The scan is several requests over two
@@ -309,6 +315,15 @@ export function foldersSlice(
      */
     async moveMany(ids, parentId) {
       if (!ids.length) return;
+      // The Trash is a place the product owns: it is entered by deleting and
+      // left by restoring, never dragged somewhere.
+      if (
+        ids.some((id) => {
+          const node = get().nodes[id];
+          return Boolean(node) && isTrashFolder(node!);
+        })
+      )
+        throw new Error(translate("The trash cannot be moved."));
       // One rule for every way in, asked where the move is actually committed:
       // the drag and the move dialog both ask it, and the store is the choke
       // point that stops a caller which did not — a move into a node's own
@@ -320,14 +335,6 @@ export function foldersSlice(
       await moveNodes(accountId, ids, parentId);
       from.add(parentId);
       for (const p of from) await get().loadChildren(p);
-      void get().loadTree();
-    },
-
-    async destroy(ids) {
-      const accountId = get().accountId!;
-      const parents = new Set(ids.map((id) => get().nodes[id]?.parentId ?? null));
-      await destroyNodes(accountId, ids, true);
-      for (const p of parents) await get().loadChildren(p);
       void get().loadTree();
     },
   };
