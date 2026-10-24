@@ -706,6 +706,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       className={`files-layout ${dropping ? "dropping" : ""}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
+          /* Nothing is put into the Trash by dragging, so a drop is not offered
+             there even as a highlight. */
+          if (inTrash) return;
           e.preventDefault();
           setDropping(true);
         } else if (
@@ -915,7 +918,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             <Empty icon={<Trash2 size={40} />} title={t("The trash is empty")} />
           ) : (
             <Empty icon={<FolderOpen size={40} />} title={t("This folder is empty")}>
-              {t("Drag files here or use Upload.")}
+              {inTrash ? null : t("Drag files here or use Upload.")}
             </Empty>
           )
         ) : (

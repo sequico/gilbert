@@ -200,6 +200,9 @@ export function FilesTree() {
 
   const onDragOver = (targetId: Id | null) => (e: React.DragEvent) => {
     const node = e.dataTransfer.types.includes(NODE_MIME);
+    /* Nothing is put into the Trash by dragging: the row does not light up for
+       files coming from outside. */
+    if (!node && targetId && nodes[targetId] && isTrashFolder(nodes[targetId])) return;
     if (node ? !canDropOn(targetId) : !e.dataTransfer.types.includes("Files")) return;
     e.preventDefault();
     e.stopPropagation();
