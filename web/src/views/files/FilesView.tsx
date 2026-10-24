@@ -645,6 +645,18 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     }
   };
 
+  /**
+   * Empty the Trash, then leave a folder the emptying just ended.
+   *
+   * Offered from a trashed folder's own listing as well as from the Trash: when
+   * the folder on screen is one of the things destroyed, the route names a node
+   * that is gone, so the view goes back to Files rather than drawing it.
+   */
+  const emptyTrash = async () => {
+    const emptied = await emptyTrashAsked();
+    if (emptied && parentId !== null && parentId !== trashId) navigate("/files");
+  };
+
   /* A file with nothing to show still does what it always did. */
   const canPreview = (n: FileNode) =>
     Boolean(n.blobId) &&
@@ -1064,7 +1076,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             icon={<Trash2 size={16} />}
             label={t("Empty trash")}
             disabled={!mayEnd}
-            onClick={() => void emptyTrashAsked()}
+            onClick={() => void emptyTrash()}
           />
         )}
         {!menuNode && !inTrash && (
@@ -1093,7 +1105,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
               icon={<Trash2 size={16} />}
               label={t("Empty trash")}
               disabled={!mayEnd}
-              onClick={() => void emptyTrashAsked()}
+              onClick={() => void emptyTrash()}
             />
           </>
         )}

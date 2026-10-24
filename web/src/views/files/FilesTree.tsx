@@ -396,7 +396,19 @@ export function FilesTree() {
             icon={<Trash2 size={16} />}
             label={t("Empty trash")}
             disabled={!mayEnd}
-            onClick={() => void emptyTrashAsked()}
+            onClick={async () => {
+              const emptied = await emptyTrashAsked();
+              /*
+               * The folder on screen may be one of the ones just ended: the
+               * route would then name a node that is gone, so the view goes back
+               * to Files.
+               */
+              const under =
+                currentId !== null &&
+                currentId !== trashId &&
+                useFiles.getState().pathTo(currentId).some(isTrashFolder);
+              if (emptied && under) navigate("/files");
+            }}
           />
         )}
         {menuNode && !isTrashFolder(menuNode) && (

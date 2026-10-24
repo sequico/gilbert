@@ -25,19 +25,21 @@ export function useMayEndFiles(): boolean {
   return mayEndFiles({ accountId, ownAccountId, isAdmin });
 }
 
-/** Ask, then empty the Trash. Nothing in it comes back. */
-export async function emptyTrashAsked(): Promise<void> {
+/** Ask, then empty the Trash. Nothing in it comes back; true when it emptied. */
+export async function emptyTrashAsked(): Promise<boolean> {
   const asked = await confirmDialog({
     title: t("Empty the trash?"),
     message: t("Everything in it is deleted for good."),
     confirmLabel: t("Empty trash"),
     danger: true,
   });
-  if (!asked) return;
+  if (!asked) return false;
   try {
     await useFiles.getState().emptyTrash();
     toast.success(t("Trash emptied"));
+    return true;
   } catch (err) {
     toast.error(errorMessage(err));
+    return false;
   }
 }
