@@ -364,6 +364,19 @@ function LiveRun({
 
   const load = useCallback(async () => {
     try {
+      /*
+       * The chat's panel is the runs in flight and nothing else: it reads the
+       * state the server filters on, not a page of history with the working run
+       * somewhere past it. The history page could be older than the run the
+       * person is watching, which is how the chat said "nothing is running"
+       * beside an administration page showing the run.
+       */
+      if (runningOnly) {
+        setRuns(await fetchGroupRuns(group, "running"));
+        setMore(false);
+        setError(null);
+        return;
+      }
       const page = month
         ? await fetchGroupArchive(group, month)
         : await fetchGroupRunsPage(group, { offset: 0, limit: RUNS_PAGE_SERVER });
@@ -385,7 +398,7 @@ function LiveRun({
     } catch (err) {
       setError(errorMessage(err));
     }
-  }, [group, month]);
+  }, [group, month, runningOnly]);
 
   /** The next server page, appended to the list in hand. */
   const loadMore = useCallback(async (): Promise<boolean> => {
