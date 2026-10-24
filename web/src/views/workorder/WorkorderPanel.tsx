@@ -508,7 +508,7 @@ function NewWorkorderForm({
   const create = useWorkorders((s) => s.create);
   const replace = useWorkorders((s) => s.replace);
   const [name, setName] = useState("");
-  const [templateIdx, setTemplateIdx] = useState("");
+  const [templateKey, setTemplateKey] = useState("");
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [knowledgeLoaded, setKnowledgeLoaded] = useState(false);
   const [checklist, setChecklist] = useState<KnowledgeChecklist | null>(null);
@@ -579,7 +579,15 @@ function NewWorkorderForm({
     };
   }, []);
 
-  const chosen = templateIdx === "" ? null : (templates[Number(templateIdx)] ?? null);
+  /*
+   * The chosen template, by **who it is** and not by where it sits in the list:
+   * the picker is rebuilt from the KB store, and an index is a position that a
+   * refresh can repoint at another template under the same form.
+   */
+  const chosen =
+    templateKey === ""
+      ? null
+      : (templates.find((tpl) => `${tpl.accountId}:${tpl.id}` === templateKey) ?? null);
 
   // Choosing a template reads its revision in force for the rules the choices
   // are drawn from; a change of template starts the choices over.
@@ -672,7 +680,7 @@ function NewWorkorderForm({
     const written = replacing ? await replace(replacing.uid, input) : await create(input);
     if (!written) return;
     setName("");
-    setTemplateIdx("");
+    setTemplateKey("");
     onClose();
   };
 
@@ -700,24 +708,30 @@ function NewWorkorderForm({
       </div>
       <div className="workorder-scroll">
         <div className="field">
-          <label>{t("Name")}</label>
+          <label htmlFor="workorder-name">{t("Name")}</label>
           <input
+            id="workorder-name"
             className="input"
             value={name}
+            autoFocus
             onChange={(e) => setName(e.target.value)}
             placeholder={t("Name")}
           />
         </div>
         <div className="field">
-          <label>{t("Template")}</label>
+          <label htmlFor="workorder-template">{t("Template")}</label>
           <select
+            id="workorder-template"
             className="select"
-            value={templateIdx}
-            onChange={(e) => setTemplateIdx(e.target.value)}
+            value={templateKey}
+            onChange={(e) => setTemplateKey(e.target.value)}
           >
             <option value="">{t("Select a template")}</option>
-            {templates.map((tpl, i) => (
-              <option key={`${tpl.accountId}:${tpl.id}`} value={String(i)}>
+            {templates.map((tpl) => (
+              <option
+                key={`${tpl.accountId}:${tpl.id}`}
+                value={`${tpl.accountId}:${tpl.id}`}
+              >
                 {tpl.title}
               </option>
             ))}
@@ -729,7 +743,7 @@ function NewWorkorderForm({
 
         {chosen && checklist && checklist.variants.length > 0 && (
           <div className="field">
-            <label>{t("Values")}</label>
+            <span>{t("Values")}</span>
             {checklist.variants.map((variant) => (
               <div key={variant.key} className="row" style={{ gap: 8 }}>
                 <span className="truncate" style={{ minWidth: 90 }}>
@@ -737,6 +751,7 @@ function NewWorkorderForm({
                 </span>
                 <select
                   className="select grow"
+                  aria-label={variant.label}
                   value={variants[variant.key] ?? ""}
                   onChange={(e) =>
                     setVariants((prev) => ({ ...prev, [variant.key]: e.target.value }))
@@ -761,7 +776,7 @@ function NewWorkorderForm({
               const repeat = section.repeat as KnowledgeRepeat;
               return (
                 <div key={section.key} className="field">
-                  <label>{section.label}</label>
+                  <span>{section.label}</span>
                   <span className="hint">
                     {t("One per {item}", { item: repeat.item })}
                   </span>
@@ -769,6 +784,7 @@ function NewWorkorderForm({
                     <div key={row.id} className="field-row">
                       <input
                         className="input"
+                        aria-label={t("{item} key", { item: repeat.item })}
                         value={row.key}
                         placeholder={t("{item} key", { item: repeat.item })}
                         onChange={(e) =>
@@ -783,6 +799,7 @@ function NewWorkorderForm({
                         <input
                           key={field.key}
                           className="input"
+                          aria-label={field.label}
                           value={row.data[field.key] ?? ""}
                           placeholder={field.label}
                           onChange={(e) =>
