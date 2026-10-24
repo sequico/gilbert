@@ -212,9 +212,14 @@ export function trashSlice(
       });
       const gone = inside.map((n) => n.id).filter((id) => !res.notDestroyed?.[id]);
       if (gone.length)
-        await writeTrashOrigins(accountId, (doc) => withoutOrigins(doc, gone)).catch(
-          () => undefined,
-        );
+        /*
+         * An emptied Trash remembers nothing: the whole document goes rather
+         * than an entry per node, which also drops the stale origins of items
+         * that left the Trash some other way (a drag out to a folder).
+         */
+        await writeTrashOrigins(accountId, (doc) =>
+          gone.length === inside.length ? { origins: {} } : withoutOrigins(doc, gone),
+        ).catch(() => undefined);
       await get().loadChildren(trashId);
       void get().loadTree();
       const failed = Object.values(res.notDestroyed ?? {})[0];
@@ -228,9 +233,12 @@ export function trashSlice(
       if (refusal) throw new Error(refusalMessage(refusal));
       const trashId = trashFolderId(get()) ?? (await findTrashFolder(accountId));
       if (!trashId) return;
-      /* Only what sits directly in the Trash: the action is offered there, and a
-         node elsewhere is deleted by trashing it, not by ending it. */
-      const list = ids.filter((id) => get().nodes[id]?.parentId === trashId);
+      /*
+       * Anything the Trash holds, at any depth: a trashed folder opens like any
+       * other, and the rows inside it are inside the Trash too. A node that is
+       * not under it is deleted by trashing it, not by ending it.
+       */
+      const list = ids.filter((id) => get().pathTo(id).some(isTrashFolder));
       if (!list.length) return;
       const res = await client.call<SetResponse>(FILENODE_SET, {
         accountId,

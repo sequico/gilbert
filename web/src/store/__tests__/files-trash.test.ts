@@ -264,4 +264,19 @@ describe("ending what is in the Trash", () => {
 
     expect(fake.nodes.find((n) => n.id === "f")).toBeUndefined();
   });
+
+  it("ends a node deeper inside the trash, not only what sits at its top level", async () => {
+    const fake = server([
+      dir("trash", "Trash", null),
+      dir("photos", "Photos", "trash"),
+      file("f", "a.txt", "photos"),
+    ]);
+    browse(OWN, OWN, fake.nodes);
+    signedInAs(false);
+
+    await useFiles.getState().destroyForever(["f"]);
+
+    expect(fake.nodes.find((n) => n.id === "f")).toBeUndefined();
+    expect(fake.nodes.find((n) => n.id === "photos")).toBeDefined();
+  });
 });

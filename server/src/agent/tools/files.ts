@@ -494,6 +494,8 @@ export const deleteDocument = defineTool({
   run: async ({ ctx, accountId }, { path }) => {
     const held = await findVisibleNode(ctx, accountId, path);
     if (!held?.file.id) throw notFound(`node "${path}" in this account's Files`);
+    if (isTrashFolder(held.file))
+      throw new ToolError("bad_arguments", `"${path}" is the Trash; it is not deleted.`);
     const id = String(held.file.id);
     /*
      * The Trash is a top-level folder of the account's own Files — not one
@@ -501,6 +503,17 @@ export const deleteDocument = defineTool({
      * is made by the first deletion.
      */
     const trashId = await ensureRootFolderPath(ctx, accountId, TRASH_FOLDER_NAME);
+    /*
+     * A node already in the Trash is not moved again: its restore target is
+     * already the past, and ending it for good is a person's act in Files
+     * (ADR 0013). Moving it would also overwrite the origin it still needs.
+     */
+    if (String(held.file.parentId ?? "") === trashId)
+      throw new ToolError(
+        "already_trashed",
+        `"${path}" is already in the Trash; a person restores or empties it from Files.`,
+        409,
+      );
     const inside = await fileChildren(ctx, accountId, trashId, [
       "id",
       "name",

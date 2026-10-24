@@ -1298,6 +1298,39 @@ test("a folder is renamed, moved and removed like a document", async () => {
     ["Trash/2027/a.txt"],
   );
 
+  const wordForTrash = takeAuthorisation(plainRun(), {
+    what: "remove the Trash",
+    authority: "destructive",
+    act: { target: "Trash", content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-trash" },
+  });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: wordForTrash }, "files.delete", {
+        path: "Trash",
+      }),
+    /is the Trash/,
+    "the Trash folder itself is never deleted",
+  );
+  const wordForTrashed = takeAuthorisation(plainRun(), {
+    what: "remove a node already in the Trash",
+    authority: "destructive",
+    act: { target: "Trash/2027", content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-trashed" },
+  });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: wordForTrashed }, "files.delete", {
+        path: "Trash/2027",
+      }),
+    /already in the Trash/,
+    "a node already there is not moved again",
+  );
+
   await writeTool("files.folder", { path: "Outer/Inner" });
   await assert.rejects(
     () => writeTool("files.move", { path: "Outer", folder: "Outer/Inner" }),
