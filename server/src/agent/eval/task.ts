@@ -24,7 +24,12 @@ export interface RunMeasure {
   ending: string | null;
   steps: number;
   calls: number;
-  /** Steps that ended refused — the argument misuse the eval exists to catch. */
+  /**
+   * Steps that ended refused — the record's own word for the step that did not
+   * work: a call the catalogue would not take, or a probe the account answered
+   * *not there*. How many of them the run recovered from is `recovered`, and
+   * the pair is what separates a run that learned from one that repeated.
+   */
   refused: number;
   /**
    * How many of those refusals the run recovered from.

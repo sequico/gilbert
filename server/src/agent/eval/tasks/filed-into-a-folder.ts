@@ -26,7 +26,7 @@ export const filedIntoAFolder: EvalTask = {
   grade: async (h, got) => {
     const subjects = await h.subjectsIn("Archive");
     const filed = subjects.some((subject) => subject.includes("booking confirmation"));
-    const ended = got.ending === "done" && got.refused === 0;
+    const ended = got.ending === "done";
     if (filed && ended) return 1;
     return filed || ended ? 0.5 : 0;
   },

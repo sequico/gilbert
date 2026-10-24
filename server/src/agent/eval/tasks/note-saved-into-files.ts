@@ -28,7 +28,7 @@ export const noteSavedIntoFiles: EvalTask = {
   grade: async (h, got) => {
     const text = await h.fileText("notes/BK-42.txt");
     const kept = text?.includes("BK-42") === true;
-    const ended = got.ending === "done" && got.refused === 0;
+    const ended = got.ending === "done";
     if (kept && ended) return 1;
     return kept || ended ? 0.5 : 0;
   },

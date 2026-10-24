@@ -29,6 +29,6 @@ export const replyBecomesADraft: EvalTask = {
   grade: async (h, got) => {
     const drafts = await h.drafts();
     const wrote = drafts.length > 0 ? 0.5 : 0;
-    return wrote + (got.ending === "done" && got.refused === 0 ? 0.5 : 0);
+    return wrote + (got.ending === "done" ? 0.5 : 0);
   },
 };

@@ -431,9 +431,9 @@ src/agent/eval.ts` runs them on the mock against the installation's own provider
 which is put to **the product's own probe** first, and prints `pass@1` — the
 tasks answered whole on the first attempt — beside what the measure cost in
 tokens and model calls and the run's own `refused=` and `recovered=` counts: a
-step the catalogue refused, and how many of those the run recovered from by
-calling what the catalogue holds. A task with more than one side is graded in
-halves, and a task that fails is tried once more: one that passes only on the
+step that ended refused — a call the catalogue would not take, or a probe the
+account answered *not there* — and how many of those the run recovered from by a
+step that worked. A task with more than one side is graded in halves, and a task that fails is tried once more: one that passes only on the
 second attempt is reported `unstable`, not passed. Three of the eleven measure
 silence — no instruction, an area the instruction does not declare, the agent
 switched off — and the other eight drive the model. **One of them parks**: a

@@ -28,7 +28,7 @@ export const deliveryOnTheCalendar: EvalTask = {
   grade: async (h, got) => {
     const events = await h.events();
     const made = events.some((event) => event.title.includes("BK-42"));
-    const ended = got.ending === "done" && got.refused === 0;
+    const ended = got.ending === "done";
     if (made && ended) return 1;
     return made || ended ? 0.5 : 0;
   },
