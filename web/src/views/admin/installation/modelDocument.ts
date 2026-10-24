@@ -1,7 +1,7 @@
 import { isRecord } from "@gilbert/shared/json";
 import {
-  installationModel,
   type InstallationLimitsFields,
+  installationModel,
 } from "@/lib/installationAdmin";
 
 /**

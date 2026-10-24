@@ -12,8 +12,8 @@
  * the conversation is where the group calls the agent.
  */
 import { AREA_NAMES, type AreaName } from "@gilbert/shared/areas";
-import { SURFACES, type SurfaceMatrix, type SurfaceName } from "@gilbert/shared/surfaces";
 import { errorMessage } from "@gilbert/shared/errors";
+import { SURFACES, type SurfaceMatrix, type SurfaceName } from "@gilbert/shared/surfaces";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/jmap/client";
 import {

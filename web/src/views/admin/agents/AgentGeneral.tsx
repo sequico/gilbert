@@ -5,8 +5,8 @@ import { fetchModelCheck, type ModelCheck } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import {
   fetchInstallation,
-  installationLimits,
   type InstallationLimitsFields,
+  installationLimits,
   installationModel,
   publishInstallation,
 } from "@/lib/installationAdmin";
