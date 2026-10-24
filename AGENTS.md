@@ -105,6 +105,12 @@ what is planned. Neither is a changelog: the version before this commit is git's
 Write the ADR when the change is designed, before or alongside the
 implementation, so the design is reviewable first; an implementation must
 match the ADR that covers it. ADRs stay `Proposed` until the owner accepts them.
+**A new record is minted only on the owner's explicit authorisation** (owner
+decision 2026-10-24). A decision that arrives without it is carried by the record
+that already covers it, rewritten in the change that alters it — never by a new
+number. A number is the owner's to grant, and one granted is neither reused for a
+different decision nor moved without the owner saying so; a record the owner asks
+to fold into another is folded and deleted, and its citations move with it.
 **A record is edited in place, and the history is git's.** Changing a standing
 decision means rewriting the record that carries it, in the change that alters
 it, until it states the decision as it now stands: never a second record that

@@ -81,8 +81,10 @@ code that stopped matching it. Three habits keep the two together:
   sentence you just invalidated: the old behaviour usually survives in another
   file, a test's comment or an ADR. Every record is edited in place — `Proposed`
   and `Accepted` alike — so an ADR always states the decision as it stands and
-  git holds the version before it. A number is minted for a decision that is
-  new, or where the owner asks for one explicitly.
+  git holds the version before it. **A new number is the owner's to grant**: a
+  record is minted only on explicit authorisation, otherwise the decision is
+  carried by the record that already covers it (`AGENTS.md`, *Architecture
+  decisions*). A number once granted is not reused for a different decision.
 - **Every mechanism the ADR names has a test that fails if the mechanism is
   removed.** A test that only shows the code runs proves nothing about the
   guarantee. When a review names something as untested, the fix includes the
