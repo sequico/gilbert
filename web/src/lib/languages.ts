@@ -14,13 +14,9 @@
  * is the reverse, which is why `uiLanguage` and `locale` are separate settings
  * rather than one.
  *
- * **English is first and is the interface's own language.** Italian is the one
- * translation shipped; another language joins this list only with a catalogue
- * written by hand and read by somebody who speaks it — the catalogue first, the
- * entry second.
- *
- * RTL languages — Arabic, Hebrew, Persian — need bidi and layout work well
- * beyond strings, so they are not simply a matter of another entry.
+ * Adding a language means adding its catalogue and then adding it here, in
+ * that order. RTL languages — Arabic, Hebrew, Persian — need bidi and layout
+ * work well beyond strings, so they are not simply a matter of another entry.
  */
 interface UiLanguage {
   /** BCP 47, and what `<html lang>` is set to. */
@@ -41,7 +37,17 @@ interface UiLanguage {
 
 export const UI_LANGUAGES: readonly UiLanguage[] = [
   { tag: "en", name: "English" },
+  { tag: "de", name: "Deutsch", beta: true },
+  { tag: "es", name: "Español", beta: true },
+  { tag: "fr", name: "Français", beta: true },
   { tag: "it", name: "Italiano", beta: true },
+  { tag: "nl", name: "Nederlands" },
+  { tag: "pt-BR", name: "Português (Brasil)", beta: true },
+  { tag: "ja", name: "日本語", beta: true },
+  { tag: "ru", name: "Русский", beta: true },
+  { tag: "uk", name: "Українська", beta: true },
+  { tag: "zh-Hans", name: "简体中文", beta: true },
+  { tag: "tr", name: "Türkçe" },
 ];
 
 /** Where to report a bad translation. Beta languages depend on it. */
