@@ -543,7 +543,7 @@ test("a tool refuses arguments it cannot use, and asks the server nothing", asyn
 test("an outward act asks for a person's word, and a rule's declaration is not one", () => {
   /*
    * ADR 0028's class 3. The rule declaration that used to license a send is
-   * gone with `mail.send` (ADR 0041: an outward message is a draft a person
+   * gone with `mail.send` (ADR 0038: an outward message is a draft a person
    * sends); what remains is the person's own word for that act, and no other.
    */
   const send = countingTool({
@@ -1705,7 +1705,7 @@ test("a run reads when a fact stopped being true, closed facts and all", async (
 test("the outward reach is a draft, and no tool submits mail", async () => {
   /*
    * ADR 0038 dropped `mail.send` and `mail.ask`: an outward message is a draft a
-   * person sends (ADR 0041), so the catalogue holds no submission at all. The
+   * person sends (ADR 0038), so the catalogue holds no submission at all. The
    * draft path is exercised in its own test; this pins the absence, which is the
    * boundary a malicious mail runs into.
    */

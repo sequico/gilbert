@@ -416,18 +416,14 @@ is, not what a user sees.
   than forwarded; three beats — read, act, report — as the common path and a plan
   only when the instruction asks for one; **the change as the trigger**, the stream
   as the clock and the cursor as reconciliation; a run document that is the session,
-  read by the harness in bounded slices; an outward message as a draft a person
-  sends; a second cheap call that judges a `done` against the ask and its evidence;
+  read by the harness in bounded slices; an outward message as a **draft a person
+  sends** — no tool submits, a question is asked in the conversation, and the worst
+  a malicious mail obtains is a draft somebody reads; a second cheap call that
+  judges a `done` against the ask and its evidence;
   an evaluation set taken from the runs that failed; and no credential inside a
-  document the agent can read. Replaces 0027 and 0031. **Partly built, Proposed.**
-- **0041 — An outward message is a draft a person sends.** A run composes into the
-  group's own Drafts and never submits: no tool in the catalogue sends, a
-  question is asked in the conversation, and the instruction's `sends` says a
-  draft is wanted rather than licensing a send. The worst a malicious mail
-  obtains is a draft somebody reads. **Built, Proposed**
-  (`agent/tools/jobs.ts` `draft`, `agent/tools/mail.ts`; ADR 0038 dropped
-  `mail.send` and `mail.ask`).
-- **0042 — A message points at an object, never at an address.** A chat message
+  document the agent can read. Replaces 0027 and 0031. **Partly built,
+  Proposed.**
+- **0039 — A message points at an object, never at an address.** A chat message
   carries references (`thread`, `file`, `contact`, `event`) as a kind and an id —
   never a URL, so a mail a stranger wrote cannot dictate a link Gilbert draws —
   and the address is composed where the chip is drawn, in the conversation, which

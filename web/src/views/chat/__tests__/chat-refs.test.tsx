@@ -9,7 +9,7 @@ import { ChatPanel } from "../ChatPanel";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * What the agent's message points at (ADR 0042).
+ * What the agent's message points at (ADR 0039).
  *
  * The chip opens the object **below**: the route moves, the panel stays where it
  * is, and the session moves to the conversation's account first — a reference

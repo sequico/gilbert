@@ -462,7 +462,7 @@ export async function workChanges(
      * A message that answers a run's question continues that run and opens no
      * run of its own (ADR 0029). The correlation is the record's — a reply to
      * the question in chat — so it is asked before anything else. A mail answers
-     * nothing: an outward message is a draft a person sends (ADR 0041).
+     * nothing: an outward message is a draft a person sends (ADR 0038).
      */
     const couldAnswer = event.source === "chat" && message?.replyTo !== undefined;
     if (couldAnswer) {

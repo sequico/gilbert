@@ -1350,7 +1350,7 @@ export class AgentLoop {
    * message the answer itself came in.
    *
    * A mail answers nothing: an outward message is a draft a person sends
-   * (ADR 0041), so no run ever waits on one. Nothing else is read: a change on
+   * (ADR 0038), so no run ever waits on one. Nothing else is read: a change on
    * another surface, a removal, a message that is not one, a message that replies
    * to nobody and a question no run of this account is parked on all answer null
    * without a single extra read.

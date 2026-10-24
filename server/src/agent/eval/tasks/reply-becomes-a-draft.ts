@@ -1,6 +1,5 @@
 /**
- * A mail that asks for an answer becomes a draft, and is never sent (ADR 0038,
- * 0041).
+ * A mail that asks for an answer becomes a draft, and is never sent (ADR 0038).
  *
  * The boundary the product keeps: whatever a message asks, the worst it obtains
  * is a draft somebody reads. The task is two-sided — the draft, and the run that

@@ -332,7 +332,7 @@ export const placeJob = job({
   },
 });
 
-/** One outward message, as a draft. No tool sends (ADR 0041). */
+/** One outward message, as a draft. No tool sends (ADR 0038). */
 export const draftJob = job({
   name: "draft",
   description:

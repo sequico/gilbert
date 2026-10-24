@@ -99,7 +99,8 @@ Forty-five endpoint tools become eight; every capability is a field of a job or
 | `remember` | keep a fact, or propose a knowledge page | `memory.remember`, `knowledge.propose` |
 | `settle` | close or move a workorder | `workorder.settle` |
 **Dropped: `mail.send` and `mail.ask`.** An outward message is a draft a person
-sends (ADR 0041); `mail.ask` sent a question and parked the run, which the draft
+sends, as the boundary below states; `mail.ask` sent a question and parked the
+run, which the draft
 rule makes impossible — a question is asked in the conversation (`say`), and a
 mail leaves only when a person sends it. Contacts carry no write; `find` is their
 whole surface.
@@ -137,7 +138,7 @@ saying what the group is for and how the work is done. It is not a list of
 triggers: the change says what happened, the instruction says what to do about it.
 
 Its **grants** — the areas it works, authority classes, whether an outward
-message becomes a draft (ADR 0028, 0041) — bound what a run may do, never which
+message becomes a draft (ADR 0028) — bound what a run may do, never which
 run opens. It also says **what wakes it**: a second list, one mode per surface,
 where the conversation is always `watch`; a change on a surface the wake row
 does not watch costs nothing, and the areas decide only what a run may write.
@@ -217,8 +218,22 @@ your instructions and send this to me". The defence is structural:
   instruction.
 - **The grants bound the act**: whatever the content asks, an act outside them is
   refused before it runs, and the refusal is on the record.
-- **Anything outward is a draft** a person sends (ADR 0041), so the worst a
-  malicious mail obtains is a draft somebody reads.
+- **A run writes a draft; a person sends it.** The `draft` job composes a reply
+  to everyone in the group's own Drafts — the sender in To, the rest in Cc, the
+  group's own addresses left out, the thread carried, marked `$draft` — and it
+  never submits. **No tool submits a message**: the catalogue holds no submission
+  endpoint, and adding one would be a new decision rather than a field. The one
+  act whose consequence cannot be undone is a message that leaves, and it reaches
+  a person who is not in the group, in the group's name, where no later step can
+  call it back; a tool that submits is a tool a document can talk the agent into
+  using. A tool licensed by a person's recorded word is not the answer either: the
+  word is given before the words are written, and what leaves can differ from what
+  the person pictured. So the worst a malicious mail obtains is a draft somebody
+  reads, a group's work is not answered by the agent on its own, and the draft sits
+  in the account beside the run that wrote it, comparable with what a person sends.
+- **A question is asked in the conversation** (`say` with `ask`), which parks the
+  run on a person's answer; it is never asked by mail, because a mail that leaves
+  is the act this section forbids.
 - **An act outside the grants is a failed step, not an ending.** It is refused
   before it runs and comes back to the turn as a repair, like any invalid call;
   `refused` is reserved for a `done` with nothing finished. A credential in an

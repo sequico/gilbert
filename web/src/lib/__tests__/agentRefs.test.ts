@@ -1,5 +1,5 @@
 /**
- * Where a reference the agent wrote sends the reader (ADR 0042).
+ * Where a reference the agent wrote sends the reader (ADR 0039).
  *
  * The address is composed here from the kind and the id the server checked, so
  * the test is the one place that fixes the shapes: a kind added later that is

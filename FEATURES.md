@@ -122,7 +122,7 @@ workorder step; proposes a KB page; writes and moves documents; creates events i
 the group's own calendar; says what it did; asks a person; remembers facts.
 
 **It never does:** sends outward — an outward message is a draft a person sends
-(ADR 0041). **It never does alone:** destroys or rewrites anything; acts
+(ADR 0038). **It never does alone:** destroys or rewrites anything; acts
 against the written policy; decides intent.
 
 ## The five authority classes
@@ -372,11 +372,11 @@ whether it is a Stalwart administrator, so an administrator's own words may gran
 one and nobody else's. **The conversation runs in chat** (ADR 0029 as 0038
 amends it): a question is asked in the conversation with `say` (`action: ask`)
 and the run parks there; a mail leaves the account only as a **draft a person
-sends** (ADR 0041), so no tool submits one and the worst a malicious mail
+sends** (ADR 0038), so no tool submits one and the worst a malicious mail
 obtains is a draft somebody reads. **What a report points at, it links**: `say`
 carries references to the objects it names — a thread, a file, a contact, an
 event — and the conversation draws them as chips that open the object below the
-panel (ADR 0042). **A question carries a
+panel (ADR 0039). **A question carries a
 deadline** (72 hours, ADR 0029): the answer is still the conversation's own event,
 and the deadline is what a run does
 about a person who never answers — it goes on without it, with a step on the
@@ -752,7 +752,7 @@ the session holds group mailboxes.
   who has written is offered and somebody who has not yet is not. A mention of
   somebody the transcript no longer lists renders
   **greyed**.
-- **Links the agent can hand over** (ADR 0042): an agent's message can carry
+- **Links the agent can hand over** (ADR 0039): an agent's message can carry
   **references** — a mail thread, a file, a contact, a calendar event — and the
   conversation draws each as a chip. The chip opens the object **below** the panel,
   which stays where it is: the conversation is what the reader is looking at, and a

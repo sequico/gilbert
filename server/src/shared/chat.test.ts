@@ -172,7 +172,7 @@ test("a chat message is the agent's unless it names somebody else", () => {
 });
 
 /**
- * What a message points at (ADR 0042).
+ * What a message points at (ADR 0039).
  *
  * A reference is the kind and the id the tools answered — never an address: the
  * client composes where a chip goes, and an address in a message would be one a

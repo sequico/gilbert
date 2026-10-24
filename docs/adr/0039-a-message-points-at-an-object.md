@@ -1,4 +1,4 @@
-# ADR 0042 — A message points at an object, never at an address
+# ADR 0039 — A message points at an object, never at an address
 
 Status: Proposed
 

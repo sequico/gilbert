@@ -147,7 +147,7 @@ interface RunStart {
    * The address whose message woke a rule that sends, as the change carried it.
    *
    * Kept for the record a run already wrote; an outward act is a draft a person
-   * sends (ADR 0041), so nothing licenses a send from it.
+   * sends (ADR 0038), so nothing licenses a send from it.
    */
   wakeFrom?: string | null;
   /**
@@ -246,7 +246,7 @@ export interface OpenQuestion {
  * The questions these runs have open on a person **in the conversation**.
  *
  * A run blocked on a mail wait was written by an older build (a question leaves
- * only as a draft now, ADR 0041) and is not a chat question; a run that ended is
+ * only as a draft now, ADR 0038) and is not a chat question; a run that ended is
  * not waiting. One per run, in the order the documents were read.
  */
 export function openQuestionsOf(

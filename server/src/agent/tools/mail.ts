@@ -885,7 +885,7 @@ export const editDraft = defineTool({
  * into Sent, then submitted (ADR 0038, the switched-off notice).
  *
  * **It is not a tool and no run can reach it.** The catalogue has no send
- * (ADR 0041: an outward message is a draft a person sends); this is the loop's
+ * (ADR 0038: an outward message is a draft a person sends); this is the loop's
  * answer to a message addressed to an agent that is off, and the name says so —
  * a general `sendMail` beside the tools is an invitation to make a tool of it.
  * The identity is the account's own first sending identity, never a `From:` a
