@@ -910,7 +910,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         {files.loading && !nodes.length ? (
           <Spinner />
         ) : !nodes.length ? (
-          parentId === trashId ? (
+          trashId !== null && parentId === trashId ? (
             <Empty icon={<Trash2 size={40} />} title={t("The trash is empty")} />
           ) : (
             <Empty icon={<FolderOpen size={40} />} title={t("This folder is empty")}>

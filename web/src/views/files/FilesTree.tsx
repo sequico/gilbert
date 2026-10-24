@@ -147,7 +147,9 @@ export function FilesTree() {
    */
   const trashId = trashFolderId({ nodes });
   const childrenOf = (parentId: Id | null) =>
-    parentId === trashId ? [] : dirs.filter((d) => (d.parentId ?? null) === parentId);
+    parentId !== null && parentId === trashId
+      ? []
+      : dirs.filter((d) => (d.parentId ?? null) === parentId);
   const canDropOn = (targetId: Id | null) =>
     canDropFileNodes(nodes, draggingIds, targetId);
 

@@ -72,7 +72,9 @@ export function trashSlice(
           Boolean(node) &&
           !isTrashFolder(node!) &&
           !isAppFolder(node!) &&
-          node!.parentId !== current
+          /* A node already in the Trash is ended rather than moved again; with
+             no Trash yet, everything is outside it. */
+          !(current !== null && node!.parentId === current)
         );
       });
       if (!list.length) return;
