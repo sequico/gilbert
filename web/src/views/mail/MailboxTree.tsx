@@ -47,7 +47,7 @@ import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { useEffectiveLabels, useIsGroupMailbox } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, canMoveFolderTo, folderColor, movable } from "@/lib/folderMove";
-import { foldersByParent } from "@/lib/folderOrder";
+import { foldersByParent, unreadUnder } from "@/lib/folderOrder";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
@@ -240,11 +240,7 @@ function buildMailTree(
     (n, m) => (m.role && VIEW_ROLES.has(m.role) ? n : n + (m.unreadEmails ?? 0)),
     0,
   );
-  const subtreeUnread = (id: Id): number =>
-    (byParent.get(id) ?? []).reduce(
-      (n, c) => n + c.unreadEmails + subtreeUnread(c.id),
-      0,
-    );
+  const subtreeUnread = (id: Id): number => unreadUnder(byParent, id);
   const walk = (parent: Id | null, depth: number) => {
     for (const m of byParent.get(parent) ?? []) {
       const kids = byParent.get(m.id) ?? [];
@@ -1090,19 +1086,7 @@ function MailboxMenu({
   const hasChildren = useMail((s) =>
     Object.values(s.mailboxes).some((x) => (x.parentId ?? null) === m.id),
   );
-  const subUnread = useMail((s) => {
-    const all = Object.values(s.mailboxes);
-    let n = 0;
-    const walk = (parent: Id) => {
-      for (const x of all)
-        if ((x.parentId ?? null) === parent) {
-          n += x.unreadEmails;
-          walk(x.id);
-        }
-    };
-    walk(m.id);
-    return n;
-  });
+  const subUnread = useMail((s) => unreadUnder(foldersByParent(s.mailboxes), m.id));
   /** ADR 0013: what this menu may offer, by the one rule. */
   const mayEnd = useMayDestroy();
   const rename = async () => {

@@ -41,6 +41,21 @@ export function foldersByParent(
 }
 
 /**
+ * What sits unseen beneath one folder, at any depth: its children's unread and
+ * theirs.
+ *
+ * The buckets are the caller's, because the two readers ask about different
+ * sets -- the sidebar counts what it draws, a folder's menu everything it would
+ * mark read -- and only the walk is the same.
+ */
+export function unreadUnder(byParent: Map<Id | null, Mailbox[]>, id: Id): number {
+  return (byParent.get(id) ?? []).reduce(
+    (n, c) => n + (c.unreadEmails ?? 0) + unreadUnder(byParent, c.id),
+    0,
+  );
+}
+
+/**
  * Every folder, parents before their children and siblings in `compareFolders`
  * order: the sidebar with every folder expanded. Lists that show all folders
  * at once — the move-to picker above all — use this so a folder sits where the
