@@ -67,6 +67,7 @@ const { parseInstallationDocumentDetailed } = await import("../shared/installati
 
 import type { AreaName } from "../shared/areas.js";
 import type { EvalTask, Harness, RunMeasure } from "./eval/task.js";
+import { refusedAndRecovered } from "./eval/task.js";
 
 const { probeModel, requireModelAccess } = await import("./model.js");
 const { postChatMessage, findChatMessages } = await import("../groupChat.js");
@@ -165,7 +166,13 @@ async function ensureFolder(name: string, role?: string): Promise<void> {
 await ensureFolder("Drafts", "drafts");
 await ensureFolder("Archive");
 
-/** A group's instruction: the prose it wrote and the areas it declared. */
+/**
+ * A group's instruction: the prose it wrote and the areas it declared.
+ *
+ * The wake row follows the areas, because that is the only pairing a measure can
+ * assume: a group that works mail is woken by a mail, and one that keeps only its
+ * calendar is not — the second is what `mail-outside-the-area` measures.
+ */
 async function writeInstruction(prose: string, areas: AreaName[]): Promise<void> {
   await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
     v: INSTRUCTION_VERSION,
@@ -173,7 +180,7 @@ async function writeInstruction(prose: string, areas: AreaName[]): Promise<void>
     areas,
     surfaces: {
       chat: "watch",
-      mail: "ondemand",
+      mail: areas.includes("mail") ? "watch" : "ondemand",
       files: "ondemand",
       knowledge: "ondemand",
       workorder: "ondemand",
@@ -325,8 +332,8 @@ const harness: Harness = {
   agent: ctx.username,
   instruct: writeInstruction,
   deliver,
-  post: async (from, text) => {
-    const id = await postChatMessage(ctx, accountId, from, text);
+  post: async (from, text, replyTo) => {
+    const id = await postChatMessage(ctx, accountId, from, text, { replyTo });
     if (!id) throw new Error("the mention was not posted");
     return id;
   },
@@ -388,15 +395,19 @@ async function clean(): Promise<void> {
 }
 
 /** The last run the pass left, measured as the corpus measures a run. */
-async function measure(): Promise<RunMeasure> {
+async function measure(only?: string): Promise<RunMeasure> {
   const records = await listRuns(ctx, accountId);
-  const last = records[records.length - 1]?.run;
+  const last = only
+    ? records.find((record) => record.run.id === only)?.run
+    : records[records.length - 1]?.run;
   if (!last)
     return {
+      run: null,
       ending: "no-run",
       steps: 0,
       calls: 0,
       refused: 0,
+      recovered: 0,
       said: null,
       tokens: 0,
       cachedTokens: 0,
@@ -406,11 +417,14 @@ async function measure(): Promise<RunMeasure> {
     console.error(
       `  step ${step.state}: ${step.what} -> ${step.outcome.replace(/\s+/g, " ").slice(0, 220)}`,
     );
+  const counted = refusedAndRecovered(last.plan);
   return {
+    run: last.id,
     ending: last.state,
     steps: last.spent.steps,
     calls: last.spent.calls,
-    refused: last.plan.filter((step) => step.state === "failed").length,
+    refused: counted.refused,
+    recovered: counted.recovered,
     said: last.ended?.why ?? null,
     tokens: (last.spent.promptTokens ?? 0) + (last.spent.completionTokens ?? 0),
     cachedTokens: last.spent.cachedPromptTokens ?? 0,
@@ -428,21 +442,18 @@ function loop(holder = "eval"): InstanceType<typeof AgentLoop> {
 }
 
 /**
- * One attempt at one task: the change is put in the account, the agent is
- * followed to an ending under its own ceiling, and the run is measured.
+ * Follow a run to an ending under the loop's own ceiling.
  *
  * A run still working after a pass is what the service sees too: the next pass
  * picks it up. The measure follows it, so "never settles" is a result rather
- * than a hung script.
+ * than a hung script. A gap is the account being left unworked — the provider
+ * answered nothing, the instruction could not be read — and the change is still
+ * there for the next pass.
  */
-async function attempt(task: EvalTask): Promise<{ got: RunMeasure; score: number }> {
-  await clean();
-  // The account as a boot meets it, then the pass that anchors the reading, and
-  // only then the message: a change created before the anchor was not a wake.
-  await task.prepare?.(harness);
-  const agent = loop();
-  await agent.start();
-  await task.arrive?.(harness);
+async function follow(
+  agent: InstanceType<typeof AgentLoop>,
+  only?: string,
+): Promise<void> {
   const began = Date.now();
   for (let passes = 0; passes < 6; passes++) {
     const summary = await agent.pass(new Date(began + passes * 61_000));
@@ -450,16 +461,40 @@ async function attempt(task: EvalTask): Promise<{ got: RunMeasure; score: number
       `pass ${passes + 1}: ${summary.changes} change(s), ${summary.runs} run(s), ${summary.due} due`,
     );
     for (const gap of summary.gaps) console.error(`gap: ${gap}`);
-    /*
-     * A gap is the account being left unworked — the provider answered nothing,
-     * the instruction could not be read — and the change is still there for the
-     * next pass. The measure follows it, because what a person sees is a run
-     * that never opened and a pass that says why, not a verdict on one attempt.
-     */
-    if ((await measure()).ending !== "running" && !summary.gaps.length) break;
+    if ((await measure(only)).ending !== "running" && !summary.gaps.length) break;
   }
+}
+
+/**
+ * One attempt at one task: the change is put in the account, the agent is
+ * followed to an ending under its own ceiling, and the run is measured.
+ *
+ * A task that carries an `answer` has a second half: a person replies to the
+ * question the run asked, the run is followed again, and the second measure is
+ * what `grade` reads as `after` (ADR 0029, 0030).
+ */
+async function attempt(
+  task: EvalTask,
+): Promise<{ got: RunMeasure; after?: RunMeasure; score: number }> {
+  await clean();
+  // The account as a boot meets it, then the pass that anchors the reading, and
+  // only then the message: a change created before the anchor was not a wake.
+  await task.prepare?.(harness);
+  const agent = loop();
+  await agent.start();
+  await task.arrive?.(harness);
+  await follow(agent);
   const got = await measure();
-  return { got, score: await task.grade(harness, got) };
+  let after: RunMeasure | undefined;
+  if (task.answer) {
+    await task.answer(harness);
+    await follow(agent, got.run ?? undefined);
+    // The run the first measure read, not whatever the account holds last: the
+    // person's answer is a change of its own, and a run opened beside it is not
+    // the one this task follows.
+    after = await measure(got.run ?? undefined);
+  }
+  return { got, after, score: await task.grade(harness, got, after) };
 }
 
 /*
@@ -515,20 +550,28 @@ for (const task of tasks) {
   cached += spent.cached;
   calls += spent.calls;
   ms += spent.ms;
-  const last = attempts[attempts.length - 1]?.got;
+  const last = attempts[attempts.length - 1];
+  const refused = (last?.got.refused ?? 0) + (last?.after?.refused ?? 0);
+  const recovered = (last?.got.recovered ?? 0) + (last?.after?.recovered ?? 0);
   console.log(
     [
       verdict,
       `score=${score.toFixed(2)}`,
       task.name,
       // Each attempt's ending, first then retry: one number would hide the one
-      // the retry answered after the first did not.
-      `ending=${attempts.map((one) => one.got.ending).join(" -> ")}`,
-      `steps=${last?.steps ?? 0}`,
+      // the retry answered after the first did not. A task with an `answer`
+      // shows the ending the person's reply took the run to.
+      `ending=${attempts
+        .map((one) =>
+          one.after ? `${one.got.ending}->${one.after.ending}` : one.got.ending,
+        )
+        .join(" -> ")}`,
+      `steps=${last?.got.steps ?? 0}`,
       `calls=${spent.calls}`,
-      `refused=${last?.refused ?? 0}`,
+      `refused=${refused}`,
+      `recovered=${recovered}`,
       `tokens=${spent.tokens}`,
-      last?.said ? `said=${JSON.stringify(last.said)}` : "",
+      last?.got.said ? `said=${JSON.stringify(last.got.said)}` : "",
       verdict === "PASS" ? "" : `expected: ${task.reference}`,
     ]
       .filter(Boolean)

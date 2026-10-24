@@ -14,15 +14,28 @@
 
 import type { AreaName } from "../../shared/areas.js";
 import type { ChatMessage } from "../../shared/chat.js";
+import type { RunStep } from "../../shared/run.js";
 
 /** What one run did, as every task is graded against it. */
 export interface RunMeasure {
+  /** The run the measure read, so a second half measures that very run. */
+  run: string | null;
   /** The ending the run reached, or `no-run` when the pass opened none. */
   ending: string | null;
   steps: number;
   calls: number;
   /** Steps that ended refused — the argument misuse the eval exists to catch. */
   refused: number;
+  /**
+   * How many of those refusals the run recovered from.
+   *
+   * A refusal is a step that ended `failed`; it is **recovered** when a later
+   * step of the same run is not a refusal — the rest of the plan ran, or the
+   * model's next call was one the catalogue kept. The pair is the interface's own
+   * measure: a refusal that costs one step is the design working (ADR 0038), and
+   * a refusal that repeats is the failure it replaced.
+   */
+  recovered: number;
   /** What the run last said, when its ending carried words. */
   said: string | null;
   /** Tokens the run spent, prompt and completion together. */
@@ -35,6 +48,29 @@ export interface RunMeasure {
   cachedTokens: number;
   /** Milliseconds the run spent in model calls and tools. */
   ms: number;
+}
+
+/**
+ * How many steps were refused, and how many of those refusals were recovered.
+ *
+ * Counted from the record, never inferred from a ratio: a plan's `failed` steps
+ * are the refusals, and one is recovered when a later step of the same run is not
+ * a refusal. `recovered` therefore always tells the reader *which* refusals cost
+ * the run nothing beyond their own step.
+ */
+export function refusedAndRecovered(plan: readonly Pick<RunStep, "state">[]): {
+  refused: number;
+  recovered: number;
+} {
+  const refused = plan.filter((step) => step.state === "failed").length;
+  let recovered = 0;
+  for (const [index, step] of plan.entries())
+    if (
+      step.state === "failed" &&
+      plan.slice(index + 1).some((later) => later.state !== "failed")
+    )
+      recovered += 1;
+  return { refused, recovered };
 }
 
 /**
@@ -54,7 +90,7 @@ export interface Harness {
   /** Put a mail in the group's inbox, with the words it carries. */
   deliver(subject: string, body?: string): Promise<string>;
   /** Post a message in the group's conversation, from a person. */
-  post(from: string, text: string): Promise<string>;
+  post(from: string, text: string, replyTo?: string): Promise<string>;
   /** The conversation's newest messages, newest first. */
   chat(limit?: number): Promise<ChatMessage[]>;
   /** The drafts the account holds. */
@@ -92,6 +128,19 @@ export interface EvalTask {
    * created before the reading starts is not a change the agent was woken by.
    */
   arrive?(h: Harness): Promise<void>;
-  /** How much of the reference the run met: 1 is all of it, 0 none. */
-  grade(h: Harness, got: RunMeasure): Promise<number>;
+  /**
+   * A person's answer arrives, **after** the first measure.
+   *
+   * A run that asks a question parks (ADR 0029), and what it does with the answer
+   * is the other half of the task: the runner follows the run again and hands the
+   * second measure to `grade`.
+   */
+  answer?(h: Harness): Promise<void>;
+  /**
+   * How much of the reference the run met: 1 is all of it, 0 none.
+   *
+   * `after` is the measure once the person answered, and is present only for a
+   * task that has an `answer`.
+   */
+  grade(h: Harness, got: RunMeasure, after?: RunMeasure): Promise<number>;
 }

@@ -13,6 +13,7 @@ import { mailReadAndReported } from "./mail-read-and-reported.js";
 import { mentionAnswered } from "./mention-answered.js";
 import { mentionWithoutInstruction } from "./mention-without-instruction.js";
 import { noteSavedIntoFiles } from "./note-saved-into-files.js";
+import { parkedUntilAnswered } from "./parked-until-answered.js";
 import { referenceInTheReply } from "./reference-in-the-reply.js";
 import { replyBecomesADraft } from "./reply-becomes-a-draft.js";
 import { switchedOffNotice } from "./switched-off-notice.js";
@@ -28,4 +29,5 @@ export const TASKS: readonly EvalTask[] = [
   deliveryOnTheCalendar,
   noteSavedIntoFiles,
   referenceInTheReply,
+  parkedUntilAnswered,
 ];
