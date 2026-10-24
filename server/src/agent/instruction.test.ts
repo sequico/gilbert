@@ -148,6 +148,28 @@ test("the parser takes the version this build writes and refuses every other sha
     "a key this build does not know decides nothing and is dropped",
   );
 
+  const notASurface = doc(["mail"], {
+    surfaces: {
+      chat: "watch",
+      mail: "watch",
+      files: "off",
+      knowledge: "off",
+      workorder: "off",
+      calendar: "off",
+      memory: "watch",
+    },
+  });
+  assert.ok(
+    "problem" in notASurface,
+    "a matrix naming a surface the group's account does not have is refused, not dropped",
+  );
+  assert.match(notASurface.problem, /"memory"/, "the refusal names the key it refused");
+  assert.match(
+    notASurface.problem,
+    /chat, mail, files, knowledge, workorder, calendar/,
+    "and the surfaces there are",
+  );
+
   const before = parseInstructionDocumentDetailed(
     JSON.stringify({ v: 1, instruction: "Work by these words." }),
   );

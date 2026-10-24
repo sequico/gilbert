@@ -13,7 +13,7 @@
  * is the server's (`agent/areas.ts`) — a client has no catalogue to select.
  */
 
-import { SURFACES, type SurfaceMatrix } from "./surfaces.js";
+import { SURFACES, type SurfaceMatrix, type SurfaceName } from "./surfaces.js";
 
 /** The areas the agent works in. */
 export const AREA_NAMES = [
@@ -77,6 +77,20 @@ export function isAreaName(name: string): name is AreaName {
 export function areaOfSource(source: string): AreaName | null {
   if (source === "workorder") return "workorders";
   return isAreaName(source) ? source : null;
+}
+
+/**
+ * The surface a change on this area is reported as, or null when the area has
+ * none.
+ *
+ * The inverse of `areaOfSource`, written once because the wake row draws each
+ * area's surface beside the area itself: **contacts and memory have no surface**,
+ * so no change on them can wake a run (ADR 0038). A client with one list and two
+ * spellings would draw a wake row that does not match the areas it sits under.
+ */
+export function surfaceOfArea(area: AreaName): SurfaceName | null {
+  for (const surface of SURFACES) if (areaOfSource(surface) === area) return surface;
+  return null;
 }
 
 /**

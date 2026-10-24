@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { declaredAreas, writeSurfacesOf } from "../shared/areas.js";
+import {
+  AREA_NAMES,
+  areaOfSource,
+  declaredAreas,
+  surfaceOfArea,
+  writeSurfacesOf,
+} from "../shared/areas.js";
 import type { SurfaceMatrix } from "../shared/surfaces.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
 import { TOOLS } from "./tools.js";
@@ -123,4 +129,28 @@ test("the matrix names the areas a group works, and forgets the ones turned off"
 
 test("a catalogue with no areas selected is handed whole", () => {
   assert.equal(catalogueFor(TOOLS, null), TOOLS, "no matrix, nothing to select");
+});
+
+test("every area's surface is the inverse of the surface's area", () => {
+  /*
+   * The wake row draws an area's surface beside the area, in the areas' own
+   * order, so the two lists are one relation read twice. The two areas with no
+   * surface are exactly the two whose changes can never wake a run (ADR 0038).
+   */
+  const wakeable = AREA_NAMES.filter((area) => surfaceOfArea(area) !== null);
+  assert.deepEqual(wakeable, [
+    "mail",
+    "files",
+    "calendar",
+    "knowledge",
+    "workorders",
+    "chat",
+  ]);
+  for (const area of wakeable) {
+    const surface = surfaceOfArea(area);
+    assert.ok(surface);
+    assert.equal(areaOfSource(surface), area, `"${surface}" reports as "${area}"`);
+  }
+  assert.equal(surfaceOfArea("contacts"), null, "contacts has no surface");
+  assert.equal(surfaceOfArea("memory"), null, "memory has no surface");
 });

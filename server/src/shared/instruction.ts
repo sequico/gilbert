@@ -14,7 +14,7 @@
 import { type AreaName, declaredAreas } from "./areas.js";
 import { errorDetail } from "./errors.js";
 import { isRecord } from "./json.js";
-import { isSurfaceMatrix, type SurfaceMatrix } from "./surfaces.js";
+import { isSurfaceMatrix, SURFACES, type SurfaceMatrix } from "./surfaces.js";
 
 /** Where a group's standing instruction lives: the one path constant. */
 export const INSTRUCTION_FILE = "instruction.json";
@@ -83,10 +83,29 @@ export function parseInstructionDocumentDetailed(
     return { problem: '"areas" must be a list of area names.' };
   const areas = declaredAreas(whole.areas as string[]);
   if (areas.problem) return { problem: areas.problem };
-  if (whole.surfaces !== undefined && !isSurfaceMatrix(whole.surfaces))
-    return {
-      problem: '"surfaces" must be one mode per surface of the group\'s account.',
-    };
+  if (whole.surfaces !== undefined) {
+    if (!isRecord(whole.surfaces))
+      return {
+        problem: '"surfaces" must be one mode per surface of the group\'s account.',
+      };
+    /*
+     * A matrix is a closed set: one mode per surface, and nothing else. A key
+     * that is not a surface is refused rather than dropped — `memory` has no
+     * surface, so a document naming it would read as "memory changes wake the
+     * agent" while waking nothing.
+     */
+    const unknown = Object.keys(whole.surfaces).filter(
+      (one) => !(SURFACES as readonly string[]).includes(one),
+    );
+    if (unknown.length)
+      return {
+        problem: `"surfaces" names ${unknown.map((one) => `"${one}"`).join(", ")}, which ${unknown.length === 1 ? "is not a surface" : "are not surfaces"}. The surfaces are: ${SURFACES.join(", ")}.`,
+      };
+    if (!isSurfaceMatrix(whole.surfaces))
+      return {
+        problem: '"surfaces" must be one mode per surface of the group\'s account.',
+      };
+  }
   return {
     instruction: {
       v: INSTRUCTION_VERSION,
