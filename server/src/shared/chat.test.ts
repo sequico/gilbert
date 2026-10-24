@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   addressedToAgent,
+  isChatMessageDoc,
   mentionFormRegex,
   mentionsAddress,
   mentionsByName,
   mentionsName,
+  messageDoc,
+  parseChatRef,
   unreadCount,
 } from "./chat.js";
 
@@ -165,5 +168,62 @@ test("a chat message is the agent's unless it names somebody else", () => {
     isMine({ text: "@here stand-up in five" }),
     true,
     "a call to the room names nobody, so the message is the agent's",
+  );
+});
+
+/**
+ * What a message points at (ADR 0042).
+ *
+ * A reference is the kind and the id the tools answered — never an address: the
+ * client composes where a chip goes, and an address in a message would be one a
+ * sender could dictate.
+ */
+test("a reference is a kind and an id, and an event carries its day", () => {
+  assert.deepEqual(parseChatRef("thread:euaaaabf"), {
+    kind: "thread",
+    id: "euaaaabf",
+  });
+  assert.deepEqual(parseChatRef("file:node-1"), { kind: "file", id: "node-1" });
+  assert.deepEqual(parseChatRef("contact:card-9"), {
+    kind: "contact",
+    id: "card-9",
+  });
+  assert.deepEqual(parseChatRef("event:ev-3@2026-11-03"), {
+    kind: "event",
+    id: "ev-3",
+    date: "2026-11-03",
+  });
+  for (const bad of [
+    "",
+    "thread",
+    "thread:",
+    ":id",
+    "url:https://example.com",
+    "event:ev-3",
+    "event:ev-3@3/11/2026",
+  ])
+    assert.equal(parseChatRef(bad), null, `"${bad}" is not a reference`);
+});
+
+test("a message carrying a reference this build cannot draw is not a message", () => {
+  const doc = {
+    ...messageDoc("sam@example.org", "two invoices"),
+    refs: [],
+  } as Record<string, unknown>;
+  assert.equal(isChatMessageDoc(doc), true, "no reference is a valid message");
+  assert.equal(
+    isChatMessageDoc({ ...doc, refs: [{ kind: "thread", id: "t-1" }] }),
+    true,
+    "a reference of this build is valid",
+  );
+  assert.equal(
+    isChatMessageDoc({ ...doc, refs: [{ kind: "url", id: "https://x" }] }),
+    false,
+    "a kind this build cannot follow is refused whole",
+  );
+  assert.equal(
+    isChatMessageDoc({ ...doc, refs: [{ kind: "event", id: "e-1" }] }),
+    false,
+    "an event with no day could not land, so it is refused",
   );
 });

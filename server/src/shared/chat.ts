@@ -83,6 +83,29 @@ interface ChatMessageDoc {
   replyTo?: string;
   /** Principals the message mentions; optional so old documents stay valid. */
   mentions?: ChatMention[];
+  /**
+   * What the message points at, when the agent names an object of the group's
+   * account: a link the reader follows without leaving the conversation.
+   *
+   * A **reference**, never a URL: the kind and the id are checked where the
+   * message is written, and the address is composed where it is drawn, so a
+   * message can point at an object of this account and at nothing else.
+   */
+  refs?: ChatRef[];
+}
+
+/**
+ * One object a chat message points at.
+ *
+ * `kind` is the surface, `id` is what that surface's tool answered, and `date`
+ * is the day an event is on — a calendar route names a day, so a link to an
+ * event without one could not land.
+ */
+export interface ChatRef {
+  kind: "thread" | "file" | "contact" | "event";
+  id: string;
+  /** The day an event is on, as `YYYY-MM-DD`; absent for every other kind. */
+  date?: string;
 }
 
 /** One member's read marker: which message they have read up to. */
@@ -126,8 +149,50 @@ export function isChatMessageDoc(x: unknown): x is ChatMessageDoc {
     typeof d.text === "string" &&
     (d.replyTo === undefined || typeof d.replyTo === "string") &&
     (d.mentions === undefined ||
-      (Array.isArray(d.mentions) && d.mentions.every(isChatMention)))
+      (Array.isArray(d.mentions) && d.mentions.every(isChatMention))) &&
+    (d.refs === undefined || (Array.isArray(d.refs) && d.refs.every(isChatRef)))
   );
+}
+
+/** The surfaces a reference may name. */
+const REF_KINDS = new Set(["thread", "file", "contact", "event"]);
+
+/** Whether a value is a reference this build can draw and follow. */
+export function isChatRef(x: unknown): x is ChatRef {
+  if (!isRecord(x)) return false;
+  const ref = x as Record<string, unknown>;
+  return (
+    typeof ref.kind === "string" &&
+    REF_KINDS.has(ref.kind) &&
+    typeof ref.id === "string" &&
+    ref.id.trim() !== "" &&
+    (ref.date === undefined ||
+      (typeof ref.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ref.date))) &&
+    // An event is on a day, and a calendar route names one: an event reference
+    // without its day could not land, so it is not a reference.
+    (ref.kind !== "event" || typeof ref.date === "string")
+  );
+}
+
+/**
+ * One reference as the agent writes it: `kind:id`, and `event:id@YYYY-MM-DD`
+ * for an event — a calendar route names a day, so the day is part of the
+ * address. Null is "not a reference", and the caller refuses it in the model's
+ * own words.
+ */
+export function parseChatRef(raw: string): ChatRef | null {
+  const at = raw.indexOf(":");
+  if (at <= 0) return null;
+  const [id, date] = raw
+    .slice(at + 1)
+    .trim()
+    .split("@", 2);
+  const ref: Record<string, unknown> = {
+    kind: raw.slice(0, at).trim(),
+    id: (id ?? "").trim(),
+  };
+  if (date) ref.date = date.trim();
+  return isChatRef(ref) ? ref : null;
 }
 
 export function isChatMarkerDoc(x: unknown): x is ChatMarkerDoc {
@@ -142,10 +207,12 @@ export function messageDoc(
   text: string,
   replyTo?: string,
   mentions?: ChatMention[],
+  refs?: ChatRef[],
 ): ChatMessageDoc {
   const doc: ChatMessageDoc = { v: 1, from, at: new Date().toISOString(), text };
   if (replyTo) doc.replyTo = replyTo;
   if (mentions?.length) doc.mentions = mentions;
+  if (refs?.length) doc.refs = refs;
   return doc;
 }
 

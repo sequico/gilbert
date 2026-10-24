@@ -2719,6 +2719,17 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* What the agent's message points at: a chip opens the object below the panel. */
+.chat-refs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.chat-ref {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: inherit; font-size: .76em; font-weight: 600;
+  padding: 2px 7px; border-radius: 999px; cursor: pointer;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.chat-ref:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
 /* Reply affordance: hover on fine pointers, always on touch. */
 .chat-reply { opacity: 0; margin-left: auto; }
 .chat-bubble:hover .chat-reply { opacity: 1; }

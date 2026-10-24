@@ -427,4 +427,11 @@ is, not what a user sees.
   obtains is a draft somebody reads. **Built, Proposed**
   (`agent/tools/jobs.ts` `draft`, `agent/tools/mail.ts`; ADR 0038 dropped
   `mail.send` and `mail.ask`).
+- **0042 — A message points at an object, never at an address.** A chat message
+  carries references (`thread`, `file`, `contact`, `event`) as a kind and an id —
+  never a URL, so a mail a stranger wrote cannot dictate a link Gilbert draws —
+  and the address is composed where the chip is drawn, in the conversation, which
+  opens the object below the panel and leaves the panel where it is. **Built,
+  Proposed** (`shared/chat.ts`, `agent/tools/chat.ts`, `lib/agentRefs.ts`,
+  `views/chat/ChatPanel.tsx`).
 

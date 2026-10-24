@@ -14,6 +14,7 @@ import {
   CircleHelp,
   Clock,
   CornerUpLeft,
+  Link2,
   ListChecks,
   Search,
   Send,
@@ -21,15 +22,18 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { push } from "@/jmap/push";
 import type { Id } from "@/jmap/types";
 import type { FactView } from "@/lib/agentAdmin";
 import { fetchGroupAgent, fetchGroupRuns, onAgentSwitch } from "@/lib/agentAdmin";
+import { REF_LABEL, refHref } from "@/lib/agentRefs";
 import {
   CHAT_MAX_TEXT,
   CHAT_TAIL,
   type ChatMention,
   type ChatMessage,
+  type ChatRef,
   localPart,
   mentionablesOf,
   mentionFormRegex,
@@ -155,6 +159,7 @@ const ChatRow = memo(function ChatRow({
   question,
   onReply,
   onJump,
+  onRef,
 }: {
   message: ChatMessage;
   mine: boolean;
@@ -167,6 +172,8 @@ const ChatRow = memo(function ChatRow({
   question: boolean;
   onReply: (id: Id) => void;
   onJump: (id: Id) => void;
+  /** Follow a reference the message carries, without closing the panel. */
+  onRef: (ref: ChatRef) => void;
 }) {
   return (
     <div
@@ -214,6 +221,28 @@ const ChatRow = memo(function ChatRow({
         <div className="chat-text">
           <MentionedText text={m.text} mentions={m.mentions} me={me} members={members} />
         </div>
+        {m.refs?.length ? (
+          /*
+           * What the message points at, as chips: the object opens **below** the
+           * panel, which stays where it is — the conversation is the place a
+           * person is reading, and a link in it is a look aside, not a departure.
+           */
+          <div className="chat-refs">
+            {m.refs.map((ref) => (
+              <button
+                key={`${ref.kind}:${ref.id}`}
+                type="button"
+                className="chat-ref"
+                title={t(REF_LABEL[ref.kind])}
+                aria-label={t(REF_LABEL[ref.kind])}
+                onClick={() => onRef(ref)}
+              >
+                <Link2 size={12} aria-hidden="true" />
+                {t(REF_LABEL[ref.kind])}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -221,6 +250,8 @@ const ChatRow = memo(function ChatRow({
 
 export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const me = useSession((s) => s.session?.username ?? "");
+  const setAccount = useSession((s) => s.setAccount);
+  const [, setLocation] = useLocation();
   /*
    * The installation's own account, as the session names it: the agent switch
    * lives in the Master's files, and the server's event stream follows that
@@ -425,6 +456,20 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       ?.querySelector(`[data-mid="${id}"]`)
       ?.scrollIntoView({ block: "center" });
   }, []);
+
+  /*
+   * Following a reference the agent wrote: the object opens **below**, and the
+   * panel stays where it is. The account moves to the conversation's own first —
+   * a file or a thread belongs to the group the chat is in, and a reader whose
+   * session sits on another account would land on a folder it does not have.
+   */
+  const followRef = useCallback(
+    (ref: ChatRef) => {
+      if (openAccountId) setAccount(openAccountId);
+      setLocation(refHref(ref));
+    },
+    [openAccountId, setAccount, setLocation],
+  );
 
   /*
    * The questions the group's agent has open on a person (ADR 0029, 0038): the
@@ -984,6 +1029,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                   question={questionIds.has(m.id)}
                   onReply={replyToMessage}
                   onJump={jumpTo}
+                  onRef={followRef}
                 />
               ))}
             </>

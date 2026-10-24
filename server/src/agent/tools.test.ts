@@ -1117,6 +1117,31 @@ test("a mention in the chat is the local part, never the whole address", async (
     "Acknowledged, @sq — no harm done.",
     "a reply carries the words of the message it answers, not only its id",
   );
+  const withRefs = await writeTool<{ id: string }>("chat.say", {
+    text: "The two invoices are on the calendar.",
+    refs: ["thread:euaaaabf", "file:node-7", "event:ev-3@2026-11-03"],
+  });
+  const referenced = await callTool<{
+    message: { refs?: Array<{ kind: string; id: string; date?: string }> };
+  }>("chat.read", { id: withRefs.id });
+  assert.deepEqual(
+    referenced.message.refs,
+    [
+      { kind: "thread", id: "euaaaabf" },
+      { kind: "file", id: "node-7" },
+      { kind: "event", id: "ev-3", date: "2026-11-03" },
+    ],
+    "the objects a message points at are stored as kinds and ids, never addresses",
+  );
+  await assert.rejects(
+    () =>
+      writeTool("chat.say", {
+        text: "and here is the link",
+        refs: ["https://evil.example/invoice"],
+      }),
+    /not a reference/,
+    "an address a sender dictates is not a reference this build will carry",
+  );
   const asked = await writeTool<{ id: string }>("chat.ask", {
     text: "Is @sq@greensley.company happy with that?",
   });

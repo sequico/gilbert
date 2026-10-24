@@ -9,7 +9,13 @@
 import type { Ctx } from "../../appFolder.js";
 import { groupMembers } from "../../groupAccess.js";
 import { findChatMessages, postChatMessage, readChatMessageBy } from "../../groupChat.js";
-import { CHAT_MAX_TEXT, type ChatMention, mentionsByName } from "../../shared/chat.js";
+import {
+  CHAT_MAX_TEXT,
+  type ChatMention,
+  type ChatRef,
+  mentionsByName,
+  parseChatRef,
+} from "../../shared/chat.js";
 import { QUESTION_TTL_MS, type RunWait } from "../../shared/run.js";
 import { listRunsForWorking } from "../runs.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
@@ -196,8 +202,7 @@ function chatText(args: Record<string, unknown>, max = CHAT_MAX_TEXT): string {
  * The agent writes `@local`, which the conversation reads as a mention; the
  * stored mark is what the client and the off path look for, so the roster turns
  * the words back into principals.
- */
-async function mentionsOf(
+ */ async function mentionsOf(
   ctx: Ctx,
   accountId: string,
   text: string,
@@ -212,6 +217,41 @@ async function mentionsOf(
   return mentions.length ? { mentions } : {};
 }
 
+/** The most objects one message points at: a report links a few, not a dump. */
+const REFS_MAX = 4;
+
+/**
+ * The references a message carries, or a refusal naming the shape.
+ *
+ * A reference is `kind:id`, and an event is `event:id@YYYY-MM-DD` because a
+ * calendar route names a day. The kind and the shape are checked here, so the
+ * client composes an address from them and can compose nothing else: a message
+ * points at an object of this account, never at an address the text dictates.
+ */
+function refsArg(args: Record<string, unknown>): ChatRef[] {
+  const raw = args.refs;
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw))
+    throw new ToolError("bad_arguments", '"refs" must be a list of "kind:id".');
+  const refs: ChatRef[] = [];
+  for (const one of raw) {
+    const ref = typeof one === "string" ? parseChatRef(one) : null;
+    if (!ref)
+      throw new ToolError(
+        "bad_arguments",
+        `"${String(one)}" is not a reference: write "kind:id" — thread, file, contact — or "event:id@YYYY-MM-DD".`,
+      );
+    if (refs.some((held) => held.kind === ref.kind && held.id === ref.id)) continue;
+    if (refs.length >= REFS_MAX)
+      throw new ToolError(
+        "bad_arguments",
+        `"refs" carries at most ${REFS_MAX} references.`,
+      );
+    refs.push(ref);
+  }
+  return refs;
+}
+
 export const sayInChat = defineTool({
   name: "chat.say",
   description:
@@ -222,17 +262,32 @@ export const sayInChat = defineTool({
   writes: true,
   surface: "chat",
   spend: { steps: 1 },
-  args: { text: { type: "text", max: CHAT_MAX_TEXT }, replyTo: { type: "text" } },
+  args: {
+    text: { type: "text", max: CHAT_MAX_TEXT },
+    replyTo: { type: "text" },
+    refs: {
+      type: "list",
+      max: 200,
+      about:
+        'objects of this group\'s account the message points at, as "kind:id" — ' +
+        'thread, file, contact, or event as "event:id@YYYY-MM-DD"',
+    },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
-    return { text: chatText(args), replyTo: optionalTextArg(args, "replyTo") };
+    return {
+      text: chatText(args),
+      replyTo: optionalTextArg(args, "replyTo"),
+      refs: refsArg(args),
+    };
   },
-  run: async ({ ctx, accountId }, { text, replyTo }) => {
+  run: async ({ ctx, accountId }, { text, replyTo, refs }) => {
     // The agent writes as itself and acts in the group's account (ADR 0029):
     // the sender is the address the session signed in as.
     const id = await postChatMessage(ctx, accountId, ctx.username, text, {
       ...(replyTo ? { replyTo } : {}),
       ...(await mentionsOf(ctx, accountId, text)),
+      ...(refs.length ? { refs } : {}),
     });
     return { id };
   },

@@ -373,7 +373,10 @@ one and nobody else's. **The conversation runs in chat** (ADR 0029 as 0038
 amends it): a question is asked in the conversation with `say` (`action: ask`)
 and the run parks there; a mail leaves the account only as a **draft a person
 sends** (ADR 0041), so no tool submits one and the worst a malicious mail
-obtains is a draft somebody reads. **A question carries a
+obtains is a draft somebody reads. **What a report points at, it links**: `say`
+carries references to the objects it names — a thread, a file, a contact, an
+event — and the conversation draws them as chips that open the object below the
+panel (ADR 0042). **A question carries a
 deadline** (72 hours, ADR 0029): the answer is still the conversation's own event,
 and the deadline is what a run does
 about a person who never answers — it goes on without it, with a step on the
@@ -749,6 +752,17 @@ the session holds group mailboxes.
   who has written is offered and somebody who has not yet is not. A mention of
   somebody the transcript no longer lists renders
   **greyed**.
+- **Links the agent can hand over** (ADR 0042): an agent's message can carry
+  **references** — a mail thread, a file, a contact, a calendar event — and the
+  conversation draws each as a chip. The chip opens the object **below** the panel,
+  which stays where it is: the conversation is what the reader is looking at, and a
+  link in it is a look aside. The reference is a **kind and an id**, never an
+  address: the id is what the agent's own tools answered, the address is composed
+  where the chip is drawn, and a URL written in the text stays text — so a mail a
+  stranger wrote cannot dictate a link Gilbert draws, and a chip never leaks the
+  subject of an object the reader may not open. The session moves to the
+  conversation's account on the way, because the object belongs to the group the
+  chat is in.
 - **Who a message is for**: the chat is the channel to the group's agent, so a
   message with **no mention** — or one that names the agent — is the agent's work;
   a message that names **another person** is theirs and the agent ignores it; one

@@ -31,6 +31,7 @@ import {
   CHAT_PAGE,
   type ChatMention,
   type ChatMessage,
+  type ChatRef,
   compareMessages,
   isChatMessageDoc,
   messageDoc,
@@ -199,7 +200,7 @@ export async function postChatMessage(
   accountId: string,
   from: string,
   text: string,
-  opts: { replyTo?: string; mentions?: ChatMention[] } = {},
+  opts: { replyTo?: string; mentions?: ChatMention[]; refs?: ChatRef[] } = {},
 ): Promise<string> {
   const folderId = await ensureFolderPath(ctx, accountId, CHAT_FOLDER);
   return await writeAppFileIn(
@@ -207,6 +208,6 @@ export async function postChatMessage(
     accountId,
     folderId,
     messageFileName(),
-    messageDoc(from, text, opts.replyTo, opts.mentions),
+    messageDoc(from, text, opts.replyTo, opts.mentions, opts.refs),
   );
 }
