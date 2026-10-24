@@ -37,7 +37,7 @@ export function AgentOverview({
   const [perGroup, setPerGroup] = useState<Array<{ name: string; metrics: RunMetrics }>>(
     [],
   );
-  const [period, setPeriod] = useState<MetricsPeriod>("week");
+  const [period, setPeriod] = useState<MetricsPeriod>("day");
   const [on, setOn] = useState<boolean | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [live, setLive] = useState<Array<{ group: string; runs: RunSummary[] }>>([]);

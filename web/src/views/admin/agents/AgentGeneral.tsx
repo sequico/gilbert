@@ -159,42 +159,6 @@ export function AgentGeneral({ onDocumentSaved }: { onDocumentSaved: () => void 
       />
 
       <section style={{ marginTop: 24 }}>
-        <h2>{t("Standing rule")}</h2>
-        <p className="hint">
-          {t("Above every group's instruction. Applies at the next pass.")}
-        </p>
-        {present ? (
-          <>
-            <div className="field">
-              <textarea
-                rows={4}
-                aria-label={t("Standing rule")}
-                value={line}
-                disabled={busy}
-                onChange={(e) => {
-                  setLine(e.target.value);
-                  setSaved(false);
-                }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={busy}
-                onClick={() => void saveLine()}
-              >
-                {t("Save")}
-              </button>
-              {saved && <span className="hint">{t("Saved")}</span>}
-            </div>
-          </>
-        ) : (
-          <p className="hint">{t("No installation document yet.")}</p>
-        )}
-      </section>
-
-      <section style={{ marginTop: 24 }}>
         <h2>{t("Limits")}</h2>
         {present && limits ? (
           <>
@@ -267,6 +231,42 @@ export function AgentGeneral({ onDocumentSaved }: { onDocumentSaved: () => void 
                 {t("Save")}
               </button>
               {limitsSaved && <span className="hint">{t("Saved")}</span>}
+            </div>
+          </>
+        ) : (
+          <p className="hint">{t("No installation document yet.")}</p>
+        )}
+      </section>
+
+      <section style={{ marginTop: 24 }}>
+        <h2>{t("Standing rule")}</h2>
+        <p className="hint">
+          {t("Above every group's instruction. Applies at the next pass.")}
+        </p>
+        {present ? (
+          <>
+            <div className="field">
+              <textarea
+                rows={4}
+                aria-label={t("Standing rule")}
+                value={line}
+                disabled={busy}
+                onChange={(e) => {
+                  setLine(e.target.value);
+                  setSaved(false);
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() => void saveLine()}
+              >
+                {t("Save")}
+              </button>
+              {saved && <span className="hint">{t("Saved")}</span>}
             </div>
           </>
         ) : (
