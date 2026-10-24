@@ -22,6 +22,21 @@
  * - **The guard reads the act, not the tool.** `place` files a message and
  *   destroys a folder: its authority comes from the endpoint the value names,
  *   through `authorityOf`, and the surface from `surfaceOf`.
+ *
+ * **The interface rules, in the words `aci.test.ts` holds the catalogue to:**
+ *
+ * - A name is one lowercase word containing no dot, because that is the
+ *   provider's own pattern and a name it refuses costs a whole turn.
+ * - One verb, one meaning: two tools that do one thing make the choice a
+ *   lottery.
+ * - A call is chosen by **one discriminator** — `kind` or `action` — whose every
+ *   value appears in the job's description and carries its own schema branch, so
+ *   an argument of another route is refused before the step is paid for.
+ * - **A refusal names what it accepts**: the values of the discriminator, or the
+ *   argument it could not read; and a name the catalogue does not hold is
+ *   answered with the nearest real one (`nearestTool` in `model.ts`).
+ * - A tool answers a distillation, never the payload: what happened, and the id
+ *   to use next.
  */
 
 import type { AreaName } from "../../shared/areas.js";
