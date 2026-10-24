@@ -33,6 +33,7 @@ import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
+import { newFolderAsked } from "./folderActions";
 import { emptyTrashAsked, useMayEndFiles } from "./trashActions";
 
 /**
@@ -195,7 +196,10 @@ export function FilesTree() {
       if (canDropFileNodes(nodes, ids, targetId)) void moveTo(ids, targetId);
       return;
     }
-    if (e.dataTransfer.types.includes("Files")) void dropFiles(targetId, e.dataTransfer);
+    if (e.dataTransfer.types.includes("Files"))
+      void dropFiles(targetId, e.dataTransfer).catch((err) =>
+        toast.error(errorMessage(err)),
+      );
   };
 
   const onDragOver = (targetId: Id | null) => (e: React.DragEvent) => {
@@ -377,17 +381,8 @@ export function FilesTree() {
             icon={<FolderPlus size={16} />}
             label={t("New folder")}
             onClick={async () => {
-              const name = await promptDialog({
-                title: t("New folder"),
-                placeholder: t("Folder name"),
-              });
-              if (!name?.trim()) return;
-              try {
-                await useFiles.getState().mkdir(menuNode?.id ?? null, name.trim());
-                if (menuNode) openKeys([folderKey(accountId, menuNode.id)]);
-              } catch (err) {
-                toast.error(errorMessage(err));
-              }
+              const id = await newFolderAsked(menuNode?.id ?? null);
+              if (id && menuNode) openKeys([folderKey(accountId, menuNode.id)]);
             }}
           />
         )}

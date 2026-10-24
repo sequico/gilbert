@@ -53,6 +53,7 @@ import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
 import { LazyFilePreviewDialog, LazyShareDialog } from "../lazyPieces";
+import { newFolderAsked } from "./folderActions";
 import { emptyTrashAsked, useMayEndFiles } from "./trashActions";
 
 export function FilesView({ nodeId }: { nodeId?: string }) {
@@ -115,19 +116,6 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   /** The Trash folder itself, for the actions that only apply directly in it. */
   const trashId = trashFolderId(files);
 
-  /** Ask for a name and create the folder in the view's own parent, once. */
-  const newFolder = async () => {
-    const n = await promptDialog({
-      title: t("New folder"),
-      placeholder: t("Folder name"),
-    });
-    if (!n?.trim()) return;
-    try {
-      await files.mkdir(parentId, n.trim());
-    } catch (err) {
-      toast.error(errorMessage(err));
-    }
-  };
   /* Which column this folder is ordered by, remembered per folder on this
      device like the folders the tree has open. */
   const { sort, toggle: toggleSort } = useFilesSort(files.accountId, parentId);
@@ -768,7 +756,8 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           }}
         />
         {!inTrash && (
-          <button className="btn btn-sm" onClick={() => void newFolder()}>
+          <button className="btn btn-sm" onClick={() => void newFolderAsked(parentId)}>
+            {" "}
             <FolderPlus size={16} /> {t("New folder")}
           </button>
         )}
@@ -1078,19 +1067,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             <MenuItem
               icon={<FolderPlus size={16} />}
               label={t("New folder")}
-              onClick={async () => {
-                const n = await promptDialog({
-                  title: t("New folder"),
-                  placeholder: t("Folder name"),
-                });
-                if (n?.trim()) {
-                  try {
-                    await files.mkdir(parentId, n.trim());
-                  } catch (err) {
-                    toast.error(errorMessage(err));
-                  }
-                }
-              }}
+              onClick={() => void newFolderAsked(parentId)}
             />
           </>
         )}
