@@ -42,6 +42,26 @@ test("every refusal followed by a step that worked is recovered", () => {
   });
 });
 
+test("a step the run never reached does not count as a recovery", () => {
+  /*
+   * A branch no outcome reaches is `skipped`, and a step still `open` has proved
+   * nothing: neither is a call the catalogue kept, so a plan that failed and then
+   * skipped recovered from nothing.
+   */
+  assert.deepEqual(refusedAndRecovered(plan("failed", "skipped")), {
+    refused: 1,
+    recovered: 0,
+  });
+  assert.deepEqual(refusedAndRecovered(plan("failed", "open")), {
+    refused: 1,
+    recovered: 0,
+  });
+  assert.deepEqual(refusedAndRecovered(plan("failed", "skipped", "done")), {
+    refused: 1,
+    recovered: 1,
+  });
+});
+
 test("a plan with no refusal counts nothing, and reports nothing recovered", () => {
   assert.deepEqual(refusedAndRecovered(plan("done", "done")), {
     refused: 0,

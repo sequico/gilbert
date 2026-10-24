@@ -35,10 +35,11 @@ export interface RunMeasure {
    * How many of those refusals the run recovered from.
    *
    * A refusal is a step that ended `failed`; it is **recovered** when a later
-   * step of the same run is not a refusal — the rest of the plan ran, or the
-   * model's next call was one the catalogue kept. The pair is the interface's own
-   * measure: a refusal that costs one step is the design working (ADR 0038), and
-   * a refusal that repeats is the failure it replaced.
+   * step of the same run **worked** — `done`, not merely "not a refusal". A step
+   * the run never reached (`skipped`) or one still `open` proves nothing about
+   * the call that failed. The pair is the interface's own measure: a refusal that
+   * costs one step is the design working (ADR 0038), and a refusal that repeats
+   * is the failure it replaced.
    */
   recovered: number;
   /** What the run last said, when its ending carried words. */
@@ -59,9 +60,9 @@ export interface RunMeasure {
  * How many steps were refused, and how many of those refusals were recovered.
  *
  * Counted from the record, never inferred from a ratio: a plan's `failed` steps
- * are the refusals, and one is recovered when a later step of the same run is not
- * a refusal. `recovered` therefore always tells the reader *which* refusals cost
- * the run nothing beyond their own step.
+ * are the refusals, and one is recovered when a later step of the same run
+ * **worked**. A counter that accepted a `skipped` step as proof would report a
+ * recovery the run never made.
  */
 export function refusedAndRecovered(plan: readonly Pick<RunStep, "state">[]): {
   refused: number;
@@ -72,7 +73,7 @@ export function refusedAndRecovered(plan: readonly Pick<RunStep, "state">[]): {
   for (const [index, step] of plan.entries())
     if (
       step.state === "failed" &&
-      plan.slice(index + 1).some((later) => later.state !== "failed")
+      plan.slice(index + 1).some((later) => later.state === "done")
     )
       recovered += 1;
   return { refused, recovered };
