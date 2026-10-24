@@ -16,7 +16,7 @@
  *
  * The origins live in `gilbert/trash.json`, beside the other documents Gilbert
  * keeps: a trashed node is a child of the Trash folder, which no longer says
- * where it sat before, and restoring it to where it came from needs that answer
+ * where it sat or what it was called before, and restoring it needs both answers
  * kept somewhere durable. Both tiers move nodes in and out, so the document's
  * shape is shared here while the transport stays each tier's own.
  */
@@ -27,15 +27,32 @@ export const TRASH_FOLDER_NAME = "Trash";
 /** The app-folder document that remembers each trashed node's original folder. */
 export const TRASH_DOCUMENT = "trash.json";
 
+/** Where a node sat, and what it was called, before it was trashed. */
+export interface TrashOrigin {
+  /** The folder it was in, `null` for the top level of Files. */
+  parentId: string | null;
+  /** The name it had before it was trashed. */
+  name: string;
+  /**
+   * The name it landed with in the Trash, which is a numbered one when the
+   * Trash already held that name.
+   *
+   * Kept apart from `name` so a restore can tell the two cases: a node still
+   * called what it arrived as had its name only numbered by the move, and gets
+   * its own back; a node renamed inside the Trash keeps the reader's name.
+   */
+  as: string;
+}
+
 /** The shape of `trash.json`. */
 export interface TrashDocument {
   /**
-   * Trashed node id → the folder it was in, `null` for the top level of Files.
+   * Trashed node id → where it came from.
    *
    * A node trashed twice is one entry: the place it came from the first time is
    * the one a person means by "put it back".
    */
-  origins: Record<string, string | null>;
+  origins: Record<string, TrashOrigin>;
 }
 
 /** The least a node has to say to be recognised as the Trash folder. */
@@ -61,29 +78,28 @@ export function isTrashFolder(node: TrashFolderNodeLike): boolean {
   );
 }
 
-/** Create-arguments for the Trash folder, as both tiers send them. */
-export function trashFolderCreate(): {
-  parentId: null;
-  name: string;
-  nodeType: "directory";
-} {
-  return { parentId: null, name: TRASH_FOLDER_NAME, nodeType: "directory" };
-}
-
 /**
  * What a `trash.json` document says, tolerantly.
  *
  * A document this build cannot read answers "nothing is remembered", which is
  * the safe way round: a node restored without an origin goes back to the top
  * level of Files, where it is visible, rather than being guessed into somebody's
- * folder.
+ * folder. An entry without a name is the same: there is nothing to put back.
  */
 export function parseTrashDocument(value: unknown): TrashDocument {
-  const origins: Record<string, string | null> = {};
+  const origins: Record<string, TrashOrigin> = {};
   const held = (value as { origins?: unknown } | null)?.origins;
   if (held && typeof held === "object" && !Array.isArray(held)) {
-    for (const [id, parent] of Object.entries(held as Record<string, unknown>)) {
-      origins[id] = typeof parent === "string" ? parent : null;
+    for (const [id, raw] of Object.entries(held as Record<string, unknown>)) {
+      if (!raw || typeof raw !== "object") continue;
+      const entry = raw as { parentId?: unknown; name?: unknown; as?: unknown };
+      const name = typeof entry.name === "string" ? entry.name : "";
+      if (!name) continue;
+      origins[id] = {
+        parentId: typeof entry.parentId === "string" ? entry.parentId : null,
+        name,
+        as: typeof entry.as === "string" && entry.as ? entry.as : name,
+      };
     }
   }
   return { origins };
@@ -92,7 +108,7 @@ export function parseTrashDocument(value: unknown): TrashDocument {
 /** The document with `entries` remembered, every other origin left alone. */
 export function withOrigins(
   doc: TrashDocument,
-  entries: Record<string, string | null>,
+  entries: Record<string, TrashOrigin>,
 ): TrashDocument {
   return { origins: { ...doc.origins, ...entries } };
 }

@@ -5,6 +5,7 @@ import {
   TRASH_DOCUMENT,
   TRASH_FOLDER_NAME,
   type TrashDocument,
+  type TrashOrigin,
 } from "@gilbert/shared/trash";
 import { client } from "@/jmap/client";
 import {
@@ -38,9 +39,9 @@ import type { FileNode, Id } from "@/jmap/types";
  *
  * The origins are kept beside the settings in the account's app folder
  * (`trash.json`, `@gilbert/shared/trash`), because a trashed node is a child of
- * the Trash folder and no longer says where it sat. A node whose origin has gone
- * is restored to the top level of Files rather than failing: visible somewhere
- * is better than stuck.
+ * the Trash folder and no longer says where it sat or what it was called. A node
+ * whose origin has gone is restored to the top level of Files rather than
+ * failing: visible somewhere is better than stuck.
  */
 
 /** Where the Trash folder is in the nodes a Files state already holds. */
@@ -131,7 +132,7 @@ export async function ensureTrashFolder(accountId: Id): Promise<Id> {
  */
 export async function readTrashOrigins(
   accountId: Id,
-): Promise<{ origins: Record<string, Id | null>; state?: string }> {
+): Promise<{ origins: Record<string, TrashOrigin>; state?: string }> {
   const folderId = await findAppFolder(accountId);
   if (!folderId) return { origins: {} };
   const { file, state } = await findInFolderWithState(

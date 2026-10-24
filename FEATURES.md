@@ -1773,10 +1773,11 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   that account's **Trash**, a real top-level folder created by the first deletion,
   whole with its subtree. A name the Trash already holds is numbered
   (`report (2).pdf`) rather than refused. **Restore** puts an item back where it
-  came from, the whole tree with it; a folder that no longer exists sends it to
-  the top level of Files instead of failing. Inside the Trash, **Delete
-  permanently** ends one item for good, and **Empty trash** is in the context
-  menu of the Trash row and of the Trash listing. In a group's files those two
+  came from, the whole tree with it and the name it had when only the move had
+  numbered it; a folder that no longer exists sends it to the top level of Files
+  instead of failing. Inside the Trash, **Delete permanently** ends one item for
+  good, and **Empty trash** is in the context menu of the Trash row and of the
+  Trash listing. In a group's files those two
   are an installation administrator's decision: the entries are drawn disabled
   for a member, and the store refuses the effect whatever called it. **Nothing
   empties itself** — there is no age at which an item disappears. The folder is

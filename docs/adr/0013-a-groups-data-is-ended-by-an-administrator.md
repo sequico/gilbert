@@ -263,11 +263,13 @@ administrator's to ask for, and asking is the action this record keeps.
   accepts for the client's view of its own privilege, and the server's own door
   is the one that closes it.
 - **A restore is a move, and it is only as exact as what was remembered.** The
-  origin is kept in the account's `gilbert/trash.json`; a folder that is gone
-  when the node comes back sends it to the top level of Files instead of failing,
-  and a name the destination now holds is numbered rather than overwriting what
-  is there. A node trashed by another client that does not write that document
-  restores to the top level.
+  origin — the folder and the name — is kept in the account's
+  `gilbert/trash.json`; a folder that is gone when the node comes back sends it
+  to the top level of Files instead of failing, a name the destination now holds
+  is numbered rather than overwriting what is there, and a name the move merely
+  numbered in the Trash comes back as it was. A node renamed **inside** the Trash
+  keeps the reader's name: only what the move did is undone. A node trashed by
+  another client that does not write that document restores to the top level.
 - **Deleting a mail folder still stops on a folder that holds mail**, for a
   non-administrator: it is one of the things that destroys, and it is refused by
   the folder's own count. An empty folder still goes.

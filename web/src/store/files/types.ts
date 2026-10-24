@@ -242,20 +242,22 @@ export interface FilesState {
    * own or a group's — created by the first deletion, and a name the folder
    * already holds is numbered on arrival rather than refused.
    *
-   * The place each node came from is written into the account's `trash.json` in
-   * the same action, because the Trash no longer says it: that is what `restore`
-   * returns to. Failing to remember it does not fail the move — the node is in
-   * the Trash either way, and a restore without an origin puts it at the top
-   * level of Files.
+   * The place each node came from — and the name it had — is written into the
+   * account's `trash.json` in the same action, because the Trash no longer says
+   * either: that is what `restore` returns to. Failing to remember it does not
+   * fail the move — the node is in the Trash either way, and a restore without an
+   * origin puts it at the top level of Files.
    */
   trash(ids: Id[]): Promise<void>;
   /**
    * Put trashed nodes back where they came from, whole.
    *
-   * A folder comes back with its subtree, which never left it. A destination
-   * recorded in `trash.json` that is gone — deleted while the node sat in the
-   * Trash — is the top level of Files instead, and a name the destination now
-   * holds is numbered. The origins it consumed are forgotten in the same action.
+   * A folder comes back with its subtree, which never left it, and a name the
+   * move merely numbered in the Trash comes back as it was; a name given inside
+   * the Trash is the reader's and stays. A destination recorded in `trash.json`
+   * that is gone — deleted while the node sat in the Trash — is the top level of
+   * Files instead, and a name the destination now holds is numbered. The origins
+   * it consumed are forgotten in the same action.
    */
   restore(ids: Id[]): Promise<void>;
   /**

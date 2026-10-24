@@ -2,6 +2,7 @@ import { FILENODE_GET, FILENODE_SET, isAppFolder } from "@gilbert/shared/appFold
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   isTrashFolder,
+  type TrashOrigin,
   uniqueName,
   withOrigins,
   withoutOrigins,
@@ -52,6 +53,41 @@ function endRefusal(
   );
 }
 
+/**
+ * Land named nodes in one folder, numbering a name the folder already holds.
+ *
+ * The one place a move into a level is written: `trash` lands what the reader
+ * deleted in the Trash, and `restore` lands each group back in the folder it
+ * came from — one `FileNode/set` per folder either way. A refusal is returned
+ * rather than thrown, so a restore over several folders can finish the ones it
+ * can and say what failed at the end; `moved` names the nodes that landed and
+ * the name each landed with.
+ */
+async function landIn(
+  accountId: Id,
+  parentId: Id | null,
+  wanted: Array<{ id: Id; name: string }>,
+): Promise<{ moved: Array<{ id: Id; name: string }>; failure: unknown }> {
+  const level = await readChildren(accountId, parentId);
+  const taken = new Set(level.map((n) => n.name));
+  const update: Record<Id, { parentId: Id | null; name: string }> = {};
+  const landing: Array<{ id: Id; name: string }> = [];
+  for (const { id, name } of wanted) {
+    const free = uniqueName(taken, name);
+    taken.add(free);
+    update[id] = { parentId, name: free };
+    landing.push({ id, name: free });
+  }
+  try {
+    const res = await client.call<SetResponse>(FILENODE_SET, { accountId, update });
+    const failed = Object.values(res.notUpdated ?? {})[0];
+    if (failed) throw new Error(setErrorMessage(failed));
+    return { moved: landing, failure: null };
+  } catch (err) {
+    return { moved: [], failure: err };
+  }
+}
+
 export function trashSlice(
   _set: FilesSet,
   get: FilesGet,
@@ -83,42 +119,33 @@ export function trashSlice(
          then has one more row in it, and the reader is looking at some level. */
       const first = !current;
       const trashId = await ensureTrashFolder(accountId);
-      /* What the Trash already holds, read once: two nodes of one name landing
-         here is the ordinary case -- the reader deleted two "report.pdf". */
-      const inside = await readChildren(accountId, trashId);
-      const taken = new Set(inside.map((n) => n.name));
-      const update: Record<Id, { parentId: Id; name: string }> = {};
-      const origins: Record<Id, Id | null> = {};
-      for (const id of list) {
+      const landing = await landIn(
+        accountId,
+        trashId,
+        list.map((id) => ({ id, name: get().nodes[id]!.name })),
+      );
+      const origins: Record<Id, TrashOrigin> = {};
+      for (const { id, name } of landing.moved) {
         const node = get().nodes[id]!;
-        const name = uniqueName(taken, node.name);
-        taken.add(name);
-        update[id] = { parentId: trashId, name };
-        origins[id] = node.parentId ?? null;
+        origins[id] = { parentId: node.parentId ?? null, name: node.name, as: name };
       }
-      const res = await client.call<SetResponse>(FILENODE_SET, { accountId, update });
-      const moved = list.filter((id) => !res.notUpdated?.[id]);
       /*
        * The origins are a convenience, never the move: a restore that lost this
        * document puts the node at the top level of Files, so a failed write must
        * not report a move that happened as a failed one.
        */
-      if (moved.length)
-        await writeTrashOrigins(accountId, (doc) =>
-          withOrigins(
-            doc,
-            Object.fromEntries(moved.map((id) => [id, origins[id] ?? null])),
-          ),
-        ).catch(() => undefined);
+      if (landing.moved.length)
+        await writeTrashOrigins(accountId, (doc) => withOrigins(doc, origins)).catch(
+          () => undefined,
+        );
 
       await get().loadChildren(trashId);
       const from = new Set<Id | null>();
-      for (const id of moved) from.add(origins[id] ?? null);
+      for (const { id } of landing.moved) from.add(origins[id]?.parentId ?? null);
       for (const parentId of from) await get().loadChildren(parentId);
       if (first) await get().loadChildren(null);
       void get().loadTree();
-      const failed = Object.values(res.notUpdated ?? {})[0];
-      if (failed) throw new Error(setErrorMessage(failed));
+      if (landing.failure) throw landing.failure;
     },
 
     async restore(ids) {
@@ -132,7 +159,9 @@ export function trashSlice(
        * the question goes to the server rather than to the map.
        */
       const recorded = [
-        ...new Set(ids.map((id) => origins[id]).filter((p): p is Id => Boolean(p))),
+        ...new Set(
+          ids.map((id) => origins[id]?.parentId).filter((p): p is Id => Boolean(p)),
+        ),
       ];
       let alive = new Set<Id>();
       if (recorded.length) {
@@ -149,40 +178,33 @@ export function trashSlice(
           alive = new Set();
         }
       }
-      const byTarget = new Map<string, { parentId: Id | null; ids: Id[] }>();
+      const byTarget = new Map<
+        string,
+        { parentId: Id | null; wanted: Array<{ id: Id; name: string }> }
+      >();
       for (const id of ids) {
-        if (!get().nodes[id]) continue;
+        const node = get().nodes[id];
+        if (!node) continue;
         const origin = origins[id];
-        const parentId = origin && alive.has(origin) ? origin : null;
+        const parentId =
+          origin?.parentId && alive.has(origin.parentId) ? origin.parentId : null;
+        /*
+         * The name it had comes back when the move is what numbered it; a rename
+         * made inside the Trash is the reader's and stays.
+         */
+        const name = origin && node.name === origin.as ? origin.name : node.name;
         const key = parentId ?? "root";
-        const group = byTarget.get(key) ?? { parentId, ids: [] };
-        group.ids.push(id);
+        const group = byTarget.get(key) ?? { parentId, wanted: [] };
+        group.wanted.push({ id, name });
         byTarget.set(key, group);
       }
 
       const restored: Id[] = [];
       let firstError: unknown = null;
-      for (const { parentId, ids: group } of byTarget.values()) {
-        const level = await readChildren(accountId, parentId);
-        const taken = new Set(level.map((n) => n.name));
-        const update: Record<Id, { parentId: Id | null; name: string }> = {};
-        for (const id of group) {
-          const node = get().nodes[id]!;
-          const name = uniqueName(taken, node.name);
-          taken.add(name);
-          update[id] = { parentId, name };
-        }
-        try {
-          const res = await client.call<SetResponse>(FILENODE_SET, {
-            accountId,
-            update,
-          });
-          const failed = Object.values(res.notUpdated ?? {})[0];
-          if (failed) throw new Error(setErrorMessage(failed));
-          restored.push(...group);
-        } catch (err) {
-          firstError ??= err;
-        }
+      for (const { parentId, wanted } of byTarget.values()) {
+        const { moved, failure } = await landIn(accountId, parentId, wanted);
+        if (failure) firstError ??= failure;
+        restored.push(...moved.map((m) => m.id));
       }
       if (restored.length)
         await writeTrashOrigins(accountId, (doc) => withoutOrigins(doc, restored)).catch(

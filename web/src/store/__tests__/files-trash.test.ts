@@ -134,7 +134,13 @@ function browse(accountId: string, ownAccountId: string, nodes: Obj[]): void {
     ownAccountId,
     available: true,
     initialized: true,
-    nodes: Object.fromEntries(nodes.map((n) => [n.id, n])) as never,
+    /*
+     * Copies, not the fake's own objects: the store has to answer from what it
+     * last read, the way a real one does. A fake that handed its own nodes over
+     * would mutate them under the store the moment a write landed, and the
+     * move's own origin would be read after the node had already arrived.
+     */
+    nodes: Object.fromEntries(nodes.map((n) => [n.id, { ...n }])) as never,
     children: {},
     dirIds: [],
     treeLoaded: false,
@@ -183,7 +189,7 @@ describe("deleting in Files", () => {
       fake.sets.flatMap((s) => (s.destroy as string[] | undefined) ?? []).length,
     ).toBe(0);
     expect(parseTrashDocument(fake.document("trash.json")).origins).toEqual({
-      docs: "work",
+      docs: { parentId: "work", name: "Docs", as: "Docs" },
     });
     // The listing on screen now holds it, so the Trash is where the reader sees it.
     expect(useFiles.getState().children[String(trash?.id)]).toContain("docs");
@@ -228,6 +234,41 @@ describe("restoring from the Trash", () => {
     expect(fake.nodes.find((n) => n.id === "docs")?.parentId).toBe("work");
     expect(fake.nodes.find((n) => n.id === "a")?.parentId).toBe("docs");
     expect(parseTrashDocument(fake.document("trash.json")).origins).toEqual({});
+  });
+
+  it("brings each node's own name back when the move is what numbered it", async () => {
+    const fake = server([
+      dir("work", "Work", null),
+      dir("home", "Home", null),
+      file("one", "report.pdf", "work"),
+      file("two", "report.pdf", "home"),
+    ]);
+    browse(OWN, OWN, fake.nodes);
+
+    await useFiles.getState().trash(["one", "two"]);
+    expect(fake.nodes.find((n) => n.id === "two")?.name).toBe("report (2).pdf");
+
+    await useFiles.getState().restore(["one", "two"]);
+
+    expect(fake.nodes.find((n) => n.id === "one")?.parentId).toBe("work");
+    expect(fake.nodes.find((n) => n.id === "one")?.name).toBe("report.pdf");
+    expect(fake.nodes.find((n) => n.id === "two")?.parentId).toBe("home");
+    expect(fake.nodes.find((n) => n.id === "two")?.name).toBe("report.pdf");
+  });
+
+  it("keeps a name given inside the Trash when the node comes back", async () => {
+    const fake = server([dir("work", "Work", null), file("one", "report.pdf", "work")]);
+    browse(OWN, OWN, fake.nodes);
+
+    await useFiles.getState().trash(["one"]);
+    // The reader renames it while it sits in the Trash.
+    const held = fake.nodes.find((n) => n.id === "one")!;
+    held.name = "final.pdf";
+
+    await useFiles.getState().restore(["one"]);
+
+    expect(fake.nodes.find((n) => n.id === "one")?.name).toBe("final.pdf");
+    expect(fake.nodes.find((n) => n.id === "one")?.parentId).toBe("work");
   });
 });
 

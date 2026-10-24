@@ -59,20 +59,43 @@ describe("a name arriving in the trash", () => {
 });
 
 describe("the origins document", () => {
-  it("keeps a folder and the top level, and reads anything else as the top level", () => {
-    expect(parseTrashDocument({ origins: { a: "p", b: null, c: 7 } })).toEqual({
-      origins: { a: "p", b: null, c: null },
+  const entry = (parentId: string | null, name = "report.pdf", as = name) => ({
+    parentId,
+    name,
+    as,
+  });
+
+  it("keeps where a node came from and what it was called, and drops an entry with nothing to put back", () => {
+    expect(parseTrashDocument({ origins: { a: entry("p") } })).toEqual({
+      origins: { a: entry("p") },
     });
+    expect(
+      parseTrashDocument({
+        origins: { b: { parentId: null, name: "Photos", as: "Photos (2)" } },
+      }),
+    ).toEqual({ origins: { b: { parentId: null, name: "Photos", as: "Photos (2)" } } });
+    expect(
+      parseTrashDocument({
+        origins: {
+          a: "p",
+          b: { parentId: "p" },
+          c: { parentId: null, name: "x" },
+        },
+      }),
+    ).toEqual({ origins: { c: entry(null, "x") } });
     expect(parseTrashDocument("nonsense")).toEqual({ origins: {} });
     expect(parseTrashDocument(null)).toEqual({ origins: {} });
   });
 
   it("merges one entry at a time and forgets one at a time", () => {
-    const held = { origins: { a: "p" } };
-    expect(withOrigins(held, { b: null }).origins).toEqual({ a: "p", b: null });
-    expect(withoutOrigins(withOrigins(held, { b: null }), ["a"]).origins).toEqual({
-      b: null,
+    const held = { origins: { a: entry("p") } };
+    expect(withOrigins(held, { b: entry(null, "Photos") }).origins).toEqual({
+      a: entry("p"),
+      b: entry(null, "Photos"),
     });
+    expect(
+      withoutOrigins(withOrigins(held, { b: entry(null, "Photos") }), ["a"]).origins,
+    ).toEqual({ b: entry(null, "Photos") });
   });
 });
 

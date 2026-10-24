@@ -36,6 +36,7 @@ import {
   parseTrashDocument,
   TRASH_DOCUMENT,
   TRASH_FOLDER_NAME,
+  type TrashOrigin,
   uniqueName,
   withOrigins,
 } from "../../shared/trash.js";
@@ -456,7 +457,7 @@ async function rememberTrashOrigin(
   ctx: Ctx,
   accountId: string,
   id: string,
-  from: string | null,
+  origin: TrashOrigin,
 ): Promise<void> {
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const read = await readAppJsonForWrite(ctx, accountId, TRASH_DOCUMENT);
@@ -467,7 +468,7 @@ async function rememberTrashOrigin(
         ctx,
         accountId,
         TRASH_DOCUMENT,
-        withOrigins(doc, { [id]: from }),
+        withOrigins(doc, { [id]: origin }),
         { ifInState: state },
       );
       return;
@@ -520,10 +521,15 @@ export const deleteDocument = defineTool({
       "nodeType",
     ]);
     const taken = new Set(inside.map((n) => String(n.name ?? "")));
-    const name = uniqueName(taken, String(held.file.name ?? ""));
+    const original = String(held.file.name ?? "");
+    const landing = uniqueName(taken, original);
     const from = held.file.parentId == null ? null : String(held.file.parentId);
-    await writeNode(ctx, accountId, id, { parentId: trashId, name });
-    await rememberTrashOrigin(ctx, accountId, id, from).catch(() => undefined);
+    await writeNode(ctx, accountId, id, { parentId: trashId, name: landing });
+    await rememberTrashOrigin(ctx, accountId, id, {
+      parentId: from,
+      name: original,
+      as: landing,
+    }).catch(() => undefined);
     return { path, trashed: true };
   },
 });
