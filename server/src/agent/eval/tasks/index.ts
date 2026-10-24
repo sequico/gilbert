@@ -1,9 +1,9 @@
 /**
- * The eval's ten tasks, in the order the measure runs them (ADR 0038).
+ * The eval's eleven tasks, in the order the measure runs them (ADR 0038).
  *
  * Ordered quiet first: a task that measures silence costs nothing and answers
  * before any provider call is made, so a broken instruction or switch is read
- * before the day's budget is spent on the seven that drive the model.
+ * before the day's budget is spent on the eight that drive the model.
  */
 import type { EvalTask } from "../task.js";
 import { deliveryOnTheCalendar } from "./delivery-on-the-calendar.js";
