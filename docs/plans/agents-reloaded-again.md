@@ -65,8 +65,10 @@ no `say` in any plan). Two ran on the build before the window and identity fixes
   route sorts by date. The surface asks for fifty rows at a time and sorts the page
   it was given, so a group past fifty runs shows a history that ends at the
   fifty-first document ever filed — the owner's "nothing since 21 October" — while
-  today's three runs are in `freight/runs` and the chat, which asks for the runs in
-  flight with a limit of a thousand, shows them.
+  today's three runs are in `freight/runs`. The chat does not show a run log at all:
+  it asks the same listing for the runs in flight, with a limit of a thousand, to
+  draw the **questions** a parked run left, so it is safe only while a group holds
+  fewer than a thousand documents.
 - **No per-step cost exists in the document**: `spent` is a single total, and an
   ending names a ceiling without the value it had. Where a failed run's seconds
   and tokens went cannot be read from it.
@@ -396,9 +398,11 @@ first elsewhere) — so it becomes one function in `@gilbert/shared/run`
 applied **before** the filter and the slice. The client's sort stays as the last
 word for a page it appends to.
 
-The chat's panel does **not** share the defect: it asks for the runs in flight with
-a limit of a thousand, so it never falls off a fifty-row page. It shares the missing
-order, which is harmless while the live set is small and is covered by the same fix.
+The chat has no run log to lose. It reads the same listing for the runs in flight,
+with a limit of a thousand, to draw the **questions** a parked run left
+(`openQuestionsOf`), so today it is right; it shares the missing order, and a group
+holding more than a thousand documents could hide a question the same way. The fix
+covers both: order first, then filter, then slice.
 *Where*: `server/src/routes/agent.ts` (the working-set listing and the archive's
 comparator, one function), `web/src/lib/agentAdmin.ts` and
 `web/src/views/admin/agents/GroupRuns.tsx` (a page drawn in the order it arrives).
