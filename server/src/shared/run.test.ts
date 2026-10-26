@@ -271,7 +271,10 @@ test("a run records the case it works, and a later name moves it", () => {
     "a case that is not a name is refused",
   );
   assert.throws(() =>
-    withCase(finishRun(named, { at: new Date().toISOString(), why: "done" }), "x"),
+    withCase(
+      finishRun(named, "done", { at: new Date().toISOString(), why: "done" }),
+      "x",
+    ),
   );
 });
 
