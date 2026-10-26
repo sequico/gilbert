@@ -96,8 +96,8 @@ works, including deleting in Files, which moves the node into the group's Trash.
 > stream, thirty with one — an installation
 > that has chosen no model, or a Master who works no group, leaves it idle with
 > a line in the console instead (said once, when the state begins). The agent's decisions are
-> [ADR 0038](docs/adr/0038-the-agent-is-areas-jobs-and-a-persons-yes.md) (the
-> agent is areas, jobs and a person's yes), [0028](docs/adr/0028-what-the-agent-decides-and-what-a-person-decides.md)
+> [ADR 0038](docs/adr/0038-the-agent-is-areas-verbs-and-a-persons-yes.md) (the
+> agent is areas, verbs and a person's yes), [0028](docs/adr/0028-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
 > [0029](docs/adr/0029-the-conversation-runs-in-chat-and-mail.md) (one
 > conversation in chat and mail), [0030](docs/adr/0030-a-run-is-a-document-and-the-record-is-the-product.md)

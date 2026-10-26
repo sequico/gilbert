@@ -1,4 +1,4 @@
-# ADR 0038 — The agent is areas, jobs, and a person's yes
+# ADR 0038 — The agent is areas, verbs, and a person's yes
 
 Status: Proposed
 

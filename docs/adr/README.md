@@ -375,7 +375,7 @@ is, not what a user sees.
   anchoring at the present and losing the window in between. An unreadable
   document is a gap the pass says out loud. **Built, Proposed**
   (`server/src/agent/cursors.ts`, `agent/loop.ts`, `agent/events.ts`).
-- **0038 — The agent is areas, jobs, and a person's yes.** The whole shape of the
+- **0038 — The agent is areas, verbs, and a person's yes.** The whole shape of the
   agent in one record: independent areas (mail, calendar, contacts, files,
   knowledge, workorders, chat, memory) whose actions a run is handed by
   **selection** — the areas the group's **one instruction** declares, plus chat
