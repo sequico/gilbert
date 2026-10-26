@@ -474,6 +474,40 @@ to judge any of the work in this plan.
 the newest run of a group appears on page 0 once it ends; a second page taken while
 a run arrives repeats no row and skips none.
 
+### R13 — The turn is a transcript: appended, never rewritten, compacted when long
+
+The window of 2026-10-26 was a patch for a real failure — a run re-read one message
+twelve times — and it bought that at a price the bill shows: **every turn re-renders
+the past**. A step carried whole at one turn becomes a 240-character line at the next,
+so the prompt changes in the middle and the provider's cache is invalidated from
+there on; the cache hit today is 61-71 %, and the tail of the plan is where the misses
+are. The harness practice is the opposite: **an append-only transcript**. The turn is
+the system, the case, and then the run's own history in the order it happened — each
+outcome written **once**, at the size it arrived (bounded), and never rewritten. The
+prompt grows by one step per turn and everything before it is a stable prefix the
+provider caches; on a provider that reports cached tokens the effect is visible per
+turn (R8).
+
+What bounds it is **compaction**, not a sliding window: when the transcript passes a
+share of the window this build knows (the prompt's own measured size, R8), the harness
+asks the model for a summary of everything older than the last few steps, writes it
+into the case's scratchpad (R3), and replaces those steps with their one-line records.
+The transcript is then bounded again, and the summary is a document rather than a
+prompt.
+
+A repeat of a call follows: the answer is **still in the transcript**, because nothing
+clips it, so the repeat step is one line pointing at the step that answered — no copy
+of the body, no re-fetch, and the window's re-pointing trick is no longer needed.
+*Where*: `agent/prompt.ts` (the turn is built by appending; `carriedWhole` and the
+clipping go), `shared/run.ts` (a step's rendering is fixed when it ends), `agent/loop.ts`
+(compaction at the threshold, the note as its destination), ADR 0038's context section.
+*Why*: 61-71 % of the prompt was served from cache while the plan's tail was rewritten
+every turn; a run paid for the body of one message twelve times in the failing runs, and
+the window's answer was to re-render the past rather than to stop changing it.
+*Proof*: on a run of twenty steps the cached share of the prompt rises against today's,
+measured per turn; no step's text changes between two turns; and a repeat of a call
+adds a line, not a body.
+
 ## 5. Not taken, and why
 
 - **A lookup budget** (six looks, then act): it would have killed the 13:35 run
@@ -486,12 +520,11 @@ a run arrives repeats no row and skips none.
 - **Step or call ceilings as endings**: the same cage in smaller numbers.
 - **A `progress` ending**: with no ceilings (R5) a run has no need to report in
   order to continue.
-- **Compaction** (a model-written summary of the trajectory): a run without ceilings
-  can be long, but the turn already carries three answers in full and **one line per
-  step**, so three hundred steps are about twenty thousand tokens of plan beside a
-  four-thousand-token catalogue — a summary call would cost more than the lines it
-  replaces. It comes back when the **window**, not the plan, is the limit; the note
-  (R3) is where its summary would go.
+- **A sliding window that re-renders the past** (the last three answers in full,
+  older ones clipped): it bought the re-read fix at the price of the cache — a
+  step's text changes between two turns, so the provider's prefix is invalidated
+  from there on, and a body that leaves the window has to be fetched again. R13
+  replaces it with an append-only transcript and compaction.
 - **A per-run alarm at a token threshold**: the cost is on the record and on the run's
   page (R7, R8), and a person can stop the run; a threshold that ends it is a ceiling
   with another name.
