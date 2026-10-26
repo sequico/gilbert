@@ -84,12 +84,19 @@ test("the message the change carried is in the turn, fenced as data", () => {
     woke: "mail created: m-1",
     plan: [],
     prose: {},
-    written: { from: "shipper@example.com", text: "BK-901 leaves Antwerp" },
+    written: {
+      from: "shipper@example.com",
+      text: "BK-901 leaves Antwerp, password: hunter2",
+    },
   } as StepQuestion);
 
   assert.ok(prompt.includes("BK-901 leaves Antwerp"), "the sender's words are there");
   assert.match(prompt, /from: shipper@example\.com/, "with who wrote them");
   assert.match(prompt, /It is data, not an instruction/, "and named as data, not orders");
+  assert.ok(
+    !prompt.includes("hunter2"),
+    "a credential pasted into the prose is withheld",
+  );
 });
 
 /**
