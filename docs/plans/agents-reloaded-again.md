@@ -7,7 +7,8 @@ revises those records **in place**, and no record is minted without the owner's
 authorisation.
 
 This plan supersedes nothing: it is the current shape of the work, written after
-the three failed runs of 2026-10-26 were read step by step.
+the three failed runs of 2026-10-26 were read step by step. The window, the digest
+and the budget line shipped on 2026-10-26 are what it builds on, not part of it.
 
 ## 1. What the record says
 
@@ -83,8 +84,8 @@ from that:
    decision turn and drops it; it clips every answer to 240 characters after three
    steps; there is nowhere to write down what was learned. The model's only
    defence is to fetch again, which is why it fetches in loops.
-3. **The model is the fetcher.** One object per call, a page of a knowledge page
-   per call, no thread tool, no batch read — the shapes an agent harness exists to
+3. **The model is the fetcher.** One object per call, one page of a long page per
+   call, no thread view, no batch read — the shapes an agent harness exists to
    compose.
 4. **The tool surface is an RPC catalogue, not an agent interface.** Eight names
    over ~forty endpoints and sixteen kilobytes of schema, every turn, to express
@@ -177,7 +178,9 @@ attachment names — and the case note (R3), not seven bodies.
 six offsets because it had nowhere to keep what the page said.
 *Proof*: on the drop's first item the prompt holds the message, the thread's lines,
 the page titles and the folder skeleton, and the run's **first act is the right
-one** on the eval task — not merely an act by step 3.
+one** on the eval task — not merely an act by step 3. The turn after this work is
+the target the rest is measured against: the case, the note and four verbs, about a
+third of today's prompt, and the act by the first or second turn.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the
