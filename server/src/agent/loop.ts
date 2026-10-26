@@ -2175,9 +2175,12 @@ export class AgentLoop {
          * step of the record; the run is then asked once more with it in front.
          *
          * And when the group has declared **the shape a report takes**, every report
-         * is judged: that declaration is the one thing the harness reads about prose —
-         * that it is there — so the shape itself is the judge's to read and never the
-         * harness's to parse (ADR 0038).
+         * is judged — including the one written after a verdict that did not stand,
+         * which is the report the shape most needs to hold. That declaration is the
+         * one thing the harness reads about prose — that it is there — so the shape
+         * itself is the judge's to read and never the harness's to parse. A model that
+         * repeats a report without correcting it is bounded by the turn valve, and it
+         * sees every verdict in its plan.
          */
         const judged = current.plan.filter((step) => step.what === JUDGE_CHECKED).length;
         const firstFailed = current.plan.findIndex((step) => step.state === "failed");
@@ -2185,7 +2188,8 @@ export class AgentLoop {
           firstFailed >= 0 &&
           current.plan.some((step, at) => at > firstFailed && step.state === "done");
         const shape = (await this.instructionOf(accountId))?.report;
-        if ((suspect || shape !== undefined) && judged === 0) {
+        const judge = shape !== undefined || (suspect && judged === 0);
+        if (judge) {
           const judgeStarted = Date.now();
           const judgeMeter = usageMeter();
           current = spendRun(current, { calls: 1 });

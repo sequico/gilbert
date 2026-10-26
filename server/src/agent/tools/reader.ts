@@ -28,7 +28,11 @@ export const readBrief = defineTool<{
     "the objects first — and it never acts.",
   authority: "reversible",
   writes: false,
-  spend: {},
+  /*
+   * One model call, so it spends one call on the run's tally: reading is free of
+   * *steps*, not of what it costs, and the liveness valve counts what was spent.
+   */
+  spend: { calls: 1 },
   args: { question: { type: "text" }, about: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
