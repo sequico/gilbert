@@ -195,6 +195,15 @@ few lines and the working turn sees the lines: it reads, it never acts. The docu
 complete, the prompt is bounded, the stable prefix stays stable, and the model is not
 sent to fetch what the harness already has.
 
+**The system turn says what the run is**, what its verbs are, what is never the
+model's to decide, and shows **one worked example** of a run's shape — a case opened,
+its work placed and its report written — because an example carries what a list of
+rules does not. It does not speak in the operator's voice: the group's instruction
+travels as its own prose, and a second voice in the system turn would be a second
+operator. And it does not list imperatives the turn cannot keep: a rule that describes
+a harness the turn no longer has teaches the model to work around it
+(`agent/model.ts`, `chooseStep`).
+
 The **stable prefix** (installation line, catalogue, instruction) is sent first and
 unchanged, so a caching provider pays for it once per run; the facts and the plan's
 tail follow, because a prefix is cacheable only when nothing that moves comes

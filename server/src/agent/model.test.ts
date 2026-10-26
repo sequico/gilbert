@@ -1055,7 +1055,7 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
     "and the signatures are beside the definitions, since the definitions alone were not read",
   );
   assert.ok(
-    system.includes("refused rather than run"),
+    system.includes("an act a person must authorise is refused"),
     "because what may run is the guard's answer, and the model is told so",
   );
 });

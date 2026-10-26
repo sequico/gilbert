@@ -464,8 +464,12 @@ system turn speaking in the operator's voice would be a second operator.
 *Why*: every turn pays for it, and under it the model still read one message twelve
 times; an instruction that describes a harness the turn no longer has teaches the
 model to work around it.
-*Proof*: the prose is measured against today's in characters, and the eval's three
-tasks move — the number, not the wording, is the argument.
+*Proof*: every turn pays for the prose, so it is counted, not admired: 1 869
+characters of imperatives before, 1 659 after, in eight statements, the guard's rule
+and **one worked example** instead of fifteen directives — three of which the built
+turn made false. The wording is not the argument; the eval's three tasks are. The
+example names the acts a case takes — read, place, note, say — so a model that has
+read the catalogue knows the shape of a run without a rule for each step.
 
 ### R12 — The run log shows the newest, not the first page ever filed
 
