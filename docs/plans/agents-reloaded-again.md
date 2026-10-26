@@ -369,19 +369,21 @@ a verdict that reads the states and the sentence.
 
 ## 6. Order of work
 
-| step | what | proof that closes it |
+| step | what | how it is judged (a measurement, not a gate) |
 |---|---|---|
-| 0 | rotate the agent's credential and remove its copies from `/tmp` (owner's call) | a leak repeats no more; nothing left on disk outside `/etc/gilbert` |
-| 1 | R5 — no run ceilings; per-call timeout; daily alarm | the 13:35 run, replayed, reaches its act instead of the clock |
-| 2 | R8 — per-step cost in the document | one failed run explains its own 27 s and 7 500 tokens |
-| 3 | R2 — the case in the turn | the first act by step 3 on a one-message case |
-| 4 | R1 + R3 — one run per drop, with the case note | the seven-message drop files seven, under 250 k tokens |
-| 5 | R4 — four verbs | the schema is a third of today's, and zero refusals in the eval |
-| 6 | R9 — the three failures as eval tasks | they fail before, pass after; `pass@1` recorded |
-| 7 | R6, R7, R10 | a long run blocks no group; a run in flight is watchable and stoppable; the judge stays bounded |
+| 0 | rotate the agent's credential and remove its copies from `/tmp` (owner's call) | nothing of the agent's is left outside `/etc/gilbert` |
+| 1 | **R9 — the three failures as eval tasks** | `pass@1` of today's tree is recorded, and the three tasks fail |
+| 2 | R5 — no run ceilings | the 13:35 task reaches its act; its duration is recorded, not enforced |
+| 3 | R8 — per-step cost and the limits in force | a failed task's 27 s and 7 500 tokens per turn are attributable to steps |
+| 4 | R2 — the case in the turn, and the reader when it is bigger than a turn | the first act is the right one on the task |
+| 5 | R1 + R3 — one run per drop, with the scratchpad | the seven messages file in one run, at no more than one message costs today |
+| 6 | R4 — four verbs | the schema is a third of today's, and the refusals stay at zero |
+| 7 | R6, R7, R10 | a run is resumed in the next interval; it is watchable and stoppable; the judge stays within the prompt bound |
 
-Steps 1 and 2 are small and make the rest measurable. Steps 3 and 4 carry the
-gain; 5 makes it cheap per turn; 6 is the instrument; 7 is polish that can wait.
+Step 1 comes first because it is the instrument: without it every later step is an
+opinion, and the last three changes were measured on a synthetic plan. Step 2 is
+what makes a run measurable at all — a task that dies on a clock teaches nothing.
+Steps 4 and 5 carry the gain, 6 makes the turn cheap, 7 is polish.
 
 ## 7. What is still unknown
 
