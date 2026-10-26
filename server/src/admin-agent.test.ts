@@ -195,6 +195,7 @@ test("an administrator writes a group's instruction through the route, and reads
     body: JSON.stringify({
       instruction: "Be brief.",
       areas: ["mail", "files"],
+      report: "Booking, what arrived, what is missing.",
       surfaces: {
         chat: "watch",
         mail: "watch",
@@ -211,10 +212,16 @@ test("an administrator writes a group's instruction through the route, and reads
   const prose = (await call(base)).body as {
     instruction: string;
     areas: string[];
+    report?: string;
     surfaces: { chat: string; mail: string; files: string };
   };
   assert.equal(prose.instruction, "Be brief.", "the line is read back as written");
   assert.deepEqual(prose.areas, ["mail", "files"], "and so are the areas it works");
+  assert.equal(
+    prose.report,
+    "Booking, what arrived, what is missing.",
+    "and the shape a report takes, which the judge reads",
+  );
   assert.equal(prose.surfaces.mail, "watch", "and what wakes it: mail");
   assert.equal(prose.surfaces.files, "off", "and what does not: files");
   assert.equal(prose.surfaces.chat, "watch", "the conversation is always a wake");
