@@ -1388,8 +1388,8 @@ export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
 /**
  * End the run: how, when and why (ADR 0030).
  *
- * The ending is written down — so a run that stops says which of the three ways
- * it stopped, and why — and the wait is dropped, because a run that has stopped
+ * The ending is written down — so a run that stops says how and why — and the
+ * wait is dropped, because a run that has stopped
  * is not waiting for anything. A run that ends **blocked on a person** is the
  * one exception: it keeps the question it left, and the sentence it asked it
  * in, so the answer that arrives in the conversation can be recognised as

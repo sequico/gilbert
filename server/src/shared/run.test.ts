@@ -2,7 +2,7 @@
  * The run's shape and its transitions (ADR 0030) — no server, no I/O.
  *
  * What a transition does is the whole of what is pinned here: a run ends in one
- * of three ways and says which, a step's outcome is recorded where it belongs,
+ * of the ways ADR 0030 names and says which, a step's outcome is recorded where it belongs,
  * the plan grows with the step the model chose — a step may wait on an earlier
  * one and be left unrun when no branch names its outcome — what the run touched,
  * which facts of the installation's memory it recalled, and what it

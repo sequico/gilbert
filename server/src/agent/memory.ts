@@ -108,10 +108,8 @@ export function factPath(id: string): string {
   return documentPath(id);
 }
 
-/** An entity's document path, app-folder-relative. */
-export function entityPath(id: string): string {
-  return documentPath(id);
-}
+/** An entity's document path: entities and facts live in the one folder, named once. */
+export const entityPath = factPath;
 
 /**
  * A document of the memory this build cannot use.
