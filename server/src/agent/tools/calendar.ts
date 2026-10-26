@@ -344,7 +344,7 @@ export const updateEvent = defineTool({
  * act from a person's.
  *
  * A create, a change or a removal the agent made is activity, but not activity
- * to answer: a rule watching the calendar that woke on its own write would open
+ * to answer: an agent watching the calendar that woke on its own write would open
  * a run, whose write would wake it again. The ids are the server's, the set is
  * bounded because it is a speed-up and never a store, and the mark is taken by
  * the first change it explains — one write is one change.

@@ -3,7 +3,7 @@
  *
  * A run is one document named `<id>.json` under `runs/` in the **group's own
  * account** — the group's `gilbert` app folder — so reading a group's history is
- * reading its own documents, under the group's own access, like its rules and
+ * reading its own documents, under the group's own access, like its instruction and
  * its workorders. The shape and the transitions over it are
  * `@gilbert/shared/run`; what lives here is where the document is, how it is
  * read and how it is written.

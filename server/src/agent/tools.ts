@@ -119,11 +119,11 @@ export async function runTool(
 ): Promise<unknown> {
   const { tool, args } = validatedTool(catalogue, name, raw);
   /*
-   * A write on a surface the run's rule keeps off is refused before the class
-   * is asked: the rule says *where* this run may act (ADR 0038), the class says
+   * A write on a surface the run's matrix keeps off is refused before the class
+   * is asked: the matrix says *where* this run may act (ADR 0038), the class says
    * whether the act needs a person's word (ADR 0028). Reading is free — a
    * reading is proof, not an act. The surface is the call's own, because one
-   * job reaches two of them (ADR 0038).
+   * verb reaches more than one of them (ADR 0038).
    */
   const surface = tool.surfaceOf(args);
   if (tool.writes && surface && surfaceModeOf(call.run, surface) === "off")

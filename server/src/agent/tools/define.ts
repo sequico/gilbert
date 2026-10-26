@@ -30,8 +30,8 @@ export type { ImageReader };
  * `reversible` is the agent's own decision; `destructive` (a message, a folder
  * or a page destroyed, a document overwritten), `outward` (anything that
  * reaches a person outside the mandate) and `beyond-policy` (an act the written
- * policy forbids) each need an authority the run carries — a person's word, a
- * rule that declares it sends, or an installation administrator's override —
+ * policy forbids) each need an authority the run carries — a person's word, an
+ * instruction that declares it sends, or an installation administrator's override —
  * and `intent` is never the agent's, whatever the run carries.
  */
 type ToolAuthority =
@@ -374,10 +374,10 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
 }
 
 /**
- * The mode the run's rule gives one surface, or null when the run predates the
+ * The mode the run's matrix gives one surface, or null when the run predates the
  * matrix (ADR 0038).
  *
- * A run opened before a rule carried surfaces may write where it did before: the
+ * A run opened before a matrix carried surfaces may write where it did before: the
  * guard does not narrow it retroactively, and the run's own view says it stands
  * before the matrix.
  */

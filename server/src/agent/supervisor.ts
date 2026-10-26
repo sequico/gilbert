@@ -2,7 +2,8 @@
  * The process that asks the loop for a pass (ADR 0027, 0030, 0032).
  *
  * `agent/loop.ts` works a run — it claims the installation, re-arms the waits it
- * finds, reads each account's changes and answers each one a rule covers — and a
+ * finds, reads each account's changes and answers each change the group's
+ * instruction covers — and a
  * pass is the caller's to ask for. This module is that caller, and the **server's
  * own boot is what starts it** (`index.ts`): the agent is part of the product, so
  * launching Gilbert is what makes it exist. It runs on the installation the boot
@@ -27,7 +28,7 @@
  * when the session names a different set of candidates — `groupAccess.ts`), and
  * reads each group's runs and its change log (a request per page apiece, and a
  * run document whose stamp has not moved is not downloaded again). It
- * asks the model **only** when a rule covers a change (ADR 0031), so a quiet
+ * asks the model **only** when the group's instruction covers a change (ADR 0038), so a quiet
  * installation costs reads and nothing else. Ten seconds is far below the
  * claim's own `CLAIM_TTL_MS` (ten
  * minutes), so a working process's renewals are ordinary rather than a race with

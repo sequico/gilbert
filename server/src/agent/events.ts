@@ -420,7 +420,7 @@ export async function readAccountEvents(
     );
 
     /*
-     * Mail wakes a rule on an arrival and on nothing else (ADR 0031): a message
+     * Mail wakes an agent on an arrival and on nothing else (ADR 0038): a message
      * that was created and is in the account's Inbox. The reads, the marks, the
      * filings and the removals the log also reports are not activity anybody
      * asked the agent to answer.

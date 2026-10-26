@@ -50,10 +50,10 @@ export type AccountEventSource = SurfaceName;
  * A create and a later update of the same node are one event, named `created`
  * (`events.ts`, ADR 0030): the reading folds the two changes of one address.
  *
- * Mail is the one surface that only ever answers `created`: a rule watching mail
+ * Mail is the one surface that only ever answers `created`: an agent watching mail
  * is woken by a message that **arrived** — created and in the Inbox — so reading,
  * marking, filing and removing a message are not events at all (`events.ts`,
- * ADR 0031).
+ * ADR 0038).
  */
 export type AccountEventChange = "created" | "updated" | "destroyed";
 
