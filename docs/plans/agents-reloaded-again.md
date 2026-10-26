@@ -237,6 +237,11 @@ Two stores, and the difference is the life they have:
   written with `remember` and recalled by the loop on the next case. It is
   already built, and two of the three runs tried to read it.
 
+The file is named by **the key that opened the case**, which is the queue's own
+(ADR 0034): the folder for a file drop, the sender and the instant for a mail drop,
+the thread id for a thread. Whatever opens a case names its scratchpad, so a later
+message that joins the same case finds the same file and nothing has to be indexed.
+
 No boundary is policed on the note: a note that grows is rewritten by the model
 that owns it, the way a team curates a `CLAUDE.md`, and the harness only tells the
 turn what it is carrying.
@@ -460,7 +465,7 @@ a run arrives repeats no row and skips none.
 | 2 | **R9 — the three failures as eval tasks** | `pass@1` of today's tree is recorded, and the three tasks fail |
 | 3 | R5 — no run ceilings | the 13:35 task reaches its act; its duration is recorded, not enforced |
 | 4 | R8 — per-step cost and the limits in force | a failed task's 27 s and 7 500 tokens per turn are attributable to steps |
-| 5 | R2 + R11 — the case in the turn, and the prose that describes it | the first act is the right one on the task |
+| 5 | R2 + R11 — the case in the turn (and the reader for a case bigger than one), with the prose that describes it | the first act is the right one on the task |
 | 6 | R1 + R3 — one run per drop, with the scratchpad | the seven messages file in one run, at no more than one message costs today |
 | 7 | R4 — four verbs | the schema is a third of today's, and the refusals stay at zero |
 | 8 | R6, R7, R10 | a run is resumed in the next interval; it is watchable and stoppable; the judge stays within the prompt bound |
