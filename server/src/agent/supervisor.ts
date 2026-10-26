@@ -213,6 +213,13 @@ export function supervise(options: SupervisorOptions): AgentProcess {
    */
   let saidGaps = new Set<string>();
   /**
+   * The failure this process last reported, so a reason that repeats is silent
+   * and a pass that works again is news. A broken mail server fails the same way
+   * every ten seconds; a line per beat is not an event, it is noise, and the
+   * module's own rule is that what is said is what **changes**.
+   */
+  let saidFailure: string | null = null;
+  /**
    * A full upload allowance pauses the schedule until this instant: a rejected
    * upload spends the allowance too, so the ordinary retry would keep the
    * account at the ceiling rather than let the window drain.
@@ -228,6 +235,10 @@ export function supervise(options: SupervisorOptions): AgentProcess {
     const work = (async () => {
       try {
         const summary = await options.loop.pass(now());
+        if (saidFailure) {
+          saidFailure = null;
+          log("[gilbert] agent: the pass is working again");
+        }
         if (summary.claimed) {
           if (summary.ms > SLOW_PASS_MS)
             log(
@@ -266,9 +277,18 @@ export function supervise(options: SupervisorOptions): AgentProcess {
             `[gilbert] agent: the mail server's upload allowance is full, so the agent pauses for ${Math.round(QUOTA_PAUSE_MS / 60_000)} minutes`,
           );
         } else {
-          log(
-            `[gilbert] agent: the pass failed and the next one will try again: ${errorMessage(err)}`,
-          );
+          /*
+           * One line per **reason**, not per pass: a mail server that is down
+           * fails the same way every ten seconds, and the next pass is the retry
+           * — the line says what a person can act on, and says it once.
+           */
+          const why = errorMessage(err);
+          if (why !== saidFailure) {
+            saidFailure = why;
+            log(
+              `[gilbert] agent: the pass failed and the next one will try again: ${why}`,
+            );
+          }
         }
       } finally {
         if (queued && !stopped) {

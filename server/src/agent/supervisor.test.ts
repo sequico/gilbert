@@ -487,19 +487,30 @@ test("the Master working no group is said once, and once again when it holds one
   );
 });
 
-test("a pass that throws is logged, and the next one still runs", async (t) => {
+test("a pass that throws is logged once per reason, and the next one still runs", async (t) => {
   const stand = standInLoop();
   const { lines, log } = collector();
   stand.failNext(2);
   const process = supervise({ loop: stand.loop, intervalMs: 10, log });
   t.after(() => process.stop());
-  await waitFor(() => failuresIn(lines).length >= 2);
-  assert.ok(
-    failuresIn(lines).length >= 2,
-    `every failure is on the log (${failuresIn(lines).length})`,
+  await waitFor(() => failuresIn(lines).length >= 1);
+  /*
+   * The same failure twice is one line: a mail server that is down fails the
+   * same way every ten seconds, and the next pass is the retry. The recovery is
+   * the change worth a line, and it is said once too.
+   */
+  await waitFor(() => stand.passes >= 4);
+  assert.equal(
+    failuresIn(lines).length,
+    1,
+    `the same failure is said once (${failuresIn(lines).length})`,
   );
   assert.match(failuresIn(lines)[0] ?? "", /the mail server did not answer/);
-  await waitFor(() => stand.passes >= 4);
+  assert.equal(
+    lines.filter((line) => line.includes("the pass is working again")).length,
+    1,
+    "and the pass that works again says so, once",
+  );
   assert.ok(stand.passes >= 4, "and the schedule went on asking");
 });
 
