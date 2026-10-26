@@ -114,7 +114,7 @@ from that:
 | principle | source | what it means here |
 |---|---|---|
 | workflow where the path is known, agent where it is not | Anthropic, *Building effective agents* | filing a delivery note follows a path; deciding what a letter is about does not |
-| context is a finite budget: select, write, compress, isolate | Anthropic, *Effective context engineering*; LangChain, *Context engineering* | hand the case in; let the agent write notes; summarise; isolate reading |
+| context is a finite budget: select, write, compress, isolate | Anthropic, *Effective context engineering*; LangChain, *Context engineering* | hand the case in; let the agent write the scratchpad; the plan's one-line-per-step is the compression; the reader is the isolation |
 | the harness moves the data, not the model | Anthropic, *Code execution with MCP* (150 k → 2 k tokens) | prefetch, filter and compose inside the loop, hand the turn a small result |
 | few, high-level tools that express intentions | Anthropic, *Writing effective tools* | four verbs, not forty endpoints |
 | a session is a shift with handoff artifacts | Anthropic, *Effective harnesses for long-running agents* | the case note is the handoff between runs of a drop |
@@ -451,6 +451,15 @@ a run arrives repeats no row and skips none.
 - **Step or call ceilings as endings**: the same cage in smaller numbers.
 - **A `progress` ending**: with no ceilings (R5) a run has no need to report in
   order to continue.
+- **Compaction** (a model-written summary of the trajectory): a run without ceilings
+  can be long, but the turn already carries three answers in full and **one line per
+  step**, so three hundred steps are about twenty thousand tokens of plan beside a
+  four-thousand-token catalogue — a summary call would cost more than the lines it
+  replaces. It comes back when the **window**, not the plan, is the limit; the note
+  (R3) is where its summary would go.
+- **A per-run alarm at a token threshold**: the cost is on the record and on the run's
+  page (R7, R8), and a person can stop the run; a threshold that ends it is a ceiling
+  with another name.
 - **A thread tool or a mail-specific tool per case**: R2's reader answers a question
   about a thread or a folder, and R4's `open` takes a set of objects in one call; a
   third shape beside them would be the same work under a new name.
