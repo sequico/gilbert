@@ -334,11 +334,18 @@ test("the runs list is newest first, and its page is taken by a cursor", async (
    */
   for (let at = 0; at < 60; at += 1) {
     const startedAt = new Date(Date.UTC(2027, 0, 1, 0, at)).toISOString();
-    const run = startRun({
-      id: `page-run-${String(at).padStart(2, "0")}`,
-      startedAt,
-      startedBy: { rule: null, instruction: null, woke: `mail created: m-${at}` },
-    });
+    const run = finishRun(
+      startRun({
+        id: `page-run-${String(at).padStart(2, "0")}`,
+        startedAt,
+        startedBy: { rule: null, instruction: null, woke: `mail created: m-${at}` },
+      }),
+      "done",
+      {
+        at: new Date(Date.UTC(2027, 0, 1, 0, at, 30)).toISOString(),
+        why: "the work is done",
+      },
+    );
     await writeAppFileAt(master, teamAccount, runPath(run.id), run);
   }
   const legacy = startRun({

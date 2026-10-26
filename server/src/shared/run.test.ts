@@ -209,6 +209,40 @@ test("a step keeps the identity of the whole call it made, beside its readable l
   assert.ok("problem" in broken, "a digest that is not a string is refused");
 });
 
+test("a step keeps the time its call took, and a run the limits in force", () => {
+  /*
+   * The record's answer to "where did the run's time go, and what held it": a
+   * step is one call to the account and carries its own milliseconds, and the run
+   * records the limits that were in force when it opened — recorded, never
+   * enforced, so a pass that fell back to the defaults is visible in the run it
+   * paid for (ADR 0038).
+   */
+  const run = startRun({
+    id: "r16",
+    startedBy: START,
+    limits: { maxRunTokens: 200_000, maxRunSteps: 40, maxDailyTokens: 4_000_000 },
+  });
+  const asked = recordStep(appendStep(run, 'read {"kind":"message","id":"m-1"}'), 0, {
+    state: "done",
+    outcome: "the body",
+    ms: 120,
+  });
+  assert.equal(asked.plan[0]?.ms, 120, "a step says how long its own call took");
+
+  const stored = parseRunDocumentDetailed(JSON.stringify(asked));
+  assert.ok("run" in stored, "the document reads back");
+  assert.equal(
+    stored.run.limits?.maxDailyTokens,
+    4_000_000,
+    "and the run what was in force when it opened",
+  );
+
+  const bad = parseRunDocumentDetailed(
+    JSON.stringify({ ...asked, limits: { maxRunTokens: "many" } }),
+  );
+  assert.ok("problem" in bad, "a limits shape that is not three numbers is refused");
+});
+
 test("a step may wait on an earlier step, and is left unrun when no branch names its outcome", () => {
   const run = startRun({ id: "r14", startedBy: START, plan: ["file the confirmation"] });
   const planned = appendStep(run, "tell the shipper", { step: 0, when: "done" });

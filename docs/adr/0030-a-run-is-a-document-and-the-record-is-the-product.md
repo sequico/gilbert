@@ -4,9 +4,10 @@ Status: Accepted
 
 Implementation: Partly built. The run document — its shape, its parser and the
 transitions over it — is `server/src/shared/run.ts`, and where a run lives, how
-it is read and how it is written whole is `server/src/agent/runs.ts`. **Not built:**
-a step's cost (milliseconds and tokens) and the limits in force at a run's opening;
-the case's scratchpad (ADR 0034). The work is
+it is read and how it is written whole is `server/src/agent/runs.ts`. **Built
+beside it:** a step's own duration (`RunStep.ms`, measured around the tool) and the
+limits in force when the run opened (`RunDoc.limits`, recorded and never enforced).
+**Not built:** the case's scratchpad (ADR 0034). The work is
 `docs/plans/agents-reloaded-again.md`. The plan
 carries **order and conditions**: each step names what it waits on — a step named
 before it in the same answer, and the outcome it needs that step to end with —
@@ -59,13 +60,14 @@ agent's durable state.
   digest of the whole call it asked (`ask`): the line is clipped, so it cannot
   tell two calls apart, and a repeat is recognised by the call rather than by
   its beginning.
-- **A step says what it cost, and the run says what it was held to.** The
-  milliseconds and tokens of each turn, and the limits in force when the run
-  opened, are facts on the document: a run whose budget fell back to a default is
-  visible in the run that paid for it, and a reader can answer where a turn's
-  seconds went. The case's scratchpad (ADR 0034) is the run's working memory,
-  written by the model and carried in every turn; nothing the run needs to keep
-  is only in a prompt.
+- **A step says how long its own call took**, and the run says what held it. Each
+  step carries the milliseconds its call to the account took (`RunStep.ms`), so a
+  wave of four is four durations; the run records the limits in force when it opened
+  (`RunDoc.limits`), which are **recorded and never enforced** (ADR 0038) — a reader
+  can see what held the run, and a pass that fell back to the installation's defaults
+  is visible in the run that paid for it. The tokens a turn spent are the run's total
+  on `spent`: a turn can produce several steps, and dividing its cost across them
+  would be an invented number.
 - **One change of the server is one event.** The agent reads a group's activity
   from the server's own change logs, and a node written twice in one batch —
   created and then written again — reaches them as two changes for one address,

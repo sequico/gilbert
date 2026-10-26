@@ -48,6 +48,13 @@ export const RUN_VERSION = 6;
  */
 export const RUN_STEPS_MAX = 20;
 
+/** The installation's limits as a run records them: what held it, never a budget. */
+export interface RunLimits {
+  maxRunTokens: number;
+  maxRunSteps: number;
+  maxDailyTokens: number;
+}
+
 /**
  * The versions before this one, which this build reads as well.
  *
@@ -222,6 +229,14 @@ export interface RunStep {
    * question open (ADR 0030).
    */
   spoke?: boolean;
+  /**
+   * How long this step's own call took, in milliseconds.
+   *
+   * The record's answer to "where did the run's time go": a step is one call to
+   * the account, and a wave of four is four numbers rather than one total. A step
+   * that never ran, or one the catalogue refused, carries none.
+   */
+  ms?: number;
 }
 
 /** What a run waits for, where it asked, and until when (ADR 0029, 0030). */
@@ -403,6 +418,12 @@ export interface RunDoc {
   /** When the run was opened. Absent on a document written before it existed. */
   startedAt?: string;
   startedBy: RunStart;
+  /**
+   * The installation's limits as they stood when the run opened: recorded, never
+   * enforced (ADR 0038) — a run has no budget of its own, and a reader can still
+   * see what held it.
+   */
+  limits?: RunLimits;
   plan: RunStep[];
   /**
    * What the run touched, so a person can undo by hand what can be undone
@@ -495,7 +516,15 @@ export interface RunSummary {
    * only when the caller asks for it, and a page of a hundred past runs keeps its
    * size.
    */
-  plan?: ReadonlyArray<{ what: string; state: RunStepState; outcome: string }>;
+  plan?: ReadonlyArray<{
+    what: string;
+    state: RunStepState;
+    outcome: string;
+    /** How long the step's own call took, when it was one the account answered. */
+    ms?: number;
+  }>;
+  /** The limits the installation had in force when the run opened, when recorded. */
+  limits?: RunLimits;
   /** Steps the run has, and the failed ones among them. */
   steps: number;
   /** Plan entries that ended failed — not the steps the run spent. */
@@ -556,6 +585,7 @@ export function summarizeRun(
             what: step.what,
             state: step.state,
             outcome: step.outcome,
+            ...(step.ms === undefined ? {} : { ms: step.ms }),
           })),
         }
       : {}),
@@ -563,6 +593,7 @@ export function summarizeRun(
     failed: run?.plan.filter((step) => step.state === "failed").length ?? 0,
     waiting: run?.waiting ?? null,
     spent: run?.spent ?? { steps: 0, calls: 0, ms: 0 },
+    ...(run?.limits === undefined ? {} : { limits: run.limits }),
   };
 }
 
@@ -642,7 +673,8 @@ function isStep(x: unknown): x is RunStep {
     isStepState(x.state) &&
     typeof x.outcome === "string" &&
     (x.needs === null || isStepNeeds(x.needs)) &&
-    (x.spoke === undefined || typeof x.spoke === "boolean")
+    (x.spoke === undefined || typeof x.spoke === "boolean") &&
+    (x.ms === undefined || (typeof x.ms === "number" && x.ms >= 0))
   );
 }
 
@@ -709,6 +741,16 @@ function isEvidence(x: unknown): x is RunEvidence {
     typeof x.claim === "string" &&
     typeof x.source === "string" &&
     !!x.source
+  );
+}
+
+/** Whether a value is the three limits a run records (ADR 0038). */
+function isRunLimits(x: unknown): x is RunLimits {
+  return (
+    isRecord(x) &&
+    isCount(x.maxRunTokens) &&
+    isCount(x.maxRunSteps) &&
+    isCount(x.maxDailyTokens)
   );
 }
 
@@ -847,6 +889,11 @@ export function parseRunDocumentDetailed(
     return {
       problem: '"spent" must be the tally of steps, model calls and milliseconds.',
     };
+  if (whole.limits !== undefined && !isRunLimits(whole.limits))
+    return {
+      problem:
+        '"limits" must be the three ceilings the installation had in force when the run opened.',
+    };
   if (!isRunState(whole.state))
     return {
       problem:
@@ -871,6 +918,7 @@ export function parseRunDocumentDetailed(
       id: whole.id,
       ...(whole.startedAt === undefined ? {} : { startedAt: whole.startedAt }),
       startedBy: whole.startedBy,
+      ...(whole.limits === undefined ? {} : { limits: whole.limits }),
       plan: whole.plan,
       touched: whole.touched,
       waiting: whole.waiting,
@@ -917,12 +965,22 @@ export function startRun(input: {
   plan?: readonly string[];
   /** The instant it was opened; the clock unless a fixture says otherwise. */
   startedAt?: string;
+  /**
+   * The limits the installation had in force when the run opened.
+   *
+   * Recorded, never enforced: a run has no budget of its own (ADR 0038). They are
+   * on the run so a reader — and a later review — can see what held the run, and
+   * so a pass that fell back to the defaults is visible in the run that paid for
+   * it.
+   */
+  limits?: RunLimits;
 }): RunDoc {
   return {
     v: RUN_VERSION,
     id: input.id,
     startedAt: input.startedAt ?? new Date().toISOString(),
     startedBy: input.startedBy,
+    ...(input.limits === undefined ? {} : { limits: input.limits }),
     plan: (input.plan ?? []).map((what) => ({
       what,
       state: "open",
@@ -955,6 +1013,8 @@ export function recordStep(
     state: RunStepOutcome | "skipped";
     outcome: string;
     spoke?: boolean;
+    /** The call's own duration, when the step was one the account answered. */
+    ms?: number;
   },
 ): RunDoc {
   mustBeRunning(run);
@@ -968,6 +1028,7 @@ export function recordStep(
     outcome: ended.outcome,
     needs: step.needs,
     ...((ended.spoke ?? step.spoke) ? { spoke: true } : {}),
+    ...(ended.ms === undefined ? {} : { ms: ended.ms }),
   };
   return { ...run, plan };
 }

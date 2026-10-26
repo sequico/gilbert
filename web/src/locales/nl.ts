@@ -2100,7 +2100,9 @@ export const catalog: Catalog = {
       "Identiteit actief — het account verzendt met wat hier is ingesteld.",
     Refused: "Geweigerd",
     Stopped: "Gestopt",
-    "Out of budget": "Budget op",
+    "Did not finish": "Niet afgerond",
+    "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
+      "Een run heeft geen eigen budget: hij eindigt wanneer het werk klaar is, wanneer hij op een persoon wacht, wanneer een persoon hem stopt, of wanneer hij mislukt. De tokens van de dag zijn wat geen nieuwe runs opent.",
     "Blocked on a person": "Wacht op een persoon",
     Finished: "Voltooid",
     "This group's instruction cannot be read by this build. Writing a new one replaces it.":

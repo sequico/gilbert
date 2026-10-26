@@ -2097,7 +2097,9 @@ export const catalog: Catalog = {
       "Профиль активен — учётная запись отправляет с тем, что задано здесь.",
     Refused: "Отклонено",
     Stopped: "Остановлено",
-    "Out of budget": "Бюджет исчерпан",
+    "Did not finish": "Не завершено",
+    "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
+      "У запуска нет собственного бюджета: он завершается, когда работа сделана, когда он ждёт человека, когда человек его останавливает или когда происходит сбой. Токены дня — это то, что не открывает новые запуски.",
     "Blocked on a person": "Ждёт человека",
     Finished: "Завершено",
     "This group's instruction cannot be read by this build. Writing a new one replaces it.":

@@ -678,7 +678,18 @@ export class AgentLoop {
      * leaves the model this process already runs on.
      */
     const agentSwitch = await readAgentSwitch(this.ctx, filesAccountId(this.ctx));
-    const { access: model, instruction, limits } = await this.readInstallationForPass();
+    const {
+      access: model,
+      instruction,
+      limits,
+      fellBack,
+    } = await this.readInstallationForPass();
+    /*
+     * A pass that could not read the installation runs on the defaults, and that
+     * is said instead of being left for somebody to notice: a budget that fell
+     * back to 120 000 tokens is a run the group paid for without being told.
+     */
+    if (fellBack) summary.gaps.push(fellBack);
     if (!model) {
       setRunningModelAccess(null);
       summary.gaps.push("the installation names no model, so this pass worked nothing");
@@ -1328,6 +1339,14 @@ export class AgentLoop {
         // where it may act, and a later edit does not move it. What wakes it is the
         // instruction's own surfaces, read by the pass.
         surfaces: writeSurfacesOf(instruction.areas),
+      },
+      // What held the run, recorded and never enforced (ADR 0038): a reader can
+      // see the limits in force, and a pass that fell back to the defaults leaves
+      // them visible in the run that paid for it.
+      limits: {
+        maxRunTokens: this.limits.maxRunTokens,
+        maxRunSteps: this.limits.maxRunSteps,
+        maxDailyTokens: this.limits.maxDailyTokens,
       },
     });
     await createRun(this.ctx, accountId, run);
@@ -2144,25 +2163,24 @@ export class AgentLoop {
         const store = await this.memory();
         const embed = this.embedder();
         const settled = await mapLimit(wave, TOOL_WAVE_MAX, async ({ call }) => {
+          const began = Date.now();
           try {
-            return {
-              status: "fulfilled" as const,
-              value: await runTool(
-                this.catalogue,
-                {
-                  ctx: this.ctx,
-                  accountId,
-                  run: current,
-                  memory: store,
-                  readImage: this.eyes,
-                  ...(embed ? { embed } : {}),
-                },
-                call.name,
-                call.args,
-              ),
-            };
+            const value = await runTool(
+              this.catalogue,
+              {
+                ctx: this.ctx,
+                accountId,
+                run: current,
+                memory: store,
+                readImage: this.eyes,
+                ...(embed ? { embed } : {}),
+              },
+              call.name,
+              call.args,
+            );
+            return { status: "fulfilled" as const, ms: Date.now() - began, value };
           } catch (reason) {
-            return { status: "rejected" as const, reason };
+            return { status: "rejected" as const, ms: Date.now() - began, reason };
           }
         });
         const elapsedMs = Date.now() - ranMs;
@@ -2199,6 +2217,7 @@ export class AgentLoop {
               state: "done",
               outcome: `${boundedText(clean.value)}${clean.withheld.length ? ` (withheld: ${clean.withheld.join(", ")})` : ""}`,
               ...(said ? { spoke: true } : {}),
+              ...(result.ms === undefined ? {} : { ms: result.ms }),
             });
             /*
              * What the step actually touched, so the report can be checked against
@@ -2224,6 +2243,7 @@ export class AgentLoop {
             current = recordStep(current, at, {
               state: "failed",
               outcome: `refused: ${errorMessage(result?.reason)}`,
+              ...(result?.ms === undefined ? {} : { ms: result.ms }),
             });
             /*
              * An attempt that ended refused spends a step whatever its tool
@@ -2687,26 +2707,40 @@ export class AgentLoop {
     access: ModelAccess | null;
     instruction: string | undefined;
     limits: InstallationDocument["limits"];
+    /** Why the defaults are in force, when the document could not be read. */
+    fellBack?: string;
   }> {
-    const fallback = {
+    const fallback = (why: string) => ({
       access: this.access,
       instruction: this.opts.installation,
       limits: installationDefaults().limits,
-    };
+      fellBack: `the installation's document could not be read (${why}), so this pass works on the defaults — ${installationDefaults().limits.maxRunTokens} tokens and ${installationDefaults().limits.maxRunSteps} steps recorded per run.`,
+    });
     const accountId = filesAccountId(this.ctx);
-    if (!accountId) return fallback;
+    if (!accountId) return fallback("this deployment names no Master account");
     try {
       const found = await readAppFileAt(this.ctx, accountId, INSTALLATION_FILE);
-      if (!found) return fallback;
+      /*
+       * Absent is not a gap: the boot creates the document, so a loop that cannot
+       * find one is a test or a deployment whose boot has not run, and the model
+       * this process already runs on is the designed answer. A document that is
+       * **there and unusable** is the gap, and it is said.
+       */
+      if (!found)
+        return {
+          access: this.access,
+          instruction: this.opts.installation,
+          limits: installationDefaults().limits,
+        };
       const parsed = parseInstallationDocumentDetailed(found.text);
-      if ("problem" in parsed) return fallback;
+      if ("problem" in parsed) return fallback(parsed.problem);
       return {
         access: modelAccess(parsed.doc, this.allowPrivate),
         instruction: parsed.doc.agent.instruction || undefined,
         limits: parsed.doc.limits,
       };
-    } catch {
-      return fallback;
+    } catch (err) {
+      return fallback(errorMessage(err));
     }
   }
 

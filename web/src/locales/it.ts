@@ -3095,7 +3095,9 @@ export const catalog: Catalog = {
       "Identità attiva — l'account invia con ciò che è impostato qui.",
     Refused: "Rifiutato",
     Stopped: "Fermato",
-    "Out of budget": "Budget esaurito",
+    "Did not finish": "Non finita",
+    "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
+      "Una run non ha un budget proprio: finisce quando il lavoro è fatto, quando aspetta una persona, quando una persona la ferma o quando fallisce. I token del giorno sono ciò che non apre nuove run.",
     "Blocked on a person": "In attesa di una persona",
     Finished: "Terminato",
     "This group's instruction cannot be read by this build. Writing a new one replaces it.":

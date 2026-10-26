@@ -380,24 +380,24 @@ so far, and is stopped from there; no run posts more than its report.
 
 ### R8 — A run explains itself
 
-Per step: milliseconds and tokens (the two numbers the turn cost), **the prompt's
-size and the share of it the provider served from cache**, and the tool time of its
-wave; on the run: the limits **in force when it opened** (token,
-step, call, time, daily), so a budget that fell back to a default is visible in
-the run that paid for it; in the ending: which ceiling fired and the value it had.
-*Where*: `shared/run.ts` (`RunStep` and a `limits` fact on the run),
-`agent/loop.ts` (spending per step, the fallback), `agent/model.ts` (the meter),
-`agent/supervisor.ts` (a gap line when the installation could not be read), the
-admin run view.
-*Why*: `spent` is a total today, so a failed run cannot say where its 27 s and its
-7 500 tokens a turn went, and the share of the prompt a provider served from cache is
-only a run total (61-71 % on 2026-10-26) — the one number an append-only turn is
-judged by (R13) is the one the record does not carry per step; and a failed
-installation read silently lowers the budget to the defaults (120 000 tokens, twenty
-steps) for that pass.
-*Proof*: the run view answers "where did the 27 s and the 7 500 tokens go" for
-every step, "how much of this prompt was cached" for every step, and "which budget
-was in force" for the run.
+**A step says how long its own call took** (`RunStep.ms`, measured around the tool and
+carried into the record), so a wave of four is four durations rather than one total.
+**The run says what held it**: the limits in force when it opened (`RunDoc.limits`),
+recorded and never enforced — which is also how a pass that fell back to the
+installation's defaults leaves a trace, with the gap line the pass now writes.
+The turn's own tokens stay the run's total on `spent`: a turn can produce several
+steps, and dividing its cost across them would be an invented number — the per-turn
+split belongs with R13, where a turn becomes one thing on the transcript.
+*Where*: `shared/run.ts` (`RunStep.ms`, `RunDoc.limits`, `summarizeRun`),
+`agent/loop.ts` (the wave measures, `openRun` records, `readInstallationForPass`
+reports a fallback), `web/src/views/admin/agent/RunCard.tsx` (a step's time and the
+limits under the tally).
+*Why*: `spent` is a single total, so a failed run could not say where its seconds
+went; and a document that could not be read silently lowered the recorded limits to
+the defaults for that pass.
+*Proof*: the run view answers "how long did this step's call take" for every step and
+"what was in force" for the run, and a pass without a readable installation says so
+in its gaps.
 
 ### R9 — The failures are the eval, and it measures the cost as well as the outcome
 

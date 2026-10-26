@@ -2033,7 +2033,9 @@ export const catalog: Catalog = {
       "发件身份已启用 — 账户以此处设置的内容发件。",
     Refused: "已拒绝",
     Stopped: "已停止",
-    "Out of budget": "预算用尽",
+    "Did not finish": "未完成",
+    "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
+      "一次运行没有自己的预算：工作在完成、等待某人、被人停止或失败时结束。当天的令牌决定是否开启新的运行。",
     "Blocked on a person": "等待某人",
     Finished: "已完成",
     "This group's instruction cannot be read by this build. Writing a new one replaces it.":

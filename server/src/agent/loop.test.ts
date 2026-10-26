@@ -88,9 +88,8 @@ const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { appendStep, finishRun, QUESTION_TTL_MS, recordStep, startRun, waitUntil } =
   await import("../shared/run.js");
-const { INSTALLATION_FILE, parseInstallationDocumentDetailed } = await import(
-  "../shared/installation.js"
-);
+const { INSTALLATION_FILE, installationDefaults, parseInstallationDocumentDetailed } =
+  await import("../shared/installation.js");
 
 import type { InstallationModel } from "../shared/installation.js";
 
@@ -1357,6 +1356,32 @@ test("a run that never finishes stops on the turn valve, and the record says so"
     run.ended?.why ?? "",
     /still asking after 100 turns/,
     "and the record says why",
+  );
+});
+
+test("a run records the limits in force and the time each step took", async () => {
+  const id = "intake-cost";
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+
+  onCall = looksThenSays("the folders are read");
+  const message = await deliver("a change to read");
+  await agent.pass();
+
+  const run = (await listRuns(ctx, accountId))
+    .map((record) => record.run)
+    .find((one) => one.startedBy.woke === `mail created: ${message}`);
+  assert.equal(run?.state, "done", "the run of this change is the one read");
+  const looked = run?.plan.find((step) =>
+    step.what.startsWith('find {"kind":"folders"}'),
+  );
+  assert.equal(typeof looked?.ms, "number", "the step says how long its call took");
+  assert.ok((looked?.ms ?? -1) >= 0, "and the number is a duration, not a guess");
+  assert.equal(
+    run.limits?.maxRunTokens,
+    installationDefaults().limits.maxRunTokens,
+    "and the run says what was in force when it opened",
   );
 });
 

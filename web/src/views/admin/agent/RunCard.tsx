@@ -24,7 +24,10 @@ export const RUN_STATE_LABELS: Record<RunState, string> = {
   running: "Running",
   done: "Finished",
   blocked: "Blocked on a person",
-  "out-of-budget": "Out of budget",
+  // `out-of-budget` is the state the record has always written for a run that
+  // stopped before finishing; it is the liveness valve now, not a budget, and the
+  // surface says what happened rather than naming a counter that no longer exists.
+  "out-of-budget": "Did not finish",
   cancelled: "Stopped",
   refused: "Refused",
 };
@@ -120,6 +123,17 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
             {t("Tokens")}: {tokens}
           </span>
         </div>
+        {/*
+          What held this run when it opened: recorded, never enforced. A pass that
+          fell back to the installation's defaults left them here, so the numbers a
+          reader sees are the ones the run was actually worked under.
+        */}
+        {run.limits && (
+          <div className="hint">
+            {t("Tokens per run")}: {run.limits.maxRunTokens} · {t("Steps per run")}:{" "}
+            {run.limits.maxRunSteps} · {t("Tokens per day")}: {run.limits.maxDailyTokens}
+          </div>
+        )}
         {touched.length > 0 && (
           <div>
             {t("Touched: {touched}.", {
@@ -183,7 +197,7 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
 export function RunPlan({
   steps,
 }: {
-  steps: ReadonlyArray<Pick<RunStep, "what" | "state" | "outcome">>;
+  steps: ReadonlyArray<Pick<RunStep, "what" | "state" | "outcome" | "ms">>;
 }) {
   if (!steps.length) return null;
   return (
@@ -202,7 +216,7 @@ export function RunPlan({
 function Step({
   step,
 }: {
-  step: Pick<RunStep, "what" | "state" | "outcome"> & {
+  step: Pick<RunStep, "what" | "state" | "outcome" | "ms"> & {
     needs?: RunStep["needs"];
   };
 }) {
@@ -221,6 +235,14 @@ function Step({
       )}
       <div className="run-step-meta">
         <strong className={`run-step-state ${step.state}`}>{label}</strong>
+        {/* The step's own call: the record's answer to where the time went. The
+            units are SI and read the same in every catalogue. */}
+        {step.ms !== undefined && (
+          <span className="run-step-ms">
+            {" · "}
+            {step.ms >= 1000 ? `${(step.ms / 1000).toFixed(1)}s` : `${step.ms}ms`}
+          </span>
+        )}
         {step.outcome && !folded ? ` — ${step.outcome}` : ""}
       </div>
       {step.outcome && folded && (
