@@ -456,7 +456,10 @@ a chat message addressed to the agent, and a mail addressed to the agent
 **alone**, with one fixed sentence (*AI agents are turned off.*), from the pass's
 own reading position (`gilbert/notices.json`) so the working window is never
 spent. The notice is the product's answer to a person who wrote, not an agent's
-act (ADR 0038); an agent turned off still archives its old runs.
+act (ADR 0038); an agent turned off still archives its old runs. A switch
+document that is there and is not `{"enabled": <boolean>}` **stops the pass**
+rather than reading as on: a damaged file must never put an agent somebody turned
+off back to work.
 
 **The turn is the run's own transcript** (ADR 0038): every step's answer as the record
 keeps it — bounded when it was written and never clipped when it is read, so no

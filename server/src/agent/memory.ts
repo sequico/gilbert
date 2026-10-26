@@ -93,7 +93,7 @@ const MEMORY_DIR = "memory";
  * this store cannot file is the caller's own mistake, so it is refused as one
  * (400) rather than as a mail-server fault.
  */
-function documentPath(id: string): string {
+export function factPath(id: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id))
     throw new MemoryError(
       "fact_id_invalid",
@@ -101,11 +101,6 @@ function documentPath(id: string): string {
       400,
     );
   return `${MEMORY_DIR}/${id}.json`;
-}
-
-/** A fact's document path, app-folder-relative. */
-export function factPath(id: string): string {
-  return documentPath(id);
 }
 
 /** An entity's document path: entities and facts live in the one folder, named once. */
@@ -262,7 +257,7 @@ export async function listMemory(
   const read = (id: string, text: string): MemoryDocument => {
     const parsed = parseMemoryDocument(text);
     if ("problem" in parsed)
-      throw new Error(unreadable(documentPath(id), parsed.problem).message);
+      throw new Error(unreadable(factPath(id), parsed.problem).message);
     return parsed.document;
   };
   for (const row of await listAppSheets(ctx, accountId, MEMORY_DIR, read)) {
@@ -274,7 +269,7 @@ export async function listMemory(
     if (row.doc.kind === "entity") {
       if (row.doc.entity.id !== row.id) {
         problems.push(
-          unreadable(documentPath(row.id), `it names the entity "${row.doc.entity.id}".`)
+          unreadable(factPath(row.id), `it names the entity "${row.doc.entity.id}".`)
             .message,
         );
         continue;
@@ -284,8 +279,7 @@ export async function listMemory(
     }
     if (row.doc.fact.id !== row.id) {
       problems.push(
-        unreadable(documentPath(row.id), `it names the fact "${row.doc.fact.id}".`)
-          .message,
+        unreadable(factPath(row.id), `it names the fact "${row.doc.fact.id}".`).message,
       );
       continue;
     }

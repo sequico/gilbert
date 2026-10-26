@@ -11,6 +11,7 @@
 
 import { type Ctx, readAppFileAt, writeAppFileAt } from "../appFolder.js";
 import { errorMessage } from "../shared/errors.js";
+import { isRecord } from "../shared/json.js";
 
 /** Where the switch lives, under the app folder. */
 export const AGENT_SWITCH_FILE = "agent/switch.json";
@@ -59,16 +60,26 @@ export async function readAgentSwitch(ctx: Ctx, accountId: string): Promise<Agen
     lastKnown = { enabled: true };
     return lastKnown;
   }
+  let doc: unknown;
   try {
-    const doc = JSON.parse(found.text) as { enabled?: unknown };
-    lastKnown = { enabled: doc.enabled !== false };
-    return lastKnown;
+    doc = JSON.parse(found.text);
   } catch {
+    doc = null;
+  }
+  /*
+   * The value must be a boolean, not merely "not false": a document that says
+   * `"enabled": "false"` is a shape this build does not write, and reading it as
+   * on would re-enable an agent somebody turned off. The version is not insisted
+   * on, like every report this tier reads.
+   */
+  if (!isRecord(doc) || typeof doc.enabled !== "boolean") {
     lastKnown = null;
     throw new Error(
       "The agent's switch is not a document this build can read, so the agent does not act; it has been left exactly as it is.",
     );
   }
+  lastKnown = { enabled: doc.enabled };
+  return lastKnown;
 }
 
 export async function writeAgentSwitch(
