@@ -392,6 +392,13 @@ which is the same wait in a different place.
 *Proof*: a run left unfinished by a pass is resumed by the next pass within the
 interval, and a run that was genuinely lost is still retried after a minute.
 
+**Built:** the pass's slice. Past `sliceMs` (ninety seconds; `SLICE_MS` by default) and
+only **at a turn boundary** — every step of the wave written, nothing left `open` — the
+pass stores the run with `RunDoc.slice` (the instant it left) and moves to the next
+group; the next pass takes it at once, clearing the mark as it resumes (`sliceRun`,
+`resumeRun`). A run nothing explains still pays the minute's backoff, because the mark
+is cleared the moment it is picked up: a process that dies mid-run leaves no mark.
+
 ### R7 — The run in flight is one click from the overview
 
 The detail exists and already behaves: `/groups/:name/runs/:id` answers one run,

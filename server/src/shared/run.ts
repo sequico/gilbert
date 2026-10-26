@@ -70,6 +70,26 @@ export function withCase(run: RunDoc, key: string): RunDoc {
 }
 
 /**
+ * Record that a pass left this run on purpose, at a turn boundary (R6).
+ *
+ * Not an ending and not a fault: the run is still `running`, and the mark is what
+ * tells the next pass to resume it at once rather than wait a minute as it does for a
+ * run nothing explains.
+ */
+export function sliceRun(run: RunDoc, at: string): RunDoc {
+  mustBeRunning(run);
+  requireInstant("a slice is stamped with an instant", at);
+  return { ...run, slice: at };
+}
+
+/** Whether a pass left this run on purpose, and clear the mark as it is resumed. */
+export function resumeRun(run: RunDoc): { run: RunDoc; sliced: boolean } {
+  if (run.slice === undefined) return { run, sliced: false };
+  const { slice: _left, ...rest } = run;
+  return { run: rest, sliced: true };
+}
+
+/**
  * The most of a transcript a turn carries before it is compacted.
  *
  * A run's turns are its own transcript, appended and never rewritten (ADR 0038), so
@@ -502,6 +522,16 @@ export interface RunDoc {
    * name the run works under its own id, and a `note` call that names it moves it.
    */
   caseKey?: string;
+  /**
+   * The instant a pass stopped working this run **on purpose**, at a turn boundary
+   * (R6).
+   *
+   * A pass is the clock of every group at once, so one long run does not get to hold
+   * it: the pass leaves the run here and the next pass resumes it at once, instead of
+   * reading it as a crash and waiting a minute (`stuckUntil`). Cleared when the run is
+   * picked up again, so a process that dies mid-run still pays the backoff.
+   */
+  slice?: string;
   /**
    * How many of the plan's steps the case's note now summarises (ADR 0038).
    *
@@ -984,6 +1014,8 @@ export function parseRunDocumentDetailed(
     };
   if (whole.caseKey !== undefined && typeof whole.caseKey !== "string")
     return { problem: '"caseKey" must be the name of the case this run worked.' };
+  if (whole.slice !== undefined && !isInstant(whole.slice))
+    return { problem: '"slice" must be the instant the pass left this run.' };
   const compactedUpTo = whole.compactedUpTo;
   if (
     compactedUpTo !== undefined &&
@@ -1021,6 +1053,7 @@ export function parseRunDocumentDetailed(
       startedBy: whole.startedBy,
       ...(whole.limits === undefined ? {} : { limits: whole.limits }),
       ...(whole.caseKey === undefined ? {} : { caseKey: whole.caseKey }),
+      ...(whole.slice === undefined ? {} : { slice: whole.slice }),
       ...(compactedUpTo === undefined ? {} : { compactedUpTo }),
       plan: whole.plan,
       touched: whole.touched,

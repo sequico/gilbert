@@ -31,6 +31,8 @@ import {
   recordEvidence,
   recordRecall,
   recordStep,
+  resumeRun,
+  sliceRun,
   spendRun,
   startRun,
   stepIdentity,
@@ -267,6 +269,32 @@ test("a run records the case it works, and a later name moves it", () => {
   );
   assert.throws(() =>
     withCase(finishRun(named, { at: new Date().toISOString(), why: "done" }), "x"),
+  );
+});
+
+test("a pass marks a run it left on purpose, and resuming clears the mark", () => {
+  /*
+   * A slice is not an ending and not a fault: the run is still `running`, and the mark
+   * is what tells the next pass to take it at once instead of waiting a minute as it
+   * does for a run nothing explains (R6).
+   */
+  const run = startRun({ id: "r19", startedBy: START });
+  const sliced = sliceRun(run, "2026-10-26T12:00:00.000Z");
+  assert.equal(sliced.slice, "2026-10-26T12:00:00.000Z", "the mark is the instant");
+  assert.equal(sliced.state, "running", "and the run has not ended");
+  assert.deepEqual(resumeRun(sliced), { run, sliced: true }, "resuming clears it");
+  assert.deepEqual(
+    resumeRun(run),
+    { run, sliced: false },
+    "a run never sliced is untouched",
+  );
+
+  const stored = parseRunDocumentDetailed(JSON.stringify(sliced));
+  assert.ok("run" in stored, "the document reads back");
+  assert.equal(stored.run.slice, sliced.slice, "with its mark");
+  assert.ok(
+    "problem" in parseRunDocumentDetailed(JSON.stringify({ ...sliced, slice: "soon" })),
+    "a mark that is not an instant is refused",
   );
 });
 

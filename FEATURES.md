@@ -408,18 +408,23 @@ group's instruction does not name costs no model call and no step; a change it
 does name opens or continues **the one** run for that change — the account's
 record of it is the answer it already has — and the choosing turn works it — **the
 calls it names, one or several in one answer**, each its own step with its own
-outcome and its own spend, until the run's report is said, a step parks the run
-on a person's answer, or the run's **budget** (steps, model calls, time and
-tokens) is spent, which the record states. A step that must follow another is a
+outcome and its own spend, until the run's report is said or a step parks the run
+on a person's answer. **No step, call, time or token counter ends a run** for what it
+cost: what stops a run that has asked the model a hundred times is the liveness valve,
+and a person stops what they choose to stop. A step that must follow another is a
 second answer: the outcome of the first is read before the model calls what comes
 next, so the model writes the order from the group's knowledge, its checklists
 and its workorders, and the loop invents none. A model that chooses the same
 calls twice is a stall the record shows
 rather than an endless turn; an answer refused twice, or a round whose every step was refused,
-is a step that ended and spends a step, so a model stuck on one malformed answer stops on the run's declared ceiling — never on a counter the record cannot show. The server starts the loop with itself
+is a step that ended and spends a step, so a model stuck on one malformed answer is
+stopped by the valve rather than by a counter the record cannot show. The server starts the loop with itself
 (`server/src/agent/supervisor.ts`) and asks it for a pass on a pushed change,
 with ten seconds as the floor without a working stream and thirty with one, and
-the accounts each pass works — the Master's
+**a pass works one run for at most ninety seconds** before leaving it on purpose for
+the next one — at a turn boundary, nothing left open, marked on the run and resumed
+at once — so one group's long run does not make the others wait; the accounts each
+pass works — the Master's
 groups — are read from the mail server by that pass rather than decided at the
 boot, so a group added or
 withdrawn in Stalwart needs no restart.

@@ -3018,6 +3018,51 @@ test("the same call in a later answer is the act already made, and is not made t
   assert.equal(steps[1]?.outcome, steps[0]?.outcome, "and its answer is the first one's");
 });
 
+test("a pass leaves a long run on purpose, and the next pass takes it at once", async () => {
+  /*
+   * A pass is the clock of every group at once: a run that works for six minutes makes
+   * the others wait ("what came after it waited", the log of 2026-10-26). Past the
+   * slice — at a turn boundary, nothing left open — the pass marks the run as left on
+   * purpose and moves on; the next pass resumes it at once instead of reading it as a
+   * crash and waiting a minute (R6).
+   */
+  const id = "intake-slice";
+  await putInstruction();
+  let held = startRun({
+    id,
+    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+  });
+  held = recordStep(appendStep(held, "a step that answered"), 0, {
+    state: "done",
+    outcome: "answered",
+  });
+  await createRun(ctx, accountId, held);
+
+  // The first pass works no turn: the slice is spent before the first one.
+  const first = loop(HOLDER, { sliceMs: -1 });
+  await first.start();
+  answerWith({ calls: [{ name: "find", arguments: { kind: "folders" } }] });
+  await first.pass();
+
+  const left = (await readRun(ctx, accountId, id))?.run;
+  assert.equal(left?.state, "running", "the run is not ended by the slice");
+  assert.ok(left?.slice, "it says the pass left it on purpose");
+  assert.ok(
+    (left?.plan ?? []).every((step) => step.state !== "open"),
+    "and it stopped at a turn boundary: nothing is left open",
+  );
+
+  // The next pass takes it at once, without the minute a crash pays.
+  const second = loop();
+  onCall = (system) => (isDecision(system) ? { facts: {} } : { done: "finished now" });
+  await second.start();
+  await second.pass();
+
+  const taken = (await readRun(ctx, accountId, id))?.run;
+  assert.equal(taken?.state, "done", "the next pass worked it to the end");
+  assert.equal(taken?.slice, undefined, "and cleared the mark as it resumed it");
+});
+
 test("a run left running without a wait is tried again on a minute, not every pass", async () => {
   /*
    * A run with no wait is the crash path: the document says running, nothing

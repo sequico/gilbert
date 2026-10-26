@@ -112,6 +112,8 @@ import {
   recordStep,
   spendRun,
   startRun,
+  sliceRun,
+  resumeRun,
   withCase,
   takeAnswer,
   takeAuthorisation,
@@ -267,6 +269,16 @@ const STATUS_EVERY_MS = 60_000;
 const STUCK_RETRY_MS = 60_000;
 
 /**
+ * How long one pass works one run before leaving it for the next (R6).
+ *
+ * A pass loops over every group in turn, and a run of twenty minutes held the whole
+ * pass: the log of 2026-10-26 says "what came after it waited". Ninety seconds is
+ * longer than any turn this build has measured (the slowest provider took 27 s a call)
+ * and short enough that a group is not left waiting behind another's mail.
+ */
+const SLICE_MS = 90_000;
+
+/**
  * How many permanent provider failures in a row stop the pass (ADR 0038).
  *
  * Three: one refusal may be a model the provider does not serve any more, two
@@ -376,6 +388,16 @@ export interface AgentLoopOptions {
    * line is the fact.
    */
   log?: (line: string) => void;
+  /**
+   * How long one pass works one run before it leaves it for the next (R6).
+   *
+   * A pass is the clock of every group at once, so a run that works for six minutes
+   * makes the others wait: at this much time, and only **at a turn boundary** — every
+   * step of the wave written, nothing left open — the pass stops, marks the run as left
+   * on purpose (`RunDoc.slice`), and the next pass picks it up at once instead of
+   * treating it as a crash.
+   */
+  sliceMs?: number;
 }
 
 /**
@@ -1182,7 +1204,11 @@ export class AgentLoop {
          * attempt after a restart is immediate.
          */
         const key = `${accountId}\u0000${due.id}`;
-        const stuck = due.waiting === null;
+        /*
+         * A run a pass left on purpose is not the crash path (R6): it is resumed at
+         * once, and only a run nothing explains waits the minute.
+         */
+        const stuck = due.waiting === null && due.slice === undefined;
         if (stuck) this.stuckUntil.set(key, now.getTime() + STUCK_RETRY_MS);
         const worked = await this.workRun(
           accountId,
@@ -1800,6 +1826,14 @@ export class AgentLoop {
     this.opts.log?.(`[gilbert] agent: run ${run.id} — working it in ${accountId}`);
     let current = run;
     /*
+     * A pass that left this run on purpose is resumed where it stopped (R6): the mark
+     * is cleared here, so a process that dies mid-run is still read as a crash and pays
+     * the minute's backoff.
+     */
+    current = resumeRun(current).run;
+    /** When this pass began working on this run: the slice is measured from here. */
+    const workStarted = Date.now();
+    /*
      * A step left `open` by an earlier process is an act whose outcome was
      * never written: it may have landed (a send, a write) and re-running it
      * would do it twice. It is marked failed once, here, so the model reads
@@ -1880,6 +1914,21 @@ export class AgentLoop {
           },
           token,
         );
+      }
+      /*
+       * The pass's own slice (R6): past the bound, and only here — a **turn boundary**,
+       * every step of the wave written and nothing left open — the run is marked as
+       * left on purpose and the pass moves to the next group. The next pass resumes it
+       * at once; nothing of the work is lost, and no step is left `open` to be read as
+       * an act whose outcome was never written.
+       */
+      if (Date.now() - workStarted > (this.opts.sliceMs ?? SLICE_MS)) {
+        const sliced = sliceRun(current, new Date().toISOString());
+        const kept = await this.store(accountId, sliced, token);
+        this.opts.log?.(
+          `[gilbert] agent: run ${current.id} — left for the next pass, mid-work`,
+        );
+        return kept === null ? null : sliced;
       }
       /*
        * The case's scratchpad, read from its own file for this turn (ADR 0034): the
