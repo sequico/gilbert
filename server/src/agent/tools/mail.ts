@@ -197,7 +197,7 @@ export const readAttachment = defineTool({
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), name: textArg(args, "name") };
   },
-  run: async ({ ctx, accountId, readImage }, { id, name }) => {
+  run: async ({ ctx, accountId, readImage, meter }, { id, name }) => {
     const answer = await clientOf(ctx).call<{
       list?: Array<{ attachments?: unknown }>;
     }>("Email/get", { accountId, ids: [id], properties: ["attachments"] }, [
@@ -237,7 +237,7 @@ export const readAttachment = defineTool({
       name,
       type,
       size: typeof one.size === "number" ? one.size : bytes.length,
-      ...(await readFileText({ type, name, bytes }, readImage)),
+      ...(await readFileText({ type, name, bytes }, readImage, meter)),
     };
   },
 });

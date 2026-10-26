@@ -29,7 +29,7 @@ import type { InstructionDoc } from "./instruction.js";
 import type { AnsweredRun, PassSummary } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
 import { recallFor } from "./memory.js";
-import type { ModelAccess } from "./model.js";
+import type { ModelAccess, UsageMeter } from "./model.js";
 import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type Drop, dropEvent } from "./queue.js";
@@ -47,7 +47,12 @@ export interface ChangesDeps {
   /** The group's one instruction, which says whether a change is its work. */
   instructionOf(accountId: string): Promise<InstructionDoc | null>;
   memory(): Promise<MemoryStore>;
-  readingCall(accountId: string, event: AccountEvent): ToolCall;
+  readingCall(
+    accountId: string,
+    event: AccountEvent,
+    /** The decision's own meter, so a nested model call is on its tally. */
+    meter: UsageMeter,
+  ): ToolCall;
   runAnsweredBy(
     accountId: string,
     event: AccountEvent,
@@ -79,6 +84,8 @@ export interface ChangesDeps {
   readEventFile(
     accountId: string,
     path: string,
+    /** The decision's meter: reading a picture is a model call (ADR 0038). */
+    meter: UsageMeter,
   ): Promise<{ path: string; text: string } | null>;
   /**
    * A model call this pass made answered: the provider's run of failures ends
@@ -644,18 +651,18 @@ export async function workChanges(
      */
     const document =
       event.source === "files" && event.also?.length === 1
-        ? await deps.readEventFile(accountId, event.also[0] as string)
+        ? await deps.readEventFile(accountId, event.also[0] as string, meter)
         : null;
     const decision = await decideEvent(
       deps.access,
       {
         event,
         prose: await deps.proseAbove(accountId),
-        memory: (await recallFor(deps.access, await deps.memory(), woke)).facts,
+        memory: (await recallFor(deps.access, await deps.memory(), woke, meter)).facts,
         ...(detail ? { detail } : {}),
         ...(document ? { document } : {}),
       },
-      deps.readingCall(accountId, event),
+      deps.readingCall(accountId, event, meter),
       // One lookup, as ADR 0038 says: a file event already carries its document
       // above, and every surface shares the same ceiling.
       { meter },

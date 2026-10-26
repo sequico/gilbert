@@ -839,11 +839,13 @@ async function embeds(
  * vector it was written with, and a turn embeds the change's own words to
  * compare. A provider failure answers null rather than throwing — the retrieval
  * then names itself exact on the run's record, and nothing is written with a
- * vector it did not get.
+ * vector it did not get. `meter` is the call it is: an embedding is billed and
+ * counted like any other model call (ADR 0038).
  */
 export async function embedTexts(
   access: ModelAccess,
   texts: readonly string[],
+  meter?: UsageMeter,
 ): Promise<number[][] | null> {
   if (!access.model.embeddings || !texts.length) return null;
   try {
@@ -851,6 +853,9 @@ export async function embedTexts(
   } catch {
     return null;
   }
+  // Counted before the request leaves, as every model call is: a provider that
+  // bills a failed embedding still billed it.
+  if (meter) meter.calls += 1;
   const base = access.model.baseUrl.replace(/\/+$/, "");
   try {
     const res = await fetch(`${base}/embeddings`, {
@@ -872,7 +877,10 @@ export async function embedTexts(
     }
     const body = (await res.json()) as {
       data?: Array<{ embedding?: unknown; index?: unknown }>;
+      usage?: { prompt_tokens?: unknown };
     };
+    const prompt = body.usage?.prompt_tokens;
+    if (meter && typeof prompt === "number") meter.promptTokens += prompt;
     const vectors = (body.data ?? [])
       .slice()
       .sort((a, b) => Number(a.index ?? 0) - Number(b.index ?? 0))

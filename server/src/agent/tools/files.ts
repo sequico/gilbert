@@ -125,7 +125,7 @@ export const readNode = defineTool({
   writes: false,
   args: { path: { type: "text" } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
-  run: async ({ ctx, accountId, readImage }, { path }) => {
+  run: async ({ ctx, accountId, readImage, meter }, { path }) => {
     const held = await findVisibleFile(ctx, accountId, path);
     if (typeof held?.file.size === "number" && held.file.size > READ_BYTES_MAX)
       throw new ToolError(
@@ -147,15 +147,14 @@ export const readNode = defineTool({
     /*
      * A picture is read by the installation's model and a document by the
      * format readers; both answer the same three things — the text, a reason it
-     * could not be read, or "this is not a format I read".
-     *
-     * shortcut: the vision call is not on the run's tally (a tool's spend is a
-     * constant), so a run that reads many images under-reports its calls; give
-     * `spend` a function when the tally must be exact to the call.
+     * could not be read, or "this is not a format I read". The transcription is
+     * a model call, and it is metered on the run and on the day like any other
+     * (ADR 0038): `meter` is the one the wave gave this call.
      */
     const document = await readFileText(
       { type, name: found.name, bytes: found.bytes },
       readImage,
+      meter,
     );
     return {
       id: String(found.file.id ?? ""),

@@ -1959,6 +1959,51 @@ test("one answer continues every run parked on the question it replies to", asyn
   }
 });
 
+test("a reader's model call is on the run's tally, like the turn that asked for it", async () => {
+  /*
+   * `open` with `brief` answers through a model call of its own (ADR 0038), and
+   * that call is the installation's money: it is counted on the run, and on the
+   * day the pass documents, exactly like the choosing turn that asked for it.
+   * The provider stub answers every call with 11 prompt and 7 completion tokens,
+   * so the arithmetic is the assertion: two choosing turns and the reader's own
+   * call are three calls, and the day counts the decision turn besides.
+   */
+  const id = "intake-brief";
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+
+  let chosen = 0;
+  onCall = (system) => {
+    if (system.includes("reading a group's own account"))
+      return { lines: ["The thread names BK-1."] };
+    if (isDecision(system)) return { facts: {} };
+    chosen += 1;
+    if (chosen === 1)
+      return {
+        calls: [
+          {
+            name: "open",
+            arguments: { what: "brief", question: "which booking is this?" },
+          },
+        ],
+      };
+    return { done: "the shipment is BK-1" };
+  };
+  await deliver("a change whose case is too big for the turn");
+  const summary = await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(run.state, "done");
+  // Two choosing turns, the reader's own call, and the decision turn the run was
+  // opened by: the reader is one of the four, and without its meter there are three.
+  assert.equal(run.spent.calls, 4, "the reader's call is on the run's tally");
+  assert.equal(run.spent.promptTokens, 44, "and the reader's prompt tokens with them");
+  assert.equal(run.spent.completionTokens, 28);
+  // The day's counter carries the decision turn and the run's own three calls.
+  assert.equal(summary.tokens, 72, "and the day counts the same calls");
+});
+
 test("an answer is worked once, whatever the decision names beside it", async () => {
   /*
    * One person's reply continues the run that asked, and it is worked once

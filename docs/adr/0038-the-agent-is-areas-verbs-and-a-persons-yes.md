@@ -355,9 +355,11 @@ spent the provider's default budget before writing anything.
   `stopped` is the ending a guardrail writes — the valve and the stall guard — and
   `refused` is the one a `done` with nothing finished writes.
 - **A run says what it spent and what it was held to**: milliseconds and tokens per
-  step, and the limits in force when it opened, on its own document
-  (`shared/run.ts`, `agent/loop.ts`), so limits that fell back to a default are
-  visible in the run that paid for it.
+  step, **including the calls a tool makes itself** — a reader's answer, a picture
+  transcribed, a sentence embedded — and the limits in force when it opened, on its
+  own document (`shared/run.ts`, `agent/loop.ts`), so limits that fell back to a
+  default are visible in the run that paid for it and the day's counter is what the
+  installation actually paid.
 - **The installation has a daily ceiling** (`limits.maxDailyTokens`), counted in the
   pass's own document — one write per pass, not per call — and reset lazily when the
   date changes. Past it no new run opens, a run already open finishes its own work, and the pass **stops before reading changes**, so nothing is consumed

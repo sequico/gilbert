@@ -19,6 +19,7 @@ import type {
 } from "../../shared/run.js";
 import type { SurfaceMode, SurfaceName } from "../../shared/surfaces.js";
 import type { MemoryStore } from "../memory.js";
+import type { UsageMeter } from "../model.js";
 import type { ImageReader } from "./content.js";
 
 export type { ImageReader };
@@ -320,6 +321,13 @@ export interface ToolCall {
    * the model would close a cycle.
    */
   embed?: (text: string) => Promise<number[] | null>;
+  /**
+   * The meter of a model call **this tool makes itself** — a reader's answer, a
+   * picture transcribed, a sentence embedded — so what the tool spends is on the
+   * run and on the day's counter like every other call (ADR 0038). A tool that
+   * makes none leaves it unused, and the call a tool did not make adds nothing.
+   */
+  meter?: UsageMeter;
   /**
    * The installation's memory as the caller's pass read it (ADR 0033).
    *

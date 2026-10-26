@@ -79,7 +79,7 @@ import {
   singleValued,
   subjectProblem,
 } from "../shared/memory.js";
-import { embedTexts, type ModelAccess } from "./model.js";
+import { embedTexts, type ModelAccess, type UsageMeter } from "./model.js";
 
 /** Where the installation's memory lives under the Master's app folder. */
 const MEMORY_DIR = "memory";
@@ -1028,10 +1028,11 @@ export async function recallFor(
   access: ModelAccess | null,
   store: MemoryStore,
   words: string,
+  meter?: UsageMeter,
 ): Promise<Recall> {
   const similarity =
     access?.model.embeddings && store.index.vectors.length && words.trim()
-      ? await embedSimilarity(access, store, words)
+      ? await embedSimilarity(access, store, words, meter)
       : undefined;
   return recallMemory(store.index, {
     words,
@@ -1052,8 +1053,9 @@ async function embedSimilarity(
   access: ModelAccess,
   store: MemoryStore,
   words: string,
+  meter?: UsageMeter,
 ): Promise<Map<string, number> | undefined> {
-  const embedded = await embedTexts(access, [words]);
+  const embedded = await embedTexts(access, [words], meter);
   const vector = embedded?.[0];
   if (!vector) return undefined;
   return similarityOf(store.index, vector);

@@ -7,12 +7,17 @@
  */
 
 import { documentKind, imageMediaType, readDocument } from "../../documentText.js";
+import type { UsageMeter } from "../model.js";
 
 /** What the installation's model answers when a tool asks it to read an image. */
-export type ImageReader = (image: {
-  type: string;
-  data: Uint8Array;
-}) => Promise<{ text: string } | { problem: string }>;
+export type ImageReader = (
+  image: {
+    type: string;
+    data: Uint8Array;
+  },
+  /** The call it is: a transcription is billed like any other (ADR 0038). */
+  meter?: UsageMeter,
+) => Promise<{ text: string } | { problem: string }>;
 
 /**
  * The most bytes one tool downloads to read.
@@ -34,6 +39,8 @@ export const READ_BYTES_MAX = 32 * 1024 * 1024;
 export async function readFileText(
   file: { type: string; name: string; bytes: Uint8Array },
   readImage?: ImageReader,
+  /** The meter of the transcription, when the file is a picture (ADR 0038). */
+  meter?: UsageMeter,
 ): Promise<{
   text: string | null;
   readable: boolean;
@@ -59,7 +66,7 @@ export async function readFileText(
         readable: false,
         problem: `The image "${file.name}" is not a format the installation's model reads (JPEG, PNG, WebP or GIF).`,
       };
-    const read = await readImage({ type, data: file.bytes });
+    const read = await readImage({ type, data: file.bytes }, meter);
     return "problem" in read
       ? { text: null, readable: false, problem: read.problem }
       : { text: read.text, readable: true, kind: "image" };

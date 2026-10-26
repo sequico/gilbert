@@ -158,6 +158,7 @@ import {
   setRunningModelAccess,
   summarisePlan,
   usageMeter,
+  type UsageMeter,
 } from "./model.js";
 import { type AgentMeasure, emitMeasures } from "./otlp.js";
 import type { ProseLevel } from "./prose.js";
@@ -1303,7 +1304,7 @@ export class AgentLoop {
           proseAbove: (a) => this.proseAbove(a),
           instructionOf: (a) => this.instructionOf(a),
           memory: () => this.memory(),
-          readingCall: (a, e) => this.readingCall(a, e),
+          readingCall: (a, e, meter) => this.readingCall(a, e, meter),
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
           workRun: (a, r, f, oq, written) =>
             this.workRun(a, r, f, undefined, oq, now, written),
@@ -1314,7 +1315,7 @@ export class AgentLoop {
           forgetDrop: (a, folder, answered) =>
             dropForgotten(this.ctx, a, folder, answered),
           forgetDropPath: (a, path) => dropPathForgotten(this.ctx, a, path),
-          readEventFile: (a, path) => this.readEventFile(a, path),
+          readEventFile: (a, path, meter) => this.readEventFile(a, path, meter),
           modelAnswered: () => {
             this.permanentFailures = 0;
           },
@@ -1341,13 +1342,20 @@ export class AgentLoop {
    * stand-in for the runs this change would open, and the runs the loop actually
    * writes are the ones the decision names.
    */
-  private readingCall(accountId: string, event: AccountEvent): ToolCall {
-    const embed = this.embedder();
+  private readingCall(
+    accountId: string,
+    event: AccountEvent,
+    meter: UsageMeter,
+  ): ToolCall {
+    const embed = this.embedder(meter);
     return {
       ctx: this.ctx,
       accountId,
-      readImage: this.eyes,
+      readImage: (image) => this.eyes(image, meter),
       ...(embed ? { embed } : {}),
+      // A model call a reading tool makes inside the decision turn (a `brief`)
+      // belongs to that turn's meter, and so to the day's counter.
+      meter,
       run: startRun({
         id: randomUUID(),
         startedBy: {
@@ -1896,11 +1904,31 @@ export class AgentLoop {
      * to the fact that carried it, and every turn of this working is handed it.
      */
     const above = await this.proseAbove(accountId);
+    /*
+     * The recall embeds the change's words where the installation offers
+     * embeddings, and that is a model call: its meter goes on the run and on the
+     * day like any other (ADR 0038).
+     */
+    const recallMeter = usageMeter();
     const selection = await recallFor(
       access,
       await this.memory(),
       memoryWords(run, facts),
+      recallMeter,
     );
+    if (
+      recallMeter.calls > 0 ||
+      recallMeter.promptTokens > 0 ||
+      recallMeter.completionTokens > 0
+    ) {
+      current = spendRun(current, {
+        calls: recallMeter.calls,
+        promptTokens: recallMeter.promptTokens,
+        completionTokens: recallMeter.completionTokens,
+        cachedPromptTokens: recallMeter.cachedTokens,
+      });
+      this.passTokens += recallMeter.promptTokens + recallMeter.completionTokens;
+    }
     current = recordRecall(
       current,
       selection.facts.map((fact) => fact.id),
@@ -2432,8 +2460,15 @@ export class AgentLoop {
          * (ADR 0033).
          */
         const store = await this.memory();
-        const embed = this.embedder();
         const settled = await mapLimit(wave, TOOL_WAVE_MAX, async ({ call }) => {
+          /*
+           * Each call gets its own meter: a tool may make a model call of its own
+           * (a reader's answer, a picture transcribed, a sentence embedded), and
+           * what it spends is the run's and the day's like every other call
+           * (ADR 0038) — one meter per call, summed below.
+           */
+          const meter = usageMeter();
+          const embed = this.embedder(meter);
           const began = Date.now();
           try {
             const value = await runTool(
@@ -2443,20 +2478,51 @@ export class AgentLoop {
                 accountId,
                 run: current,
                 memory: store,
-                readImage: this.eyes,
+                readImage: (image) => this.eyes(image, meter),
                 ...(embed ? { embed } : {}),
+                meter,
               },
               call.name,
               call.args,
             );
-            return { status: "fulfilled" as const, ms: Date.now() - began, value };
+            return {
+              status: "fulfilled" as const,
+              ms: Date.now() - began,
+              value,
+              meter,
+            };
           } catch (reason) {
-            return { status: "rejected" as const, ms: Date.now() - began, reason };
+            return {
+              status: "rejected" as const,
+              ms: Date.now() - began,
+              reason,
+              meter,
+            };
           }
         });
         const elapsedMs = Date.now() - ranMs;
         for (const [which, { at, call }] of wave.entries()) {
           const result = settled[which];
+          /*
+           * What the call's own model call cost, whichever way the call ended: a
+           * reader that answered, a picture transcribed, a sentence embedded is a
+           * billed call, and one a tool made before failing is billed as well.
+           */
+          const counted = result?.meter;
+          if (
+            counted &&
+            (counted.calls > 0 ||
+              counted.promptTokens > 0 ||
+              counted.completionTokens > 0)
+          ) {
+            current = spendRun(current, {
+              calls: counted.calls,
+              promptTokens: counted.promptTokens,
+              completionTokens: counted.completionTokens,
+              cachedPromptTokens: counted.cachedTokens,
+            });
+            this.passTokens += counted.promptTokens + counted.completionTokens;
+          }
           if (result?.status === "fulfilled") {
             /*
              * What came back is somebody else's text: a credential-shaped field
@@ -3031,10 +3097,10 @@ export class AgentLoop {
    * refusal — a model that cannot see, a provider that would not answer — arrives
    * as a document the tool could not read rather than as a failed pass.
    */
-  private readonly eyes: ImageReader = async (image) => {
+  private readonly eyes: ImageReader = async (image, meter) => {
     const access = this.access;
     if (!access) return { problem: "this installation has no model to read with." };
-    return await readImage(access, image);
+    return await readImage(access, image, meter ? { meter } : {});
   };
 
   /**
@@ -3048,6 +3114,7 @@ export class AgentLoop {
   private async readEventFile(
     accountId: string,
     path: string,
+    meter: UsageMeter,
   ): Promise<{ path: string; text: string } | null> {
     try {
       const found = await readVisibleFileBytes(this.ctx, accountId, path, READ_BYTES_MAX);
@@ -3058,7 +3125,8 @@ export class AgentLoop {
           name: found.name,
           bytes: found.bytes,
         },
-        this.eyes,
+        (image) => this.eyes(image, meter),
+        meter,
       );
       return read.text ? { path, text: read.text } : null;
     } catch {
@@ -3202,10 +3270,12 @@ export class AgentLoop {
    * into. Absent without the capability, and then a write carries no vector and
    * the retrieval is exact.
    */
-  private embedder(): ((text: string) => Promise<number[] | null>) | undefined {
+  private embedder(
+    meter?: UsageMeter,
+  ): ((text: string) => Promise<number[] | null>) | undefined {
     const access = this.access;
     if (!access?.model.embeddings) return undefined;
-    return async (text: string) => (await embedTexts(access, [text]))?.[0] ?? null;
+    return async (text: string) => (await embedTexts(access, [text], meter))?.[0] ?? null;
   }
 
   /** Append a step and record how it ended, in one place for every step. */

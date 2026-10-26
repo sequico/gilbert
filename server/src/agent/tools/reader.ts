@@ -30,10 +30,11 @@ export const readBrief = defineTool<{
   authority: "reversible",
   writes: false,
   /*
-   * One model call, so it spends one call on the run's tally: reading is free of
-   * *steps*, not of what it costs, and the liveness valve counts what was spent.
+   * Reading is free of *steps*, not of what it costs: the call the reader makes
+   * is metered on the run and on the day through the call's own meter (ADR 0038),
+   * so nothing is declared here and nothing is counted twice.
    */
-  spend: { calls: 1 },
+  spend: {},
   args: { question: { type: "text" }, about: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -63,7 +64,8 @@ export const readBrief = defineTool<{
       call,
       // One lookup: a reader that has not found its answer in one look is asking the
       // wrong question, and the working turn is told so rather than left waiting.
-      { maxReads: 1 },
+      // The call is metered on the run and the day: a reader is a model call.
+      { maxReads: 1, ...(call.meter ? { meter: call.meter } : {}) },
     );
     if (answer.kind !== "lines")
       throw new ToolError(
