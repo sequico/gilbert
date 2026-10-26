@@ -64,7 +64,7 @@ test("the first boot creates the document, conditionally on the account's state"
   );
 });
 
-test("a run's step ceiling is the document's, and its absence the default", async () => {
+test("a run's step limit is read from the document, and its absence the default", async () => {
   const defaults = installationDefaults();
   const { maxRunSteps: _held, ...withoutSteps } = defaults.limits;
   const sized = {
@@ -75,7 +75,11 @@ test("a run's step ceiling is the document's, and its absence the default", asyn
   const loaded = await readInstallation(
     fakeStore({ read: async () => JSON.stringify(sized) }),
   );
-  assert.equal(loaded.document.limits.maxRunSteps, 2, "the document sizes the run");
+  assert.equal(
+    loaded.document.limits.maxRunSteps,
+    2,
+    "the document's value is what the run records",
+  );
 
   const inherited = await readInstallation(
     fakeStore({
@@ -90,7 +94,7 @@ test("a run's step ceiling is the document's, and its absence the default", asyn
   assert.equal(
     inherited.document.limits.maxRunSteps,
     defaults.limits.maxRunSteps,
-    "a document that names no step ceiling keeps the default",
+    "a document that names no step limit keeps the default",
   );
 });
 

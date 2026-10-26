@@ -189,7 +189,7 @@ export type RunEnding =
   /** A guardrail fired: the run stopped itself, and the record says which check. */
   | "refused";
 
-/** A run's state: in flight, or one of the three endings. */
+/** A run's state: in flight, or one of the endings above. */
 export type RunState = "running" | RunEnding;
 
 /** The channel a sentence sits in (ADR 0029): the group's chat, or mail. */
@@ -663,6 +663,13 @@ export interface RunSummary {
   spent: RunSpent;
 }
 
+/** The least a run must have to be ordered: an id and the instant it counts from. */
+export interface RunOrder {
+  id: string;
+  startedAt?: string;
+  ended?: { at: string } | null;
+}
+
 /**
  * When a run counts from: the instant it opened, or the one it ended at for a
  * document written before `startedAt` existed.
@@ -671,13 +678,6 @@ export interface RunSummary {
  * list is read for what is happening now, and a run without `startedAt` sorts by
  * its ending rather than last.
  */
-/** The least a run must have to be ordered: an id and the instant it counts from. */
-export interface RunOrder {
-  id: string;
-  startedAt?: string;
-  ended?: { at: string } | null;
-}
-
 export function runRecency(one: RunOrder): string {
   return one.startedAt ?? one.ended?.at ?? "";
 }
