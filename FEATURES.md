@@ -358,7 +358,8 @@ model, the page rendered to a bitmap and sent as a picture: no OCR engine is
 installed, and a model that cannot see says so instead of guessing. The half that changes the
 group's account files a message, **prints a message as a PDF into Files** — the
 page a printer gives: the subject, who wrote it and to whom, the date and the words
-wrapped onto A4 pages, filed at the path the call names and never replacing what is
+wrapped onto A4 pages, filed at the path the call names — a `.pdf` added when the
+path does not carry one — and never replacing what is
 there; a character the standard font cannot carry is refused by code point, never
 replaced by a question mark — puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
