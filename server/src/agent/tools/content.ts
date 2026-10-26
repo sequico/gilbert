@@ -71,7 +71,14 @@ export async function readFileText(
       ? { text: null, readable: false, problem: read.problem }
       : { text: read.text, readable: true, kind: "image" };
   }
-  const document = await readDocument(file.bytes, file.type, file.name, { readImage });
+  /*
+   * A scanned PDF's pages are pictures the model reads too, so the reader the
+   * document gets is the metered one: every transcription is on the run and on
+   * the day, exactly as a standalone image's is.
+   */
+  const document = await readDocument(file.bytes, file.type, file.name, {
+    ...(readImage ? { readImage: (image) => readImage(image, meter) } : {}),
+  });
   if (document === null) return { text: null, readable: false };
   if ("problem" in document)
     return { text: null, readable: false, problem: document.problem };
