@@ -394,15 +394,25 @@ of the three changes shipped yesterday were hygiene and the third was measured o
 a synthetic plan.
 *Proof*: the three tasks fail on today's tree and pass on the final one.
 
-### R10 — The judge gets the same budget as any reader
+### R10 — The judge reads the instruction, and asks whether the report is the one it asked for
 
-`judgeRun` renders every step of the plan at four kilobytes each — up to 160 KB on
-a forty-step run, in a single call. It renders the plan's tail and the report's
-claims, not every outcome whole.
-*Where*: `agent/model.ts` (`judgeRun`).
-*Why*: a suspect plan of forty steps is a call larger than any the loop makes, for
-a verdict that reads the states and the sentence.
-*Proof*: the judge's prompt on a forty-step plan stays under the prompt bound.
+`judgeRun` today asks one question — does the report stand on what the run did — and
+only on a suspect plan. It renders every step of the plan at four kilobytes each — up
+to 160 KB on a forty-step run, in one call — while the operator's own rules go
+unchecked: the shape of the report, and "never restate what an earlier report said",
+are in the instruction, which the judge is already given.
+*Where*: `agent/model.ts` (`judgeRun`), `agent/loop.ts` (when it fires), ADR 0038.
+*What it asks*: the plan's tail and the report's claims, not every outcome whole; the
+report against the **shape the instruction declares** and against what the plan
+shows; and it fires on **every report when the instruction declares a shape** —
+which is the generic way a prose rule is enforced: an operator's words are read by a
+model, never parsed by the harness.
+*Why*: a suspect plan of forty steps is a call larger than any the loop makes, for a
+verdict that reads the states and the sentence; and a group that writes "one report
+per change, in this shape, never restate" has no way of knowing whether it was
+obeyed — the 2026-10-26 runs never wrote a report at all, and nothing said so.
+*Proof*: the judge's prompt on a forty-step plan stays within the prompt bound, and a
+report missing a field the instruction names fails a task of the eval.
 
 ### R11 — The system turn says less, and shows one worked case
 
