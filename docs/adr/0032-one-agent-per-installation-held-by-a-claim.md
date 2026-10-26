@@ -79,7 +79,7 @@ as.
 - What this does **not** answer is work already begun. The claim says who may
   work the installation, not what has been worked; a run left half-done by a
   holder that died is picked up by the next one from the run document (ADR 0030),
-  where the plan, the wait and what it touched are all written down.
+  where the plan, the wait and what each step did are all written down.
 
 ## References
 

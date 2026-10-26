@@ -490,8 +490,8 @@ lookup and no act at all (`server/src/agent/tools/reader.ts`).
 scratchpad, one file per case at `gilbert/cases/<key>.md` in the group's own account,
 written by the `note` tool and carried whole in every turn of the case. The run records
 which case it worked (`caseKey`), the turn lists the keys already on file, and an
-increment that follows reads what the one before learned — the folder, the rule, what
-was reported, what is owed — instead of looking for it again
+increment that follows reads what the one before learned — the folder, the
+instruction, what was reported, what is owed — instead of looking for it again
 (`server/src/agent/case.ts`).
 
 ## The agent is measured on the tasks it has failed
