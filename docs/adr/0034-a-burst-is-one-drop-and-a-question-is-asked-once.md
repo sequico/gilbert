@@ -16,7 +16,7 @@ opens carries the files it answers (`startedBy.batch`, `server/src/shared/run.ts
 so its plan reads the names instead of listing the folder again. A folder that
 appears is not a document, and a removal whose path is unknown wakes no rule
 (`server/src/agent/events.ts`). A run is shown the questions the group already
-has open, and `chat.ask` does not post a question an open run already waits on
+has open, and `say` with `ask` does not post a question an open run already waits on
 (`server/src/agent/tools/chat.ts`). A page's transcription is remembered by the
 content of its bytes, and an identifier a model cannot read is asked for as
 `(unclear)` (`server/src/agent/model.ts`). The decision turn's calls are counted
@@ -76,7 +76,7 @@ second message of a delivery cheap and what a later change of the same case find
 removal whose path is no longer known is not actionable: neither wakes an agent.
 
 **A question is asked once.** The plan turn is shown the questions the group
-already has open, from the runs parked on a person, and `chat.ask` refuses to
+already has open, from the runs parked on a person, and `say` with `ask` refuses to
 post a question an open run already waits on: it answers with the open
 question's message, and the run that would have asked continues.
 

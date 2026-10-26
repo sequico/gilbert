@@ -21,8 +21,8 @@ Master's account (`server/src/agent/loop.ts`). The run records which facts its
 calls carried and which retrieval found them, as references to the documents
 (`recalled`, `retrieval`, `server/src/shared/run.ts`), so a conclusion is traceable
 to the fact behind it — and the surface that draws a run resolves each of those ids
-to its fact. The agent's write is the catalogue's `remember` (`kind: fact`,
-`server/src/agent/tools/memory.ts`), an act of the class the agent decides alone:
+to its fact. The agent's write is the catalogue's `act` with `what: "fact"`
+(`server/src/agent/tools/memory.ts`), an act of the class the agent decides alone:
 it records a fact, and against one a person holds it writes its conclusion
 **beside** the person's sentence as a proposal (`FactProposal`), never in place of
 it. Behind the installation's own door (ADR 0027) an administrator reads those

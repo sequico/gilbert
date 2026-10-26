@@ -34,7 +34,7 @@ day it is on. Nothing else.
 
 - **`kind` is one of four surfaces** — `thread`, `file`, `contact`, `event` — and
   `id` is exactly what that surface's tool answered. The pair is validated where
-  the message is written (`chat.say`), so a document that names a kind this build
+  the message is written (`say`), so a document that names a kind this build
   cannot draw is not a message at all.
 - **The account is the server's to say.** Each reference carries the account the
   object was found in, because they are not all the conversation's: a group's

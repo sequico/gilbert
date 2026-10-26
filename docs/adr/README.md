@@ -337,7 +337,7 @@ is, not what a user sees.
   and a case keeps its scratchpad under the agent's own bookkeeping. A folder
   that appears is not a document and a
   removal with no known path wakes nothing. The plan turn is shown the questions
-  the group already has open, and `chat.ask` does not post a duplicate: a
+  the group already has open, and `say` with `ask` does not post a duplicate: a
   question is asked once. A page's transcription is remembered by the content
   of its bytes, and an identifier the model cannot read is transcribed as
   `(unclear)`. The decision turn's calls are counted on the run it opens, a
