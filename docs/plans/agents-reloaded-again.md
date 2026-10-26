@@ -529,16 +529,8 @@ travels in the call. A group that declares the **shape a report takes**
 judged, not only a suspect plan: the declaration is the one thing the harness reads
 about prose — that it is there — and the shape itself is the judge's to read.
 
-**Owed:** nothing. The judge reads the plan's **tail** — the last six steps with their
-answers, every earlier one as its call and state — so a forty-step plan of
-four-kilobyte outcomes is a call a fraction of what it was (`JUDGE_STEPS_WHOLE`,
-`agent/model.ts`). It reads the group's instruction, and when the group has declared
-the **shape a report takes** (`InstructionDoc.report`, written from the panel's "The
-shape of a report") it fires on **every** report, not only on a suspect plan: the
-declaration is the one thing the harness reads about prose — that it is there — and the
-shape itself is the judge's to read and never the harness's to parse. What is owed is
-its calibration against a human sample (ADR 0038's *Owed*), which is a measurement and
-not a mechanism.
+**Owed:** its calibration against a human sample (ADR 0038's *Owed*), which is a
+measurement and not a mechanism.
 
 ### R11 — The system turn says less, and shows one worked case
 
