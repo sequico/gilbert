@@ -571,6 +571,9 @@ for (const task of tasks) {
       `refused=${refused}`,
       `recovered=${recovered}`,
       `tokens=${spent.tokens}`,
+      // The share the provider served from its own cache: the one number an
+      // append-only turn is judged by, printed per task and not only as a total.
+      `cached=${spent.tokens ? Math.round((spent.cached / spent.tokens) * 100) : 0}%`,
       last?.got.said ? `said=${JSON.stringify(last.got.said)}` : "",
       verdict === "PASS" ? "" : `expected: ${task.reference}`,
     ]
