@@ -24,7 +24,7 @@ on the run it opens, and a run's end is stamped when it ends
 (`server/src/agent/loop.ts`). The Work panel shows steps taken and failed steps
 as the two tallies they are (`web/src/views/admin/agents/AgentOverview.tsx`).
 **Not built:** the mail drop and the case's scratchpad. A message is still its own
-change and its own run — `changes.ts` folds a folder's files, not a sender's mail —
+change and its own run — `changes.ts` folds a folder's files, not a case's mail —
 and a run's working memory is its plan, with no `gilbert/cases/` note. The work is
 `docs/plans/agents-reloaded-again.md`.
 
@@ -51,22 +51,24 @@ process that dies between passes resumes the same drop, and the run's key — th
 folder and the instant the drop opened — makes a retry the same run rather than
 a second one.
 
-**A drop of mail is the same change.** A message is noted against its **sender**
-— the mailbox's own "folder" — and answered once, when that sender has been quiet
-for the same five minutes or the burst has been open for twenty: one change names
-the messages and the instant, one decision, one run, one report. A reply that
-answers a message of the drop joins it through its thread. A delivery of seven
-messages from one shipper is otherwise seven runs that each rediscover the same
-booking, folder and convention — and seven reports for one delivery. Where each
-message is filed is still decided per message, from its own attachments, so a
-wrong fold costs a longer run rather than a wrong filing.
+**A drop of mail is the same change when the group reports per drop.** A message is
+then noted against the **case it names** — the key the report itself uses, the case
+note below — and answered once, when that case's changes have been quiet for the same
+five minutes or the burst has been open for twenty: one change names the messages and
+the instant, one decision, one run, one report. The key is the case's and never the
+transport's: two unrelated matters from one correspondent are two cases. A group whose
+instruction reports per change needs no queue at all — each change is its own
+increment, and the case's note keeps the reports from repeating. A reply that answers
+a message joins the case through its thread.
 
 **The case keeps a scratchpad.** A run's working memory is a note under the agent's
-own bookkeeping (`gilbert/cases/`), written and rewritten by the model and carried
-whole in every turn of the case: the booking reference, the folder, the naming rule,
-what the group still owes. What must outlive the case is a fact in the memory
-(ADR 0033), not a longer note. The note is what makes the second item of a drop cheap
-and what a later message of the same case finds.
+own bookkeeping (`gilbert/cases/<key>.md`), written and rewritten by the model and
+carried whole in every turn of the case, in the order a turn reads it: the key the
+report calls the case, the place the work goes, the rule the change needed, what the
+last report said and when, and what is still owed. The turn lists the keys already on
+file, so a run recognises a case it has seen without a lookup. What must outlive the
+case is a fact in the memory (ADR 0033), not a longer note. The note is what makes the
+second message of a delivery cheap and what a later change of the same case finds.
 
 **Only documents are changes.** A folder that appears is not a delivery, and a
 removal whose path is no longer known is not actionable: neither wakes a rule.
