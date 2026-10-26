@@ -174,6 +174,24 @@ six offsets because it had nowhere to keep what the page said.
 the page titles and the folder skeleton, and the run's **first act is the right
 one** on the eval task — not merely an act by step 3.
 
+**When the case is bigger than a turn, a reader digests it.** A thread of twenty
+messages, or a folder of thirty documents, is not handed in and is not read by the
+working run either: a **reader** — the same model, the reading half of the
+catalogue and no write tool — answers one question about it ("which booking, which
+folder, which containers, what is owed") in a few lines, and those lines are what
+the working turn sees. This is Claude Code's subagent pattern: the investigation
+stays in its own context and the main thread keeps the answer; and it is
+Cognition's limit too — **the reader reads and answers, it never acts**, so no two
+decision-makers touch one shipment.
+*Where*: `agent/reader.ts` (new, the reading half and one question), `agent/loop.ts`
+(the case decides whether it needs one), `agent/model.ts` (the call, budgeted like
+any other).
+*Why*: the 10:41 run read one message twelve times and the 13:35 page paged one
+page six times; both are a working context asked to be a reading context.
+*Proof*: on the drop's thread, the working turn carries the reader's few lines and
+not the messages' bodies, and the run's acts are unchanged by the reader having
+read.
+
 ### R3 — The case keeps a scratchpad, and the turn carries it
 
 The run keeps a **note**: a Markdown file under the agent's own bookkeeping
