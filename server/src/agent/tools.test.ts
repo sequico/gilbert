@@ -2217,6 +2217,8 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
           to: [{ email: "demo@example.com" }, { email: "finance@shipper.example" }],
           cc: [{ email: "ops@shipper.example" }],
           references: ["earlier@shipper.example"],
+          // The answered message's own marks must not reach the draft.
+          keywords: { shipping: true, $seen: true },
           mailboxIds: { inbox: true },
         },
       },
@@ -2317,6 +2319,11 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
     "and the thread before it",
   );
   assert.equal(written.keywords?.$draft, true, "marked a draft, never a sent message");
+  assert.equal(
+    written.keywords?.shipping,
+    undefined,
+    "and the answered message's label is not carried onto the reply",
+  );
   const identity = await clientOf(ctx).call<{ list?: Array<{ email?: string }> }>(
     "Identity/get",
     { accountId, ids: null },

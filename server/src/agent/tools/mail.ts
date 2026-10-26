@@ -667,11 +667,15 @@ export const draftReply = defineTool({
             subject,
             sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
             mailboxIds: { [drafts.id]: true },
-            // Every mark the draft carried stays, and it is a draft whatever
-            // else it was.
+            /*
+             * The draft's own marks, never the answered message's: `$answered`,
+             * `$seen` or a group label on the mail being answered belong to that
+             * message, and a reply that inherited them would read as answered
+             * before anybody sent it.
+             */
             keywords: {
-              ...(isRecord(original.keywords) ? original.keywords : {}),
               [DRAFT_KEYWORD]: true,
+              $seen: true,
               [AGENT_DRAFT_KEYWORD]: true,
             },
             bodyStructure: { partId: "text", type: "text/plain" },
