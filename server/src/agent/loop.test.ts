@@ -600,7 +600,7 @@ test("a change a rule watches opens a run, and the record shows every step of it
   assert.equal(
     run.startedBy.surfaces?.mail,
     "watch",
-    "and carries the matrix the rule had at that instant (ADR 0031)",
+    "and carries the matrix its areas gave at that instant (ADR 0038)",
   );
   assert.equal(run.state, "done", "the model said the work was done");
   assert.equal(
@@ -625,8 +625,8 @@ test("a change a rule watches opens a run, and the record shows every step of it
 });
 
 /**
- * The calendar is a surface like any other (ADR 0031): an event written in the
- * group's account wakes a rule that watches it, and the run it opens names the
+ * The calendar is a surface like any other (ADR 0038): an event written in the
+ * group's account wakes an agent whose wake row watches it, and the run it opens names the
  * event by the id `calendar.read` takes.
  */
 test("a calendar event written in the group's account wakes a rule that watches it", async () => {
@@ -810,7 +810,7 @@ test("no mark on a message is activity a rule answers, its own or a person's", a
   /*
    * A run files a message and marks it G-processed, and the server reports those
    * writes as changes of that same message. A change of a message is not an
-   * event — only an arrival is (ADR 0031) — so the next pass opens no second run
+   * event — only an arrival is (ADR 0038) — so the next pass opens no second run
    * over the mail the run has just handled, and a person's later mark wakes
    * nothing either: one message, one answer.
    *
@@ -863,7 +863,7 @@ test("no mark on a message is activity a rule answers, its own or a person's", a
   assert.equal(runs.length, 1, "one message, one run");
 
   // A person's later mark on the same message is a change of that message, not
-  // an arrival: reading, marking and filing wake no rule at all (ADR 0031).
+  // an arrival: reading, marking and filing wake no run at all (ADR 0038).
   await clientOf(ctx).call(
     "Email/set",
     { accountId: group, update: { [message]: { "keywords/$flagged": true } } },

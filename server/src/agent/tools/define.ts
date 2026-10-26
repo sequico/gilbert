@@ -83,7 +83,7 @@ export interface AnyTool {
   /** Whether the tool can change anything. The reading half's are all false. */
   readonly writes: boolean;
   /**
-   * The surface of the group's account a write touches (ADR 0031), or absent
+   * The surface of the group's account a write touches (ADR 0038), or absent
    * for the agent's own bookkeeping (its memory).
    */
   readonly surface?: SurfaceName;
@@ -217,7 +217,7 @@ interface ToolSpec<Args> {
   /** The class a call exercises, when it varies by its arguments. */
   authorityOf?: (args: Args) => ToolAuthority;
   writes: boolean;
-  /** The surface of the group's account a write touches (ADR 0031). */
+  /** The surface of the group's account a write touches (ADR 0038). */
   surface?: SurfaceName;
   /** The surface a call touches, when it varies by its arguments. */
   surfaceOf?: (args: Args) => SurfaceName | undefined;
@@ -296,7 +296,7 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
 /** What a tool call is given: the session it acts as, and the run it works. */
 export interface ToolCall {
   ctx: Ctx;
-  /** The account the run belongs to — the group's own (ADR 0031). */
+  /** The account the run belongs to — the group's own (ADR 0038). */
   accountId: string;
   /** The run the call is a step of, which is what its authority is read from. */
   run: RunDoc;
@@ -375,7 +375,7 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
 
 /**
  * The mode the run's rule gives one surface, or null when the run predates the
- * matrix (ADR 0031).
+ * matrix (ADR 0038).
  *
  * A run opened before a rule carried surfaces may write where it did before: the
  * guard does not narrow it retroactively, and the run's own view says it stands

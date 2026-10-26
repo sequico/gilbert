@@ -253,9 +253,9 @@ test("a tool that writes cannot be reached through the reading half", async () =
   assert.equal(calls.length, 0, "and nothing ran");
 });
 
-test("a write on a surface the rule keeps off is refused, and a read is not", async () => {
+test("a write on a surface the run's matrix keeps off is refused, and a read is not", async () => {
   /*
-   * The matrix says where a run may act (ADR 0031). Files are off for this
+   * The matrix says where a run may act (ADR 0038). Files are off for this
    * run: a write is refused before the class is asked, while reading Files
    * stays free — a reading is proof, not an act.
    */

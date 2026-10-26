@@ -6,10 +6,10 @@
  * accounts the Master works — its groups, asked afresh on **every** pass, so one
  * the Master joins is worked by the next pass and one it leaves stops being
  * worked, with no restart — then works the runs whose wait has come due, reads
- * each account's changes, and for each change asks the **decision turn** which
- * rules apply. A change no rule watches costs no model call and no step; every
- * rule that applies opens or continues its own run (ADR 0031), and each run is
- * worked by the **choosing turn** — the model asks for a plan of one or more
+ * each account's changes, and for each change asks the **decision turn** what the
+ * change is about. A change the group's instruction covers opens **one** run
+ * (ADR 0038); a change it does not cover costs no model call and no step, and each
+ * run is worked by the **choosing turn** — the model asks for a plan of one or more
  * steps, each naming what it waits on, the loop **writes that plan on the run
  * before it acts on any of it**, runs the steps whose dependencies have ended
  * **together**, reads each outcome and takes the branch that outcome names,
@@ -29,13 +29,12 @@
  * to the fact that carried it. A change with nothing to recall is worked exactly
  * as it was before the memory existed.
  *
- * **Every call is told the three levels of prose the record names** (ADR 0031),
+ * **Every call is told the two levels of prose the record names** (ADR 0038),
  * outermost first: the installation's own line, read from its document at the
- * boot; the group's standing instruction, one document in the group's account
- * read once per pass, so an edit is in force at the next one; and the rule's own
- * instruction, re-read for every turn of the run it started. A level that says
- * nothing contributes nothing, and the order is the builder's alone
- * (`prose.ts`), never a caller's.
+ * boot; and the group's one instruction, read from the group's account once per
+ * pass, so an edit is in force at the next one. A level that says nothing
+ * contributes nothing, and the order is the builder's alone (`prose.ts`), never a
+ * caller's.
  *
  * **A sentence that answers a run is also read for what it authorises**
  * (ADR 0028): the reading is one call (`readAnswerAuthority`), what it reports is
@@ -366,7 +365,7 @@ export interface AgentLoopOptions {
   allowPrivateProvider?: boolean;
   /**
    * The installation's own line of prose, carried into every call above every
-   * group's (ADR 0031). Read from the installation's document at the boot, like
+   * group's (ADR 0038). Read from the installation's document at the boot, like
    * the model: which document a booted process runs on is fixed at the boot.
    */
   installation?: string;
@@ -766,7 +765,7 @@ export class AgentLoop {
       /*
        * Off still answers the people who wrote -- in chat and by mail, with a
        * fixed sentence and no model call -- and the owner chose that directly
-       * rather than through a rule's class-3 licence.
+       * rather than through an instruction's class-3 licence.
        */
       /*
        * A mail addressed to the agent **alone** lands in the Master's own
@@ -1250,23 +1249,22 @@ export class AgentLoop {
   }
 
   /**
-   * One account's changes, each put to the decision turn, and every rule that
-   * fits it given its own run.
+   * One account's changes, each put to the decision turn, and every change the
+   * group's instruction covers given its own run.
    *
-   * A change no rule watches costs no model call and no step. Every rule the
-   * decision turn names opens or continues **its own** run (ADR 0031): two rules
-   * over one change are two runs, each naming its own rule and the change that
-   * woke it. The same rule over the same change is not a second run — the runs
-   * the account already holds are read for it once, when the first change is
-   * covered, and a run whose `startedBy` names this rule and this change is what
-   * the record says that change has been answered by: one still running is
-   * continued from its own document, and one that has ended is left as the
-   * answer it is, so a pass that re-reads a change it did not finish cannot work
-   * it twice. One change reaches this loop once per read — a node's create and
-   * its update are one event (`events.ts`) — so the record is the whole of what
-   * "the same change" is recognised by. A change that **answers** a question this
-   * account is waiting on is neither: the run that asked is continued and no run
-   * of its own is opened (`runAnsweredBy`).
+   * A change no instruction covers costs no model call and no step. One change
+   * opens **one** run (ADR 0038): a group has one instruction, so there is no
+   * second to choose between and nothing to route. The same change is not a second
+   * run — the runs the account already holds are read for it once, when the first
+   * change is covered, and a run whose `startedBy` names this change is what the
+   * record says that change has been answered by: one still running is continued
+   * from its own document, and one that has ended is left as the answer it is, so a
+   * pass that re-reads a change it did not finish cannot work it twice. One change
+   * reaches this loop once per read — a node's create and its update are one event
+   * (`events.ts`) — so the record is the whole of what "the same change" is
+   * recognised by. A change that **answers** a question this account is waiting on
+   * is neither: the run that asked is continued and no run of its own is opened
+   * (`runAnsweredBy`).
    */
   private async workChanges(
     accountId: string,
@@ -2807,7 +2805,7 @@ export class AgentLoop {
    * Every ending that owes words is said here, in one place, so the ending a run
    * reaches and the ending a later pass picks up cannot be phrased twice. A run
    * woken by mail is said here too: an answer to that person's message would be
-   * mail the agent sends outward, which ADR 0028 gives only to a rule that
+   * mail the agent sends outward, which ADR 0028 gives only to an instruction that
    * declares it sends, so the group reads the failure where its people are. A
    * refusal is the caller's to record — never swallowed here.
    */

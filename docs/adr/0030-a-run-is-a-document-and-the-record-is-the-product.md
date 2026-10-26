@@ -23,7 +23,8 @@ group's knowledge, its checklists and its workorders, which it reaches with the
 catalogue's reading tools (ADR 0027); the tools the catalogue still lacks are
 `ROADMAP.md`'s. A pass takes the installation's claim, arms every wait each
 account's runs carry, works the runs whose wait has come due, and opens or
-continues and works a run for each rule a change fits (ADR 0031). Where an
+continues and works a run for each change the group's instruction covers (ADR 0038).
+Where an
 installation administrator reads them, a run is drawn as the record carries it:
 `server/src/agent/runs.ts` answers one walk of a folder in two shapes —
 `listRuns` for the loop, which refuses the first document it cannot read, and
@@ -51,9 +52,9 @@ a run.
 **A run is a document in the group's account**, and it is the whole of the
 agent's durable state.
 
-- It carries which rule or which instruction started it, the surface matrix that
-  rule had when the run opened (ADR 0031), the plan (the steps the model chose,
-  or the rule declared, and what each of them waits on), the outcome of each one,
+- It carries which instruction started it, the write matrix its areas gave when the
+  run opened (ADR 0038), the plan (the steps the model chose, and what each of them
+  waits on), the outcome of each one,
   what it is waiting
   for — and until when, when there is a date — every authorisation with the
   message it arrived in and the authority given, the evidence behind every claim,

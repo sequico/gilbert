@@ -570,7 +570,7 @@ test("the choosing turn offers the catalogue as tools, from the same argument sp
 });
 
 /**
- * The rule's surface matrix is what refuses a write at the door (ADR 0031), so
+ * The run's surface matrix is what refuses a write at the door (ADR 0038), so
  * the turn is told it in advance: a model that has to learn it from a refused
  * step has spent a step and a call on a lesson one line teaches.
  */

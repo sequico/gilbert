@@ -245,7 +245,7 @@ is, not what a user sees.
   list of permitted business actions, and no plan compiled at write time. It
   works on **six surfaces — the group's chat, mail, KB (checklist templates among
   its pages), workorders, Files and calendar** — with its own runs beside them,
-  each readable, and writeable within the rule's matrix (ADR 0031) and the
+  each readable, and writeable within the matrix its areas gave (ADR 0038) and the
   authority classes. A tool's description is the product's interface to the
   model; two tools that do one thing are a defect. The catalogue **grows freely** — a new tool is not an architectural
   decision, a new **object** or a change to the authority classes is — and every
@@ -389,7 +389,7 @@ is, not what a user sees.
   path, a message's id and subject — and the person completes the request and
   sends it. The agent needs no new capability: the chat rule wakes on the
   message, reads the references with the tools it has, and acts within the
-  surface matrix (ADR 0031) and the authority classes (ADR 0028). Offered only
+  surface matrix (ADR 0038) and the authority classes (ADR 0028). Offered only
   where the agent serves the group, answered by a member route with the matrix;
   at most ten items, because a bulk write is one step each in a twenty-step
   plan. **Not built.**

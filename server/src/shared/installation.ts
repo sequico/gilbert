@@ -222,7 +222,7 @@ interface InstallationAgentSection {
   /** The installation's model, or absent when it has none and therefore no agent. */
   provider?: InstallationModel;
   /**
-   * The installation's own line of prose, carried into every call (ADR 0031):
+   * The installation's own line of prose, carried into every call (ADR 0038):
    * what whoever runs it wants its agent to work by, above every group's
    * standing instruction and every rule. Absent says nothing, and a level that
    * says nothing contributes nothing to the prompt.

@@ -24,7 +24,7 @@
  * applies it with `waitUntil` — the run document is the loop's to write, exactly
  * as the tally is.
  *
- * Every tool acts in the account its run lives in — the group's own (ADR 0031)
+ * Every tool acts in the account its run lives in — the group's own (ADR 0038)
  * — and reads it through the same doors the surfaces use, so the agent sees the
  * same documents a person does. The one that does not is `memory.remember`,
  * which records a fact into the **installation's** own store in the Master's
@@ -120,7 +120,7 @@ export async function runTool(
   const { tool, args } = validatedTool(catalogue, name, raw);
   /*
    * A write on a surface the run's rule keeps off is refused before the class
-   * is asked: the rule says *where* this run may act (ADR 0031), the class says
+   * is asked: the rule says *where* this run may act (ADR 0038), the class says
    * whether the act needs a person's word (ADR 0028). Reading is free — a
    * reading is proof, not an act. The surface is the call's own, because one
    * job reaches two of them (ADR 0038).

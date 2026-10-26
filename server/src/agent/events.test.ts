@@ -1,5 +1,5 @@
 /**
- * What a group's account changed, read against the mock Stalwart (ADR 0031).
+ * What a group's account changed, read against the mock Stalwart (ADR 0038).
  *
  * Three facts the design rests on are pinned here: a read describes the mail,
  * the nodes and the workorder writes an account made — a write to a workorder is
@@ -525,7 +525,7 @@ test("a removal whose path this process never read never wakes a rule", async ()
 
 test("a calendar event written in the account is one change on the calendar surface", async () => {
   /*
-   * The calendar is its own log, not a node in Files (ADR 0031): an event is
+   * The calendar is its own log, not a node in Files (ADR 0038): an event is
    * named by its id, which is exactly what `calendar.read` takes, and it is read
    * once — the cursor moves with the page like the other two logs.
    */

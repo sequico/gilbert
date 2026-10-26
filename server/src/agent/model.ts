@@ -31,13 +31,13 @@
  * never read from a document an installation wrote (ADR 0009). The check is
  * made in `callModel`, so every path to the provider passes it.
  *
- * **The decision turn.** Given one change in a group's own account and the
- * rules that watch it, the model answers one bounded question: which rules
- * apply, and what are the facts. It may look something up with the
- * **reading tools** already built — the write-free half of the catalogue, so a
- * tool that changes the account is not in it to name — and what it answers is
- * facts and nothing else. It never grants an authority and never chooses a tool
- * that writes; anything but the demanded shape is refused, never guessed at.
+ * **The decision turn.** Given one change in a group's own account, the model
+ * answers one bounded question: what is this change about. It may look something
+ * up with the **reading tools** already built — the write-free half of the
+ * catalogue, so a tool that changes the account is not in it to name — and what
+ * it answers is facts and nothing else. It never grants an authority and never
+ * chooses a tool that writes; anything but the demanded shape is refused, never
+ * guessed at.
  *
  * **The choosing turn** (`chooseStep`) works a run (ADR 0027, 0030): it is
  * handed the catalogue as the catalogue describes itself — one definition, never
@@ -56,7 +56,7 @@
  *
  * The loop that works a run is `agent/loop.ts`, and it asks both turns here; the
  * loop that carries a person's instruction out — a sentence in the chat or the
- * mail — is to be written with `gilbertagents` (ADR 0031).
+ * mail — is `gilbertagents` (ADR 0038).
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -157,7 +157,7 @@ const NO_TRAINING_HEADERS: Readonly<Record<string, string>> = {
  * The one sentence that says what a turn's data is, and is not.
  *
  * Every word between the data markers is content that was handed to the call —
- * a message, a file, a chat, a rule a group wrote, the answer a lookup came
+ * a message, a file, a chat, the group's instruction, the answer a lookup came
  * back with — and any of it may have been written by somebody outside the group.
  * It is stated once here rather than at each call site.
  */
@@ -1145,11 +1145,10 @@ function firstLine(text: string): string {
 /**
  * What one deciding call answered.
  *
- * A **decision** names **every** rule that applies — an empty list when, after
- * looking, none of the candidates covers this change — and the facts the change
- * is about, in the group's own vocabulary. A **read** asks for one look at the
- * group's own state first; it is not a decision, and the caller performs it and
- * asks again.
+ * A **decision** is the facts the change is about, in the group's own vocabulary
+ * — possibly none, when the change says nothing the model can name — and nothing
+ * else. A **read** asks for one look at the group's own state first; it is not a
+ * decision, and the caller performs it and asks again.
  *
  * There is nothing else an answer can be. It carries no authority and no tool
  * that writes: an authorisation is a person's word recorded on the run
@@ -1165,8 +1164,8 @@ type ModelAnswer =
   | { kind: "lines"; lines: string[] };
 
 /**
- * What a decision turn answers its caller: the rules that take the change, or
- * the words to send — or, when it was asked a **question**, the lines a reader
+ * What a decision turn answers its caller: the facts the change is about, the
+ * words to send — or, when it was asked a **question**, the lines a reader
  * answers it with (R2's reader, ADR 0038).
  *
  * A `read` is the turn's own and never leaves `decideEvent` — the loop makes it,
@@ -1183,14 +1182,12 @@ export type DecisionAnswer = Exclude<ModelAnswer, { kind: "read" }>;
  * else. A key this build does not know is **refused**, not ignored, and that is
  * the whole of the bound on what an answer can carry — a model that adds an
  * `authority`, a `capability` or an `actions` list to its decision is answered
- * with a refusal rather than with an effect. The **facts sit beside the rules
- * and not inside them**: a change is one thing, several rules may fit it, and
- * the facts describe the change — one answer is therefore smaller than a fact
- * list per rule, and cannot say that one rule saw a differently-described
- * change from another. Facts are the model's own vocabulary (which booking,
- * which shipper, which client), so the *names* inside `facts` are open; their
- * values are text. A rule named twice is refused with the rest: a run per
- * naming is not what the group wrote.
+ * with a refusal rather than with an effect. **The facts are the whole of a
+ * decision**: a change is one thing, the facts describe it, and the answer has
+ * nowhere else to put a second opinion about what the change is. Their names are
+ * the model's own vocabulary (which booking, which shipper, which client), so the
+ * *names* inside `facts` are open; their values are text. A change that needs no
+ * facts is answered with an empty `facts`, which is a decision too.
  */
 export function parseAnswerDetailed(
   raw: unknown,
@@ -2129,7 +2126,7 @@ export interface StepQuestion {
    * place in the turn as one line, and what it answered is in the note.
    */
   compactedUpTo?: number;
-  /** The prose the turn carries, outermost first (ADR 0031). */
+  /** The prose the turn carries, outermost first (ADR 0038). */
   prose: Partial<Record<ProseLevel, string>>;
   /** What the decision found the change to be about, when this turn follows one. */
   facts?: Record<string, string>;
@@ -2175,7 +2172,7 @@ export interface StepQuestion {
   /** The files a batched drop brought, when the run answers one (ADR 0034). */
   batch?: readonly string[];
   /**
-   * The run's own surface matrix (ADR 0031): where it may act, and where a
+   * The run's own surface matrix (ADR 0038): where it may act, and where a
    * write is refused before the class is even asked. Told in advance, because
    * a turn that learns it from a refusal spends a step and a call on the lesson.
    */

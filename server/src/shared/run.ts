@@ -259,7 +259,7 @@ interface RunStart {
    */
   surfaces?: SurfaceMatrix;
   /**
-   * What woke it, in the words of the thing that woke it (ADR 0031).
+   * What woke it, in the words of the thing that woke it (ADR 0038).
    *
    * `woke` names the change; this says what the change *said* — the chat message
    * a person typed, the subject of the mail that arrived, the files a drop

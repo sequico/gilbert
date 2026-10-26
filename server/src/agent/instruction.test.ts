@@ -1,5 +1,5 @@
 /**
- * A group's standing instruction, against the mock Stalwart (ADR 0031).
+ * A group's standing instruction, against the mock Stalwart (ADR 0038).
  *
  * What is pinned here is the one mechanism the design rests on: the document a
  * group wrote is read from its own account and carried as the middle of the
