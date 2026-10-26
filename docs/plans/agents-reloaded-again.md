@@ -370,8 +370,9 @@ so far, and is stopped from there; no run posts more than its report.
 
 ### R8 — A run explains itself
 
-Per step: milliseconds and tokens (the two numbers the turn cost), and the tool
-time of its wave; on the run: the limits **in force when it opened** (token,
+Per step: milliseconds and tokens (the two numbers the turn cost), **the prompt's
+size and the share of it the provider served from cache**, and the tool time of its
+wave; on the run: the limits **in force when it opened** (token,
 step, call, time, daily), so a budget that fell back to a default is visible in
 the run that paid for it; in the ending: which ceiling fired and the value it had.
 *Where*: `shared/run.ts` (`RunStep` and a `limits` fact on the run),
@@ -379,10 +380,14 @@ the run that paid for it; in the ending: which ceiling fired and the value it ha
 `agent/supervisor.ts` (a gap line when the installation could not be read), the
 admin run view.
 *Why*: `spent` is a total today, so a failed run cannot say where its 27 s and its
-7 500 tokens a turn went; and a failed installation read silently lowers the budget
-to the defaults (120 000 tokens, twenty steps) for that pass.
+7 500 tokens a turn went, and the share of the prompt a provider served from cache is
+only a run total (61-71 % on 2026-10-26) — the one number an append-only turn is
+judged by (R13) is the one the record does not carry per step; and a failed
+installation read silently lowers the budget to the defaults (120 000 tokens, twenty
+steps) for that pass.
 *Proof*: the run view answers "where did the 27 s and the 7 500 tokens go" for
-every step, and "which budget was in force" for the run.
+every step, "how much of this prompt was cached" for every step, and "which budget
+was in force" for the run.
 
 ### R9 — The failures are the eval
 
