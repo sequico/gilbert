@@ -136,29 +136,36 @@ export function wokeOf(event: AccountEvent): string {
 }
 
 /**
+ * The object a wake of one kind names, or null when it is not a wake of that kind.
+ *
+ * One reader of the one spelling `wokeOf` writes, so a parser and the writer cannot
+ * drift apart: `"<source> <change>: <where>"`, and `where` is what this answers.
+ */
+function wokeTarget(woke: string | null | undefined, head: string): string | null {
+  const [kind, ...rest] = (woke ?? "").split(": ");
+  const where = rest.join(": ").trim();
+  return kind === head && where ? where : null;
+}
+
+/**
  * The chat message a run's wake names, when a person wrote to the agent.
  *
- * The inverse of the one spelling `wokeOf` gives a wake: `chat created: <path>`
- * and nothing else is a message a person wrote in the group's conversation. It
- * lives here, beside the writer, so the two cannot drift apart.
+ * `chat created: <path>` and nothing else is a message a person wrote in the group's
+ * conversation.
  */
 export function chatWoken(woke: string | null | undefined): string | null {
-  const [head, ...rest] = (woke ?? "").split(": ");
-  if (head !== "chat created" || !rest.length) return null;
-  return rest.join(": ");
+  return wokeTarget(woke, "chat created");
 }
 
 /**
  * The mail message a run's wake names, when a message woke it.
  *
- * The inverse of `wokeOf`, beside it for the same reason: `mail created: <id>` is the
- * only shape a mail wake has, and the message it names is what a thread is read from.
- * A wake that is not one answers null.
+ * `mail created: <id>` is the only shape a mail wake has, and the message it names is
+ * what a thread is read from. A wake whose target carries a parenthesised tail is a
+ * batched drop rather than one message, and answers null.
  */
 export function mailWoken(woke: string | null | undefined): string | null {
-  const [head, ...rest] = (woke ?? "").split(": ");
-  if (head !== "mail created" || !rest.length) return null;
-  const id = rest.join(": ").trim();
+  const id = wokeTarget(woke, "mail created");
   return id && !id.includes("(") ? id : null;
 }
 

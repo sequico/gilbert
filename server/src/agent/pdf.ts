@@ -70,7 +70,7 @@ function plainText(text: string): string {
       .replace(/\u2026/g, "...")
       .replace(/\u00a0/g, " ")
       .replace(/\t/g, "    ")
-      // eslint-disable-next-line no-control-regex -- control characters have no glyph.
+      // Control characters have no glyph: they are dropped before the font sees them.
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
   );
 }
@@ -153,9 +153,8 @@ export async function messagePdf(message: PrintableMessage): Promise<Uint8Array>
     ...(message.cc ? [`Cc: ${plainText(message.cc)}`] : []),
     `Date: ${plainText(message.at)}`,
   ];
-  const body = plainText(message.text).trim()
-    ? plainText(message.text)
-    : "(this message carries no text part)";
+  const words = plainText(message.text);
+  const body = words.trim() ? words : "(this message carries no text part)";
 
   const doc = await PDFDocument.create();
   doc.setTitle(subject);

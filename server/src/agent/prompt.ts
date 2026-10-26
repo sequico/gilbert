@@ -308,7 +308,7 @@ export function stepData(question: StepQuestion): string {
       : []),
     ...(question.cases?.length
       ? [
-          "The cases already on file here, names only. A case you have worked before keeps its name:",
+          "The cases already on file here, as their notes are named. A case you have worked before keeps its name:",
           dataBlock(token, [...question.cases]),
         ]
       : []),

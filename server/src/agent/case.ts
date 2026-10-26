@@ -24,10 +24,10 @@ import {
 /** Where the agent's case notes live, under its own bookkeeping. */
 export const CASES_FOLDER = "cases";
 
-/** The most of a case note a turn carries, and the most the file keeps. */
+/** The most of a case note a turn carries, and what a write keeps. */
 export const CASE_NOTE_MAX = 4 * 1024;
 
-/** How many case keys a turn is told about. */
+/** How many case names a turn is told about. */
 export const CASE_KEYS_MAX = 40;
 
 const NOTE_TYPE = "text/markdown";
@@ -98,11 +98,13 @@ export async function writeCaseNote(
 }
 
 /**
- * The keys of the cases already on file, names only.
+ * The cases already on file, named as their files are.
  *
  * The index a turn needs to recognise a case it has seen before without a lookup —
  * and the reason a case can be named by its own report: what a later increment can
- * read is the same list the earlier one wrote.
+ * read is the same list the earlier one wrote. A name here is the note's file name
+ * (`caseSlug`), which is what a key becomes when it is filed, so a key the model
+ * writes back reaches the same note.
  */
 export async function listCases(ctx: Ctx, accountId: string): Promise<string[]> {
   const entries = await listAppDir(ctx, accountId, CASES_FOLDER);

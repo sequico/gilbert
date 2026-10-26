@@ -2136,11 +2136,11 @@ export interface StepQuestion {
   /** What a run's first turn is handed of its case, read once (ADR 0038). */
   case?: CaseHeld;
   /**
-   * The keys of the cases already on file, names only (ADR 0034).
+   * The cases already on file, named as their notes are (ADR 0034).
    *
    * A run recognises a case it has seen before without a lookup — the note of a case
-   * is what the increment before this one kept, and its key is what the group's own
-   * report called it.
+   * is what the increment before this one kept, and its name is what the group's own
+   * report called it, filed as `caseSlug` makes it.
    */
   cases?: string[];
   /**
