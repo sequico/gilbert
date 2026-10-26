@@ -55,7 +55,7 @@ function quoted(text: string): string {
  * true, and still be useful, for a different change? — and these are the two
  * shapes that never pass it.
  */
-export function eventProblem(fact: string): string | null {
+function eventProblem(fact: string): string | null {
   if (ISO_DATE.test(fact))
     return `${quoted(fact)} carries a date or a time, which is what happened in one change — the run's own record holds that. A fact is what stays true beyond it: who a party is, how a thing is done, a standing constraint.`;
   if (ID_TOKEN.test(fact))
@@ -71,7 +71,7 @@ export function eventProblem(fact: string): string | null {
  * happened: filed under it, the fact is recalled by nothing else, and it takes
  * one of the memory's entities for ever.
  */
-export function instanceSubjectProblem(subject: string): string | null {
+function instanceSubjectProblem(subject: string): string | null {
   if (ISO_DATE.test(subject) || ID_TOKEN.test(subject))
     return `"${subject}" names one record or one date, not a thing the group works with. A subject is what a later change will name again — a party, a place, a product, a practice — and what happened once belongs to the run's own record.`;
   return null;

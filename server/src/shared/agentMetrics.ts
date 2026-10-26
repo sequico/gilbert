@@ -8,7 +8,7 @@
  * inside it, with a run still in flight counted as now.
  */
 
-import type { RunSummary } from "./run.js";
+import { isInFlight, type RunSummary } from "./run.js";
 
 export interface RunMetrics {
   runs: number;
@@ -51,8 +51,8 @@ export function metricsOf(list: readonly RunSummary[], since?: Date): RunMetrics
       if (Number.isFinite(at) && at < since.getTime()) continue;
     }
     total.runs += 1;
-    // The plan's steps, the same count the run tables draw; the budget's own
-    // step counter is a different fact and is not a report of the work.
+    // The plan's steps, the same count the run tables draw; what the run spent
+    // as steps is a different fact and is not a report of the work.
     total.steps += run.steps;
     total.calls += run.spent.calls;
     total.ms += run.spent.ms;
@@ -60,7 +60,9 @@ export function metricsOf(list: readonly RunSummary[], since?: Date): RunMetrics
     total.completionTokens += run.spent.completionTokens ?? 0;
     total.cachedTokens += run.spent.cachedPromptTokens ?? 0;
     total.failed += run.failed;
-    if (run.state === "running") total.running += 1;
+    // In flight, not only running: a run parked on a person's answer is one the
+    // surfaces beside this table list together (`isInFlight`, ADR 0029).
+    if (isInFlight(run.state)) total.running += 1;
   }
   return total;
 }

@@ -2437,6 +2437,8 @@ export const catalog: Catalog = {
     "Completion tokens": "Tokens de finalización",
     "By group": "Por grupo",
     "No group mailbox in this session.": "No hay ningún buzón de grupo en esta sesión.",
+    "Not counted: {groups} could not be read.":
+      "No contabilizados: no se pudo leer {groups}.",
     Tokens: "Tokens",
     Overview: "Resumen",
     Memory: "Memoria",

@@ -41,6 +41,8 @@ export function AgentOverview({
   const [perGroup, setPerGroup] = useState<Array<{ name: string; metrics: RunMetrics }>>(
     [],
   );
+  /** The groups whose numbers the server could not read: said, never dropped. */
+  const [skipped, setSkipped] = useState<Array<{ name: string; code: string }>>([]);
   const [period, setPeriod] = useState<MetricsPeriod>("day");
   const [on, setOn] = useState<boolean | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export function AgentOverview({
       if (!live) return;
       setStatus(agent);
       setPerGroup(metrics.groups);
+      setSkipped(metrics.skipped ?? []);
       setError(null);
     };
     const loadRunning = async () => {
@@ -285,6 +288,13 @@ export function AgentOverview({
         {perGroup.length === 0 && (
           <p className="hint">{t("No group mailbox in this session.")}</p>
         )}
+        {skipped.length > 0 && (
+          <p className="hint">
+            {t("Not counted: {groups} could not be read.", {
+              groups: skipped.map((one) => `${one.name} (${one.code})`).join(", "),
+            })}
+          </p>
+        )}
         {perGroup.length > 0 && (
           <div style={{ overflowX: "auto" }}>
             <table className="sessions-table">
@@ -296,7 +306,7 @@ export function AgentOverview({
                   <th className="num">{t("Failed steps")}</th>
                   <th className="num">{t("Work time")}</th>
                   <th className="num">{t("Tokens")}</th>
-                  <th className="num">{t("Running")}</th>
+                  <th className="num">{t("Runs in flight")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -387,7 +397,7 @@ export function AgentOverview({
 
 /**
  * One run in flight, as a row that opens the same document the group's history
- * opens: the plan with the step it is on, the tally and what it has touched.
+ * opens: the plan with the step it is on and the tally.
  *
  * The document is read when the row is opened and not before: a collapsed row
  * costs the header the list already carries, so a page watching six running runs

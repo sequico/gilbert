@@ -2337,6 +2337,7 @@ export const catalog: Catalog = {
     "Completion tokens": "补全 Token",
     "By group": "按群组",
     "No group mailbox in this session.": "此会话中没有群组邮箱。",
+    "Not counted: {groups} could not be read.": "未计入：无法读取 {groups}。",
     Tokens: "Token",
     Overview: "概览",
     Memory: "记忆",

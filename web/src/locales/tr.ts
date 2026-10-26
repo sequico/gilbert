@@ -2334,6 +2334,7 @@ export const catalog: Catalog = {
     "Completion tokens": "Tamamlama tokenları",
     "By group": "Gruba göre",
     "No group mailbox in this session.": "Bu oturumda grup posta kutusu yok.",
+    "Not counted: {groups} could not be read.": "Sayılmadı: {groups} okunamadı.",
     Tokens: "Tokenlar",
     Overview: "Genel bakış",
     Memory: "Hafıza",

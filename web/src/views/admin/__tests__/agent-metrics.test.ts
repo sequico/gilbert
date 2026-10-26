@@ -50,7 +50,8 @@ describe("the runs' tally", () => {
       }),
       listed("c", null),
       listed("d", {
-        state: "cancelled",
+        // Parked on a person: in flight, so the table and the live list agree.
+        state: "blocked",
         plan: [],
         spent: { steps: 0, calls: 0, ms: 0 },
       }),
@@ -64,7 +65,7 @@ describe("the runs' tally", () => {
     expect(total.promptTokens).toBe(100);
     expect(total.completionTokens).toBe(40);
     expect(total.failed).toBe(1);
-    expect(total.running).toBe(1);
+    expect(total.running).toBe(2);
   });
 
   it("keeps only the runs that ended inside the window", () => {

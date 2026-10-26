@@ -37,7 +37,12 @@ export async function fetchAgentStatus(): Promise<AgentStatus> {
 export async function fetchAgentMetrics(
   groups: readonly string[],
   since?: string,
-): Promise<{ groups: Array<{ name: string; metrics: RunMetrics }>; total: RunMetrics }> {
+): Promise<{
+  groups: Array<{ name: string; metrics: RunMetrics }>;
+  total: RunMetrics;
+  /** The groups whose numbers could not be read, with the refusal's own code. */
+  skipped: Array<{ name: string; code: string }>;
+}> {
   const query = new URLSearchParams();
   if (since) query.set("since", since);
   if (groups.length) query.set("groups", groups.join(","));
@@ -45,10 +50,12 @@ export async function fetchAgentMetrics(
   const res = await apiFetch<{
     groups?: Array<{ name: string; metrics: RunMetrics }>;
     total?: RunMetrics;
+    skipped?: Array<{ name: string; code: string }>;
   }>(`/api/admin/agent/metrics${suffix ? `?${suffix}` : ""}`);
   return {
     groups: res.groups ?? [],
     total: res.total ?? emptyMetrics(),
+    skipped: res.skipped ?? [],
   };
 }
 

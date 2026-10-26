@@ -354,11 +354,20 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         .map((one) => one.trim())
         .filter(Boolean);
       const groups: Array<{ name: string; metrics: RunMetrics }> = [];
+      /*
+       * A group the installation cannot read is **said**, never dropped from the
+       * total in silence: the numbers beside it would claim the installation's
+       * whole spend while one group's runs are missing from it.
+       */
+      const skipped: Array<{ name: string; code: string }> = [];
       for (const name of names) {
         const access = await resolveGroupAccess(c.get("session"), name, {
           need: "agent documents",
         });
-        if (!access.ok) continue;
+        if (!access.ok) {
+          skipped.push({ name, code: access.error });
+          continue;
+        }
         const rows = (await listRunsForReading(access.ctx, access.accountId)).map((one) =>
           summarizeRun(one),
         );
@@ -368,7 +377,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         (sum, one) => addMetrics(sum, one.metrics),
         emptyMetrics(),
       );
-      return c.json({ groups, total });
+      return c.json({ groups, total, skipped });
     } catch (err) {
       return doorFailure(c, err);
     }

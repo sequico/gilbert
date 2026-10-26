@@ -2416,6 +2416,8 @@ export const catalog: Catalog = {
     "By group": "グループ別",
     "No group mailbox in this session.":
       "このセッションにグループメールボックスはありません。",
+    "Not counted: {groups} could not be read.":
+      "未集計: {groups} を読み取れませんでした。",
     Tokens: "トークン",
     Overview: "概要",
     Memory: "メモリ",

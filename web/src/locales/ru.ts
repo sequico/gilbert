@@ -2412,6 +2412,8 @@ export const catalog: Catalog = {
     "Completion tokens": "Токены ответа",
     "By group": "По группам",
     "No group mailbox in this session.": "В этом сеансе нет почтового ящика группы.",
+    "Not counted: {groups} could not be read.":
+      "Не учтено: не удалось прочитать {groups}.",
     Tokens: "Токены",
     Overview: "Обзор",
     Memory: "Память",

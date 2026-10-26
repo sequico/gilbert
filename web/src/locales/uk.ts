@@ -2409,6 +2409,8 @@ export const catalog: Catalog = {
     "Completion tokens": "Токени відповіді",
     "By group": "За групами",
     "No group mailbox in this session.": "У цьому сеансі немає поштової скриньки групи.",
+    "Not counted: {groups} could not be read.":
+      "Не враховано: не вдалося прочитати {groups}.",
     Tokens: "Токени",
     Overview: "Огляд",
     Memory: "Пам’ять",
