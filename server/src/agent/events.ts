@@ -12,7 +12,7 @@
  * **Mail is an event on arrival, and on nothing else.** `Email/changes` reports
  * every property a message changed as a change of that message — read, flagged,
  * filed, removed — and none of that is activity a group asked its agent to
- * answer: a rule woken by it would work the group's own reading of its mail. The
+ * answer: an agent woken by it would work the group's own reading of its mail. The
  * reading therefore names a mail event only for a message that was created and
  * is in the account's **Inbox**, which is the folder mail arrives in. A draft a
  * member saved, a message the group sent and a message a server-side filter
@@ -59,7 +59,7 @@
  * what a reader acts on, and the update that followed it is the same write. "The
  * same address" is the event's own `source` and `where` — the surface and the
  * path (or the id a removal has no path left for) — so the two changes of one
- * node are one event and a rule watching that surface opens one run for one
+ * node are one event and an agent watching that surface opens one run for one
  * document rather than two (ADR 0030). A **removal is never folded**: a node
  * created and then destroyed in one read is reported as both, because hiding the
  * removal behind the creation is the kind of silence this design refuses.
@@ -280,7 +280,7 @@ export function readChangeSet(args: Record<string, unknown>, type: string): Chan
  * relative, and a visible folder a member happens to call `rules`, `runs`,
  * `agent` or `chat-state` is the group's own activity, not the agent's
  * bookkeeping. Reading those as the agent's would hide a person's whole folder
- * from every rule that watches Files.
+ * from every agent that watches Files.
  */
 function isAgentPath(path: string): boolean {
   if (!path.startsWith(`${APP_FOLDER_NAME}/`)) return false;
@@ -443,22 +443,22 @@ export async function readAccountEvents(
         const path = named?.path ?? seen[id];
         /*
          * A folder is not a document: only the nodes the server still answers
-         * as files are activity a rule can act on. The node's own type is read
+         * as files are activity an agent can act on. The node's own type is read
          * with its path, so a file whose name carries no dot is not mistaken
          * for a folder (and a folder that appears opens no run).
          */
         if (named?.folder) continue;
         /*
-         * The agent's own documents are not activity: a run's write, a rule's
+         * The agent's own documents are not activity: a run's write, a note's
          * edit and the standing instruction are what the agent itself just
-         * wrote. Reported as `files`, a rule watching that surface would wake
+         * wrote. Reported as `files`, an agent watching that surface would wake
          * on every run it opened -- a loop that pays for itself. Mail, chat,
          * knowledge and workorders are the group's; these are the agent's.
          */
         if (path && isAgentPath(path)) continue;
         /*
          * What sits in the Trash is not the group's work. Deleting a node moves
-         * it there (ADR 0013), so the move is the delete: a rule woken by it
+         * it there (ADR 0013), so the move is the delete: an agent woken by it
          * would be reading a document the person had just taken off the folder
          * it names.
          */
@@ -503,7 +503,7 @@ export async function readAccountEvents(
 
 /**
  * One event per address: a create and a later update of the same node are one
- * change to a rule that only acts on the address (ADR 0030).
+ * change to an agent that only acts on the address (ADR 0030).
  *
  * The two changes of one document are folded into the **`created`**, which is
  * the one a reader acts on — the node did not exist before this read and does

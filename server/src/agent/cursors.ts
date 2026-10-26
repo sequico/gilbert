@@ -8,16 +8,15 @@
  * arrived while the process was down was never read and never named: one group's
  * chat message mentioned the agent, produced no run, and nothing in the
  * installation could say why. The process is disposable by law (ADR 0032), so
- * the cursor is a document beside the runs and the rules, in the group's own app
+ * the cursor is a document beside the runs and the instruction, in the group's own app
  * folder, read at the first pass of a process and written after a batch the pass
  * answered (ADR 0037).
  *
  * **Two readers, two positions.** The working pass resumes a window of work; the
  * switched-off pass answers the people who wrote, and answers each of them once.
- * They are not the same reading: the off path used to satisfy its own freshness
- * rule by deleting the shared cursor and writing the fresh anchor down, which
- * threw away the window the on path exists to keep. Each now has its own document
- * and its own writer, so neither can destroy the other's position.
+ * They are not the same reading: each has its own document and its own writer, so
+ * neither can destroy the other's position, and a freshness anchor written by one
+ * never throws away the window the other exists to keep.
  *
  * An unreadable document is a **gap the pass says out loud** and the reading
  * anchors afresh, which is what the server's own `cannotCalculateChanges` is

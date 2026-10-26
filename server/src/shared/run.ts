@@ -4,7 +4,7 @@
  * A run is one document in the **group's own account**: `<id>.json` under
  * `runs/` in that account's `gilbert` app folder, addressed by
  * `server/src/agent/runs.ts`. It is the whole of the agent's durable state —
- * which rule or which instruction started it and which change in the account
+ * which instruction started it and which change in the account
  * woke it, the plan — each step, what it waits on and how it left it, so a
  * reader of the record alone can say why a step ran and why one did not —
  * the objects it touched, what it waits for, where it asked a person and until
@@ -204,7 +204,7 @@ export interface RunMessageRef {
 
 /**
  * Which authority a person gave (ADR 0028): the word for something irreversible
- * or destructive (class 2), the word that sends outward — or the rule that
+ * or destructive (class 2), the word that sends outward — or the instruction that
  * declared it sends (class 3) — or the administrator's override of the written
  * policy (class 4). The class the agent decides alone, and the intent, which is
  * approved where ADR 0020 puts it, are not authorisations.
@@ -245,7 +245,7 @@ interface RunStart {
    */
   batch?: readonly string[];
   /**
-   * The address whose message woke a rule that sends, as the change carried it.
+   * The address whose message woke an agent that sends, as the change carried it.
    *
    * Kept for the record a run already wrote; an outward act is a draft a person
    * sends (ADR 0038), so nothing licenses a send from it.
@@ -273,7 +273,7 @@ interface RunStart {
   /**
    * Who set that change off, when the change names a person.
    *
-   * The sender of the message that woke the rule. The change log names no actor
+   * The sender of the message that woke the agent. The change log names no actor
    * for a FileNode or a calendar write, so a files or calendar run carries none:
    * the field says who, and never guesses at a name the event did not state.
    */
