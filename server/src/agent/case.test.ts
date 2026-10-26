@@ -11,6 +11,11 @@ test("a case's key becomes the file its note is kept in", () => {
   assert.equal(caseSlug("BK-901"), "bk-901");
   assert.equal(caseSlug("March import"), "march-import");
   assert.equal(caseSlug("  MS2 / BK 901  "), "ms2-bk-901", "punctuation is a dash");
+  assert.equal(
+    caseSlug("BK 901"),
+    caseSlug("bk-901"),
+    "a case is named by its words, so punctuation and case share one note",
+  );
   assert.equal(caseSlug("----"), "case", "a key with nothing in it still names a file");
   assert.equal(caseSlug("x".repeat(200)).length, 60, "and a key is bounded");
   assert.equal(

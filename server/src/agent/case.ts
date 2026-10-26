@@ -37,7 +37,9 @@ const NOTE_TYPE = "text/markdown";
  *
  * Lower case, letters, digits and dashes, and bounded — a key is a report's own
  * name for a case ("BK-901", "March import"), and what a later increment must be
- * able to compute again from the same words.
+ * able to compute again from the same words. Two keys that differ only in
+ * punctuation or case share one file: a case is named by its words, and the
+ * punctuation of a report's sentence is not part of its identity.
  */
 export function caseSlug(key: string): string {
   const slug = key
