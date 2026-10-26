@@ -173,7 +173,28 @@ async function main() {
    */
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, shutting down`);
-    server.close();
+    /*
+     * Stop accepting, then let the requests already in flight finish: a deploy
+     * is a shutdown, and a response cut off mid-write is a client left guessing.
+     * A connection that never ends is closed after five seconds rather than
+     * holding the deploy open for ever.
+     */
+    /*
+     * The drain helpers are the HTTP/1 server's; a deployment on HTTP/2 has no
+     * equivalent, so they are asked for where they exist and the close alone
+     * bounds the wait there.
+     */
+    const drainable = server as unknown as {
+      close: (callback?: () => void) => void;
+      closeIdleConnections?: () => void;
+      closeAllConnections?: () => void;
+    };
+    const closed = new Promise<void>((resolve) => drainable.close(() => resolve()));
+    drainable.closeIdleConnections?.();
+    const force = setTimeout(() => drainable.closeAllConnections?.(), 5_000);
+    force.unref();
+    await closed;
+    clearTimeout(force);
     stopWake();
     await agent?.stop();
     /* Before the sessions go: releasing a subscription needs a live credential,
