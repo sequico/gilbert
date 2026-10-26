@@ -354,10 +354,9 @@ interface ModelImage {
  * shape the answer is read against is what bounds it.
  */
 /*
- * ADR-0027 OWED: model-provider-live -- the caller's contract is pinned against
- * a stub, and no real provider has answered it yet: the zero-retention opt-out,
- * the private-address switch and an OpenAI-compatible reply are all modelled.
- * `scripts/probe-*.mjs` is how a live provider is asked, by hand.
+ * The caller's contract is pinned against a stub in the tests, and what a real
+ * provider answered is replayed through today's parsers (`agent/replay.test.ts`),
+ * so a change to the shape is read back without a key and without a live call.
  */
 /** The model this process's agent runs on, as the last pass read it. */
 let running: ModelAccess | null = null;
