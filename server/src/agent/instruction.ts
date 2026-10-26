@@ -25,10 +25,10 @@ export {
  * An instruction this build cannot use.
  *
  * One that is there but unreadable is a **defect the agent reports**, never a
- * level it silently drops (ADR 0038): the pass fails with this and the next one
- * tries again, which is how the people it belongs to learn that their instruction
- * stopped being carried. The code is what a surface composes its own sentence
- * from.
+ * level it silently drops (ADR 0038): the pass says it in its gaps and leaves the
+ * group alone for that pass, and the next pass tries again — which is how the
+ * people it belongs to learn that their instruction stopped being carried. The
+ * code is what a surface composes its own sentence from.
  */
 export class InstructionError extends CodedError {
   constructor(code: string, message: string, status = 502) {
