@@ -393,7 +393,7 @@ test("a valid publish is what the next read returns, and the answer names when i
 
 test("the model's key is write-only: a save keeps it unless it names a provider needing none", async () => {
   /*
-   * The installation's model lives in its own document (ADR 0009, 0027), and
+   * The installation's model lives in its own document (ADR 0009, 0038), and
    * its key is write-only the way an app password is: the surface can set it and
    * nothing reads it back. So the text both halves of this door answer with has
    * the key **taken out** — while the document the account holds keeps it, or the

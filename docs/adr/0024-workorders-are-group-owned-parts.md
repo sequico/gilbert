@@ -393,7 +393,8 @@ created.
   templates a workorder instantiates
 - `docs/adr/0030` — a run is a document, and the record is the product
 - `docs/adr/0004` — group chat (the panel launcher's shape)
-- `docs/adr/0031` — a group's engagement is a rule in prose
+- `docs/adr/0038` — the agent's areas and four verbs: the conversation, and the
+  group's one instruction
 - `docs/adr/0005` — the agent as a member of every group it is granted on
 - `docs/adr/0015` — administration is a door, not a menu
 - `docs/adr/0026` — a checklist template branches on data, not on groups: the

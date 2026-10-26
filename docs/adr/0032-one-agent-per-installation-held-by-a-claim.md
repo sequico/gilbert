@@ -83,6 +83,7 @@ as.
 
 ## References
 
-- `docs/adr/0027` — the agent's tools, the loop that chooses them, and the budget
+- `docs/adr/0038` — the agent's areas and four verbs, the loop that works a run,
+  and the run's own bounds
 - `docs/adr/0030` — the run document, the durable state the next holder reads
 - `docs/adr/0010` — a durable write is caused by a change, not by a clock

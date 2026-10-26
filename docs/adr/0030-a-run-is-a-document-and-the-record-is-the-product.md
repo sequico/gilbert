@@ -141,10 +141,11 @@ agent's durable state.
   on the record (`said: false` until the words have left), so an ending is said
   exactly once, and a pass that finds an unpaid debt says it. **One request, one
   answer**: the notice is a reply in the thread that woke the run, and a mention
-  opens one run rather than one per rule that watches the conversation (ADR
-  0031). A question it asked and a stop a person took are already words between
-  them, so those endings do not repeat themselves, and a background run that
-  finished keeps its record. The notice is the ending's own `why`, so the
+  opens one run — a group has one instruction, and it decides whether a mention
+  is its work (ADR 0038). A question it asked and a stop a person took are
+  already words between them, so those endings do not repeat themselves, and a
+  background run that finished keeps its record. The notice is the ending's own
+  `why`, so the
   conversation and the record cannot tell two stories; a notice that cannot be
   posted leaves the debt on the record and is reported as the pass's own gap —
   never a silence, and never a step appended to a run that has already ended —

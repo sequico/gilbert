@@ -658,15 +658,14 @@ The record is **Accepted**.
 
 - `docs/adr/0026` — a checklist template branches on data, not on groups
 - `docs/adr/0001` — the administration door and impersonation
-- `docs/adr/0027` — the agent's tools: a page is read, a change to one proposed
+- `docs/adr/0038` — the agent's areas and four verbs: a page is read, a change
+  to one proposed, and the two levels of prose the model reads
 - `docs/adr/0004` — group chat: app-folder documents, group-owned, pushed
 - `docs/adr/0028` — what the agent decides and what only a person decides: the
   KB's approval is a person's
 - `docs/adr/0010` — a durable write is caused by a change, not by a clock
 - `docs/adr/0011` — a dropped name is written over, in place
 - `docs/adr/0012` — merging two folders is planned before it is written
-- `docs/adr/0031` — a group's engagement is a rule in prose: the levels the
-  model reads
 - `docs/adr/0030` — a run is a document, and the record is the product
 - `docs/adr/0019` — Global contacts: the installation-owned, route-served,
   admin-written precedent
