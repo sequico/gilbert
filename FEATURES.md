@@ -310,8 +310,8 @@ the run's tokens after the prompt, capped by that ceiling; the run ends
 `out-of-budget` at `limits.maxRunTokens`, the installation opens no run past
 `limits.maxDailyTokens`, and three permanent provider refusals in a row stop the
 pass with the open runs left `running`. A turn whose run is down to a fifth of the
-ceiling is told how little is left and to put what it found into the report, so a
-run that meets the ceiling has still said its sentence to the group. A provider that takes the tools checks the
+ceiling is told how little is left and to put what it found into the report, so the
+group hears what was found and not only that the run stopped. A provider that takes the tools checks the
 kind and the bound of every argument itself — a job publishes one schema branch
 per value, so a mail search cannot be sent a `path` — and the decision turn's
 answer is facts and nothing else: one that carries an authorisation, or names a

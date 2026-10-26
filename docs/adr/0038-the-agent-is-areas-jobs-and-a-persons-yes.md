@@ -293,7 +293,8 @@ spent the provider's default budget before writing anything.
   it ends `out-of-budget` naming the token, and when what is left cannot pay for a
   call the run ends **before** asking. A turn whose run is down to a fifth of the
   ceiling is told how little is left, so what it found becomes the report instead of
-  one more look: the ceiling is a stop, and a run that meets it has said nothing.
+  one more look: the ceiling is a stop, and a run that meets it leaves the group a
+  notice that it could not finish rather than what it found.
 - **The run has a step ceiling** (`limits.maxRunSteps`, in admin; the shared
   `RUN_STEPS_MAX` as its default): a run whose plan has taken that many steps
   ends `out-of-budget` naming the step count. It is the plan's own count — the
