@@ -20,7 +20,7 @@ step and which outcome left it. The plan is the choosing turn's answer
 does not carry, or on an outcome no step can end with, and resolves each name to
 the step it holds. The model reasons the order and the conditions from the
 group's knowledge, its checklists and its workorders, which it reaches with the
-catalogue's reading tools (ADR 0027); the tools the catalogue still lacks are
+catalogue's reading tools (ADR 0038); the tools the catalogue still lacks are
 `ROADMAP.md`'s. A pass takes the installation's claim, arms every wait each
 account's runs carry, works the runs whose wait has come due, and opens or
 continues and works a run for each change the group's instruction covers (ADR 0038).
@@ -31,7 +31,7 @@ installation administrator reads them, a run is drawn as the record carries it:
 `listRunsForReading` for `server/src/routes/agent.ts`, which carries that run as
 a problem the view says out loud rather than drawing it blank
 (`web/src/views/admin/agents/GroupRuns.tsx`, behind the installation's own door,
-ADR 0027). The ending a run says is one message of the group's own conversation
+ADR 0038). The ending a run says is one message of the group's own conversation
 (`endRun` in `server/src/agent/loop.ts`, over `postChatMessage` in
 `server/src/groupChat.ts`), a reply to the message that woke the run when a
 person wrote in the conversation. The records a run writes next to a person's

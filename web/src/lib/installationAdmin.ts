@@ -17,7 +17,7 @@ import { isRecord } from "@gilbert/shared/json";
 import { apiFetch } from "@/jmap/client";
 
 /**
- * The fields an installation chooses for its agent (ADR 0027, 0031).
+ * The fields an installation chooses for its agent (ADR 0038).
  *
  * A view over the document text, not the model configuration: the shared
  * `InstallationModel` (`@gilbert/shared/installation`) is provider/model/baseUrl
@@ -107,7 +107,7 @@ export function startingInstallationDocument(): string {
 }
 
 /**
- * What the document text names as the installation's model (ADR 0027).
+ * What the document text names as the installation's model (ADR 0038).
  *
  * The three fields an installation chooses, read **leniently** rather than
  * through the document's own validator (`@gilbert/shared/installation`): a

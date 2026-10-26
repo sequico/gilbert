@@ -315,7 +315,7 @@ export async function saveDraft(
 }
 
 /**
- * Write a page's draft as the agent (ADR 0020, ADR 0027).
+ * Write a page's draft as the agent (ADR 0020, ADR 0038).
  *
  * A proposal is the draft and nothing more: approval still mints the revision,
  * and a person is still its author. The write is `writeDraft`'s — the same

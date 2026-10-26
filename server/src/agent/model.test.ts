@@ -1,6 +1,6 @@
 /**
  * The model client and the decision turn, against a stub OpenAI-compatible
- * endpoint (ADR 0027).
+ * endpoint (ADR 0038).
  *
  * What is asserted here is the contract a turn's answer is read against: the
  * zero-retention opt-out on every request, a JSON answer shape and a ceiling on
@@ -673,7 +673,7 @@ test("an installation that has chosen no model has no agent", () => {
   assert.equal(
     modelAccess(none.doc, true),
     null,
-    "there is no default provider nobody chose: an installation with no model has no agent (ADR 0027)",
+    "there is no default provider nobody chose: an installation with no model has no agent (ADR 0038)",
   );
   // Absence is refused in the same shape a provider the operator has not
   // allowed is refused in: a code, so a surface says it to a person instead of

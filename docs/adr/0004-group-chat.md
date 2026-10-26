@@ -154,7 +154,7 @@ any member.
   label surface (`views/settings/LabelsSettings.tsx`) shows only the one section,
   the personal labels, and its catalog is not guarded against the namespace: the
   reserved labels name the agent's work, and a person's account has none of it
-  (ADR 0027), so a keyword typed there names their own message and no agent is
+  (ADR 0038), so a keyword typed there names their own message and no agent is
   there to confuse it with one of its own.
 - **Real-time.** `labels.json` is a FileNode, so a catalog edit rides the
   same push rail chat does; keyword changes on messages ride the Email push

@@ -263,7 +263,7 @@ test("the demo's workorders are running and completed, with their steps' states"
 test("the demo carries an installation with a model, which is what an agent needs", async () => {
   /*
    * The server starts the agent with itself, and an installation with no model
-   * has no agent (ADR 0027): the seed therefore holds the installation's own
+   * has no agent (ADR 0038): the seed therefore holds the installation's own
    * document (ADR 0009) naming one. Pinned here, next to the simulation, because
    * a seed that lost it would leave every `dev:mock` server running without an
    * agent and every unit test green.

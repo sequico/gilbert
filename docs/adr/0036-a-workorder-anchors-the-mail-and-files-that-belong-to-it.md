@@ -43,7 +43,7 @@ names them, handles a revision, and remembers where the last one went.
 - **The scope is any business flow.** A booking number, a ticket, a claim, a
   purchase order, a project code: what the world writes into a subject differs,
   the shape does not. A design that names one of them has compiled one group's
-  work into the product (ADR 0027).
+  work into the product (ADR 0038).
 - **A workorder can end and be replaced.** Its state is `replaced` with
   `replacedBy`, and the successor is a workorder of its own uid. The world keeps
   writing the old key, so a replacement must not break the join.
@@ -63,7 +63,7 @@ already, once the ref card is built.
 
 - **No.** A workorder gathers folders, files, KB pages and its checklist. Filing
   an attachment is the agent's act through `files.save`, under the group's own
-  rule (ADR 0031) and within its surface matrix; a job's conversations stay in
+  rule (ADR 0038) and within its surface matrix; a job's conversations stay in
   the mailbox, found the way any mail is found.
 - **Yes.** A conversation is bound to a workorder and the workorder lists it, so
   a job's mail, files and checklist are seen in one place.
@@ -111,7 +111,7 @@ because each part exists for another:
   state is not terminal. A predecessor keeps its tags as history and is never
   matched.
 - A key that resolves to nothing is **not bound**: the fact is recorded in the
-  run document (ADR 0030) and the group's rule (ADR 0031) or a person decides
+  run document (ADR 0030) and the group's rule (ADR 0038) or a person decides
   what it means. There is no policy field for it, and a terminal workorder never
   grows material silently.
 

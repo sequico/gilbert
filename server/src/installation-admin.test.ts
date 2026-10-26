@@ -691,7 +691,7 @@ test("an account with no Files account to hold the document is refused, not thro
 
 test("a save that states no key keeps the installation's own line beside the model", async () => {
   /*
-   * The line of prose the agent carries into every call (ADR 0031) is the second
+   * The line of prose the agent carries into every call (ADR 0038) is the second
    * thing the agent's section holds, and the door that puts a stored key back
    * rebuilds that section. The line must survive a save that says nothing about
    * the key — otherwise choosing a model would erase what the installation works

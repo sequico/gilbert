@@ -108,13 +108,12 @@ everything belongs to: the account in Stalwart (`gilbert@…`), its address, its
 password, its grants and the model it uses. Its **agent** is the process that
 acts as it, and it runs inside `gilbertserver`. An unqualified **"worker"** means
 the browser's service worker and nothing else.
-- **The agent's decisions are seven records, and the tree carries them.**
-**ADR 0027** (a described catalogue of tools, and one model per installation
-chosen in Administration), **0028** (what it decides and what only a person
+- **The agent's decisions are six records, and the tree carries them.**
+**ADR 0038** (the whole shape — areas, four verbs, the change as trigger, the turn,
+and a person's yes; it replaced 0027 and 0031), **0028** (what it decides and what only a person
 decides, an override being an administrator's and proved by the directory),
 **0029** (one conversation in chat and mail, in words), **0030** (a run is a
-document, and the record is the product), **0031** (a group's engagement is a
-rule in prose, written by an administrator), **0032** (one installation claims
+document, and the record is the product), **0032** (one installation claims
 its agent) and **0033** (its memory is a graph of facts it recalls). Each record's `Implementation` line says what
 the tree carries and what it still owes, and it is the truth about the tree
 rather than a summary of the design: read it instead of assuming. The

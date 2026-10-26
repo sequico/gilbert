@@ -1,6 +1,6 @@
 /**
  * What a group's account changed, read from the server's own change logs
- * (ADR 0031).
+ * (ADR 0038).
  *
  * The installation holds a push subscription (ADR 0014), and a `StateChange`
  * names an account whose data moved. This is the reading that turns that

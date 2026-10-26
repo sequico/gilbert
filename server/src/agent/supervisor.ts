@@ -1,5 +1,5 @@
 /**
- * The process that asks the loop for a pass (ADR 0027, 0030, 0032).
+ * The process that asks the loop for a pass (ADR 0038, 0030, 0032).
  *
  * `agent/loop.ts` works a run — it claims the installation, re-arms the waits it
  * finds, reads each account's changes and answers each change the group's
@@ -8,7 +8,7 @@
  * own boot is what starts it** (`index.ts`): the agent is part of the product, so
  * launching Gilbert is what makes it exist. It runs on the installation the boot
  * just read — the model the installation has chosen, and the line of prose its
- * document carries into every call (ADR 0031) — and asks the loop for a pass on
+ * document carries into every call (ADR 0038) — and asks the loop for a pass on
  * an interval. The groups it works are **not** settled at the boot:
  * every pass reads them from the mail server (`resolveGroupAccounts` below), so
  * a grant added or withdrawn in Stalwart's own directory needs no restart.
@@ -66,7 +66,7 @@
  * they can act on.
  *
  * **Nothing is kept.** The loop, the roster the last pass resolved and its
- * alarms live in memory, which is disposable by law (`IMMUTABLE=1`, ADR 0027):
+ * alarms live in memory, which is disposable by law (`IMMUTABLE=1`, ADR 0038):
  * what outlives the process is the claim, the runs, the waits and each group's
  * reading cursor (`agent/cursors.ts`, ADR 0037), all documents in Stalwart.
  * There is no lock file, no pid file and no state of its own on disk.
@@ -362,7 +362,7 @@ interface AgentStartOptions {
  * agent, and `exit` stays the server's own fatal boot's business:
  *
  * - **A model** `boot.installation.agent.provider`, the installation's own
- *   document (ADR 0009, ADR 0027), together with the operator's statement about
+ *   document (ADR 0009, ADR 0038), together with the operator's statement about
  *   where it may sit (`boot.configuration.agent.allowPrivateProvider`,
  *   `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER` in the environment). An installation
  *   with no model has no agent: a default provider nobody chose is the one thing
@@ -406,7 +406,7 @@ export async function startAgent(
     setRunningModelAccess(access);
     if (!access)
       log(
-        "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0027)",
+        "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0038)",
       );
     /*
      * The loop starts even with no model: the pass re-reads the document, so a

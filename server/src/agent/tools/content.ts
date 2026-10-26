@@ -1,5 +1,5 @@
 /**
- * What a reading tool answers with: the text of one file (ADR 0027).
+ * What a reading tool answers with: the text of one file (ADR 0038).
  *
  * One file is one answer however it arrived — a document in Files, an attachment
  * of a message. The two surfaces that read a file read it through here, so a
@@ -15,7 +15,7 @@ export type ImageReader = (image: {
 }) => Promise<{ text: string } | { problem: string }>;
 
 /**
- * The text of one file, as every reading tool answers it (ADR 0027).
+ * The text of one file, as every reading tool answers it (ADR 0038).
  *
  * One file is one answer however it arrived — a document in Files, an attachment
  * of a message: the format readers say what a document says, the model's eyes

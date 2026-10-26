@@ -1,5 +1,5 @@
 /**
- * A group's standing instruction: where it is read from (ADR 0031).
+ * A group's standing instruction: where it is read from (ADR 0038).
  *
  * The shape, its parser and the document's address are the **shared** tree's
  * (`shared/instruction.ts`), because both tiers name them — the server reads the
@@ -25,7 +25,7 @@ export {
  * An instruction this build cannot use.
  *
  * One that is there but unreadable is a **defect the agent reports**, never a
- * level it silently drops (ADR 0031): the pass fails with this and the next one
+ * level it silently drops (ADR 0038): the pass fails with this and the next one
  * tries again, which is how the people it belongs to learn that their instruction
  * stopped being carried. The code is what a surface composes its own sentence
  * from.

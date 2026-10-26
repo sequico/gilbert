@@ -1,6 +1,6 @@
 /**
  * The surfaces of a group's own account, and what a rule may do on each
- * (ADR 0031).
+ * (ADR 0038).
  *
  * One definition for both tiers: the rule's parser and guard read it, the run
  * document carries it, and the Administration editor draws it. A mode is not an

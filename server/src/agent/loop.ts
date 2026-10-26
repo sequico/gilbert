@@ -1,5 +1,5 @@
 /**
- * The loop that works a run (ADR 0027, 0028, 0030, 0031, 0032).
+ * The loop that works a run (ADR 0028, 0030, 0032, 0038).
  *
  * One pass answers whatever the installation's own accounts have changed and
  * whatever a run was waiting for: it takes the installation's claim, resolves the
@@ -647,7 +647,7 @@ export class AgentLoop {
    * holder that is busy is not taken over.
    *
    * The accounts are resolved **here**, once per pass and after the claim
-   * (ADR 0027): what the Master works is what Stalwart's directory says at this
+   * (ADR 0038): what the Master works is what Stalwart's directory says at this
    * moment, so a grant added or withdrawn needs no restart.
    */
   private async workPass(now: Date): Promise<PassSummary> {
@@ -2987,7 +2987,7 @@ export class AgentLoop {
   }
 
   /**
-   * The installation's model's eyes, as a reading tool asks for them (ADR 0027).
+   * The installation's model's eyes, as a reading tool asks for them (ADR 0038).
    *
    * Bound once, so a catalogue that turns a picture into words goes through the
    * one model the installation chose and the one switch the operator set, and a

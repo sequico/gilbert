@@ -11,7 +11,7 @@ route (`server/src/index.ts`, `GET /api/knowledge/company/…`); the client read
 and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
 BlockNote editor are `web/src/views/knowledge/`. The agent's part — a tool that
-reads a page and one that proposes a change (ADR 0027), with approval kept a
+reads a page and one that proposes a change (ADR 0038), with approval kept a
 person's (ADR 0028) — is built: `knowledge.read` answers what a reader sees now,
 and `knowledge.propose` writes the page's **draft** in the group's own account
 through the one writer a person's save uses (`writeDraft`,
@@ -285,7 +285,7 @@ below.
   is Gilbert's own; a member's is on behalf of that member, and what was written
   on a person's behalf is theirs to see.
 - **Agents review the draft.** The agent reads the draft and its neighbours and
-  produces the review (ADR 0027): inconsistencies, stale references,
+  produces the review (ADR 0038): inconsistencies, stale references,
   contradictions with what is in force. A review is a read that yields findings;
   it is not an approval.
 - **Only an administrator approves.** Administrators are the single approval
@@ -363,8 +363,8 @@ are the alternatives if more control or a different UI system is wanted.
 
 - A tool that reads a page: list/search pages and read one page's text, in the
   group's own account and in whatever the reader is shared. The KB is read on
-  demand, never carried whole into the model's context (ADR 0027).
-- A tool that proposes a change to a page (ADR 0027). Proposing a change to the
+  demand, never carried whole into the model's context (ADR 0038).
+- A tool that proposes a change to a page (ADR 0038). Proposing a change to the
   **company** KB from a group means acting as the Master, the privileged door
   again (**Q15**), and the approval that puts a page in force stays a person's
   (ADR 0028).
@@ -372,7 +372,7 @@ are the alternatives if more control or a different UI system is wanted.
 ### Search
 
 **Orama** (Apache-2.0), in-process, over the pages' `text`, used by the human
-search box; the agent's tool reads the same `text` without Orama (ADR 0027),
+search box; the agent's tool reads the same `text` without Orama (ADR 0038),
 so the two share a corpus rather than a ranking. The index is built
 from Stalwart and, because the container is disposable, is either rebuilt lazily
 or cached as a document — **Q14**.
@@ -437,7 +437,7 @@ decided separately because each has a different cost.
    and a record of its own is where to reopen it.
 3. **Published and controlled** — the ISO 9001 sense, and the owner has settled
    it (the lifecycle section): one shared draft, edited by users and agents,
-   reviewed by the agent (ADR 0027), then **approved by an administrator with an effective
+   reviewed by the agent (ADR 0038), then **approved by an administrator with an effective
    date**, which puts it in force (or records it as pending, until a future
    effective instant arrives); the revision it replaces stays in history as
    `superseded`. This is a document-control feature on top of the versioning
@@ -486,7 +486,7 @@ does this is a *document controller*, and it is where the KB earns its keep.
   what issues it (the lifecycle section), through the same privileged door every
   other administrative write uses (ADR 0019, `docs/adr/0001`).
 - **The catalogue is the agent's tools.** A `knowledge` read and a
-  **propose/apply** write are tools (ADR 0027), offered and bounded exactly like
+  **propose/apply** write are tools (ADR 0038), offered and bounded exactly like
   every other: the model chooses a tool and its arguments and never writes a
   query or a JMAP method. "Check for inconsistencies" is such a read; "apply the
   plan" is such a write.
@@ -564,7 +564,7 @@ The record is **Accepted**.
     agent's company-KB draft write goes through the same door the members' does
     (Q1).
 16. **Does the company KB enter the model's context automatically?** — **Settled:
-    no.** The KB is read on demand by a tool (ADR 0027), fetched by name and
+    no.** The KB is read on demand by a tool (ADR 0038), fetched by name and
     bounded; the whole KB is never carried into the model's context.
 17. **Structure** — **Settled.** A tree for navigation — articles as leaves and
     **topic folders** that group them by subject, the whole tree draggable to
@@ -623,7 +623,7 @@ The record is **Accepted**.
   no button, no step nobody asked for (`AGENTS.md`, automatic by default).
 - **A QMS/ISO-9001 product or a workflow engine.** The shelf holds nothing
   embeddable for either, and each brings a database; document control is built on
-  the KB and the agent (ADR 0027).
+  the KB and the agent (ADR 0038).
 - **A second approval system.** A controlled-document change reuses the KB's own
   draft-and-approve lifecycle (the lifecycle above) and the authorisations a run
   records (`docs/adr/0030`).

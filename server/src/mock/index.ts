@@ -3089,7 +3089,7 @@ function calendarEventSet(a: Obj) {
   });
   /*
    * The calendar's own change log, which the agent reads to wake a rule
-   * (ADR 0031). Recorded from the answer's ids, never the request's keys, and
+   * (ADR 0038). Recorded from the answer's ids, never the request's keys, and
    * only when the state moved: a refused write is not a change, and a log entry
    * the reading cannot resolve would open a run on nothing.
    */
@@ -4428,7 +4428,7 @@ const handlers: Record<string, Handler> = {
   // #26 and #30 reached a live server unnoticed — so it now does both.
   "CalendarEvent/set": (a) => calendarEventSet(a),
   /*
-   * The calendar's change log (ADR 0031): the agent's reading asks what moved in
+   * The calendar's change log (ADR 0038): the agent's reading asks what moved in
    * an account's events, exactly as it asks about mail and Files, and a calendar
    * `watch` wakes a rule from it. The same paging and the same refusal as the
    * other two logs, because it is the same JMAP shape.
@@ -5445,7 +5445,7 @@ const fileNodeChanges = changeLog();
 const contactCardChanges = changeLog();
 
 /**
- * The CalendarEvent changes (ADR 0031): a calendar `watch` is a rule woken by an
+ * The CalendarEvent changes (ADR 0038): a calendar `watch` is a rule woken by an
  * event written in the group's account, and the reading asks this log for it the
  * way it asks about mail and Files.
  */

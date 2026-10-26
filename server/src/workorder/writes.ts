@@ -642,7 +642,7 @@ export async function checkStep(
 
 /**
  * Settle one step of a group's checklist, as the agent working that group
- * (ADR 0024, ADR 0027).
+ * (ADR 0024, ADR 0038).
  *
  * The same writer as the administration's check (`applyStep`), the same refusal
  * of a closed workorder and the same gate latch; what differs is who is calling:

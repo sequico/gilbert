@@ -109,7 +109,7 @@ async function main() {
     },
   );
   /*
-   * The installation's agent (ADR 0027): part of this process, started here with
+   * The installation's agent (ADR 0038): part of this process, started here with
    * the installation this boot just read, so launching Gilbert is what makes it
    * exist — nothing for an operator to start or remember. It asks the loop for a
    * pass every `AGENT_PASS_INTERVAL_MS` (ten seconds) and claims the

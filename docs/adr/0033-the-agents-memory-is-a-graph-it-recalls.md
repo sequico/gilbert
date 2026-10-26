@@ -25,7 +25,7 @@ to its fact. The agent's write is the catalogue's `act` with `what: "fact"`
 (`server/src/agent/tools/memory.ts`), an act of the class the agent decides alone:
 it records a fact, and against one a person holds it writes its conclusion
 **beside** the person's sentence as a proposal (`FactProposal`), never in place of
-it. Behind the installation's own door (ADR 0027) an administrator reads those
+it. Behind the installation's own door (ADR 0038) an administrator reads those
 facts and answers for them: a correction replaces the sentence in place, keeping
 its id, its interval and the entity it is about, and keeping the origin it had —
 where the conclusion came from and when — while recording the person who made the
@@ -43,7 +43,7 @@ An agent that starts from nothing on every change relearns the same things
 forever: which shipper this installation calls "the usual one", that a client's
 orders arrive on Fridays, that last week a person corrected the way a booking is
 read. The knowledge a group has written reaches every call already (ADR 0020,
-ADR 0031) — but what the *agent itself* came to know while working is written
+ADR 0038) — but what the *agent itself* came to know while working is written
 down nowhere, so it is lost the moment the run ends.
 
 The owner's decision: the agent **always** has memory, maintained as a graph and

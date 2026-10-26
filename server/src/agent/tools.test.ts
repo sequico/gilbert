@@ -1,5 +1,5 @@
 /**
- * The agent's tools (ADR 0027) — the shape, the guard, and both halves.
+ * The agent's tools (ADR 0038) — the shape, the guard, and both halves.
  *
  * Six properties are pinned here, and each of them is a mechanism rather than a
  * run of the code: a tool's arguments are validated **before** its executor
@@ -1833,7 +1833,7 @@ test("an attachment of a message is read inside, by the same reader as a documen
    * The document that matters usually arrives attached: a purchase order, a
    * price list. Nothing is downloaded to disk and nothing is asked of the
    * browser — the blob is read through the same format readers a file in Files
-   * goes through (ADR 0027).
+   * goes through (ADR 0038).
    */
   const XLSX = (await import("@e965/xlsx")) as unknown as {
     utils: {
@@ -1999,7 +1999,7 @@ test("the agent saves a file into Files, from an attachment or from a document",
 
 test("a picture is read by the model's eyes when the caller has them, and says so when it has not", async () => {
   /*
-   * A scan or a photograph has no text a reader can take (ADR 0027): the model
+   * A scan or a photograph has no text a reader can take (ADR 0038): the model
    * transcribes it, and only a caller holding the model's eyes can ask. That is
    * the two halves pinned here — the answer when the eyes are there, and the
    * honest refusal when they are not, never the bytes.

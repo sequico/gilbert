@@ -14,7 +14,7 @@ the agent has (`files.read`, `files.rename`, `mail.read`, `mail.draft`,
 
 ## Context
 
-The agent's catalogue and its matrix (ADR 0031) let a run read and write a
+The agent's catalogue and its matrix (ADR 0038) let a run read and write a
 group's files, mail, KB and workorders. A person working in Files or in the
 group's mail sees the item the work is about, and what they have to do is say
 what they want it done to. Today they must open the group's conversation, type
@@ -45,7 +45,7 @@ spoken to, where its report is written, and what the chat rule already watches
   theirs, not the agent's; nothing runs until it is sent. The run that follows is
   the ordinary one: the chat rule wakes, the decision turn reads the message, and
   the plan uses the references it carries.
-- **The surface matrix decides what can be done** (ADR 0031), and the authority
+- **The surface matrix decides what can be done** (ADR 0038), and the authority
   classes decide what needs a person's word (ADR 0028): `files: ondemand` lets the
   run rename the files it was given; `knowledge: off` still lets it **read** the
   naming conventions, because a reading is proof and not an act; `mail: watch`

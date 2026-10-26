@@ -1,5 +1,5 @@
 /**
- * The agent the server's boot starts (ADR 0027, 0030, 0032).
+ * The agent the server's boot starts (ADR 0038, 0030, 0032).
  *
  * What is pinned here is the supervisor's own contract, one mechanism per test,
  * and each of them is a mechanism rather than a run of the code:

@@ -1,5 +1,5 @@
 /**
- * What changed in a group's own account (ADR 0031, 0038).
+ * What changed in a group's own account (ADR 0038).
  *
  * The group's instruction is woken by the activity of its own account: the mail
  * that arrived, the pages and checklist templates written in its KB, the messages
@@ -21,7 +21,7 @@
  * Files are told apart by the folder a node sits in. `eventSourceOf` is the one
  * place that decides, and it reads the folder's own name rather than a second
  * spelling of the path. A surface matrix also names **calendar**, whose change
- * log is not read yet: no event carries it (ADR 0031).
+ * log is not read yet: no event carries it (ADR 0038).
  */
 
 import { APP_FOLDER_NAME } from "../shared/appFolder.js";
@@ -31,7 +31,7 @@ import type { SurfaceName } from "../shared/surfaces.js";
 import { WORKORDER_FOLDER } from "../shared/workorder.js";
 
 /**
- * A surface of a group's own account that activity happens on (ADR 0027, 0031).
+ * A surface of a group's own account that activity happens on (ADR 0038).
  *
  * The six the records name — `chat`, `mail`, `knowledge`, `workorder`, `files`
  * and `calendar` — are the surfaces of the matrix that says where a run may act

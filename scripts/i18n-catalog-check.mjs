@@ -70,7 +70,7 @@ import {
  * 231 -> 232: the calendar row's limit in the rules matrix: its changes do not
  * wake a rule yet (`views/admin/agents/GroupRules.tsx`).
  *
- * 225 -> 231: the rules matrix (ADR 0031): "Surfaces", the three modes
+ * 225 -> 231: the rules matrix (ADR 0038): "Surfaces", the three modes
  * ("Off", "Watch", "On demand"), "Chat is always watched", and the sentence
  * that explains the three (`views/admin/agents/GroupRules.tsx`).
  *

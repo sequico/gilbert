@@ -17,7 +17,7 @@
  * The door is the installation administrator's own, reused
  * (`requireSession, requireAdmin` — ADR 0001, ADR 0015) rather than a second
  * check written here. **Nothing here starts or stops the agent**: the server's
- * own boot does that (ADR 0027), and a control on this surface would promise
+ * own boot does that (ADR 0038), and a control on this surface would promise
  * something no route could keep.
  *
  * The **write** is a server route, like a group's label catalog: a browser may
@@ -284,7 +284,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    *
    * The model is deliberately not answered here: it is the installation's own
    * document, and the surface **links** to the section that chooses it rather
-   * than keeping a second copy of fields edited there (ADR 0009, ADR 0027).
+   * than keeping a second copy of fields edited there (ADR 0009, ADR 0038).
    */
   api.get("/admin/agent", requireSession, requireAdmin, async (c) => {
     try {

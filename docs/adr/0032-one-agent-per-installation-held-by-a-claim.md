@@ -12,7 +12,7 @@ a holder on another host, or a pid the machine has reused, waits the TTL.
 ## Context
 
 An agent is a process, and a process is the one thing in this design that is not
-durable: the container is disposable (ADR 0027, ADR 0030), and a deployment may
+durable: the container is disposable (ADR 0038, ADR 0030), and a deployment may
 run a second copy of it — a rolling restart, an operator's mistake, a supervisor
 that starts one before the old one is gone. Two copies working the same runs
 would act twice on the same mail, settle the same step twice and answer the same

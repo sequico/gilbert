@@ -1,5 +1,5 @@
 /**
- * What a tool is, once (ADR 0027, ADR 0028).
+ * What a tool is, once (ADR 0038, ADR 0028).
  *
  * The catalogue's own machinery: the authority class a tool exercises, the
  * refusal a tool answers with, the shape every tool is defined through, the call
@@ -302,7 +302,7 @@ export interface ToolCall {
   run: RunDoc;
   /**
    * The installation's model's eyes, for the one read a function cannot make
-   * (ADR 0027): an image is transcribed by the model, and a caller without this
+   * (ADR 0038): an image is transcribed by the model, and a caller without this
    * gets the answer that says so rather than a guess at the picture.
    *
    * A function rather than the model's own access, because a catalogue that

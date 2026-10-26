@@ -1,5 +1,5 @@
 /**
- * The tools over mail, its folders and the group's labels (ADR 0027).
+ * The tools over mail, its folders and the group's labels (ADR 0038).
  *
  * A search and a read of messages and their attachments, the account's folders,
  * filing and trashing and keywords, a label in the group's own catalog, a

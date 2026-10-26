@@ -91,7 +91,7 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   (`views/mail/MailboxTree.tsx`, drawn for a group's account only, as filters
   carrying the counts the other labels carry). A person's own label surface shows
   the one section and is not guarded — the agent works in a group's account and
-  never in a person's (ADR 0027).
+  never in a person's (ADR 0038).
 - **Deleting the group's mail (ADR 0013)**: the one thing a member may not do.
   A group is reached by membership, so the mail server tells one member's delete
   from another's by nothing and there is no rank inside a group; the rule is the

@@ -1,5 +1,5 @@
 /**
- * The agent's tools, read from the group's own account (ADR 0027).
+ * The agent's tools, read from the group's own account (ADR 0038).
  *
  * A tool is a **task over one object Stalwart offers**, not a step of the
  * protocol: one that finds messages by the mail client's own search grammar,

@@ -5,7 +5,7 @@ import { freePort, jsonCall } from "./testkit.js";
 
 /**
  * The administration surface of the installation's agent, end to end against the
- * mock (ADR 0027, 0030, 0032, 0033): where the agent is, the runs a group has
+ * mock (ADR 0038, 0030, 0032, 0033): where the agent is, the runs a group has
  * worked, and the facts an administrator reads, corrects and removes.
  *
  * The three documents live in three accounts and the door reaches all of them as

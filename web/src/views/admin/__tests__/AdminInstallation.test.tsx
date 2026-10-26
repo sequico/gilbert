@@ -21,7 +21,7 @@ import { AdminInstallation } from "../AdminInstallation";
 const LOCATION = "gilbert/installation.json in account a1";
 const MASTER = "gilbert@example.com";
 const DOCUMENT = JSON.stringify({ branding: { appName: "Gilbert" } }, null, 2);
-/** The model the installation runs on (ADR 0027), as a document names it. */
+/** The model the installation runs on (ADR 0038), as a document names it. */
 
 /**
  * A document that names a model, in the shape the server's read hands back: the

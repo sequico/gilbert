@@ -106,7 +106,7 @@ const HOUR_MS = 60 * 60 * 1000;
  * The installation document the demo holds.
  *
  * The defaults a first boot writes (ADR 0009), plus a secret this build can seal
- * a session with and **a model** — the one field an agent needs (ADR 0027). It
+ * a session with and **a model** — the one field an agent needs (ADR 0038). It
  * is the same shape through the same builder a real first boot uses, so a
  * section added to the document appears here without a second definition, and
  * the provider's address is deliberately one nobody serves: the demo carries no
@@ -325,7 +325,7 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
      * The installation's own document, which a boot reads from this folder and
      * creates when it is absent (ADR 0009). The demo carries one so the server
      * that starts the agent with itself (`dev:mock`) has one to run: an
-     * installation with no model has none (ADR 0027), and the model is the
+     * installation with no model has none (ADR 0038), and the model is the
      * document's field rather than an environment variable. The address is a
      * placeholder because the demo ships no rules, so a pass never calls the
      * model; a developer who wants a turn points it at their own provider in

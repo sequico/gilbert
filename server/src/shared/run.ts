@@ -212,7 +212,7 @@ export interface RunMessageRef {
 export type RunAuthority = "destructive" | "outward" | "override";
 
 /**
- * What started a run (ADR 0027, 0031, 0038): the group's standing instruction,
+ * What started a run (ADR 0038): the group's standing instruction,
  * which is woken by a change in its account, or a sentence a person wrote.
  */
 interface RunStart {
@@ -573,7 +573,7 @@ export interface RunDoc {
   authorisations: RunAuthorisation[];
   evidence: RunEvidence[];
   /**
-   * What the run has spent so far (ADR 0027). */
+   * What the run has spent so far (ADR 0038). */
   spent: RunSpent;
   state: RunState;
   /** The ending, or null while the run is running. */
@@ -1216,7 +1216,7 @@ export function recordStep(
 }
 
 /**
- * Append the step the model chose after seeing a result (ADR 0027).
+ * Append the step the model chose after seeing a result (ADR 0038).
  *
  * The plan grows as the run goes: the model chooses the tools and the order,
  * acts, looks at the result and chooses again, so a step it decides on is
@@ -1343,7 +1343,7 @@ export function recordEvidence(run: RunDoc, evidence: RunEvidence): RunDoc {
 }
 
 /**
- * Add to the run's tally of what it has spent (ADR 0027).
+ * Add to the run's tally of what it has spent (ADR 0038).
  *
  * The one place the tally moves: the caller says which of the three counters a
  * turn touched — the step it took, the model call it made, the milliseconds it

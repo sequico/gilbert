@@ -6,7 +6,7 @@ import { AgentModel } from "../agents/AgentModel";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The installation's model, as the AI Agents section edits it (ADR 0027): the
+ * The installation's model, as the AI Agents section edits it (ADR 0038): the
  * fields write `agent.provider` into the installation's document, and the key is
  * write-only — never filled from a read, stated only as the save is sent.
  */

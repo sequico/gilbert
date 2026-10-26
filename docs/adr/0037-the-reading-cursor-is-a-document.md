@@ -25,7 +25,7 @@ each process by anchoring at the state the server holds **then**, which is not a
 resumption but a fresh start: every change that arrived while the process was
 down is never read, and never named as missed.
 
-The process is disposable by law (`IMMUTABLE=1`, ADR 0027): a cursor in memory is
+The process is disposable by law (`IMMUTABLE=1`, ADR 0038): a cursor in memory is
 a cursor lost on every restart. The live symptom was a chat message that mentioned
 the agent, produced no run, and left nothing behind that could answer why.
 

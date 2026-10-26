@@ -677,7 +677,7 @@ export function MailboxTree() {
              * the shared vocabulary (`AGENT_LABELS`) and this section draws no
              * rename, delete or Manage control, so nothing here can change one.
              * A person's account has none of it — an agent runs in a group's
-             * account only (ADR 0027) — so the section is drawn for a group.
+             * account only (ADR 0038) — so the section is drawn for a group.
              * Each row is a filter like its siblings, and its count comes from
              * the same `labelCounts` read, which counts these keywords for a
              * group (`countedKeywords`).

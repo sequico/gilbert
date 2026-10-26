@@ -162,7 +162,7 @@ interface InstallationPush {
 }
 
 /**
- * The one model an installation runs on (ADR 0027).
+ * The one model an installation runs on (ADR 0038).
  *
  * Provider, model, an OpenAI-compatible base URL and a key. One model serves
  * the whole installation — which model a kind of work deserves is not a
@@ -211,7 +211,7 @@ export interface InstallationModel {
 }
 
 /**
- * The agent's own section of the installation's document (ADR 0027).
+ * The agent's own section of the installation's document (ADR 0038).
  *
  * Two things live here: the model the installation runs on, and the line of
  * prose its agent carries into every call. The section is kept rather than
@@ -310,7 +310,7 @@ export function installationDefaults(): InstallationDocument {
       rawRelay: true, // RAW_PUSH_RELAY (`"0"` turned it off)
     },
     upstreams: {},
-    // No model: an installation that has chosen none has no agent (ADR 0027).
+    // No model: an installation that has chosen none has no agent (ADR 0038).
     // What a provider is, and that its key is write-only, is `InstallationModel`.
     agent: {},
     branding: {

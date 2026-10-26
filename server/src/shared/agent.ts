@@ -1,5 +1,5 @@
 /**
- * The installation's one agent, as both tiers read it (ADR 0027, 0032).
+ * The installation's one agent, as both tiers read it (ADR 0038, 0032).
  *
  * The claim is a **stored document** — one `agent-claim.json` in the app folder
  * of the account the agent signs in as — in the same position a run and a fact
@@ -167,7 +167,7 @@ export function isClaimDoc(x: unknown): x is ClaimDoc {
  *
  * What an administrator reads about the process itself, and nothing it could act
  * on: the claim is a fact about who is working the installation, and **nothing
- * here starts or stops anything** — the server's own boot does that (ADR 0027),
+ * here starts or stops anything** — the server's own boot does that (ADR 0038),
  * so a control that pretended otherwise would be a lie. The model's own fields
  * are the installation section's (ADR 0009), which a surface links to rather
  * than copies.

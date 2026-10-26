@@ -67,7 +67,7 @@ mailbox is an account of its own, and what it owns — its chat, its label catal
 its calendars and files, the instruction it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
 **Chat** is one conversation per group. **Agents** run inside the server's own
-process (ADR 0027–0033 below): the loop that works a run is there,
+process (ADR 0038 below): the loop that works a run is there,
 and a pass is asked for when Stalwart pushes a change, with ten seconds as the
 floor without a working stream and thirty with one.
 
@@ -298,7 +298,7 @@ removed once per account by `server/src/agent/legacy.ts`, which leaves a marker
 
 ## One model, two turns
 
-**One model serves the installation** (ADR 0027), chosen in Administration and
+**One model serves the installation** (ADR 0038), chosen in Administration and
 stored in the installation's own document with a **write-only** key: a read of a
 document this build can parse takes the key out of it, while a document that is
 not JSON is handed back byte for byte so a person can repair it by hand; a save
@@ -418,7 +418,7 @@ verbs and their endpoints are exercised against the mock Stalwart.
 
 ## The loop
 
-**The loop that works a run is `server/src/agent/loop.ts`** (ADR 0027–0038): one
+**The loop that works a run is `server/src/agent/loop.ts`** (ADR 0028, 0030, 0038): one
 pass takes the installation's claim, works the runs whose wait has come due,
 reads each account's changes and puts each one to the decision turn. A change the
 group's instruction does not name costs no model call and no step; a change it
@@ -674,7 +674,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   Master's credential are not in the document (`GET`/`POST
   /api/admin/installation`; `server/src/installationAdmin.ts`,
   `server/src/shared/installation.ts`).
-- **The agent's own surface** (ADR 0027, 0030, 0032, 0033): the Agent section
+- **The agent's own surface** (ADR 0038, 0030, 0032, 0033): the Agent section
   shows where the installation's agent is — the claim it holds and the ten-second
   pass — and **starts nothing**: the server's own boot does that, so a control
   here would promise something no route can keep. The model is **linked** to the
@@ -1297,7 +1297,7 @@ applied from `l` or the context menu, and optionally listed in the sidebar.
   the group's own labels a **System labels** section lists the `G-` processing
   states the agent applies (`AGENT_LABELS`) — each a filter carrying a count from
   the same read the labels use — and draws no rename, delete or Manage control.
-  They name the agent's work, which runs in a group's account only (ADR 0027), so
+  They name the agent's work, which runs in a group's account only (ADR 0038), so
   a person's own sidebar has no such section.
 - **A change made by another member shows up live.** A star or label written in a
   group mailbox reaches other members through the push rail as an `Email` change,

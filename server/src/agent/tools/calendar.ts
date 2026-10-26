@@ -1,5 +1,5 @@
 /**
- * The tools over the account's own calendars (ADR 0027).
+ * The tools over the account's own calendars (ADR 0038).
  *
  * The calendars a person may write to, the events in a window, one event read
  * by its id, and an event saved or removed. The group's calendar is the

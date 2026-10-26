@@ -245,7 +245,7 @@ administrator's to ask for, and asking is the action this record keeps.
 - **`gilbertstalwart`.** Nothing is set inside Stalwart for this and no
   capability is required of it: a group's mail, its Trash and ordinary folders
   are ordinary objects to the server.
-- **`gilbertagents`.** Its tools end nothing (ADR 0027, ADR 0028); `files.delete`
+- **`gilbertagents`.** Its tools end nothing (ADR 0038, ADR 0028); `files.delete`
   moves a node to the Trash, which is a reversible change.
 
 ## Consequences
@@ -357,4 +357,4 @@ administrator's to ask for, and asking is the action this record keeps.
 - ADR 0010 — a durable write is caused by a change, not by a clock
 - ADR 0011 — a dropped name is written over, in place
 - ADR 0012 — merging two folders is planned before it is written
-- ADR 0027, ADR 0028 — the agent's catalogue, and what only a person decides
+- ADR 0028 — what only a person decides; ADR 0038 — the agent's areas and its catalogue

@@ -36,7 +36,7 @@ are reversible and the agent's. The policy the agent reads is a KB page (ADR
 
 An agent with a model's judgement and a catalogue of tools can do anything the
 account can. The bound cannot be a list of permitted business actions: the
-practices are unbounded (ADR 0027), and such a list would be the product's
+practices are unbounded (ADR 0038), and such a list would be the product's
 authors deciding, in advance, what every company may do. What can be bounded is
 **how much can be undone, and who is answerable**.
 

@@ -1,5 +1,5 @@
 /**
- * The installation's model, and the two turns it is asked (ADR 0027).
+ * The installation's model, and the two turns it is asked (ADR 0038).
  *
  * One model serves the installation: the provider, the model, its
  * OpenAI-compatible base URL and a write-only key, chosen in Administration and
@@ -39,7 +39,7 @@
  * chooses a tool that writes; anything but the demanded shape is refused, never
  * guessed at.
  *
- * **The choosing turn** (`chooseStep`) works a run (ADR 0027, 0030): it is
+ * **The choosing turn** (`chooseStep`) works a run (ADR 0038, 0030): it is
  * handed the catalogue as the catalogue describes itself — one definition, never
  * a second prose copy — and the run so far, and answers with a **plan**: a list
  * of one or more steps, each a tool, its arguments and what it waits on, or that
@@ -209,7 +209,7 @@ export interface ModelAccess {
  *
  * The one place a provider is read: the document is where the choice lives
  * (ADR 0009), and an installation that has chosen no model has no agent
- * (ADR 0027) — which is `null` here, not a default provider nobody chose.
+ * (ADR 0038) — which is `null` here, not a default provider nobody chose.
  */
 export function modelAccess(
   document: InstallationDocument,
@@ -223,7 +223,7 @@ export function modelAccess(
  * The installation's model, or the refusal a surface composes its sentence from.
  *
  * Absence is a state of the installation and not a failure of a call: an
- * installation that has chosen no model has no agent (ADR 0027). A caller that
+ * installation that has chosen no model has no agent (ADR 0038). A caller that
  * needs a model comes through here rather than reading a `null` for itself, so
  * absence is refused in the shape every other refusal has — a code a surface
  * composes its sentence from, the way `assertUsableProvider` refuses an address.
@@ -309,7 +309,7 @@ interface ModelRequest {
   timeoutMs?: number;
   maxOutputTokens?: number;
   /**
-   * Images the user turn carries, for a model that can see (ADR 0027).
+   * Images the user turn carries, for a model that can see (ADR 0038).
    *
    * A scan, a photograph or a page of a PDF that has no text layer is read this
    * way and no other: the installation's model is the reader, so an installation
@@ -318,7 +318,7 @@ interface ModelRequest {
    */
   images?: ModelImage[];
   /**
-   * The catalogue as the provider's own tool definitions (ADR 0027).
+   * The catalogue as the provider's own tool definitions (ADR 0038).
    *
    * A call that carries them asks for a tool-calling answer instead of a JSON
    * object: the provider checks the kind and the bound of every argument, which
@@ -1098,7 +1098,7 @@ export function isNativeToolCalls(x: unknown): x is NativeToolCallsAnswer {
  * completion with native `tool_calls` and an empty or argument-shaped `content`
  * — the live run of 2026-10-20 wedged on "answered without a message" while the
  * call it meant sat in that field. The choosing turn offers the catalogue as
- * `tools` (ADR 0027), so a call here is the ordinary answer; the ones a model
+ * `tools` (ADR 0038), so a call here is the ordinary answer; the ones a model
  * names anyway, with no `tools` offered, are read as the answer they are rather
  * than as a malformed one.
  */
@@ -1901,7 +1901,7 @@ function parseAuthorisations(raw: unknown, admin = false): ReadAuthorisation[] {
 /* ------------------------------------------------------------------ */
 
 /**
- * What an image says, read by the installation's model (ADR 0027).
+ * What an image says, read by the installation's model (ADR 0038).
  *
  * A document that is a picture — a photograph of a delivery note, a scan, a PDF
  * page with no text layer — has no bytes a reader can turn into prose. The
@@ -2023,7 +2023,7 @@ export function askOf(name: string, args: unknown): string {
 
 /**
  * One step of a plan: a tool of the catalogue, the arguments it is given, and
- * what it waits on (ADR 0027, 0030).
+ * what it waits on (ADR 0038, 0030).
  *
  * A plan is a list of these. `needs` is null when the step is ready as soon as
  * the run reaches it; otherwise it names a step of the **same answer**, by its
@@ -2037,7 +2037,7 @@ export interface StepCall {
 }
 
 /**
- * What one choosing call answered (ADR 0027, 0030).
+ * What one choosing call answered (ADR 0038, 0030).
  *
  * A **plan** is one or more steps: the model decides what the change needs —
  * one thing, several, one tool twice — and says which steps wait on which, and
@@ -2368,7 +2368,7 @@ export function toolLine(tool: AnyTool): string {
   return `${toolSignature(tool)}: ${tool.description}`;
 }
 
-/** One tool as an OpenAI-compatible completion takes it (ADR 0027). */
+/** One tool as an OpenAI-compatible completion takes it (ADR 0038). */
 export interface ToolDefinition {
   type: "function";
   function: {
@@ -2390,7 +2390,7 @@ export interface ToolDefinition {
  * a live installation paid refused answers for exactly that — `"id" must be
  * text`, a `fact` over its bound, an argument name the tool does not take. The
  * same definitions are therefore offered as `tools`, so the provider checks the
- * kind and the bound itself (ADR 0027).
+ * kind and the bound itself (ADR 0038).
  *
  * Nothing is stated twice: the names, the descriptions, the argument names and
  * their bounds are the catalogue's own, and this is the **one** rendering of them
