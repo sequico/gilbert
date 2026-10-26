@@ -589,8 +589,8 @@ test("the agent's own calendar write leaves a mark the reading takes once", asyn
   // The reading's position is taken *before* the write, so what it reports is
   // what the agent did since it.
   const anchor = await anchorEvents(ctx, accountId);
-  const created = (await runTool(TOOLS, { ctx, accountId, run }, "event", {
-    action: "create",
+  const created = (await runTool(TOOLS, { ctx, accountId, run }, "act", {
+    what: "schedule",
     calendar: writable.id,
     title: "Written by the agent",
     start: "2026-10-21T10:00:00",

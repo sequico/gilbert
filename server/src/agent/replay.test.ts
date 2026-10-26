@@ -45,10 +45,21 @@ test("every recorded answer still parses through today's parsers", () => {
   let refusals = 0;
   /*
    * A recorded call the endpoint refuses **for its arguments** is history: the
-   * model gave it, the catalogue refused it, the run paid for it. What is a
-   * regression is a name the catalogue no longer holds, or a shape the parser
-   * no longer reads: those throw here.
+   * model gave it, the catalogue refused it, the run paid for it. So is a **name a
+   * verb used to have**: `read`, `find` and `place` were renamed to `open` and `act`
+   * deliberately (R4), and the recordings are evidence of what the model was offered,
+   * never a list of what the catalogue must keep. What is a regression is anything
+   * else — a shape the parser no longer reads, or a name that was never a verb here.
    */
+  const formerVerbs = new Set([
+    "read",
+    "find",
+    "place",
+    "draft",
+    "event",
+    "remember",
+    "settle",
+  ]);
   const stillKnown = (
     catalogue: Parameters<typeof validatedTool>[0],
     name: string,
@@ -58,6 +69,10 @@ test("every recorded answer still parses through today's parsers", () => {
       return validatedTool(catalogue, name, args).tool.name;
     } catch (err) {
       if ((err as { code?: string }).code === "bad_arguments") {
+        refusals += 1;
+        return name;
+      }
+      if (formerVerbs.has(name)) {
         refusals += 1;
         return name;
       }

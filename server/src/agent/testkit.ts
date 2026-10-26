@@ -42,34 +42,32 @@ export function jobCall(
     "mail.keyword": "keyword",
     "mail.label": "label",
     "mail.folder": "mailFolder",
-    "mail.renameFolder": "renameFolder",
-    "mail.deleteFolder": "deleteFolder",
+    "mail.renameFolder": "mailFolderRename",
+    "mail.deleteFolder": "mailFolderDelete",
     "files.save": "save",
     "files.write": "write",
     "files.overwrite": "overwrite",
-    "files.move": "moveFile",
-    "files.rename": "renameFile",
-    "files.delete": "deleteFile",
+    "files.move": "move",
+    "files.rename": "rename",
+    "files.delete": "delete",
     "files.folder": "folder",
   };
-  if (place[name]) return { name: "place", args: { ...args, action: place[name] } };
+  if (place[name]) return { name: "act", args: { ...args, what: place[name] } };
   const event: Record<string, string> = {
-    "calendar.create": "create",
-    "calendar.update": "update",
-    "calendar.delete": "delete",
+    "calendar.create": "schedule",
+    "calendar.update": "reschedule",
+    "calendar.delete": "cancel",
   };
-  if (event[name]) return { name: "event", args: { ...args, action: event[name] } };
-  if (name === "mail.draft") return { name: "draft", args: { ...args, kind: "reply" } };
-  if (name === "mail.editDraft")
-    return { name: "draft", args: { ...args, kind: "edit" } };
+  if (event[name]) return { name: "act", args: { ...args, what: event[name] } };
+  if (name === "mail.draft") return { name: "act", args: { ...args, what: "reply" } };
+  if (name === "mail.editDraft") return { name: "act", args: { ...args, what: "edit" } };
   if (name === "chat.say") return { name: "say", args: { ...args, action: "say" } };
   if (name === "chat.ask") return { name: "say", args: { ...args, action: "ask" } };
-  if (name === "memory.remember")
-    return { name: "remember", args: { ...args, kind: "fact" } };
+  if (name === "memory.remember") return { name: "act", args: { ...args, what: "fact" } };
   if (name === "knowledge.propose")
-    return { name: "remember", args: { ...args, kind: "page" } };
+    return { name: "act", args: { ...args, what: "page" } };
   if (name === "workorder.settle")
-    return { name: "settle", args: { ...args, action: "settle" } };
+    return { name: "act", args: { ...args, what: "settle" } };
   throw new Error(`the former tool "${name}" has no job`);
 }
 

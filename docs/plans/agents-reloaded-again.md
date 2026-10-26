@@ -353,6 +353,18 @@ do not need the second list.
 the eval's refusals for an unknown name or a wrong argument stay at zero, and a set
 of four known messages is opened by one call.
 
+**Built:** the four verbs — `open` (what the account holds: one object by `id`, several
+by `ids`, and the plural to search or list), `act` (what changes the account: the acts
+of mail, files, drafts, calendar, memory, knowledge and workorders, each still the
+endpoint that carried it), `say` and `note` — over the endpoint tools untouched, so the
+class of an act, the surface it writes and the wait it takes are read from the endpoint
+the value names, and the areas narrow the values exactly as they narrowed five verbs.
+
+**Owed:** the third unit — the turn's prose and the signature lines, which four verbs
+with intent-shaped values no longer need. The measured claim is *their* removal: the
+schema keeps one branch per endpoint, because a value names one endpoint, and this
+build does not pretend otherwise.
+
 ### R5 — No ceiling on a run; the nets are safety, not accounting
 
 A run ends **done**, **waiting on a person**, **stopped by a person**, or

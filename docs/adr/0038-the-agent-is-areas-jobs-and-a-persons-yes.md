@@ -82,11 +82,11 @@ is a **module**: one definition of its actions, no import of another area's, and
 what crosses between them is **an identifier inside the account**. An area is not
 an agent; the run is the one place where two areas meet.
 
-- **Reading and the shared library are always present**: `open`, `say` and
-  `remember`; the instruction filters only the area writes (`place`, `draft`,
-  `event`, `settle`), and the guard reads the verb's `what`/`kind`/`action` when one
-  verb reaches more than one area (`place` writes mail or files, `remember` memory or
-  knowledge): a tool-level filter cannot say which half of a job is allowed.
+- **Reading and the conversation are always present**: `open`, `note` and
+  `say`; the instruction filters the **values** of `act` by the area they reach
+  (`file` is mail, `save` files, `schedule` calendar), and the guard reads the act's
+  own value when one verb reaches more than one area: a tool-level filter cannot say
+  which half of a verb is allowed.
 - **The schema follows the areas.** A job shows only the `kind`/`action` the run's
   areas allow; the guard that reads them is the second door, not the first.
 - **An instruction declares the areas its group works**, with no ceiling: the
@@ -106,12 +106,8 @@ or lists:
 | verb | what it is | absorbs |
 |---|---|---|
 | `open` | what the account holds: a message, an attachment, a file, an event, a page, a chat, a workorder, a run or the memory — or several at once; and the plural to search or list | `mail.read`, `mail.readAttachment`, `files.read`, `calendar.read`, `knowledge.read`, `chat.read`, `workorder.read`, `run.read`, `mail.find`, `mail.folders`, `files.list`, `calendar.list`, `calendar.find`, `chat.find`, `contacts.find`, `knowledge.list`, `knowledge.search`, `workorder.list` |
-| `place` | put something where it belongs | `mail.file`, `mail.trash`, `mail.untrash`, `mail.keyword`, `mail.label`, `files.save`, `files.write`, `files.overwrite`, `files.move`, `files.rename`, `files.delete`, `files.folder`, `mail.folder`, `mail.renameFolder`, `mail.deleteFolder` |
-| `draft` | write an outward message, never send it | `mail.draft`, `mail.editDraft` |
-| `event` | create, change or cancel an event or a series | `calendar.create`, `calendar.update`, `calendar.delete` |
+| `act` | change what the account holds: file, trash, untrash, keyword, label, a mail folder made/renamed/deleted, a file saved/written/moved/renamed/deleted or a folder made, an outward message as a draft, an event scheduled/rescheduled/cancelled, a fact kept or a page proposed, a workorder step settled | `mail.file`, `mail.trash`, `mail.untrash`, `mail.keyword`, `mail.label`, `files.save`, `files.write`, `files.overwrite`, `files.move`, `files.rename`, `files.delete`, `files.folder`, `mail.folder`, `mail.renameFolder`, `mail.deleteFolder`, `mail.draft`, `mail.editDraft`, `calendar.create`, `calendar.update`, `calendar.delete`, `memory.remember`, `knowledge.propose`, `workorder.settle` |
 | `say` | speak in the conversation, or ask | `chat.say`, `chat.ask` |
-| `remember` | keep a fact, or propose a knowledge page | `memory.remember`, `knowledge.propose` |
-| `settle` | close or move a workorder | `workorder.settle` |
 **Dropped: `mail.send` and `mail.ask`.** An outward message is a draft a person
 sends, as the boundary below states; `mail.ask` sent a question and parked the
 run, which the draft

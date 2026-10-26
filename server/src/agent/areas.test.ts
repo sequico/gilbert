@@ -23,7 +23,7 @@ import { TOOLS } from "./tools.js";
 test("the catalogue is the verbs and the case's note, each a name a provider accepts", () => {
   assert.deepEqual(
     TOOLS.map((tool) => tool.name),
-    ["open", "note", "place", "draft", "event", "say", "remember", "settle"],
+    ["open", "note", "act", "say"],
   );
   for (const tool of TOOLS)
     assert.match(
@@ -37,24 +37,29 @@ test("the selection keeps reading free and narrows the area writes", () => {
   const picked = catalogueFor(TOOLS, ["mail", "files", "chat", "knowledge", "memory"]);
   assert.deepEqual(
     picked.map((tool) => tool.name),
-    ["open", "note", "place", "draft", "say", "remember"],
+    ["open", "note", "act", "say"],
   );
-  const place = picked.find((tool) => tool.name === "place");
-  assert.ok(place);
-  const actions = place.args.action?.values ?? [];
-  assert.ok(actions.includes("file"), "a mail action is kept");
-  assert.ok(actions.includes("save"), "a files action is kept");
-  assert.ok(!actions.includes("create"), "no calendar action is invented");
+  const act = picked.find((tool) => tool.name === "act");
+  assert.ok(act);
+  const acts = act.args.what?.values ?? [];
+  assert.ok(acts.includes("file"), "a mail act is kept");
+  assert.ok(acts.includes("save"), "a files act is kept");
+  assert.ok(!acts.includes("schedule"), "no calendar act is invented");
 
   const calendarOnly = catalogueFor(TOOLS, ["calendar", "chat", "knowledge", "memory"]);
   assert.deepEqual(
     calendarOnly.map((tool) => tool.name),
-    ["open", "note", "event", "say", "remember"],
+    ["open", "note", "act", "say"],
+  );
+  assert.deepEqual(
+    calendarOnly.find((tool) => tool.name === "act")?.args.what?.values,
+    ["schedule", "reschedule", "cancel", "fact", "page"],
+    "the calendar's acts, and the memory and page every run may write",
   );
   assert.equal(
-    TOOLS.find((tool) => tool.name === "settle")?.narrow?.(["mail"]),
+    TOOLS.find((tool) => tool.name === "act")?.narrow?.(["chat"]),
     null,
-    "a job whose area is not declared is not offered at all",
+    "a verb whose areas are not declared is not offered at all",
   );
 });
 

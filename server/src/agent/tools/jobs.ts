@@ -349,21 +349,30 @@ export const openJob = job({
 });
 
 /**
- * Putting something where it belongs: the one job that spans two surfaces, so
- * its `action` decides both the endpoint and the area the guard reads.
+ * One verb changes the account (R4).
+ *
+ * `what` is the act, not the endpoint: file a message where it belongs, save or write
+ * a file, write an outward message as a draft, schedule or cancel an event, keep a
+ * fact, propose a page, settle a workorder step. The endpoint behind each value is
+ * unchanged, so the class of the act, the surface it writes and the wait it takes are
+ * still read from the endpoint itself (`authorityOf`, `surfaceOf`, `waitsOf`), and the
+ * areas narrow the values exactly as they did when these were five verbs.
  */
-export const placeJob = job({
-  name: "place",
+export const actJob = job({
+  name: "act",
   description:
-    "Put something where it belongs. A message is filed (`file`), trashed " +
-    "(`trash`), restored (`untrash`), tagged with a keyword (`keyword`) or a " +
-    "label (`label`); a label catalogued (`labelDefine`); a mail folder made, " +
-    "renamed or deleted (`mailFolder`, `renameFolder`, `deleteFolder`). A file " +
-    "is saved (`save`), written over (`write`), replaced (`overwrite`), moved " +
-    "(`moveFile`), renamed (`renameFile`), deleted (`deleteFile`), or a folder " +
-    "made (`folder`). `action` says which, and the arguments are that action's.",
-  discriminator: "action",
-  about: "what to do with it",
+    "Change what this account holds. `what` is the act: a message is `file`d, " +
+    "`trash`ed, `untrash`ed, given a `keyword` or a `label`, and a mail folder is " +
+    "`mailFolder` (make it one), `mailFolderRename` or `mailFolderDelete`; a file is " +
+    "`save`d, `write` (a document's words are replaced), `overwrite`d, `move`d, " +
+    "`rename`d, `delete`d, or a folder made with `folder`; an outward message is " +
+    "`reply` (a draft in the message's thread) or `edit` (replace a draft you wrote); " +
+    "an event is `schedule`d, `reschedule`d or `cancel`led; a `fact` or a `page` is " +
+    "kept for later runs; a workorder step is `settle`d. Nothing is sent: an outward " +
+    "message leaves as a draft a person sends.",
+  discriminator: "what",
+  about:
+    "the act: file, trash, untrash, keyword, label, mailFolder, mailFolderRename, mailFolderDelete, save, write, overwrite, move, rename, delete, folder, reply, edit, schedule, reschedule, cancel, fact, page or settle",
   writes: true,
   routes: {
     file: { tool: fileMessage, area: "mail" },
@@ -372,53 +381,33 @@ export const placeJob = job({
     keyword: { tool: setKeyword, area: "mail" },
     label: { tool: defineLabel, area: "mail" },
     mailFolder: { tool: createMailFolder, area: "mail" },
-    renameFolder: { tool: renameMailFolder, area: "mail" },
-    deleteFolder: { tool: deleteMailFolder, area: "mail" },
+    mailFolderRename: { tool: renameMailFolder, area: "mail" },
+    mailFolderDelete: { tool: deleteMailFolder, area: "mail" },
     save: { tool: saveFile, area: "files" },
     write: { tool: writeDocument, area: "files" },
     overwrite: { tool: overwriteDocument, area: "files" },
-    moveFile: { tool: moveFile, area: "files" },
-    renameFile: { tool: renameFile, area: "files" },
-    deleteFile: { tool: deleteDocument, area: "files" },
+    move: { tool: moveFile, area: "files" },
+    rename: { tool: renameFile, area: "files" },
+    delete: { tool: deleteDocument, area: "files" },
     folder: { tool: createFileFolder, area: "files" },
-  },
-});
-
-/** One outward message, as a draft. No tool sends (ADR 0038). */
-export const draftJob = job({
-  name: "draft",
-  description:
-    "Write an outward message into this account's Drafts, or replace one you " +
-    "wrote before. A draft is never sent: a person reads it and sends it. " +
-    "`kind` is `reply` (to the message `id`, in its thread) or `edit` (replace " +
-    "the draft `id` with these words, keeping its thread).",
-  discriminator: "kind",
-  about: "which draft: reply or edit",
-  writes: true,
-  routes: {
     reply: { tool: draftReply, area: "mail" },
     edit: { tool: editDraft, area: "mail" },
+    schedule: { tool: createEvent, area: "calendar" },
+    reschedule: { tool: updateEvent, area: "calendar" },
+    cancel: { tool: deleteEvent, area: "calendar" },
+    fact: { tool: rememberFactTool, area: "memory" },
+    page: { tool: proposePage, area: "knowledge" },
+    settle: { tool: settleStep, area: "workorders" },
   },
 });
 
-/** A calendar event or a series, in one job. */
-export const eventJob = job({
-  name: "event",
-  description:
-    "Create a calendar event, change one, or cancel it. `action` is `create` " +
-    "(a title and a start), `update` (the event `id` and the fields to change) " +
-    "or `delete` (the event `id`).",
-  discriminator: "action",
-  about: "what to do: create, update or delete",
-  writes: true,
-  routes: {
-    create: { tool: createEvent, area: "calendar" },
-    update: { tool: updateEvent, area: "calendar" },
-    delete: { tool: deleteEvent, area: "calendar" },
-  },
-});
-
-/** Speaking in the conversation, or asking a person and waiting. */
+/**
+ * Speaking in the conversation, or asking a person and waiting.
+ *
+ * The one verb that is a conversation rather than the account: `say` posts a message
+ * (a `replyTo` keeps it in a thread), `ask` posts a question and parks the run until a
+ * person answers. A question is asked here and never by mail.
+ */
 export const sayJob = job({
   name: "say",
   description:
@@ -435,50 +424,5 @@ export const sayJob = job({
   },
 });
 
-/** Keeping one thing: a fact the installation remembers, or a knowledge page. */
-export const rememberJob = job({
-  name: "remember",
-  description:
-    "Keep one thing for later runs: `fact` records a fact about an entity in " +
-    "the installation's memory — the entity's `subject`, the relation " +
-    "(`predicate`, `is` unless it matters) and one sentence (`fact`), plus " +
-    "`object` when the value is another entity and `entityKind` when the fact " +
-    "creates the entity. What stays true beyond this change, never what happened once. " +
-    "`page` proposes a knowledge page from the words you give, for a person to " +
-    "accept. Neither grants anything.",
-  discriminator: "kind",
-  about: "a fact, or a knowledge page",
-  writes: true,
-  always: true,
-  routes: {
-    fact: { tool: rememberFactTool, area: "memory" },
-    page: { tool: proposePage, area: "knowledge" },
-  },
-});
-
-/** Closing a workorder step. */
-export const settleJob = job({
-  name: "settle",
-  description:
-    "Settle a step of one of this account's workorders: mark it done, skipped " +
-    "or not-applicable, or open it again, with an optional note. The step is " +
-    "named by its `uid` and its `path`, as `read workorder` answers them.",
-  discriminator: "action",
-  about: "settle the step",
-  writes: true,
-  routes: {
-    settle: { tool: settleStep, area: "workorders" },
-  },
-});
-
-/** The verbs, and the case's scratchpad, in the order a turn reads them. */
-export const JOBS: readonly AnyTool[] = [
-  openJob,
-  noteTool,
-  placeJob,
-  draftJob,
-  eventJob,
-  sayJob,
-  rememberJob,
-  settleJob,
-];
+/** The four verbs and the case's scratchpad, in the order a turn reads them. */
+export const JOBS: readonly AnyTool[] = [openJob, noteTool, actJob, sayJob];

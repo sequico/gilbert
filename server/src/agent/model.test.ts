@@ -491,15 +491,15 @@ test("the catalogue reaches the turn twice: the definitions, and the signatures 
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
   const system = SYSTEM(0);
 
-  const remember = TOOLS.find((tool) => tool.name === "remember");
-  assert.ok(remember, "the catalogue holds the tool this test reads");
+  const act = TOOLS.find((tool) => tool.name === "act");
+  assert.ok(act, "the catalogue holds the tool this test reads");
   assert.match(
     system,
-    /- remember\(/,
+    /- act\(/,
     "the signatures are written beside the definitions this call carries",
   );
   assert.ok(
-    !system.includes(remember.description),
+    !system.includes(act.description),
     "and the description is not paid for twice",
   );
 });
@@ -543,19 +543,19 @@ test("the choosing turn offers the catalogue as tools, from the same argument sp
     TOOLS.length,
     "every tool of the catalogue is offered, once",
   );
-  const remember = tools.find((one) => one.function.name === "remember");
-  assert.ok(remember, "the catalogue's own tools are the ones offered");
-  assert.equal(remember.function.parameters.type, "object");
+  const act = tools.find((one) => one.function.name === "act");
+  assert.ok(act, "the catalogue's own tools are the ones offered");
+  assert.equal(act.function.parameters.type, "object");
   /*
    * One branch per value (ADR 0038): the fact branch carries the bound the
    * parser checks, so a provider refuses an over-long fact before the step is
    * paid for.
    */
-  const branches = (remember.function.parameters.oneOf ?? []) as Array<{
+  const branches = (act.function.parameters.oneOf ?? []) as Array<{
     properties: Record<string, Record<string, unknown>>;
     additionalProperties: boolean;
   }>;
-  const values = branches.map((one) => one.properties.kind?.enum);
+  const values = branches.map((one) => one.properties.what?.enum);
   const fact = branches.find(
     (_one, at) => Array.isArray(values[at]) && (values[at] as unknown[])[0] === "fact",
   );
@@ -1427,16 +1427,17 @@ test("the choosing turn lists each tool's own argument names", async () => {
     ["id", "ids", "what"],
     "the arguments are the value's own, plus the set a reading value takes",
   );
-  const remember = request.tools?.find((one) => one.function.name === "remember");
-  const fact = (remember?.function.parameters.oneOf ?? []).find(
+  const act = request.tools?.find((one) => one.function.name === "act");
+  const fact = (act?.function.parameters.oneOf ?? []).find(
     (one) =>
-      (one.properties.kind as { enum?: string[] } | undefined)?.enum?.[0] === "fact",
+      (one.properties.what as { enum?: string[] } | undefined)?.enum?.[0] === "fact",
   );
   assert.equal(
     (fact?.properties.fact as { maxLength?: number } | undefined)?.maxLength,
     MEMORY_FACT_MAX,
   );
 });
+
 test("a long plan reaches the turn in one call, every answer as the record keeps it", async () => {
   /*
    * The context is a transcript (ADR 0038): every step's answer is carried as the

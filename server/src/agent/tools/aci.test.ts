@@ -20,7 +20,13 @@ import { ToolError } from "./define.js";
 
 /** The discriminator a job call is chosen by, when it has one. */
 function discriminatorOf(tool: (typeof TOOLS)[number]): string | null {
-  return tool.args.kind ? "kind" : tool.args.action ? "action" : null;
+  return tool.args.what
+    ? "what"
+    : tool.args.kind
+      ? "kind"
+      : tool.args.action
+        ? "action"
+        : null;
 }
 
 /** The values a job's discriminator accepts, as the turn is told them. */

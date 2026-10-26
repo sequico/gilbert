@@ -229,10 +229,10 @@ account, `instruction.json`, that says **in prose** how the group wants its agen
 to work and **which areas** that work is in. The areas are the agent's own
 modules — **mail**, **files**, **calendar**, **contacts**, **knowledge**,
 **workorders**, **chat**, **memory** — and they are the whole of what a run may
-**change**: a run's catalogue is the **verbs** — `open` (what the account holds),
-`place`, `draft`, `event`, `say`, `remember`, `settle` — and the case's `note`,
-narrowed to the values whose area
-its instruction declares, with reading, the note, the conversation and memory always
+**change**: a run's catalogue is the **four verbs** — `open` (what the account holds),
+`act` (what changes it), `say` (the conversation) and `note` (the case's scratchpad) —
+with `act`'s values narrowed to the areas
+its instruction declares, and reading, the note and the conversation always
 there. **Reading is free**; a write
 needs its area, and the conversation and memory are always writable. An
 instruction declares as many areas as its group works: there is no ceiling, and
