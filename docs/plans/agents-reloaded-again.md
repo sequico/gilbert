@@ -243,11 +243,17 @@ read.
 ### R3 — The case keeps a scratchpad, and the turn carries it
 
 The run keeps a **note**: a Markdown file under the agent's own bookkeeping
-(`gilbert/cases/`, beside the queue of ADR 0034), written and rewritten by the
-agent, carried **whole** in every turn of the case. It is the working memory of
-the work: what the case is known by, where its work goes, the rule that governs it,
-and what is still owed. It is Claude Code's checklist-and-scratchpad and
+(`gilbert/cases/<key>.md`, beside the queue of ADR 0034), written and rewritten by the
+agent, carried **whole** in every turn of the case. It is the working memory of the
+work, in the order a turn reads it: **the key** the instruction's report calls the
+case, the place its work goes, the rule the change needed, **what the last report said
+and when**, and what is still owed. It is Claude Code's checklist-and-scratchpad and
 Manus's `todo.md`.
+
+The turn also lists **the keys of the cases already on file** — names only, like the
+knowledge pages' titles — so a run recognises a case it has seen before without a
+lookup. The list is the index, and it is archived as the runs are, so it does not grow
+without bound.
 
 Two stores, and the difference is the life they have:
 
@@ -258,10 +264,11 @@ Two stores, and the difference is the life they have:
   written with `remember` and recalled by the loop on the next case. It is
   already built, and two of the three runs tried to read it.
 
-The file is named by **the key that opened the case**, which is the queue's own
-(ADR 0034): the folder for a file drop, the sender and the instant for a mail drop,
-the thread id for a thread. Whatever opens a case names its scratchpad, so a later
-message that joins the same case finds the same file and nothing has to be indexed.
+The file is named by **the case's key**, slugified: what the instruction's report
+calls the case is the one name a run and a later increment can agree on without an
+index. When a change names no case at all, the note is filed under the change's own
+id and takes the case's name the first time one is known — the list of keys in the
+turn is what the model reads to decide.
 
 No boundary is policed on the note: a note that grows is rewritten by the model
 that owns it, the way a team curates a `CLAUDE.md`, and the harness only tells the
@@ -276,9 +283,9 @@ nowhere to record, so it obeys the only way it can, by fetching again (the 10:41
 read one message twelve times; the 13:35 paged one page at six offsets). A rule the
 harness makes impossible is not a rule, it is a cost; and what the memory already
 holds was read as five different subjects because nothing wrote one down once.
-*Proof*: on a drop, the second item reaches its act with the note holding the
-reference, the folder and the rule, and no knowledge page is opened twice in the
-same drop.
+*Proof*: on a delivery of seven messages, the second increment reaches its act with
+the note holding the key, the place, the rule and the last report, and no knowledge
+page is opened twice for one case.
 
 ### R4 — Four verbs instead of eight jobs
 
