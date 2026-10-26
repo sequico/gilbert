@@ -194,13 +194,14 @@ have open on the desk — names and text, never a verdict:
   (**the decision turn already has this**: `question.detail`; carry it, do not
   re-read it);
 - the thread it belongs to, when it answers one: subjects, senders and dates, one
-  line each, no bodies — the booking reference and the shipper of a delivery live
-  across the thread, not in one message;
+  line each, no bodies — the reference a case is known by and the person who sent it
+  live across the thread, not in one message;
 - **the titles of the knowledge pages, not their text**: the standing instruction
   is prose and names no page (`InstructionDoc` is `instruction`, `areas`,
   `surfaces`), so the turn is told what the base holds and opens the one it needs —
   one lookup, and the note (R3) keeps the rule it read;
-- the skeleton of the customer's folder, two levels, names only;
+- the skeleton of **the case's place** — the folder the instruction sends the work
+  to, two levels, names only, and absent when nothing is there yet;
 - the facts the memory recalled (already carried).
 
 Every part is bounded and says when it was cut, like every other block of the
@@ -241,8 +242,8 @@ read.
 The run keeps a **note**: a Markdown file under the agent's own bookkeeping
 (`gilbert/cases/`, beside the queue of ADR 0034), written and rewritten by the
 agent, carried **whole** in every turn of the case. It is the working memory of
-the work: the booking reference, the folder the delivery belongs to, the naming
-rule, what the group still owes. It is Claude Code's checklist-and-scratchpad and
+the work: what the case is known by, where its work goes, the rule that governs it,
+and what is still owed. It is Claude Code's checklist-and-scratchpad and
 Manus's `todo.md`.
 
 Two stores, and the difference is the life they have:
@@ -266,10 +267,12 @@ turn what it is carrying.
 `agent/prompt.ts` (rendered before the plan), `agent/tools/jobs.ts` (the `note`
 verb in R4 — updating it is part of a call the agent is already making, never a
 turn of its own).
-*Why*: the 13:35 run paged the same convention at six offsets because the rule it
-needed had nowhere to live; the 10:41 run read one message twelve times; and the
-memory the installation already has was read as five different subjects because
-nothing wrote the booking's folder down once.
+*Why*: the instruction already tells the agent not to re-read a page it has read for
+the same change and to **record what it needs in memory** — and the harness gives it
+nowhere to record, so it obeys the only way it can, by fetching again (the 10:41 run
+read one message twelve times; the 13:35 paged one page at six offsets). A rule the
+harness makes impossible is not a rule, it is a cost; and what the memory already
+holds was read as five different subjects because nothing wrote one down once.
 *Proof*: on a drop, the second item reaches its act with the note holding the
 reference, the folder and the rule, and no knowledge page is opened twice in the
 same drop.
@@ -408,8 +411,10 @@ The choosing turn's prose is fifteen imperatives, several of which R2 makes fals
 ("the plan you are given is the whole of what you have already done" — it is a
 clipped log whose older answers are one line each). It is rewritten at the
 altitude the field recommends: what the run is, what the verbs are, what is never
-the model's to decide, and **one worked example** — a delivery filed end to end —
-because an example carries what a list of rules does not.
+the model's to decide, and **one worked example** — a case opened, its work placed
+and its report written — because an example carries what a list of rules does not.
+The group's instruction is not repeated there: it travels as its own prose, and the
+system turn speaking in the operator's voice would be a second operator.
 *Where*: `agent/model.ts` (the choosing turn's system prose), ADR 0038.
 *Why*: every turn pays for it, and under it the model still read one message twelve
 times; an instruction that describes a harness the turn no longer has teaches the
