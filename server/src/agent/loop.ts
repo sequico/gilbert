@@ -1371,7 +1371,7 @@ export class AgentLoop {
    * an answer that fails leaves its block absent rather than failing the run.
    */
   private async caseHeld(accountId: string, run: RunDoc): Promise<CaseHeld> {
-    const catalogue = catalogueFor(this.catalogue, this.areasOfRun(accountId, run));
+    const catalogue = catalogueFor(this.catalogue, await this.areasOfRun(accountId, run));
     const embed = this.embedder();
     const call: ToolCall = {
       ctx: this.ctx,
@@ -2043,7 +2043,7 @@ export class AgentLoop {
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
         choice = await chooseStep(
-          catalogueFor(this.catalogue, this.areasOfRun(accountId, current)),
+          catalogueFor(this.catalogue, await this.areasOfRun(accountId, current)),
           access,
           question,
           { meter },
@@ -3141,9 +3141,18 @@ export class AgentLoop {
   /**
    * The areas one run may change: what its group's instruction declares and what
    * the run's own surface matrix named (ADR 0038).
+   *
+   * The instruction is **read here** rather than expected to have been read: a run
+   * picked up from a wait or an answer is worked before the change batch reads
+   * anything, and the pass's map would then be empty — the selection would fall
+   * back to the run's surfaces alone, which cannot name an area that has none
+   * (`contacts`). Reading it is one document per account per pass, cached.
    */
-  private areasOfRun(accountId: string, run: RunDoc): readonly AreaName[] | null {
-    const held = this.instructions.get(accountId);
+  private async areasOfRun(
+    accountId: string,
+    run: RunDoc,
+  ): Promise<readonly AreaName[] | null> {
+    const held = await this.instructionOf(accountId);
     return selectedAreas(held?.areas ?? [], run.startedBy.surfaces);
   }
 
