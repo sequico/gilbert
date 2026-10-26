@@ -405,7 +405,11 @@ line beside it, and the overview's sort of the live list (which omits the `ended
 fallback, so a document written before `startedAt` existed sorts last there and
 first elsewhere) — so it becomes one function in `@gilbert/shared/run`
 (`byRecency`), imported by both routes and by every surface that sorts runs, and
-applied **before** the filter and the slice. The client's sort stays as the last
+applied **before** the filter and the slice. The page's cursor follows the sort:
+the working set asks after `when|id` as the archive already does, rather than by
+`offset` over a list that grows while a person reads it — an offset repeats or
+skips a row the moment a run arrives between two pages, which is why the archive
+route carries a cursor and this one does not. The client's sort stays as the last
 word for a page it appends to.
 
 The chat has no run log to lose. It reads the same listing for the runs in flight,
