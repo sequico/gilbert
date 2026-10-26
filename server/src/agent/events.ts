@@ -91,6 +91,7 @@ import {
   type AccountEventChange,
   eventSourceOf,
 } from "./accountEvent.js";
+import { CASES_FOLDER } from "./case.js";
 import { CURSOR_FILE, NOTICE_CURSOR_FILE } from "./cursors.js";
 import { LEGACY_RULES_DIR } from "./legacy.js";
 import { PENDING_FILE } from "./queue.js";
@@ -296,6 +297,8 @@ function isAgentPath(path: string): boolean {
     rel.startsWith(`${LEGACY_RULES_DIR}/`) ||
     // Read markers sit beside the messages and are the agent's bookkeeping.
     rel.startsWith(`${CHAT_STATE_FOLDER}/`) ||
+    // A case's note is the model's own working memory, rewritten as it works.
+    rel.startsWith(`${CASES_FOLDER}/`) ||
     // The switch and the legacy upstream state are the agent's own records.
     rel.startsWith("agent/")
   );

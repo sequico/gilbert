@@ -213,6 +213,30 @@ test("a create and the update that writes its bytes are one event", async () => 
   );
 });
 
+test("the agent's own documents are not activity, and the cases it keeps are among them", async () => {
+  /*
+   * A run, a cursor, the standing instruction and a case's note are what the
+   * agent itself wrote: reported as `files`, an agent watching that surface would
+   * wake on its own bookkeeping — the note is rewritten on every turn of a case,
+   * so the loop would pay for itself.
+   */
+  const anchor = await anchorEvents(ctx, accountId);
+  await writeAppFileAt(ctx, accountId, "runs/r-1.json", { v: 1, id: "r-1" });
+  await writeAppFileAt(ctx, accountId, "cursors.json", { v: 1 });
+  await writeAppFileAt(ctx, accountId, "instruction.json", { v: 1 });
+  await writeAppFileAt(ctx, accountId, "cases/bk-901.md", {
+    note: "the case's own words",
+  });
+  await writeAppFileAt(ctx, accountId, "agent/status.json", { v: 1 });
+
+  const { events } = await readAccountEvents(ctx, accountId, anchor);
+  assert.deepEqual(
+    events.filter((event) => event.source === "files"),
+    [],
+    "nothing the agent wrote for itself wakes it",
+  );
+});
+
 test("a message is an event once it arrived; reading, filing and removing it are not", async () => {
   const first = await anchorEvents(ctx, accountId);
   const message = await deliver("a delivery");
