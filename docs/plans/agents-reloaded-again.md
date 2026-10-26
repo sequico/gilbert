@@ -230,10 +230,12 @@ case the account holds, read once before the first turn: the knowledge base's pa
 titles and the group's Files two levels deep, names only and bounded, through the
 tools' own reading half narrowed to the run's areas — a group that works no knowledge
 reads none of it, and a lookup that fails leaves its block out rather than the run
-(`caseOf`, `StepQuestion.case`).
+(`caseOf`, `StepQuestion.case`). And the last report the case already sent, one line,
+found in the group's conversation by the case's key: an instruction that says "never
+restate what an earlier report said" cannot be obeyed by an agent that was never shown
+the sentence it must not repeat.
 
-**Owed:** the thread's lines, the last report the case sent (it needs the case key,
-R1/R3), and the reader.
+**Owed:** the thread's lines and the reader.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the

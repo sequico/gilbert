@@ -86,8 +86,15 @@ const {
 } = await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
-const { appendStep, finishRun, QUESTION_TTL_MS, recordStep, startRun, waitUntil } =
-  await import("../shared/run.js");
+const {
+  appendStep,
+  finishRun,
+  QUESTION_TTL_MS,
+  recordStep,
+  startRun,
+  waitUntil,
+  withCase,
+} = await import("../shared/run.js");
 const { INSTALLATION_FILE, installationDefaults, parseInstallationDocumentDetailed } =
   await import("../shared/installation.js");
 
@@ -1572,6 +1579,49 @@ test("the message a run was woken by is handed to it, not fetched by a read", as
   assert.ok(
     seen.some(({ user }) => user.includes(body)),
     "the turn carries the sender's words",
+  );
+});
+
+test("the case's last report is in the turn, so this one does not repeat it", async () => {
+  /*
+   * An instruction that says "never restate what an earlier report said" cannot be
+   * obeyed by an agent that was never shown the sentence (ADR 0038): the turn is
+   * handed the last report of the case it works, found in the group's own
+   * conversation by the case's key.
+   */
+  const id = "intake-report";
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+  assert.equal(await readAppFileAt(ctx, accountId, "cases/bk-901.md"), null);
+  await postChatMessage(
+    ctx,
+    accountId,
+    ctx.username,
+    "BK-901: three of eight documents filed, the rest still owed",
+  );
+
+  let held = withCase(
+    startRun({
+      id,
+      startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+    }),
+    "BK-901",
+  );
+  held = recordStep(appendStep(held, "a step that answered"), 0, {
+    state: "done",
+    outcome: "answered",
+  });
+  await createRun(ctx, accountId, held);
+
+  onCall = (system) => (isDecision(system) ? { facts: {} } : { done: "reported" });
+  await agent.pass();
+
+  const turn = seen.find(({ user }) => user.includes("The last report this case sent"));
+  assert.ok(turn, "the turn carries the case's last report");
+  assert.ok(
+    turn.user.includes("three of eight documents filed"),
+    "with the sentence it must not repeat",
   );
 });
 

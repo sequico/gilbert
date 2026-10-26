@@ -1396,6 +1396,28 @@ export class AgentLoop {
     const held: CaseHeld = {};
     if (pages.length) held.pages = pages.slice(0, CASE_PLACE_MAX);
     if (place.length) held.place = place.slice(0, CASE_PLACE_LINES_MAX);
+    /*
+     * The last report this case sent: the group's own conversation, searched for the
+     * case's key and read for the newest word from the agent's own address. A report
+     * is what an instruction can forbid repeating, and an agent that has not seen the
+     * sentence has no way to obey.
+     */
+    if (run.caseKey) {
+      const said = await look({ kind: "chat", query: run.caseKey, limit: 10 });
+      const messages =
+        isRecord(said) && Array.isArray(said.messages) ? said.messages : [];
+      const mine = messages.find(
+        (one) =>
+          isRecord(one) &&
+          typeof one.text === "string" &&
+          String(one.from ?? "").toLowerCase() === this.ctx.username.toLowerCase(),
+      );
+      if (isRecord(mine) && typeof mine.text === "string")
+        held.lastReport = {
+          at: typeof mine.at === "string" ? mine.at : "",
+          text: mine.text,
+        };
+    }
     return held;
   }
 

@@ -25,6 +25,9 @@ export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
  */
 export const READ_IN_PROMPT_MAX = 16 * 1024;
 
+/** The most of a case's last report a turn carries: one report, not a transcript. */
+export const REPORT_IN_PROMPT_MAX = 600;
+
 /**
  * The volatile tail of one call: the change, the candidate rules, and what has
  * been read so far.
@@ -240,6 +243,15 @@ export function stepData(question: StepQuestion): string {
       ? [
           "This group's Files, two levels deep, names only; a folder ends in a slash:",
           dataBlock(token, [...question.case.place]),
+        ]
+      : []),
+    ...(question.case?.lastReport
+      ? [
+          "The last report this case sent, so this one does not repeat it:",
+          dataBlock(token, [
+            `at: ${question.case.lastReport.at || "(unknown)"}`,
+            `said: ${clipped(question.case.lastReport.text, REPORT_IN_PROMPT_MAX)}`,
+          ]),
         ]
       : []),
     ...(question.facts && Object.keys(question.facts).length

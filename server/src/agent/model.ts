@@ -1954,6 +1954,13 @@ export interface CaseHeld {
   pages?: string[];
   /** This group's Files, two levels deep, names only. */
   place?: string[];
+  /**
+   * The last report this case already sent, one line (ADR 0038).
+   *
+   * An instruction that says "never restate what an earlier report said" cannot be
+   * obeyed by an agent that was never shown the sentence it must not repeat.
+   */
+  lastReport?: { at: string; text: string };
 }
 
 export interface StepQuestion {

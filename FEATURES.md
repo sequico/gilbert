@@ -438,7 +438,9 @@ and the quoted message a reply answers — is handed over by the pass that alrea
 it, so the first step is never a `read` of what the process had; and the account's
 own shape is read once before the first turn — the knowledge base's page titles and
 the group's Files two levels deep, names only, bounded, and absent when the run's
-areas keep that surface away (`server/src/agent/changes.ts`, `agent/loop.ts`).
+areas keep that surface away (`server/src/agent/changes.ts`, `agent/loop.ts`). The
+last report a case sent is in the turn too — one line, found in the conversation by
+the case's key, so this report does not restate it.
 
 **The case keeps a note the next increment reads** (ADR 0034): the agent's own
 scratchpad, one file per case at `gilbert/cases/<key>.md` in the group's own account,
