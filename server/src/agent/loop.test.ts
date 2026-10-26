@@ -2753,6 +2753,57 @@ test("two calls whose record lines begin alike are two calls, and the second is 
   assert.notEqual(steps[0]?.ask, steps[1]?.ask, "the step's identity can");
 });
 
+test("the same call in a later answer is the act already made, and is not made twice", async () => {
+  /*
+   * The repeat that matters is a retry: a write whose submission timed out may
+   * have landed, and a person's licence covers one act. The second answer is
+   * answered from the record — the step says what the first one answered — and
+   * the tool is not run again. Only a *different* answer lets it through the
+   * stall guard, which is why the first answer carries a second call.
+   */
+  const id = "intake-same-act";
+  await putInstruction(["mail", "files"]);
+  const wrote: string[] = [];
+  const write = defineTool<{ text: string }>({
+    name: "probe.act",
+    description: "A write that records the text it was given.",
+    authority: "reversible",
+    writes: true,
+    surface: "files",
+    spend: { steps: 1 },
+    args: { text: { type: "text" } },
+    parse: (raw: unknown) => raw as { text: string },
+    run: async (_call, args) => {
+      wrote.push(args.text);
+      return { saved: args.text.length };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, write] });
+  await agent.start();
+
+  answerWith({ facts: {} });
+  answerWith({
+    calls: [
+      { name: "probe.act", arguments: { text: "the same document" } },
+      { name: "mail.folders", arguments: {} },
+    ],
+  });
+  answerWith({
+    calls: [{ name: "probe.act", arguments: { text: "the same document" } }],
+  });
+  answerWith({ done: "the document is written" });
+  await deliver("a change that asks for one document");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(wrote.length, 1, "the tool ran once, and the repeat was answered");
+  const steps = run.plan.filter((step) => step.what.startsWith("probe.act"));
+  assert.equal(steps.length, 2, "both proposals are on the record");
+  assert.equal(steps[0]?.state, "done");
+  assert.equal(steps[1]?.state, "done", "the repeat is a step that ended, not a refusal");
+  assert.equal(steps[1]?.outcome, steps[0]?.outcome, "and its answer is the first one's");
+});
+
 test("a run left running without a wait is tried again on a minute, not every pass", async () => {
   /*
    * A run with no wait is the crash path: the document says running, nothing
