@@ -510,6 +510,50 @@ async function deliver(subject: string): Promise<string> {
   return id;
 }
 
+test("a workorder listing is the newest page, not the first files the folder holds", async () => {
+  /*
+   * A page is cut before the roots are read, because each row costs a read of the
+   * Master's root. Ordered after the cut, a listing of twenty would draw the first
+   * documents ever filed while today's work sat behind them — the runs listing's
+   * own defect. The node's stamp is the order, and it is taken before the slice.
+   */
+  const at = new Date().toISOString();
+  for (let n = 1; n <= 21; n += 1) {
+    await writeAppFileAt(
+      ctx,
+      accountId,
+      `workorders/wo-page-${n}.json`,
+      buildWorkorderDoc({
+        uid: `wo-page-${n}`,
+        name: `Booking ${n}`,
+        state: "running",
+        by: "a@example.com",
+        at,
+        checklist: buildChecklist({
+          template: { accountId, id: "template-page", revision: "rev-page" },
+          variants: {},
+          items: {},
+          stepPaths: ["intake.confirm"],
+        }),
+      }),
+    );
+    // The mock stamps a node with its write's clock, and the order is that stamp.
+    await new Promise((done) => setTimeout(done, 2));
+  }
+  const page = await callTool<{
+    workorders: Array<{ uid: string }>;
+    total: number;
+    truncated: boolean;
+  }>("workorder.list", { limit: 5 });
+  assert.deepEqual(
+    page.workorders.map((one) => one.uid),
+    ["wo-page-21", "wo-page-20", "wo-page-19", "wo-page-18", "wo-page-17"],
+    "the page is the five most recent, not the five filed first",
+  );
+  assert.ok(page.total >= 21, "and the total counts every workorder");
+  assert.equal(page.truncated, true, "and says there is more");
+});
+
 test("a tool refuses arguments it cannot use, and asks the server nothing", async () => {
   const before = mock.methodCalls["Email/query"] ?? 0;
   await assert.rejects(

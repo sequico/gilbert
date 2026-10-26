@@ -11,6 +11,7 @@ import {
   fileChildren,
   filesAccountId,
   findFolderPath,
+  nodeStamp,
   readAppJsonAt,
 } from "../../appFolder.js";
 import { AGENT_SIGNATURE } from "../../shared/agent.js";
@@ -81,8 +82,19 @@ export const listWorkorders = defineTool({
     const folder = await findFolderPath(ctx, accountId, WORKORDER_FOLDER);
     if (folder === null) return { workorders: [], total: 0, truncated: false };
     const master = filesAccountId(ctx);
-    const children = await fileChildren(ctx, accountId, folder, FOLDER_PROPS);
-    // A part is one document per workorder, named by its uid.
+    // The stamps are what the page is ordered by, and they are not in the set a
+    // tree walk asks for; asking for them widens that set (`readProps`).
+    const children = await fileChildren(ctx, accountId, folder, [
+      ...FOLDER_PROPS,
+      "created",
+      "modified",
+    ]);
+    /*
+     * Ordered **before** the page is cut: the folder answers in its own order, and
+     * a page taken from that order is the first documents ever filed — a listing
+     * of fifty would read work that ended months ago while today's sits behind it.
+     * The node's own stamp is the order, as the runs listing's is.
+     */
     const held = children
       .filter(
         (child) =>
@@ -90,30 +102,36 @@ export const listWorkorders = defineTool({
           typeof child.name === "string" &&
           child.name.endsWith(".json"),
       )
-      .map((child) => String(child.name).slice(0, -".json".length));
-    const rows = await mapLimit(held.slice(0, limit), READ_CONCURRENCY, async (uid) => {
-      const part = await readAppJsonAt(
-        ctx,
-        accountId,
-        `${WORKORDER_FOLDER}/${workorderFileName(uid)}`,
-      );
-      if (!isWorkorderDoc(part)) return null;
-      const root = await masterRootOf(ctx, master, uid);
-      const whole = isWorkorderDoc(root) ? root : null;
-      const steps = part.checklist.steps;
-      return {
-        uid,
-        name: whole?.name ?? part.name ?? null,
-        state: whole?.state ?? part.state ?? null,
-        open: steps.filter((step) => step.state === "open").length,
-        steps: steps.length,
-        updated: whole?.updated ?? part.updated ?? null,
-      };
-    });
+      .map((child) => ({
+        uid: String(child.name).slice(0, -".json".length),
+        stamp: nodeStamp(child),
+      }))
+      .sort((a, b) => b.stamp.localeCompare(a.stamp));
+    const rows = await mapLimit(
+      held.slice(0, limit),
+      READ_CONCURRENCY,
+      async ({ uid }) => {
+        const part = await readAppJsonAt(
+          ctx,
+          accountId,
+          `${WORKORDER_FOLDER}/${workorderFileName(uid)}`,
+        );
+        if (!isWorkorderDoc(part)) return null;
+        const root = await masterRootOf(ctx, master, uid);
+        const whole = isWorkorderDoc(root) ? root : null;
+        const steps = part.checklist.steps;
+        return {
+          uid,
+          name: whole?.name ?? part.name ?? null,
+          state: whole?.state ?? part.state ?? null,
+          open: steps.filter((step) => step.state === "open").length,
+          steps: steps.length,
+          updated: whole?.updated ?? part.updated ?? null,
+        };
+      },
+    );
     return {
-      workorders: rows
-        .filter((row): row is NonNullable<typeof row> => row !== null)
-        .sort((a, b) => (b.updated?.at ?? "").localeCompare(a.updated?.at ?? "")),
+      workorders: rows.filter((row): row is NonNullable<typeof row> => row !== null),
       total: held.length,
       truncated: held.length > limit,
     };
