@@ -357,6 +357,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
 
   // ----- what the group's agent is doing, live (ADR 0030) -----
   const [runsOpen, setRunsOpen] = useState(false);
+  /** How many of the group's runs are working right now: the thread's tail line. */
+  const [writing, setWriting] = useState(0);
 
   // ----- the agent's open questions: counted, listed, jumped to -----
   const [questions, setQuestions] = useState<OpenQuestion[]>([]);
@@ -478,6 +480,10 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
    * are exactly the questions the thread draws highlighted. A run is a file in
    * the group's account, so the push stream is the clock; the interval below is
    * only the net under a stream that is down.
+   *
+   * The same read says whether the agent is **working right now** — a run in
+   * `running`, not one parked on a person — which is the line the thread draws at
+   * its tail and the way its record is opened from the conversation.
    */
   const questionsNow = useCallback(() => {
     const group = open?.name;
@@ -486,6 +492,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       // the previous team.
       questionsSeq.current += 1;
       setQuestions([]);
+      setWriting(0);
       return () => {};
     }
     let live = true;
@@ -499,7 +506,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       useChat.getState().openAccountId === openAccountId;
     fetchGroupRuns(group, "live", { plan: false })
       .then((runs) => {
-        if (current()) setQuestions(openQuestionsOf(runs));
+        if (!current()) return;
+        setQuestions(openQuestionsOf(runs));
+        setWriting(runs.filter((one) => one.state === "running").length);
       })
       .catch(() => {
         // A listing that could not be read is not an empty one: what was read
@@ -1037,6 +1046,28 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           )
         ) : (
           <div className="chat-empty">{t("Pick a conversation")}</div>
+        )}
+        {/*
+         * The agent at work, said where a person is writing: a line at the tail of
+         * the conversation, and the way to the run it belongs to. It is chrome and
+         * not a message — nothing is posted, and the thread's records are untouched —
+         * and it goes when the run does: the report that ends it arrives as a message,
+         * and the listing is read again on that arrival.
+         */}
+        {writing > 0 && !runsOpen && !questionsOpen && !timedOpen && !searchOpen && (
+          <button
+            type="button"
+            className="chat-typing"
+            onClick={() => setRunsOpen(true)}
+            title={t("Open the runs")}
+          >
+            <span className="chat-typing-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            {t("Gilbert is writing…")}
+          </button>
         )}
       </div>
       {open && !searchOpen && !runsOpen && (

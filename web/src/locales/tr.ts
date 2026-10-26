@@ -1662,6 +1662,8 @@ export const catalog: Catalog = {
     Stopped: "Durduruldu",
     "Did not finish": "Tamamlanmadı",
     "recorded, never a budget": "kaydedilir, bütçe değildir",
+    "Gilbert is writing…": "Gilbert yazıyor…",
+    "Open the runs": "Çalışmaları aç",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "Bir çalıştırmanın kendi bütçesi yoktur: iş bittiğinde, birini beklediğinde, bir kişi onu durdurduğunda veya başarısız olduğunda sona erer. Günün tokenları yeni çalıştırma açmayan şeydir.",
     "Blocked on a person": "Bir kişiyi bekliyor",

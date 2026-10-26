@@ -2035,6 +2035,8 @@ export const catalog: Catalog = {
     Stopped: "已停止",
     "Did not finish": "未完成",
     "recorded, never a budget": "仅作记录，并非预算",
+    "Gilbert is writing…": "Gilbert 正在输入…",
+    "Open the runs": "打开运行记录",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "一次运行没有自己的预算：工作在完成、等待某人、被人停止或失败时结束。当天的令牌决定是否开启新的运行。",
     "Blocked on a person": "等待某人",

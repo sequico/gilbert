@@ -2699,6 +2699,26 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   padding: 10px 8px; display: flex; flex-direction: column; gap: 6px;
 }
 .chat-empty { color: var(--fg-muted); font-size: .85em; text-align: center; margin: auto; padding: 20px 8px; }
+/* The agent at work, at the tail of the conversation: a line, and the way in to
+   the run it belongs to. */
+.chat-typing {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; margin: 2px 4px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg-elev);
+  color: var(--fg-muted); font: inherit; font-size: .82em; cursor: pointer;
+}
+.chat-typing:hover { background: var(--bg-hover); color: var(--fg); }
+.chat-typing-dots { display: inline-flex; gap: 3px; }
+.chat-typing-dots i {
+  width: 4px; height: 4px; border-radius: 50%; background: currentColor;
+  animation: chat-typing 1.2s ease-in-out infinite;
+}
+.chat-typing-dots i:nth-child(2) { animation-delay: .15s; }
+.chat-typing-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes chat-typing {
+  0%, 60%, 100% { opacity: .25; }
+  30% { opacity: 1; }
+}
 .chat-row { display: flex; }
 .chat-row.mine { justify-content: flex-end; }
 .chat-bubble {

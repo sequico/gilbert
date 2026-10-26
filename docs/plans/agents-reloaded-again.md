@@ -397,21 +397,34 @@ the expanded row reloads when its header's `version` moves, and the list follows
 stream with a ten-second poll behind it. What is missing is the way in: the
 overview's *live* list is a dead end, so a run that is spending is visible there and
 not openable from there. The fix is that link — the live row opens the same detail
-the group's history opens — and nothing else. The group's conversation keeps only
-the report: a progress line there would be noise in somebody's chat, and `say` is
-what ends a run (the `spoke` rule stays untouched).
-*Where*: `AgentOverview.tsx` (a live row opens the detail), nothing in `say`,
-`spoke`, or the route.
+the group's history opens — and, in the conversation itself, the line that says the
+agent is at work. The conversation carries nothing of the run's own words: `say` is
+what ends a run and the `spoke` rule stays untouched. What it carries is a **typing
+line** at the tail — chrome, not a message: nothing is posted, no record is written,
+and it opens the run it belongs to from the place a person is already looking. It
+goes when the report arrives.
+*Where*: `AgentOverview.tsx` (a live row opens the detail), `ChatPanel.tsx` (the
+typing line, from the same live listing the open questions come from), nothing in
+`say`, `spoke`, or the route.
 *Why*: the 300-second run was invisible while it spent; an operator who cannot open
-it from the page they are watching has to go and find it in a group's history.
+it from the page they are watching has to go and find it in a group's history, and a
+person writing in the conversation had no way to see that the agent had taken the
+message at all.
 *Proof*: a run in flight is opened from the overview, shows the steps it has written
-so far, and is stopped from there; no run posts more than its report.
+so far, and is stopped from there; the conversation says the agent is writing while a
+run is working and drops the line when it ends; no run posts more than its report.
 
 **Built:** the live row on the administration page's overview is a `details` whose
 summary is the header a run is stopped from and whose body is the same `RunDetail` the
 group's history opens, following the poll by the same `version` a row's header moves
 (`AgentOverview.tsx`, `GroupRuns.tsx`). The inline plan moved into that document rather
 than being drawn twice: a step that moves is read in the run's own record.
+
+And the conversation says the agent is at work: while one of the group's runs is
+`running`, the thread's tail carries **"Gilbert is writing…"** — chrome, not a message:
+a control that opens the runs panel, drawn from the live listing the open questions
+already come from, and gone as soon as the run is (`ChatPanel.tsx`). A run waiting on a
+person is not writing and draws no line.
 
 ### R8 — A run explains itself
 

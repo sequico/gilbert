@@ -539,7 +539,11 @@ A run ends as done, blocked on a person, out of budget or **cancelled**, and
 that is in flight — the one being worked and the one waiting on a person's
 answer, which nothing else moves — from the group's chat, where the runs tab is
 live, or from the administration page; a group's every run in flight can be
-stopped at once there, while another group's run is refused. A run in flight
+stopped at once there, while another group's run is refused. The conversation itself
+says when the agent is at work: while one of the group's runs is working, its tail
+carries **"Gilbert is writing…"**, a line that opens the runs and goes when the run
+does — chrome, never a message in the thread, and no line at all while a run waits
+on a person. A run in flight
 listed on the administration page's overview **opens its own record** from the
 row itself — the same document the group's history opens, following the poll —
 so a run that is spending is looked at where it is seen, not found later in a

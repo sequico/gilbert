@@ -2120,6 +2120,8 @@ export const catalog: Catalog = {
     Stopped: "Detenido",
     "Did not finish": "Sin terminar",
     "recorded, never a budget": "registrado, nunca un presupuesto",
+    "Gilbert is writing…": "Gilbert está escribiendo…",
+    "Open the runs": "Abrir las ejecuciones",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "Una ejecución no tiene presupuesto propio: termina cuando el trabajo está hecho, cuando espera a una persona, cuando una persona la detiene o cuando falla. Los tokens del día son lo que no abre nuevas ejecuciones.",
     "Blocked on a person": "Bloqueado en una persona",
