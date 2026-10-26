@@ -60,6 +60,13 @@ no `say` in any plan). Two ran on the build before the window and identity fixes
   reads of the message instead of twelve, the PDF attachment read, the booking
   folder and the convention found — and the clock stopped it with 117 000 tokens
   and 26 calls unspent.
+- **The admin run log hides the newest runs**: the working-set listing slices the
+  group's `runs/` folder **in the order the folder answers**, and only the archive
+  route sorts by date. The surface asks for fifty rows at a time and sorts the page
+  it was given, so a group past fifty runs shows a history that ends at the
+  fifty-first document ever filed — the owner's "nothing since 21 October" — while
+  today's three runs are in `freight/runs` and the chat, which asks for the runs in
+  flight with a limit of a thousand, shows them.
 - **No per-step cost exists in the document**: `spent` is a single total, and an
   ending names a ceiling without the value it had. Where a failed run's seconds
   and tokens went cannot be read from it.
@@ -369,6 +376,33 @@ model to work around it.
 *Proof*: the prose is measured against today's in characters, and the eval's three
 tasks move — the number, not the wording, is the argument.
 
+### R12 — The run log shows the newest, not the first page ever filed
+
+The working-set listing — `GET /groups/:name/runs` — reads the group's `runs/`
+folder and slices it **in the order the folder answers**, with no ordering of its
+own; the archive route beside it sorts by `startedAt` descending, the id as the
+tiebreak. The surface sorts only the page it was given and asks for fifty rows at a
+time (`RUNS_PAGE_SERVER`), so once a group has filed more than fifty runs the newest
+ones sit on a page the first read never asks for: the log reads as "nothing since
+21 October" while the runs of 24 and 26 are in the folder.
+
+The fix is **one comparator, used before the slice**: newest first, by
+`startedAt ?? ended.at`, the id as the tiebreak — the key the archive already uses,
+in one function both routes import. The client's own sort stays as the last word
+for a page it appends to.
+
+The chat's panel does **not** share the defect: it asks for the runs in flight with
+a limit of a thousand, so it never falls off a fifty-row page. It shares the missing
+order, which is harmless while the live set is small and is covered by the same fix.
+*Where*: `server/src/routes/agent.ts` (the working-set listing and the archive's
+comparator, one function), `web/src/lib/agentAdmin.ts` and
+`web/src/views/admin/agents/GroupRuns.tsx` (a page drawn in the order it arrives).
+*Why*: the record has the runs — `freight` filed three today — and the surface says
+its history ended a week ago; a surface that cannot show today's runs cannot be used
+to judge any of the work in this plan.
+*Proof*: with sixty runs in a fixture group, the first page holds the ten newest,
+and the newest run of a group appears on page 0 once it ends.
+
 ## 5. Not taken, and why
 
 - **A lookup budget** (six looks, then act): it would have killed the 13:35 run
@@ -396,18 +430,21 @@ tasks move — the number, not the wording, is the argument.
 | step | what | how it is judged (a measurement, not a gate) |
 |---|---|---|
 | 0 | rotate the agent's credential and remove its copies from `/tmp` (owner's call) | nothing of the agent's is left outside `/etc/gilbert` |
-| 1 | **R9 — the three failures as eval tasks** | `pass@1` of today's tree is recorded, and the three tasks fail |
-| 2 | R5 — no run ceilings | the 13:35 task reaches its act; its duration is recorded, not enforced |
-| 3 | R8 — per-step cost and the limits in force | a failed task's 27 s and 7 500 tokens per turn are attributable to steps |
-| 4 | R2 + R11 — the case in the turn, and the prose that describes it | the first act is the right one on the task |
-| 5 | R1 + R3 — one run per drop, with the scratchpad | the seven messages file in one run, at no more than one message costs today |
-| 6 | R4 — four verbs | the schema is a third of today's, and the refusals stay at zero |
-| 7 | R6, R7, R10 | a run is resumed in the next interval; it is watchable and stoppable; the judge stays within the prompt bound |
+| 1 | **R12 — the run log shows the newest** | with sixty runs in a fixture, page 0 holds the ten newest |
+| 2 | **R9 — the three failures as eval tasks** | `pass@1` of today's tree is recorded, and the three tasks fail |
+| 3 | R5 — no run ceilings | the 13:35 task reaches its act; its duration is recorded, not enforced |
+| 4 | R8 — per-step cost and the limits in force | a failed task's 27 s and 7 500 tokens per turn are attributable to steps |
+| 5 | R2 + R11 — the case in the turn, and the prose that describes it | the first act is the right one on the task |
+| 6 | R1 + R3 — one run per drop, with the scratchpad | the seven messages file in one run, at no more than one message costs today |
+| 7 | R4 — four verbs | the schema is a third of today's, and the refusals stay at zero |
+| 8 | R6, R7, R10 | a run is resumed in the next interval; it is watchable and stoppable; the judge stays within the prompt bound |
 
-Step 1 comes first because it is the instrument: without it every later step is an
-opinion, and the last three changes were measured on a synthetic plan. Step 2 is
-what makes a run measurable at all — a task that dies on a clock teaches nothing.
-Steps 4 and 5 carry the gain, 6 makes the turn cheap, 7 is polish.
+Step 1 comes before the rest because the log is how the work is watched: a surface
+that hides the newest run cannot show that any of it improved. Step 2 is the
+instrument — without it every later step is an opinion, and the last three changes
+were measured on a synthetic plan. Step 3 is what makes a run measurable at all: a
+task that dies on a clock teaches nothing. Steps 5 and 6 carry the gain, 7 makes
+the turn cheap, 8 is polish.
 
 ## 7. What is still unknown
 
