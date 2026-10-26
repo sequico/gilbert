@@ -1,6 +1,6 @@
 import type { RunDoc, RunState, RunStep, RunStepState } from "@gilbert/shared/run";
 import type { FactView, RunListing } from "@/lib/agentAdmin";
-import { formatFullDate } from "@/lib/format";
+import { formatFullDate, formatMs } from "@/lib/format";
 import { t } from "@/lib/i18n";
 
 /**
@@ -124,14 +124,16 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
           </span>
         </div>
         {/*
-          What held this run when it opened: recorded, never enforced. A pass that
-          fell back to the installation's defaults left them here, so the numbers a
-          reader sees are the ones the run was actually worked under.
+          What was in force when the run opened: recorded, never enforced. A pass
+          that fell back to the installation's defaults left them here, so the
+          numbers a reader sees are the ones the run was actually worked under —
+          and the line says what they are, because no counter of them ended a run.
         */}
         {run.limits && (
           <div className="hint">
             {t("Tokens per run")}: {run.limits.maxRunTokens} · {t("Steps per run")}:{" "}
-            {run.limits.maxRunSteps} · {t("Tokens per day")}: {run.limits.maxDailyTokens}
+            {run.limits.maxRunSteps} · {t("Tokens per day")}: {run.limits.maxDailyTokens}{" "}
+            — {t("recorded, never a budget")}
           </div>
         )}
         {touched.length > 0 && (
@@ -235,12 +237,11 @@ function Step({
       )}
       <div className="run-step-meta">
         <strong className={`run-step-state ${step.state}`}>{label}</strong>
-        {/* The step's own call: the record's answer to where the time went. The
-            units are SI and read the same in every catalogue. */}
+        {/* The step's own call: the record's answer to where the time went. */}
         {step.ms !== undefined && (
           <span className="run-step-ms">
             {" · "}
-            {step.ms >= 1000 ? `${(step.ms / 1000).toFixed(1)}s` : `${step.ms}ms`}
+            {formatMs(step.ms)}
           </span>
         )}
         {step.outcome && !folded ? ` — ${step.outcome}` : ""}

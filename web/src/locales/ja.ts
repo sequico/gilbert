@@ -2097,6 +2097,7 @@ export const catalog: Catalog = {
     Refused: "拒否",
     Stopped: "停止",
     "Did not finish": "未完了",
+    "recorded, never a budget": "記録のみで、予算ではありません",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "実行には独自の予算がありません。作業が完了したとき、人の返答を待つとき、人が停止したとき、または失敗したときに終わります。その日のトークンが新しい実行を開くかどうかを決めます。",
     "Blocked on a person": "人の回答待ち",

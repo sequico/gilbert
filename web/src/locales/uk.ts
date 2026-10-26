@@ -2093,6 +2093,7 @@ export const catalog: Catalog = {
     Refused: "Відхилено",
     Stopped: "Зупинено",
     "Did not finish": "Не завершено",
+    "recorded, never a budget": "записано, але не бюджет",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "У запуску немає власного бюджету: він завершується, коли роботу виконано, коли він чекає на людину, коли людина його зупиняє або коли він зазнає невдачі. Токени дня — це те, що не відкриває нові запуски.",
     "Blocked on a person": "Чекає на людину",

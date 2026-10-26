@@ -359,11 +359,12 @@ describe("the agent's administration surface", () => {
     );
   });
 
-  it("sizes the agent's ceilings under General, beside their defaults", async () => {
+  it("sizes the agent's ceiling under General, beside its default", async () => {
     /*
-     * The token and step ceilings are the agent's own, so they sit beside the
-     * model and the standing rule rather than only in the raw installation
-     * document: a person who has to raise one should not have to edit JSON.
+     * The day's tokens are the one ceiling that is the agent's own: it stops new
+     * runs rather than cutting one in flight, so it sits beside the model and the
+     * standing rule rather than only in the raw installation document. A run has no
+     * budget of its own, and no field here pretends it has one (ADR 0038).
      */
     stubServer();
     await render();
@@ -376,11 +377,10 @@ describe("the agent's administration surface", () => {
 
     const shown = text();
     expect(shown).toContain("Limits");
-    expect(shown).toContain("Tokens per run");
     expect(shown).toContain("Tokens per day");
-    expect(shown).toContain("Steps per run");
-    expect(shown).toContain("120000");
     expect(shown).toContain("2000000");
+    expect(shown).not.toContain("Tokens per run");
+    expect(shown).not.toContain("Steps per run");
   });
 
   it("follows the groups the Master is in: a removed group loses its tab", async () => {

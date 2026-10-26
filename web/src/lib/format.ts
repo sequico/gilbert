@@ -37,6 +37,19 @@ export function formatSize(bytes: number | null | undefined): string {
   return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
 }
 
+/**
+ * A run's work time, and one step's call: milliseconds, seconds, minutes.
+ *
+ * One spelling of a duration, so a step's own time and the run's total read the
+ * same on every surface that draws one (the unit is SI and reads the same in every
+ * catalogue).
+ */
+export function formatMs(ms: number): string {
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${Math.round(ms / 60_000)} min`;
+}
+
 /** Gmail-style compact date for list views. */
 export function formatListDate(iso: string | null | undefined, now = new Date()): string {
   if (!iso) return "";

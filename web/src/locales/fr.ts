@@ -2127,6 +2127,7 @@ export const catalog: Catalog = {
     Refused: "Refusé",
     Stopped: "Arrêté",
     "Did not finish": "Non terminé",
+    "recorded, never a budget": "enregistré, jamais un budget",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "Une exécution n'a pas de budget propre : elle se termine quand le travail est fait, quand elle attend une personne, quand une personne l'arrête ou quand elle échoue. Les jetons du jour sont ce qui n'ouvre pas de nouvelle exécution.",
     "Blocked on a person": "En attente d'une personne",

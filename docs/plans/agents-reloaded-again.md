@@ -392,6 +392,12 @@ it from the page they are watching has to go and find it in a group's history.
 *Proof*: a run in flight is opened from the overview, shows the steps it has written
 so far, and is stopped from there; no run posts more than its report.
 
+**Built:** the live row on the administration page's overview is a `details` whose
+summary is the header a run is stopped from and whose body is the same `RunDetail` the
+group's history opens, following the poll by the same `version` a row's header moves
+(`AgentOverview.tsx`, `GroupRuns.tsx`). The inline plan moved into that document rather
+than being drawn twice: a step that moves is read in the run's own record.
+
 ### R8 — A run explains itself
 
 **A step says how long its own call took** (`RunStep.ms`, measured around the tool and

@@ -3137,11 +3137,20 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   background: var(--bg); color: var(--fg); padding: 3px 6px; font: inherit;
   font-size: .85em;
 }
+/* A run in flight, on the overview: the header it is stopped from, and the same
+   document the group's history opens under it. */
 .run-current {
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-  padding: 8px 10px; border: 1px solid var(--border);
-  border-radius: var(--radius-sm); background: var(--bg-elev);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-elev);
 }
+.run-current > summary {
+  cursor: pointer; list-style: none;
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 8px 10px;
+}
+.run-current > summary::-webkit-details-marker { display: none; }
+.run-current[open] > summary { border-bottom: 1px solid var(--border); }
+.run-current-body { padding: 8px 10px 12px; }
 /* A row's Stop sits at the row's end whatever the row carries before it. */
 .run-stop { margin-left: auto; }
 .run-group-head {

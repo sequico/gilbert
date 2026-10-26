@@ -154,7 +154,9 @@ export function AgentsView() {
             aria-labelledby={`agents-${entry.id}`}
             hidden={active !== entry.id}
           >
-            {entry.id === OVERVIEW && <AgentOverview groups={groups} facts={factTotal} />}
+            {entry.id === OVERVIEW && (
+              <AgentOverview groups={groups} facts={factTotal} memory={facts} />
+            )}
             {entry.id === GENERAL && <AgentGeneral onDocumentSaved={() => undefined} />}
             {entry.id === MEMORY && (
               <AgentMemory

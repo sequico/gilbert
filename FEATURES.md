@@ -531,7 +531,11 @@ A run ends as done, blocked on a person, out of budget or **cancelled**, and
 that is in flight — the one being worked and the one waiting on a person's
 answer, which nothing else moves — from the group's chat, where the runs tab is
 live, or from the administration page; a group's every run in flight can be
-stopped at once there, while another group's run is refused. A group-wide stop
+stopped at once there, while another group's run is refused. A run in flight
+listed on the administration page's overview **opens its own record** from the
+row itself — the same document the group's history opens, following the poll —
+so a run that is spending is looked at where it is seen, not found later in a
+history. A group-wide stop
 says **whose work it did**: the runs it closed, the ones that moved under it and
 are still in flight, the ones whose stop failed and why, and the run documents it
 could not read — a document that cannot be read is named rather than counted as

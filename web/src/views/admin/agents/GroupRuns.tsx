@@ -169,7 +169,7 @@ export function StopAll({
  * what a list draws — so the full record is one request for the one row a
  * person asks about, working set or archived drawer.
  */
-function RunDetail({
+export function RunDetail({
   group,
   id,
   month,

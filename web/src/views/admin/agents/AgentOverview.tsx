@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { push } from "@/jmap/push";
 import {
   type AgentStatus,
+  type FactView,
   fetchAgentMetrics,
   fetchAgentStatus,
   fetchAgentSwitch,
@@ -11,12 +12,12 @@ import {
   type RunSummary,
   setAgentSwitch,
 } from "@/lib/agentAdmin";
-import { formatFullDate } from "@/lib/format";
+import { formatFullDate, formatMs } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { Switch } from "@/ui/misc";
-import { RUN_STATE_LABELS, RunPlan } from "@/views/admin/agent/RunCard";
-import { StopAll, StopRun } from "./GroupRuns";
+import { RUN_STATE_LABELS } from "@/views/admin/agent/RunCard";
+import { RunDetail, StopAll, StopRun } from "./GroupRuns";
 import {
   addMetrics,
   emptyMetrics,
@@ -29,9 +30,12 @@ import {
 export function AgentOverview({
   groups,
   facts,
+  memory,
 }: {
   groups: readonly MailAccountInfo[];
   facts: number;
+  /** The memory's own list, so a run's recounted facts are drawn by their sheet. */
+  memory: readonly FactView[];
 }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [perGroup, setPerGroup] = useState<Array<{ name: string; metrics: RunMetrics }>>(
@@ -353,11 +357,8 @@ export function AgentOverview({
               </div>
               <div style={{ display: "grid", gap: 6 }}>
                 {entry.rows.map(({ listed }) => (
-                  <div key={listed.id} className="run-current">
-                    <div
-                      className="row"
-                      style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}
-                    >
+                  <details key={listed.id} className="run-current">
+                    <summary>
                       <span className={`run-state run-state-${listed.state}`}>
                         {listed.state && t(RUN_STATE_LABELS[listed.state])}
                       </span>
@@ -384,29 +385,41 @@ export function AgentOverview({
                           )
                         }
                       />
-                    </div>
+                      {/*
+                       * Why the run exists, in the words of the thing that woke
+                       * it, and who set it off: the header a person reads before
+                       * deciding whether to stop it.
+                       */}
+                      {(listed.about ?? listed.woke) && (
+                        <p
+                          className="hint"
+                          style={{ margin: "4px 0 0", flexBasis: "100%" }}
+                          title={listed.about ?? listed.woke ?? undefined}
+                        >
+                          {listed.by
+                            ? t("{what} — from {who}", {
+                                what: listed.about ?? listed.woke ?? "",
+                                who: listed.by,
+                              })
+                            : (listed.about ?? listed.woke)}
+                        </p>
+                      )}
+                    </summary>
                     {/*
-                     * Why the run exists, in the words of the thing that woke
-                     * it, and who set it off: the header a person reads before
-                     * deciding whether to stop it. The plan under it is drawn
-                     * live, with the same marks the run's own card uses.
+                     * The run in flight opens the same document the group's history
+                     * opens: the plan with the step it is on, the tally and what it
+                     * has touched, following the poll.
                      */}
-                    {(listed.about ?? listed.woke) && (
-                      <p
-                        className="hint"
-                        style={{ margin: "4px 0 0" }}
-                        title={listed.about ?? listed.woke ?? undefined}
-                      >
-                        {listed.by
-                          ? t("{what} — from {who}", {
-                              what: listed.about ?? listed.woke ?? "",
-                              who: listed.by,
-                            })
-                          : (listed.about ?? listed.woke)}
-                      </p>
-                    )}
-                    <RunPlan steps={listed.plan ?? []} />
-                  </div>
+                    <div className="run-current-body">
+                      <RunDetail
+                        group={entry.group}
+                        id={listed.id}
+                        month=""
+                        facts={memory}
+                        version={`${listed.state}:${listed.steps}:${listed.spent.calls}:${listed.spent.ms}:${listed.failed}:${listed.ended?.at ?? ""}`}
+                      />
+                    </div>
+                  </details>
                 ))}
               </div>
             </div>
@@ -424,11 +437,4 @@ function Metric({ label, value }: { label: string; value: number | string }) {
       <strong>{value}</strong>
     </div>
   );
-}
-
-/** Seconds when that is honest, minutes and hours when it is not. */
-function formatMs(ms: number): string {
-  if (ms < 1000) return `${ms} ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
-  return `${Math.round(ms / 60_000)} min`;
 }

@@ -2101,6 +2101,7 @@ export const catalog: Catalog = {
     Refused: "Geweigerd",
     Stopped: "Gestopt",
     "Did not finish": "Niet afgerond",
+    "recorded, never a budget": "vastgelegd, nooit een budget",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "Een run heeft geen eigen budget: hij eindigt wanneer het werk klaar is, wanneer hij op een persoon wacht, wanneer een persoon hem stopt, of wanneer hij mislukt. De tokens van de dag zijn wat geen nieuwe runs opent.",
     "Blocked on a person": "Wacht op een persoon",
