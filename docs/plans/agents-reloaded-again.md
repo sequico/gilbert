@@ -327,7 +327,10 @@ and none of it is a judgement on the work:
 - **a person**: a run can be stopped from Administration, and R7 makes it visible
   while it works;
 - **the daily token ceiling** (`limits.maxDailyTokens`): it stops *new* runs when
-  the installation has spent its day, and it never cuts one in flight.
+  the installation has spent its day, and it never cuts one in flight;
+- **the turn valve** (`RUN_TURNS_MAX`, a hundred): liveness, not money — a run that
+  has asked the model a hundred times is stopped, because an agent stuck in a loop is
+  a machine fault, not a budget. The worst live run of 2026-10-26 spent twenty-three.
 
 A run that takes twenty minutes is a run of twenty minutes: what makes that
 acceptable is R6, not a smaller number.

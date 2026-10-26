@@ -116,15 +116,16 @@ interface InstallationLimits {
    */
   apiRateLimit: number;
   /**
-   * ADR 0038: the most tokens one run may spend, prompt and completion
-   * together. A run that reaches it ends `out-of-budget`, and a call the
-   * remainder cannot pay for is not made.
+   * ADR 0038: what one run's tokens were **recorded against** before a run had no
+   * budget of its own. The field stays in the document so an installation that
+   * wrote one keeps it, and a run records the value in force when it opened; no
+   * run ends because of it.
    */
   maxRunTokens: number;
   /**
-   * ADR 0038: the most steps one run may take, counted from the plan it
-   * accumulates. A run that reaches it ends `out-of-budget` before it asks
-   * again; the default is the shared `RUN_STEPS_MAX`.
+   * ADR 0038: the same for steps — recorded, never an ending. `RUN_STEPS_MAX` is
+   * its default, and the most steps one answer may carry is decided by the parser,
+   * not by a budget this field sets.
    */
   maxRunSteps: number;
   /**
@@ -295,8 +296,8 @@ export function installationDefaults(): InstallationDocument {
       imageProxy: true, // IMAGE_PROXY
       loginRateLimit: 10, // LOGIN_RATE_LIMIT
       apiRateLimit: 1200, // API_RATE_LIMIT (0 turns the limiter off)
-      maxRunTokens: 120_000, // ADR 0038
-      maxRunSteps: RUN_STEPS_MAX, // ADR 0038
+      maxRunTokens: 120_000, // ADR 0038: recorded with a run, never an ending
+      maxRunSteps: RUN_STEPS_MAX, // ADR 0038: recorded with a run, never an ending
       maxDailyTokens: 2_000_000, // ADR 0038
       otlp: "", // ADR 0038: no collector; the documents are the measure
     },

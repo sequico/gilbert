@@ -2161,34 +2161,6 @@ export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] 
 }
 
 /**
- * The share of a run's token budget below which the turn is told to wrap up.
- *
- * A run dies at the ceiling having paid for its last look and nothing for the
- * report: a live one spent its last tokens on a twelfth read of the same message
- * and never said a word to the group. The turn that still has a fifth of its
- * budget can turn what it found into the sentence the group reads.
- */
-const BUDGET_WARNING_SHARE = 0.2;
-
-/**
- * What is left of the run's budget, when the end is near.
- *
- * Nothing is said while there is room: a line that is always there is a line the
- * model learns to skip. `left` is the same remainder the answer's own ceiling is
- * computed from, so what the turn is told and what it may spend cannot disagree.
- * It is written **last**, after the catalogue and the instruction, because it is
- * the one line of the system turn that moves from call to call: everything above
- * it stays the prefix a caching provider keeps.
- */
-function budgetLine(opts: { left?: number; cap?: number }): string[] {
-  const { left, cap } = opts;
-  if (left === undefined || !cap || left > cap * BUDGET_WARNING_SHARE) return [];
-  return [
-    `About ${Math.max(0, Math.round(left))} of this run's ${cap} tokens are left: say in the conversation what you have found and what still needs doing, and finish with it, rather than opening another line of work.`,
-  ];
-}
-
-/**
  * One choosing turn: given the run so far, the calls to make or the end of the
  * work (ADR 0038).
  *
@@ -2210,7 +2182,7 @@ export async function chooseStep(
   catalogue: readonly AnyTool[],
   access: ModelAccess,
   question: StepQuestion,
-  opts: { timeoutMs?: number; meter?: UsageMeter; left?: number; cap?: number } = {},
+  opts: { timeoutMs?: number; meter?: UsageMeter } = {},
 ): Promise<StepChoice> {
   const heads = proseForModel(question.prose);
   const tools = catalogueTools(catalogue);
@@ -2247,26 +2219,25 @@ export async function chooseStep(
     "When the work needs a person's decision, ask them: `say` with the `ask` action posts the question in the group's conversation and parks the run until they answer.",
     ...surfaceLines(question.surfaces),
     ...heads,
-    ...budgetLine(opts),
   ]
     .filter(Boolean)
     .join("\n");
 
   const user = stepData(question);
   /*
-   * What is left to spend on this answer (ADR 0038): the run's remainder minus a
-   * declared estimate of the prompt (the catalogue included), capped by the
-   * provider's own ceiling. The previous call's measured usage is what corrects
-   * the estimate, because the loop spends it before asking again.
+   * What the answer may carry: the provider's declared output ceiling, less the
+   * prompt this call sends. The prompt is the harness's to keep inside the
+   * window — a run has no budget of its own (ADR 0038) — so a prompt that leaves
+   * no room is refused with the window named rather than sent to fail upstream.
    */
   const ceiling = outputCeiling(access);
   const promptTokens =
     estimateTokens(system) + estimateTokens(user) + estimateTokens(JSON.stringify(tools));
-  const room = Math.min(ceiling, (opts.left ?? ceiling) - promptTokens);
+  const room = ceiling - promptTokens;
   if (room < MIN_OUTPUT_TOKENS)
     throw new ModelError(
-      "model_out_of_budget",
-      `The run has ${Math.max(0, opts.left ?? 0)} tokens left, and this call's prompt is about ${promptTokens}: there is no room for an answer.`,
+      "model_prompt_over_window",
+      `This turn's prompt is about ${promptTokens} tokens, and the provider declares a ceiling of ${ceiling}: there is no room for an answer.`,
     );
   let answer = await callModel(
     access,

@@ -628,43 +628,37 @@ test("the surfaces a run's areas keep off are said, and nothing off says nothing
 });
 
 /**
- * The ceiling is a hard stop, and a run that reaches it ends with nothing said: a
- * live one spent its last tokens on a twelfth read of the same message and never
- * wrote a word to its group. A turn that still has a fifth of the budget is told
- * how little is left, so what it found becomes the report; a turn with room is
- * told nothing, because a line that is always there is a line to skip.
+ * A run has no budget of its own (ADR 0038), so no turn is told about one: the only
+ * ceiling left is the provider's, and a prompt that leaves no room for an answer is
+ * refused with the window named rather than sent to fail upstream.
  */
-test("a turn near the end of the run's budget is told what is left, and one with room is not", async () => {
+test("a turn says nothing about a run's budget, because a run has none", async () => {
   seen = [];
   answers = [];
   answerWith({ done: "nothing to do" });
-  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(), {
-    left: 150_000,
-    cap: 200_000,
-  });
-  const withRoom = SYSTEM(0);
-
-  seen = [];
-  answers = [];
-  answerWith({ done: "nothing to do" });
-  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(), {
-    left: 30_000,
-    cap: 200_000,
-  });
-  const nearlyOut = SYSTEM(0);
-
-  assert.match(
-    nearlyOut,
-    /About 30000 of this run's 200000 tokens are left: say in the conversation what you have found/,
-    "the turn that is nearly out of budget is told to report",
-  );
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
   assert.ok(
-    !withRoom.includes("tokens are left"),
-    "a run with three quarters of its budget is told nothing about it",
+    !SYSTEM(0).includes("tokens are left"),
+    "no budget line: a run ends done, waiting, stopped or failed, never on a counter",
   );
-  assert.ok(
-    nearlyOut.startsWith(withRoom),
-    "and the line is the last of the system turn, so everything above it is the prefix a caching provider keeps",
+});
+
+test("a prompt larger than the ceiling is refused with the window named", async () => {
+  await assert.rejects(
+    () =>
+      chooseStep(
+        TOOLS,
+        { model, allowPrivateProvider: true },
+        {
+          ...stepQuestion(),
+          woke: "mail created: m-1 ".repeat(60_000),
+        },
+      ),
+    (err: unknown) =>
+      err instanceof ModelError &&
+      err.code === "model_prompt_over_window" &&
+      /declares a ceiling/.test(err.message),
+    "the refusal names the window rather than a budget",
   );
 });
 

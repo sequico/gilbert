@@ -170,23 +170,6 @@ export function AgentGeneral({ onDocumentSaved }: { onDocumentSaved: () => void 
               }}
             >
               <label className="field">
-                <span>{t("Tokens per run")}</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={limits.maxRunTokens}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setLimits({ ...limits, maxRunTokens: Number(e.target.value) });
-                    setLimitsSaved(false);
-                  }}
-                />
-                <span className="hint">
-                  {t("Default")}: {LIMIT_DEFAULTS.maxRunTokens}
-                </span>
-              </label>
-              <label className="field">
                 <span>{t("Tokens per day")}</span>
                 <input
                   type="number"
@@ -203,24 +186,12 @@ export function AgentGeneral({ onDocumentSaved }: { onDocumentSaved: () => void 
                   {t("Default")}: {LIMIT_DEFAULTS.maxDailyTokens}
                 </span>
               </label>
-              <label className="field">
-                <span>{t("Steps per run")}</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={limits.maxRunSteps}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setLimits({ ...limits, maxRunSteps: Number(e.target.value) });
-                    setLimitsSaved(false);
-                  }}
-                />
-                <span className="hint">
-                  {t("Default")}: {LIMIT_DEFAULTS.maxRunSteps}
-                </span>
-              </label>
             </div>
+            <p className="hint">
+              {t(
+                "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.",
+              )}
+            </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
               <button
                 type="button"

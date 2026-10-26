@@ -36,13 +36,15 @@ read by entity and interval, the embeddings capability probed with the provider'
 others, the run recording `retrieval` beside `recalled`, and precision and recall
 measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
-**Not built:** everything in *Owed*, and the change of this record's ceilings: the
-run-level step, call and time ceilings are still endings (`loop.ts`'s
-`RUN_MS_MAX`, `RUN_CALLS_MAX`, `RUN_STEPS_MAX`, `limits.maxRunSteps`); the turn is
-still the plan's tail rendered as a **sliding window** (`prompt.ts` clips an older
-outcome to its beginning and re-carries whole the last three distinct answers), not
-the appended transcript above, with no compaction and no reader. The work that carries
-the record as it now stands is `docs/plans/agents-reloaded-again.md`.
+**Not built:** everything in *Owed*, and the change of this record's context: the
+turn is still the plan's tail rendered as a **sliding window** (`prompt.ts` clips an
+older outcome to its beginning and re-carries whole the last three distinct answers),
+not the appended transcript above, with no compaction and no reader. The run
+ceilings this record refuses are gone from the loop (`overBudget` and the run's
+step, call, time and token endings), and the valve is `RUN_TURNS_MAX`; the
+per-step cost, the limits in force and the case's scratchpad are still owed. The
+work that carries the record as it now stands is
+`docs/plans/agents-reloaded-again.md`.
 
 ## What this replaces, and what it keeps
 
@@ -310,6 +312,10 @@ spent the provider's default budget before writing anything.
   keeps a machine from hanging is the per-call timeout; what keeps a bill from
   running away is the daily ceiling below, which refuses new runs and never cuts one
   in flight; and the stall guard — the same answer twice — names a loop as a loop.
+  The one valve is **liveness, not money**: a run that has asked the model a hundred
+  times is stopped (`RUN_TURNS_MAX`), because an agent stuck in a loop is a machine
+  fault and no report about it is worth the process. The number is far above any run
+  the work has shown — the worst live run of 2026-10-26 spent twenty-three turns.
 - **A run says what it spent and what it was held to**: milliseconds and tokens per
   step, and the limits in force when it opened, on its own document
   (`shared/run.ts`, `agent/loop.ts`), so a budget that fell back to a default is

@@ -86,15 +86,8 @@ const {
 } = await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
-const {
-  appendStep,
-  finishRun,
-  QUESTION_TTL_MS,
-  recordStep,
-  startRun,
-  spendRun,
-  waitUntil,
-} = await import("../shared/run.js");
+const { appendStep, finishRun, QUESTION_TTL_MS, recordStep, startRun, waitUntil } =
+  await import("../shared/run.js");
 const { INSTALLATION_FILE, parseInstallationDocumentDetailed } = await import(
   "../shared/installation.js"
 );
@@ -114,7 +107,7 @@ const { takeClaim, releaseClaim } = await import("./claim.js");
 const { CURSOR_FILE } = await import("./cursors.js");
 const { isPassStatusDoc, PASS_STATUS_FILE } = await import("../shared/agent.js");
 const { defineTool, TOOLS } = await import("./tools.js");
-const { administratorAt, AgentLoop, RUN_STEPS_MAX } = await import("./loop.js");
+const { administratorAt, AgentLoop } = await import("./loop.js");
 const { writeAgentSwitch } = await import("./switch.js");
 const { config } = await import("../config.js");
 
@@ -1338,13 +1331,15 @@ test("a group added between two passes is worked by the pass that follows", asyn
   );
 });
 
-test("the budget ends a run that cannot finish, and the record says so", async () => {
+test("a run that never finishes stops on the turn valve, and the record says so", async () => {
   const id = "intake-forever";
   await putInstruction();
   const agent = loop();
   await agent.start();
 
-  // A model that keeps taking steps and never says it is done.
+  // A model that keeps taking steps and never says it is done. The calls differ
+  // every turn, so the stall guard (the same answer twice) is not what stops it:
+  // the valve is, and it counts turns rather than money.
   onCall = (system) => {
     if (isDecision(system)) return { facts: {} };
     return {
@@ -1356,11 +1351,13 @@ test("the budget ends a run that cannot finish, and the record says so", async (
   assert.equal(summary.runs, 1);
 
   const run = await runOf(id);
-  assert.equal(run.state, "out-of-budget", "the budget ended it, not the model");
-  assert.equal(run.spent.steps, RUN_STEPS_MAX, "at the step it is allowed");
-  assert.equal(run.plan.length, RUN_STEPS_MAX, "every step it took is on the run");
-  assert.match(run.ended?.why ?? "", /budget ended the run/, "and the record says why");
-  assert.match(run.ended?.why ?? "", new RegExp(`${RUN_STEPS_MAX} steps`));
+  assert.equal(run.state, "out-of-budget", "the valve ended it, not the model");
+  assert.equal(run.spent.calls, 100, "after a hundred turns and no more");
+  assert.match(
+    run.ended?.why ?? "",
+    /still asking after 100 turns/,
+    "and the record says why",
+  );
 });
 
 test("an act the run carries no authority for is refused, and the refusal is on the run", async () => {
@@ -1412,14 +1409,15 @@ test("an act the run carries no authority for is refused, and the refusal is on 
   );
 });
 
-test("a done with nothing finished and no step left to ask ends refused, not out of budget", async () => {
+test("a done with nothing finished is put back once, then refused", async () => {
   /*
-   * Asking whether it really finished costs a step. A run one step from its
-   * ceiling cannot be asked, and spending the last step on the question would
-   * close `out-of-budget` — the record blaming the clock for a run that had
-   * finished nothing (ADR 0030, 0038).
+   * Asking whether it really finished costs a step, and the question is put
+   * **once**: a model that answers it by claiming the same thing again has
+   * nothing left to add, so the run closes `refused` with the gap in the record.
+   * (This used to be a budget question — "is there a step left to spend" — and a
+   * run has no step ceiling now.)
    */
-  const id = "budget-guard";
+  const id = "done-nothing";
   await putInstruction();
   const agent = loop();
   await agent.start();
@@ -1427,22 +1425,22 @@ test("a done with nothing finished and no step left to ask ends refused, not out
     id,
     startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
   });
-  for (let at = 0; at < RUN_STEPS_MAX - 1; at++)
-    held = recordStep(appendStep(held, `step ${at}`), at, {
-      state: "failed",
-      outcome: "refused: this attempt did not finish",
-    });
-  await createRun(ctx, accountId, spendRun(held, { steps: RUN_STEPS_MAX - 1 }));
+  held = recordStep(appendStep(held, "a step that was refused"), 0, {
+    state: "failed",
+    outcome: "refused: this attempt did not finish",
+  });
+  await createRun(ctx, accountId, held);
 
   answerWith({ done: "nothing to do" });
+  answerWith({ done: "nothing to do, still" });
   await agent.pass();
 
   const run = (await readRun(ctx, accountId, id))?.run;
   assert.equal(run?.state, "refused", "the run says it did nothing");
   assert.equal(
-    run?.spent.steps,
-    RUN_STEPS_MAX - 1,
-    "and the question it could not afford was not written as a step",
+    run?.plan.filter((step) => step.what === DONE_CHECKED).length,
+    1,
+    "the question was put exactly once",
   );
   assert.match(run?.ended?.why ?? "", /no step of the plan finished/);
 });
@@ -2657,12 +2655,12 @@ test("a malformed answer costs a step and is asked again, not the run", async ()
   assert.equal(run.ended?.why, "the model recovered and finished");
 });
 
-test("a call the account refuses spends a step of the run's budget", async () => {
+test("a call the account refuses is on the record, and the turn valve ends the loop", async () => {
   /*
    * A reading tool declares no step, so a model that keeps proposing a call the
-   * account refuses could grow the plan with its budget untouched — the live run
-   * that appended 74 steps to a twenty-step ceiling. An attempt that ended
-   * refused spends a step, so the ceiling is what stops it.
+   * account refuses could grow the plan for ever — the live run that appended 74
+   * steps. Each refused attempt is a step on the record, and what ends the loop
+   * is the turn valve: a hundred turns, counted as liveness and not as money.
    */
   const id = "intake-refused-steps";
   await putInstruction();
@@ -2691,13 +2689,9 @@ test("a call the account refuses spends a step of the run's budget", async () =>
   await agent.pass();
 
   const run = await runOf(id);
-  assert.equal(run.state, "out-of-budget", "the ceiling ends it, not a counter");
-  assert.equal(
-    run.spent.steps,
-    RUN_STEPS_MAX,
-    "every refused attempt spent a step of the budget",
-  );
-  assert.match(run.ended?.why ?? "", new RegExp(`${RUN_STEPS_MAX} steps`));
+  assert.equal(run.state, "out-of-budget", "the valve ends it, not a budget");
+  assert.equal(run.spent.calls, 100, "at a hundred turns");
+  assert.match(run.ended?.why ?? "", /still asking after 100 turns/);
   assert.ok(
     run.plan.every((step) => step.state === "failed"),
     "and every attempt is on the record as a refusal",
@@ -2845,59 +2839,6 @@ test("a run left running without a wait is tried again on a minute, not every pa
   const third = await agent.pass(new Date(at.getTime() + 61_000));
   assert.equal(third.due, 1, "a minute later the run is tried again");
   assert.equal((await readRun(ctx, accountId, id))?.run.state, "done");
-});
-
-test("an answer cannot run past the steps a run has left", async () => {
-  /*
-   * A plan is refused before any of it runs when it asks for more steps than
-   * the run's remaining budget: the ceiling is not something a wave may exceed
-   * and then be noticed on the next turn.
-   */
-  const id = "over-room";
-  let ran = 0;
-  const marker = defineTool({
-    name: "probe.marker",
-    description: "Take one step.",
-    authority: "reversible",
-    writes: false,
-    spend: { steps: 1 },
-    args: {},
-    parse: (raw: unknown) => raw as Record<string, never>,
-    run: async () => {
-      ran += 1;
-      return { ok: true };
-    },
-  });
-  const agent = loop(HOLDER, { catalogue: [...TOOLS, marker] });
-  await agent.start();
-  await createRun(
-    ctx,
-    accountId,
-    spendRun(
-      startRun({
-        id,
-        startedBy: { rule: "room", instruction: null, woke: "a test change" },
-      }),
-      { steps: 19 },
-    ),
-  );
-  answerWith({
-    calls: [
-      { name: "probe.marker", arguments: {} },
-      { name: "probe.marker", arguments: {} },
-    ],
-  });
-  answerWith({ done: "stopped with the step it had" });
-  await agent.pass();
-
-  assert.equal(ran, 0, "no step ran beyond the ceiling");
-  const held = (await readRun(ctx, accountId, id))?.run;
-  assert.ok(held, "the run is still readable");
-  assert.match(
-    held.plan.map((step) => step.outcome).join(" "),
-    /more steps than the run had left|left in the run's budget|step budget/,
-    "and the refused answer is on the record",
-  );
 });
 
 test("the groups are worked together, not one after another", async () => {

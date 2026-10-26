@@ -306,12 +306,13 @@ ends the run. There is no JSON-in-the-text plan and no second request without th
 tools: a provider is accepted only if it takes `tools` and a native JSON mode,
 checked when its block is written, with its declared output ceiling read beside
 them, and at connect only reachability is asked. Each call carries what is left of
-the run's tokens after the prompt, capped by that ceiling; the run ends
-`out-of-budget` at `limits.maxRunTokens`, the installation opens no run past
+the provider's declared output ceiling; the installation opens no run past
 `limits.maxDailyTokens`, and three permanent provider refusals in a row stop the
-pass with the open runs left `running`. A turn whose run is down to a fifth of the
-ceiling is told how little is left and to put what it found into the report, so the
-group hears what was found and not only that the run stopped. A provider that takes the tools checks the
+pass with the open runs left `running`. A run has no budget of its own: no step,
+call, token or time counter ends it — it ends done, waiting on a person, stopped by
+a person, or failed — and what it spent is a fact on its record. The one valve is
+liveness: a run that has asked the model a hundred turns is stopped, because an agent
+stuck in a loop is a machine fault. A provider that takes the tools checks the
 kind and the bound of every argument itself — a job publishes one schema branch
 per value, so a mail search cannot be sent a `path` — and the decision turn's
 answer is facts and nothing else: one that carries an authorisation, or names a
