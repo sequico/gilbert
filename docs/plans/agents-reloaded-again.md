@@ -387,9 +387,14 @@ ones sit on a page the first read never asks for: the log reads as "nothing sinc
 21 October" while the runs of 24 and 26 are in the folder.
 
 The fix is **one comparator, used before the slice**: newest first, by
-`startedAt ?? ended.at`, the id as the tiebreak — the key the archive already uses,
-in one function both routes import. The client's own sort stays as the last word
-for a page it appends to.
+`startedAt ?? ended.at`, the id as the tiebreak. That key is already written in four
+places — the archive route's sort and its cursor, the client's `whenOf`, the display
+line beside it, and the overview's sort of the live list (which omits the `ended.at`
+fallback, so a document written before `startedAt` existed sorts last there and
+first elsewhere) — so it becomes one function in `@gilbert/shared/run`
+(`byRecency`), imported by both routes and by every surface that sorts runs, and
+applied **before** the filter and the slice. The client's sort stays as the last
+word for a page it appends to.
 
 The chat's panel does **not** share the defect: it asks for the runs in flight with
 a limit of a thousand, so it never falls off a fifty-row page. It shares the missing
