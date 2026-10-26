@@ -112,18 +112,36 @@ from that:
 Each one states what changes, where, why, and the proof that closes it. The
 order in §6 is the order of work.
 
-### R1 — One event is one run, for mail as for files
+### R1 — A mail drop is one case, through the queue that already exists
 
-A drop of seven messages from one shipper is one change and **one run with seven
-items**, each item a step of the plan with its own outcome; a thread that grows is
-the same case continued. `startedBy.batch` already carries "the whole drop this
-run answers" (ADR 0034) — mail uses the same field.
-*Where*: `agent/changes.ts` (the fold), `agent/loop.ts` (the run's opening),
-ADR 0034 and 0038 rewritten on the point.
-*Why*: today one shipment costs 7 × 105-192 k tokens and 7 × the same research;
-one run with a case pays the research once.
-*Proof*: the seven-message drop of `280228874` is one run that files all seven,
-under 250 k tokens, with seven recorded outcomes.
+ADR 0034 already folds a burst of **files** into one change and one run: a queue
+document (`gilbert/pending.json`), a quiet window, a key of folder and instant, and
+`startedBy.batch` on the run. **Mail uses the same queue, not a second one**: a
+message is noted against its sender — the mailbox's own "folder" — and answered
+once, when that sender has been quiet for `DROP_QUIET_MS` or the burst has been
+open for `DROP_CAP_MS`. One change names the messages and the instant it opened,
+one decision, one run.
+
+For mail the `batch` the turn is shown carries, per message: subject, sender and
+attachment names (R2). Each message is worked as a **step**, so the record keeps one
+outcome per message — the audit is not coarser than seven runs, it is one document
+instead of seven. A reply that answers a message of the drop joins the case through
+its `threadId`; an answer arriving days later opens its own run, which finds the
+case's note (R3) and the facts in the memory.
+
+What does not change: one message that arrives alone is one run, as today. A wrong
+fold — two unrelated deliveries from one sender inside the window — costs a longer
+run, not a wrong filing: where each message is filed is decided per message, from
+its own attachments.
+*Where*: `agent/queue.ts` (the key and the window it already has), `agent/changes.ts`
+(the fold), `agent/loop.ts` (the run's opening), ADR 0034 and 0038 rewritten on the
+point; `startedBy.batch` already exists.
+*Why*: one shipment of seven messages costs 7 × 105-192 k tokens and seven
+rediscoveries of the same booking, folder and convention, and the group reads seven
+reports for one delivery.
+*Proof*: the seven-message drop of `280228874` opens **one** run that files all
+seven, each with its own step and outcome, at no more than one message costs today —
+and the group reads one report. The owner confirms the group wants that (see §7).
 
 ### R2 — The turn starts with the case
 
