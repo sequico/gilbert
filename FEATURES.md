@@ -85,7 +85,7 @@ works, including deleting in Files, which moves the node into the group's Trash.
 > **The agent runs inside the server.** The loop that works a run is
 > `server/src/agent/loop.ts`: a pass claims the installation, re-arms the waits
 > it finds, reads each account's changes, and works a run from the model's own
-> step-by-step choices with the budget, the authority guard and the record. The
+> step-by-step choices with the authority guard and the record. The
 > accounts it works are the groups the Master holds, and it asks the mail server
 > for them on **every pass** — so a group the Master is added to in Stalwart's
 > directory is worked by the next pass and one the Master leaves stops being
@@ -153,13 +153,14 @@ plan the model chose — each step, what it waits on and the outcome of each one
 so the record alone says why a step ran and why one did not — what it touched,
 what it waits for and the sentence it asked in,
 every authorisation with the message it arrived in and the authority given, the
-evidence behind its claims, and the budget it has spent — the shape, its parser
+evidence behind its claims, and what it has spent — the shape, its parser
 and its transitions are `server/src/shared/run.ts`, and where a run lives is
-`server/src/agent/runs.ts` (ADR 0030). **A run is capped** at 20 steps, 40 model
-calls and five minutes of work, so a model that is stuck ends at a record rather
-than looping on the account; a refused answer or a call the account refuses is a
-step that ended, and it spends a step, so the cap is what stops a run that keeps
-failing. **An ending is said, not only recorded**: a run that
+`server/src/agent/runs.ts` (ADR 0030). **No amount ends a run**: no step, call,
+token or clock ceiling, so a run is never stopped for what it cost, and a refused
+answer or a call the account refuses is a step that ended rather than an ending.
+The one valve is **liveness** — a run that has asked the model a hundred times has
+not finished, and it ends as *did not finish* (`RUN_TURNS_MAX`). **An ending is
+said, not only recorded**: a run that
 could not finish says so in the group's own conversation with the sentence its
 ending carries, a run that finished says so when a person woke it there, and a
 question or a stop (already words between the two) does not repeat itself. The
@@ -396,8 +397,8 @@ and the deadline is what a run does
 about a person who never answers — it goes on without it, with a step on the
 record saying what did not come, so nothing waits for ever. Every call's
 **authority class** is read from the act it names (ADR 0028), the **argument
-names** it takes and what it costs the
-run's budget — a call naming a field the tool does not take is refused whole,
+names** it takes and what it adds to the
+run's tally — a call naming a field the tool does not take is refused whole,
 naming the fields it does, rather than read as if the field it meant were
 absent; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
@@ -555,7 +556,9 @@ the run, the instruction that answered, every step with what it answered, what
 the run spent, what it recalled — each fact resolved to its subject and sentence
 — and where it parked and why. A run written by
 another build is **said** where it would be drawn, never drawn as an empty one.
-A run ends as done, blocked on a person, out of budget or **cancelled**, and
+A run ends as done, blocked on a person, **refused** (a guardrail fired), stopped
+without finishing — the liveness valve, drawn as *Did not finish* because no budget
+ends a run — or **cancelled**, and
 **any member of the group whose account holds it** reads its runs and stops one
 that is in flight — the one being worked and the one waiting on a person's
 answer, which nothing else moves — from the group's chat, where the runs tab is
