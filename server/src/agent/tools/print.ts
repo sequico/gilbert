@@ -15,7 +15,7 @@ import { addressLine, messagePdf, PdfTextError } from "../pdf.js";
 import { argsRecord, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 import { writeNewFile } from "./files.js";
-import { addressesIn, messageDocument, messageTextOf } from "./mail.js";
+import { addressesIn, messageBodyOf, messageDocument } from "./mail.js";
 
 export const printMessage = defineTool({
   name: "mail.print",
@@ -46,6 +46,22 @@ export const printMessage = defineTool({
         : typeof message.sentAt === "string"
           ? message.sentAt
           : "";
+    /*
+     * The page carries the text part, or says what it carries instead: a preview is
+     * marked as one, and a body the server cut at the read's own bound says so. A page
+     * that silently held a hundred characters would look like the whole message.
+     */
+    const body = messageBodyOf(message);
+    const preview = typeof message.preview === "string" ? message.preview.trim() : "";
+    const text = body
+      ? `${body.text}${
+          body.truncated
+            ? "\n\n[the message is longer than this build reads; the rest is in the mail client]"
+            : ""
+        }`
+      : preview
+        ? `${preview}\n\n[preview only: this message carries no text part]`
+        : "";
     let bytes: Uint8Array;
     try {
       bytes = await messagePdf({
@@ -54,7 +70,7 @@ export const printMessage = defineTool({
         to: addressLine(addressesIn(message.to)),
         cc: addressLine(addressesIn(message.cc)),
         at,
-        text: messageTextOf(message),
+        text,
       });
     } catch (err) {
       if (err instanceof PdfTextError)

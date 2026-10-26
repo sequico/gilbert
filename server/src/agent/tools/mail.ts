@@ -586,16 +586,32 @@ export async function readMessageForAnswer(
   };
 }
 
-/** The text a message carries: its first non-empty text part, else its preview. */
-export function messageTextOf(message: Record<string, unknown>): string {
+/**
+ * The first non-empty text part of a message, and whether the read cut it short.
+ *
+ * One selection for every reader of a body: the answer path, the decision turn and the
+ * print. A part the server truncated is still the text — the caller says so rather than
+ * presenting half a message as the whole one.
+ */
+export function messageBodyOf(
+  message: Record<string, unknown>,
+): { text: string; truncated: boolean } | null {
   const values = isRecord(message.bodyValues) ? message.bodyValues : {};
   const parts = Array.isArray(message.textBody) ? message.textBody : [];
   for (const part of parts) {
     if (!isRecord(part) || typeof part.partId !== "string") continue;
     const held = values[part.partId];
     const value = isRecord(held) ? held.value : null;
-    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "string" && value.trim())
+      return { text: value, truncated: isRecord(held) && held.isTruncated === true };
   }
+  return null;
+}
+
+/** The text a message carries: its first non-empty text part, else its preview. */
+export function messageTextOf(message: Record<string, unknown>): string {
+  const body = messageBodyOf(message);
+  if (body) return body.text;
   return typeof message.preview === "string" ? message.preview : "";
 }
 

@@ -202,6 +202,7 @@ export async function messagePdf(message: PrintableMessage): Promise<Uint8Array>
     y -= META_LEADING;
   }
   y -= 6;
+  room(BODY_LEADING);
   page.drawLine({
     start: { x: MARGIN, y },
     end: { x: PAGE_WIDTH - MARGIN, y },
