@@ -1385,6 +1385,40 @@ test("a run records the limits in force and the time each step took", async () =
   );
 });
 
+test("a note the model keeps travels to the next turn", async () => {
+  /*
+   * The instruction asks for it — "record what you need in memory, do not re-read a
+   * page you have already read" — and until now the harness gave the model nowhere
+   * to write it, so it obeyed by re-reading. The note is the run's own document, not
+   * the account's: no step, no authority, and the next turn reads it whole.
+   */
+  const id = "intake-note";
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+  const note = "BK-901 · folder MS2/BK-901 · naming: <ref> <container>";
+
+  answerWith({ facts: {} });
+  answerWith({ calls: [{ name: "note", arguments: { text: note } }] });
+  answerWith({ done: "the note is kept" });
+  const message = await deliver("a change that needs a note");
+  await agent.pass();
+
+  const run = (await listRuns(ctx, accountId))
+    .map((record) => record.run)
+    .find((one) => one.startedBy.woke === `mail created: ${message}`);
+  assert.equal(run?.note, note, "the run keeps the note the model wrote");
+  assert.equal(run?.state, "done", "the run finished after keeping it");
+  assert.equal(
+    run?.spent.steps,
+    0,
+    "and keeping it spent no step: it is the run's memory, not an act",
+  );
+  const turns = seen.filter(({ user }) => user.includes("What this case has kept"));
+  assert.ok(turns.length >= 1, "the turn after it is handed the note");
+  assert.ok(turns[0]?.user.includes(note), "whole, as it was written");
+});
+
 test("an act the run carries no authority for is refused, and the refusal is on the run", async () => {
   const id = "intake-destroy";
   await putInstruction();

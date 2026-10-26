@@ -110,6 +110,7 @@ import {
   recordStep,
   spendRun,
   startRun,
+  setNote,
   takeAnswer,
   takeAuthorisation,
   waitUntil,
@@ -178,6 +179,7 @@ import {
   TOOLS,
   type ToolCall,
 } from "./tools.js";
+import { noteOf } from "./tools/note.js";
 
 /**
  * The other ceilings a run's budget is measured against (ADR 0027).
@@ -1732,6 +1734,8 @@ export class AgentLoop {
         woke: current.startedBy.woke ?? "the run was started by an instruction",
         plan: current.plan,
         prose,
+        // The case's working memory: written by the model, carried whole (ADR 0034).
+        ...(current.note ? { note: current.note } : {}),
         ...(facts ? { facts } : {}),
         memory: selection.facts,
         ...(openQuestions?.length ? { openQuestions } : {}),
@@ -2213,6 +2217,15 @@ export class AgentLoop {
                   ? boundedText(call.args.text)
                   : boundedText(clean.value);
             const source = sourceOf(clean.value);
+            /*
+             * What the case must not forget: a `note` call changes the **run**, not
+             * the account, so the loop keeps it here rather than a tool writing a
+             * document it does not own. Every later turn of the run carries it
+             * whole, which is what the instruction's "record what you need and do
+             * not re-read" asks for (ADR 0034).
+             */
+            const noted = noteOf(result.value);
+            if (noted !== undefined) current = setNote(current, noted);
             current = recordStep(current, at, {
               state: "done",
               outcome: `${boundedText(clean.value)}${clean.withheld.length ? ` (withheld: ${clean.withheld.join(", ")})` : ""}`,

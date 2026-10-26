@@ -23,12 +23,14 @@ import {
   appendStep,
   finishRun,
   isRunDue,
+  NOTE_MAX,
   parseRunDocumentDetailed,
   QUESTION_TTL_MS,
   RUN_VERSION,
   recordEvidence,
   recordRecall,
   recordStep,
+  setNote,
   spendRun,
   startRun,
   stepIdentity,
@@ -241,6 +243,35 @@ test("a step keeps the time its call took, and a run the limits in force", () =>
     JSON.stringify({ ...asked, limits: { maxRunTokens: "many" } }),
   );
   assert.ok("problem" in bad, "a limits shape that is not three numbers is refused");
+});
+
+test("a case note is kept whole, cut at its bound, and cleared when empty", () => {
+  /*
+   * The scratchpad the instruction asks for: carried whole on every turn, so it is
+   * bounded where it is written — the model sees the cut in its own answer and
+   * rewrites it — and what must outlive the case is a fact in the memory, not a
+   * longer note (ADR 0033, 0034).
+   */
+  const run = startRun({ id: "r17", startedBy: START });
+  const noted = setNote(
+    run,
+    "  BK-901 · folder MS2/BK-901 · naming: <ref> <container>  ",
+  );
+  assert.equal(
+    noted.note,
+    "BK-901 · folder MS2/BK-901 · naming: <ref> <container>",
+    "trimmed, as the model wrote it",
+  );
+  const stored = parseRunDocumentDetailed(JSON.stringify(noted));
+  assert.ok("run" in stored, "the document reads back");
+  assert.equal(stored.run.note, noted.note, "with the note it kept");
+
+  const huge = setNote(run, "x".repeat(NOTE_MAX + 100));
+  assert.equal(huge.note?.length, NOTE_MAX + 1, "cut at the bound, with the cut visible");
+  assert.equal(setNote(noted, "   ").note, undefined, "an empty note is no note");
+
+  const bad = parseRunDocumentDetailed(JSON.stringify({ ...noted, note: 7 }));
+  assert.ok("problem" in bad, "a note that is not text is refused");
 });
 
 test("a step may wait on an earlier step, and is left unrun when no branch names its outcome", () => {

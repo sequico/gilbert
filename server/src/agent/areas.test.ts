@@ -20,10 +20,10 @@ import { TOOLS } from "./tools.js";
  * always present, and a group cannot declare its way back to forty-five.
  */
 
-test("the catalogue is eight jobs, each a name a provider accepts", () => {
+test("the catalogue is the jobs and the case's note, each a name a provider accepts", () => {
   assert.deepEqual(
     TOOLS.map((tool) => tool.name),
-    ["read", "find", "place", "draft", "event", "say", "remember", "settle"],
+    ["read", "find", "note", "place", "draft", "event", "say", "remember", "settle"],
   );
   for (const tool of TOOLS)
     assert.match(
@@ -37,7 +37,7 @@ test("the selection keeps reading free and narrows the four area writes", () => 
   const picked = catalogueFor(TOOLS, ["mail", "files", "chat", "knowledge", "memory"]);
   assert.deepEqual(
     picked.map((tool) => tool.name),
-    ["read", "find", "place", "draft", "say", "remember"],
+    ["read", "find", "note", "place", "draft", "say", "remember"],
   );
   const place = picked.find((tool) => tool.name === "place");
   assert.ok(place);
@@ -49,7 +49,7 @@ test("the selection keeps reading free and narrows the four area writes", () => 
   const calendarOnly = catalogueFor(TOOLS, ["calendar", "chat", "knowledge", "memory"]);
   assert.deepEqual(
     calendarOnly.map((tool) => tool.name),
-    ["read", "find", "event", "say", "remember"],
+    ["read", "find", "note", "event", "say", "remember"],
   );
   assert.equal(
     TOOLS.find((tool) => tool.name === "settle")?.narrow?.(["mail"]),

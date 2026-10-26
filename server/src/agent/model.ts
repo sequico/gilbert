@@ -1868,6 +1868,14 @@ export interface StepQuestion {
   woke: string;
   /** The steps the run has taken so far, and how each ended. */
   plan: readonly RunStep[];
+  /**
+   * The case's scratchpad as the model last wrote it (ADR 0034), carried whole.
+   *
+   * The instruction asks the agent to record what it needs and not to re-read what
+   * it has read; this is where it records it, and a turn that lost it is a turn
+   * sent looking for the same page again.
+   */
+  note?: string;
   /** The prose the turn carries, outermost first (ADR 0031). */
   prose: Partial<Record<ProseLevel, string>>;
   /** What the decision found the change to be about, when this turn follows one. */

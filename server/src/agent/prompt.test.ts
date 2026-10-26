@@ -170,6 +170,27 @@ test("a repeat of a step that has not run does not take the place of an answer",
   assert.ok(prompt.includes(first), "the older answer keeps its place in the window");
 });
 
+test("the case's note is carried whole in the turn", () => {
+  /*
+   * The instruction asks the agent to record what it needs and not to re-read what
+   * it has read; the note is where it records it, and a turn that lost it is a turn
+   * sent looking for the same page again (ADR 0034).
+   */
+  const note = `reference BK-901\nfolder MS2/BK-901\nnaming: <ref> <container>\n${"x".repeat(1_000)}`;
+  const prompt = stepData({
+    woke: "mail created: m-1",
+    plan: [],
+    prose: {},
+    note,
+  } as StepQuestion);
+
+  assert.ok(prompt.includes(note), "the note the model wrote is the note it reads");
+  assert.ok(
+    prompt.includes("What this case has kept"),
+    "and it is named as its own working memory, not as an instruction",
+  );
+});
+
 test("a step a later step waits on is carried whole however old it is", () => {
   const plan: RunStep[] = [
     ended(0),

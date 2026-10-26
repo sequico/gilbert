@@ -92,6 +92,7 @@ import {
   untrashMessage,
 } from "./mail.js";
 import { memoryHistoryTool, rememberFactTool } from "./memory.js";
+import { noteTool } from "./note.js";
 import { readRunTool } from "./runs.js";
 import { listWorkorders, readWorkorder, settleStep } from "./workorders.js";
 
@@ -419,10 +420,11 @@ export const settleJob = job({
   },
 });
 
-/** The eight jobs, in the order a turn reads them. */
+/** The eight jobs, plus the case's scratchpad, in the order a turn reads them. */
 export const JOBS: readonly AnyTool[] = [
   readJob,
   findJob,
+  noteTool,
   placeJob,
   draftJob,
   eventJob,

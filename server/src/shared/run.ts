@@ -56,6 +56,33 @@ export interface RunLimits {
 }
 
 /**
+ * The most of a case note the record keeps and every turn carries.
+ *
+ * A note is carried **whole** on every turn, so it is bounded where it is written
+ * rather than clipped where it is read: the model that wrote it sees the cut in its
+ * own answer and rewrites it shorter. Four kilobytes is about a thousand tokens, and
+ * a note that needs more is a note that has stopped being working memory.
+ */
+export const NOTE_MAX = 4 * 1024;
+
+/**
+ * Keep the case's note, replacing whatever it held.
+ *
+ * The working memory of one case (ADR 0034): written by the model, carried by every
+ * turn. What must outlive the case is a fact in the memory (ADR 0033), not a longer
+ * note.
+ */
+export function setNote(run: RunDoc, text: string): RunDoc {
+  mustBeRunning(run);
+  const kept = text.trim();
+  if (!kept) {
+    const { note: _dropped, ...rest } = run;
+    return rest;
+  }
+  return { ...run, note: kept.length > NOTE_MAX ? `${kept.slice(0, NOTE_MAX)}…` : kept };
+}
+
+/**
  * The versions before this one, which this build reads as well.
  *
  * `recalled` was added by version 5 (ADR 0033) and `retrieval` by this one
@@ -419,11 +446,21 @@ export interface RunDoc {
   startedAt?: string;
   startedBy: RunStart;
   /**
-   * The installation's limits as they stood when the run opened: recorded, never
-   * enforced (ADR 0038) — a run has no budget of its own, and a reader can still
-   * see what held it.
+   * The limits the installation had in force when the run opened, recorded and
+   * never enforced (ADR 0038).
    */
   limits?: RunLimits;
+  /**
+   * The case's scratchpad, as the model wrote it (ADR 0034).
+   *
+   * Working memory, not the record's evidence: the reference the case is known by,
+   * where its work goes, the rule it followed, what was already reported and what
+   * is owed. It travels **whole** in every turn — the instruction asks the agent
+   * to record what it needs and not to re-read a page it has already read, and this
+   * is the place it records it. What must outlive the case is a fact in the memory
+   * (ADR 0033), not a longer note.
+   */
+  note?: string;
   plan: RunStep[];
   /**
    * What the run touched, so a person can undo by hand what can be undone
@@ -894,6 +931,8 @@ export function parseRunDocumentDetailed(
       problem:
         '"limits" must be the three ceilings the installation had in force when the run opened.',
     };
+  if (whole.note !== undefined && typeof whole.note !== "string")
+    return { problem: '"note" must be the text the case kept.' };
   if (!isRunState(whole.state))
     return {
       problem:
@@ -919,6 +958,7 @@ export function parseRunDocumentDetailed(
       ...(whole.startedAt === undefined ? {} : { startedAt: whole.startedAt }),
       startedBy: whole.startedBy,
       ...(whole.limits === undefined ? {} : { limits: whole.limits }),
+      ...(whole.note === undefined ? {} : { note: whole.note }),
       plan: whole.plan,
       touched: whole.touched,
       waiting: whole.waiting,
