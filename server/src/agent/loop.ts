@@ -109,6 +109,7 @@ import {
   type RunStep,
   type RunStepNeeds,
   type RunWait,
+  recordEvidence,
   recordRecall,
   recordStep,
   resumeRun,
@@ -2496,13 +2497,10 @@ export class AgentLoop {
              * copy of what came back.
              */
             if (source && !current.evidence.some((one) => one.source === source))
-              current = {
-                ...current,
-                evidence: [
-                  ...current.evidence,
-                  { claim: `${call.name} ${boundedText(call.args)}`, source },
-                ],
-              };
+              current = recordEvidence(current, {
+                claim: `${call.name} ${boundedText(call.args)}`,
+                source,
+              });
             // Each call spends what its tool declares; the wave's own wall time
             // is spent once below, because the calls ran together.
             const tool = this.catalogue.find((one) => one.name === call.name);
