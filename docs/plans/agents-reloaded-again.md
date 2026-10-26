@@ -419,14 +419,15 @@ with a limit of a thousand, to draw the **questions** a parked run left
 (`openQuestionsOf`), so today it is right; it shares the missing order, and a group
 holding more than a thousand documents could hide a question the same way. The fix
 covers both: order first, then filter, then slice.
-*Where*: `server/src/routes/agent.ts` (the working-set listing and the archive's
-comparator, one function), `web/src/lib/agentAdmin.ts` and
+*Where*: `server/src/routes/agent.ts` (the working-set listing, its cursor, and the
+archive's comparator — one function), `web/src/lib/agentAdmin.ts` and
 `web/src/views/admin/agents/GroupRuns.tsx` (a page drawn in the order it arrives).
 *Why*: the record has the runs — `freight` filed three today — and the surface says
 its history ended a week ago; a surface that cannot show today's runs cannot be used
 to judge any of the work in this plan.
-*Proof*: with sixty runs in a fixture group, the first page holds the ten newest,
-and the newest run of a group appears on page 0 once it ends.
+*Proof*: with sixty runs in a fixture group, the first page holds the ten newest and
+the newest run of a group appears on page 0 once it ends; a second page taken while
+a run arrives repeats no row and skips none.
 
 ## 5. Not taken, and why
 
