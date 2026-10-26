@@ -89,7 +89,13 @@ export async function fetchGroupRunsPage(
   };
 }
 
-/** Every run a group holds, for a reader that needs the whole set. */
+/**
+ * A group's runs, newest first, up to the page a live reader needs (1000).
+ *
+ * The chat's questions and its "is writing" line read this; neither has a use for a
+ * year of history, and a list that answers with the newest thousand is what both
+ * mean. A reader that wants all of it pages (`fetchGroupRunsPage`).
+ */
 export async function fetchGroupRuns(
   group: string,
   state?: "running" | "live",

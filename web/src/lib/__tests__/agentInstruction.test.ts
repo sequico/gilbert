@@ -49,6 +49,7 @@ describe("the instruction route", () => {
       "Answer in the group's voice.",
       ["mail"],
       SURFACES,
+      "",
       "s7",
     );
     expect(apiFetch).toHaveBeenCalledWith(`${PATH}/instruction`, {
