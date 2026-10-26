@@ -53,32 +53,40 @@ export async function fetchAgentMetrics(
 }
 
 /**
- * One page of a group's runs, each read or each said.
+ * One page of a group's runs, each read or each said, newest first.
  *
  * `state` narrows the answer on the server: `running` is what a live view polls,
- * so the history is fetched once rather than every few seconds. `offset` and
- * `limit` are the page the panel draws; `more` says another follows.
+ * so the history is fetched once rather than every few seconds. `after` is the
+ * cursor the previous page ended at (`when|id`), not an offset: a run ends while a
+ * person reads the list, and an offset over a mutating list repeats or skips a row
+ * at the boundary. `more` says another page follows.
  */
 export async function fetchGroupRunsPage(
   group: string,
   opts: {
     state?: "running" | "live";
-    offset?: number;
+    after?: string | null;
     limit?: number;
     /** Ask for the plan with each run; false for a surface that only reads headers. */
     plan?: boolean;
   } = {},
-): Promise<{ runs: RunSummary[]; more: boolean }> {
+): Promise<{ runs: RunSummary[]; more: boolean; after: string | null }> {
   const query = new URLSearchParams();
   if (opts.state) query.set("state", opts.state);
-  if (opts.offset) query.set("offset", String(opts.offset));
+  if (opts.after) query.set("after", opts.after);
   if (opts.limit !== undefined) query.set("limit", String(opts.limit));
   if (opts.plan === false) query.set("plan", "0");
   const suffix = query.toString();
-  const res = await apiFetch<{ runs?: RunSummary[]; more?: boolean }>(
-    `/api/groups/${encodeURIComponent(group)}/runs${suffix ? `?${suffix}` : ""}`,
-  );
-  return { runs: res.runs ?? [], more: res.more === true };
+  const res = await apiFetch<{
+    runs?: RunSummary[];
+    more?: boolean;
+    after?: string | null;
+  }>(`/api/groups/${encodeURIComponent(group)}/runs${suffix ? `?${suffix}` : ""}`);
+  return {
+    runs: res.runs ?? [],
+    more: res.more === true,
+    after: typeof res.after === "string" ? res.after : null,
+  };
 }
 
 /** Every run a group holds, for a reader that needs the whole set. */

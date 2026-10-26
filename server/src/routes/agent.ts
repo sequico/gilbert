@@ -96,7 +96,7 @@ import {
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
 import { factView } from "../shared/memory.js";
-import type { RunDoc, RunSummary } from "../shared/run.js";
+import { byRecency, type RunDoc, runRecency, type RunSummary } from "../shared/run.js";
 import { finishRun, isInFlight, summarizeRun } from "../shared/run.js";
 import {
   type Env,
@@ -594,9 +594,16 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         Date.now() - held.at < RUNS_READING_TTL_MS;
       const rows: RunSummary[] = fresh
         ? held.rows
-        : (await listRunsForReading(access.ctx, access.accountId)).map((one) =>
-            summarizeRun(one, { steps: true }),
-          );
+        : (await listRunsForReading(access.ctx, access.accountId))
+            .map((one) => summarizeRun(one, { steps: true }))
+            /*
+             * Ordered **before** anything is filtered or cut: the folder answers
+             * in its own order, and a page taken from that order is the first
+             * documents ever filed — a group past its page size reads a history
+             * that ends weeks ago while today's runs sit behind it (the run log of
+             * 2026-10-26). The order is the archive's, one function.
+             */
+            .sort(byRecency);
       if (!fresh)
         runsReadings.set(access.accountId, {
           state: token,
@@ -606,13 +613,12 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       /*
        * A surface that watches a run needs the runs in flight, not the history:
        * `?state=running` answers those alone, so a poll every few seconds does
-       * not carry a year of documents with it. The rest is a page: the panel
-       * draws ten rows and the history grows with the installation, so the
-       * server sends the rows asked for and says whether more follow.
+       * not carry a year of documents with it. The rest is a page, taken by a
+       * cursor rather than an offset: a run ends while a person reads the list,
+       * and an offset over a mutating list repeats or skips a row at the boundary.
+       * `after` is the last row the reader was given, as `when|id`.
        */
-      const offset = Number.parseInt(c.req.query("offset") ?? "0", 10);
-      if (!Number.isInteger(offset) || offset < 0 || offset > 10_000_000)
-        return c.json({ error: "bad_request", message: "offset is a whole number" }, 400);
+      const after = c.req.query("after") ?? "";
       const asked = Number.parseInt(c.req.query("limit") ?? "", 10);
       const limit = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 1000) : 100;
       const filtered =
@@ -624,7 +630,10 @@ export function registerAgentRoutes(api: Hono<Env>): void {
               // page, so the overview lists them together.
               rows.filter((one) => one.state === "running" || one.state === "blocked")
             : rows;
-      const page = filtered.slice(offset, offset + limit);
+      const cursor = (one: RunSummary): string => `${runRecency(one)}|${one.id}`;
+      const at = after ? filtered.findIndex((one) => cursor(one) === after) : -1;
+      const start = at >= 0 ? at + 1 : 0;
+      const page = filtered.slice(start, start + limit);
       /*
        * The history list is a header per run; the plan travels only to the
        * surface that watches a run, where a step turning from open to done is
@@ -638,7 +647,9 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       return c.json({
         group: name,
         runs,
-        more: offset + page.length < filtered.length,
+        more: start + page.length < filtered.length,
+        /** The last row drawn: the next page asks after it. */
+        after: page.length ? cursor(page[page.length - 1] as RunSummary) : null,
       });
     } catch (err) {
       return doorFailure(c, err);

@@ -1,5 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { isInFlight } from "@gilbert/shared/run";
+import { byRecency, isInFlight, runRecency } from "@gilbert/shared/run";
 import { Bot } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { push } from "@/jmap/push";
@@ -249,9 +249,7 @@ function RunRow({
             : "—"}
         </span>
         <span className="run-cell run-row-meta">
-          {(row.startedAt ?? row.ended?.at)
-            ? formatFullDate(row.startedAt ?? row.ended?.at ?? "")
-            : "—"}
+          {runRecency(row) ? formatFullDate(runRecency(row)) : "—"}
         </span>
         <span className="run-cell run-cell-action">
           {!month && row.state && isInFlight(row.state) && (
@@ -379,7 +377,7 @@ function LiveRun({
       }
       const page = month
         ? await fetchGroupArchive(group, month)
-        : await fetchGroupRunsPage(group, { offset: 0, limit: RUNS_PAGE_SERVER });
+        : await fetchGroupRunsPage(group, { limit: RUNS_PAGE_SERVER });
       setRuns(page.runs);
       setMore(page.more);
       cursor.current = afterOf(page);
@@ -408,7 +406,7 @@ function LiveRun({
       const page = month
         ? await fetchGroupArchive(group, month, cursor.current)
         : await fetchGroupRunsPage(group, {
-            offset: runs?.length ?? 0,
+            after: cursor.current,
             limit: RUNS_PAGE_SERVER,
           });
       setRuns((held) => [...(held ?? []), ...page.runs]);
@@ -422,7 +420,7 @@ function LiveRun({
     } finally {
       setLoadingMore(false);
     }
-  }, [group, loadingMore, month, runs?.length]);
+  }, [group, loadingMore, month]);
 
   useEffect(() => {
     let alive = true;
@@ -509,13 +507,12 @@ function LiveRun({
   // cannot ask for that tally, so it falls back to the runs it was given.
   const metrics = totals ?? (runs ? metricsOf(runs) : null);
   /*
-   * Most recent first, by the instant the run was opened (or, for a document
-   * written before that field existed, when it ended). A live list is about what
-   * is happening: the runs in flight sit above the history, each group in the
-   * same order.
+   * Most recent first, by the one order every runs list uses — the instant the run
+   * was opened, or when it ended for a document written before that field existed.
+   * A live list is about what is happening: the runs in flight sit above the
+   * history, each group in the same order.
    */
-  const whenOf = (listed: RunSummary) => listed.startedAt ?? listed.ended?.at ?? "";
-  const sorted = [...(runs ?? [])].sort((a, b) => whenOf(b).localeCompare(whenOf(a)));
+  const sorted = [...(runs ?? [])].sort(byRecency);
   const ordered = runningOnly
     ? sorted.filter((one) => one.state != null && isInFlight(one.state))
     : live

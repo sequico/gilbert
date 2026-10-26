@@ -56,9 +56,8 @@ const { correctFactByPerson, forgetFact, listMemory, rememberFact } = await impo
   "./agent/memory.js"
 );
 const { runPath } = await import("./agent/runs.js");
-const { appendStep, recordStep, RUN_VERSION, startRun, waitUntil } = await import(
-  "./shared/run.js"
-);
+const { appendStep, finishRun, recordStep, RUN_VERSION, startRun, waitUntil } =
+  await import("./shared/run.js");
 
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
@@ -321,6 +320,90 @@ test("the runs a group worked are drawn as the record carries them", async () =>
   assert.ok(
     rows.some((row) => row.id === "surface-run"),
     "and the runs this build reads are still on the surface beside it",
+  );
+});
+
+test("the runs list is newest first, and its page is taken by a cursor", async () => {
+  /*
+   * A group past its page size must read today, not the first documents ever
+   * filed: the listing is ordered **before** it is cut, and a page is taken by the
+   * cursor `when|id` rather than an offset, so a run that ends while a person reads
+   * does not repeat or skip a row at the boundary. The 21 October export of the
+   * live installation held 171 runs, 29 of them written before `startedAt` existed:
+   * those count from their ending, and the fixture here has one.
+   */
+  for (let at = 0; at < 60; at += 1) {
+    const startedAt = new Date(Date.UTC(2027, 0, 1, 0, at)).toISOString();
+    const run = startRun({
+      id: `page-run-${String(at).padStart(2, "0")}`,
+      startedAt,
+      startedBy: { rule: null, instruction: null, woke: `mail created: m-${at}` },
+    });
+    await writeAppFileAt(master, teamAccount, runPath(run.id), run);
+  }
+  const legacy = startRun({
+    id: "page-run-legacy",
+    startedBy: { rule: null, instruction: null, woke: "mail created: m-legacy" },
+  });
+  const ended = finishRun(legacy, "done", {
+    at: "2027-01-01T01:00:00.000Z",
+    why: "the work is done",
+  });
+  const { startedAt: _written, ...older } = ended;
+  await writeAppFileAt(master, teamAccount, runPath("page-run-legacy"), older);
+
+  const base = `/api/groups/${encodeURIComponent(TEAM)}/runs?limit=10`;
+  const first = await call(base);
+  assert.equal(first.status, 200);
+  const page = first.body as {
+    runs: Array<{ id: string }>;
+    more: boolean;
+    after: string | null;
+  };
+  assert.deepEqual(
+    page.runs.map((row) => row.id),
+    [
+      "page-run-legacy",
+      ...Array.from(
+        { length: 9 },
+        (_, at) => `page-run-${String(59 - at).padStart(2, "0")}`,
+      ),
+    ],
+    "the newest ten, with a run written before startedAt counted from its ending",
+  );
+  assert.equal(page.more, true, "and more follows");
+  assert.ok(page.after, "the answer names the last row it drew");
+
+  /*
+   * A run arrives between the two pages: the cursor continues after the last row
+   * the reader was given, so nothing repeats and nothing is skipped.
+   */
+  const arrived = startRun({
+    id: "page-run-arrived",
+    startedAt: "2027-01-01T00:59:30.000Z",
+    startedBy: { rule: null, instruction: null, woke: "mail created: m-arrived" },
+  });
+  await writeAppFileAt(master, teamAccount, runPath(arrived.id), arrived);
+
+  const second = await call(`${base}&after=${encodeURIComponent(page.after ?? "")}`);
+  const next = second.body as { runs: Array<{ id: string }>; more: boolean };
+  assert.deepEqual(
+    next.runs.map((row) => row.id),
+    Array.from({ length: 10 }, (_, at) => `page-run-${String(50 - at).padStart(2, "0")}`),
+    "the page after the cursor, with the run that arrived not repeated and not skipped",
+  );
+
+  const again = await call(base);
+  const newest = again.body as { runs: Array<{ id: string }> };
+  assert.equal(
+    newest.runs[0]?.id,
+    "page-run-legacy",
+    "and the run that arrived before the legacy one sits under it, not above",
+  );
+  assert.equal(
+    newest.runs[1]?.id,
+    "page-run-arrived",
+    "a run that arrived is on the first page once it exists",
   );
 });
 

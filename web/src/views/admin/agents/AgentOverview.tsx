@@ -1,5 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { isInFlight } from "@gilbert/shared/run";
+import { byRecency, isInFlight } from "@gilbert/shared/run";
 import { useEffect, useMemo, useState } from "react";
 import { push } from "@/jmap/push";
 import {
@@ -128,7 +128,7 @@ export function AgentOverview({
         .filter((listed) => listed.state != null && isInFlight(listed.state))
         .map((listed) => ({ group: entry.group, listed })),
     )
-    .sort((a, b) => (b.listed.startedAt ?? "").localeCompare(a.listed.startedAt ?? ""));
+    .sort((a, b) => byRecency(a.listed, b.listed));
 
   /** The runs in flight, under the group each belongs to, in the table's order. */
   const inFlight = groups

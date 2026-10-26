@@ -512,6 +512,30 @@ export interface RunSummary {
   spent: RunSpent;
 }
 
+/**
+ * When a run counts from: the instant it opened, or the one it ended at for a
+ * document written before `startedAt` existed.
+ *
+ * One function, because the order every surface lists runs in is one decision: a
+ * list is read for what is happening now, and a run without `startedAt` sorts by
+ * its ending rather than last.
+ */
+export function runRecency(one: RunSummary): string {
+  return one.startedAt ?? one.ended?.at ?? "";
+}
+
+/**
+ * Newest first, the id breaking a tie — the one order of every runs list.
+ *
+ * The working set, the archive, the live list and the chat's questions all sort
+ * runs; written once, they cannot drift. It is applied **before** a page is cut:
+ * a list cut in the folder's own order shows the first documents ever filed and
+ * never the newest.
+ */
+export function byRecency(a: RunSummary, b: RunSummary): number {
+  return runRecency(b).localeCompare(runRecency(a)) || a.id.localeCompare(b.id);
+}
+
 /** The header of one listed run: the list's one shape, in both tiers. */
 export function summarizeRun(
   listed: RunListing,
