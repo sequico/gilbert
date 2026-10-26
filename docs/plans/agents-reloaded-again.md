@@ -202,16 +202,17 @@ third of today's prompt, and the act by the first or second turn.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the
-working run either: a **reader** — the same model, the reading half of the
-catalogue and no write tool — answers one question about it ("which booking, which
-folder, which containers, what is owed") in a few lines, and those lines are what
-the working turn sees. This is Claude Code's subagent pattern: the investigation
-stays in its own context and the main thread keeps the answer; and it is
-Cognition's limit too — **the reader reads and answers, it never acts**, so no two
-decision-makers touch one shipment.
-*Where*: `agent/reader.ts` (new, the reading half and one question), `agent/loop.ts`
-(the case decides whether it needs one), `agent/model.ts` (the call, budgeted like
-any other).
+working run either: a **reader** answers one question about it in a few lines, and
+those lines are what the working turn sees. The reader is the decision turn's own
+shape, `decideEvent` (`agent/model.ts`) — one question, the reading half of the
+catalogue, at most one lookup, one structured answer — **generalised to take the
+question**, not a second module beside it. That is Claude Code's subagent pattern:
+the investigation stays in its own context and the main thread keeps the answer, and
+Cognition's limit holds too — **the reader reads and answers, it never acts**, so no
+two decision-makers touch one shipment.
+*Where*: `agent/model.ts` (`decideEvent` with the question as an argument),
+`agent/loop.ts` (the case decides whether it needs one), `agent/changes.ts` (the
+caller that already asks one).
 *Why*: the 10:41 run read one message twelve times and the 13:35 page paged one
 page six times; both are a working context asked to be a reading context.
 *Proof*: on the drop's thread, the working turn carries the reader's few lines and
