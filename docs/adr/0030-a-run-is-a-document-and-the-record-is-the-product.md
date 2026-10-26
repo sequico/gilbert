@@ -164,9 +164,9 @@ agent's durable state.
   the person's own grant on the group whose account holds the runs — not the
   administrator's — so a member of one group neither sees nor stops another
   group's run, and the administrator has no reach beyond the groups they are in.
-  A person can read a run and undo by hand what can be undone: it names what it
-  touched, as references rather than copies, and the objects themselves are
-  Stalwart's.
+  A person can read a run and undo by hand what can be undone: the evidence of
+  each step names the object its claim touches, as references rather than copies,
+  and the objects themselves are Stalwart's.
 - **What the agent settles goes into the record that carries the work**: a
   workorder step changes state with the agent as its signer and the evidence in
   its note; a KB change is a proposal awaiting approval (ADR 0020).

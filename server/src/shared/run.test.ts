@@ -4,8 +4,8 @@
  * What a transition does is the whole of what is pinned here: a run ends in one
  * of the ways ADR 0030 names and says which, a step's outcome is recorded where it belongs,
  * the plan grows with the step the model chose — a step may wait on an earlier
- * one and be left unrun when no branch names its outcome — what the run touched,
- * which facts of the installation's memory it recalled, and what it
+ * one and be left unrun when no branch names its outcome — which facts of the
+ * installation's memory it recalled, and what it
  * spent are written by a transition each, an authorisation carries the sentence
  * it arrived in, the authority that was given and the act it is for, and the
  * wait is a date in the document — an instant the run waits for, or the deadline
@@ -40,7 +40,6 @@ import {
   startRun,
   stepIdentity,
   takeAuthorisation,
-  touchObject,
   waitDueAt,
   waitUntil,
   withCase,
@@ -55,7 +54,7 @@ const AT = "2026-10-16T10:00:00.000Z";
 const ASKED = { channel: "mail", id: "m-ask-1" } as const;
 const QUESTION = { what: "the shipper's answer", asked: ASKED, until: null } as const;
 
-test("a run starts running, its plan open, having touched and spent nothing", () => {
+test("a run starts running, its plan open, having spent nothing", () => {
   const run = startRun({
     id: "r1",
     startedBy: START,
@@ -65,7 +64,6 @@ test("a run starts running, its plan open, having touched and spent nothing", ()
   assert.equal(run.state, "running");
   assert.equal(run.ended, null);
   assert.equal(run.waiting, null);
-  assert.deepEqual(run.touched, [], "a run that just started has touched nothing");
   assert.deepEqual(run.recalled, [], "and recalled nothing");
   assert.deepEqual(run.evidence, []);
   assert.deepEqual(run.authorisations, []);
@@ -374,30 +372,35 @@ test("a step may wait on an earlier step, and is left unrun when no branch names
   assert.equal(stored.run.plan[1]?.state, "skipped");
 });
 
-test("a run names every object it touched, in one reference shape", () => {
+test("a run written before the retired list is read without it", () => {
+  /*
+   * `touched` was written by every run and filled by none: what a step touched is
+   * the evidence beside its claim, and the list is retired with version 7. A
+   * document that still carries it is read — never refused — and the next write
+   * leaves it out, which is the parser's rule for a key it no longer knows.
+   */
   const run = startRun({ id: "r8", startedBy: START });
-
-  const filed = touchObject(run, { accountId: "acc-1", kind: "message", id: "m-7" });
-  const touched = touchObject(filed, { accountId: "acc-1", kind: "file", id: "f-2" });
-  assert.deepEqual(
-    touched.touched,
-    [
-      { accountId: "acc-1", kind: "message", id: "m-7" },
-      { accountId: "acc-1", kind: "file", id: "f-2" },
-    ],
-    "every object the run touched is named where a person can read it back",
+  const older = {
+    ...run,
+    v: RUN_VERSION - 1,
+    touched: [{ accountId: "acc-1", kind: "message", id: "m-7" }],
+  };
+  const stored = parseRunDocumentDetailed(JSON.stringify(older));
+  assert.ok("run" in stored, "an older document is still read");
+  if (!("run" in stored)) return;
+  assert.equal(
+    "touched" in stored.run,
+    false,
+    "and the retired list is not part of what this build reads",
   );
-  assert.deepEqual(filed.touched.length, 1, "each transition answers a new document");
-  assert.deepEqual(run.touched, []);
+  assert.equal(stored.run.v, RUN_VERSION, "the next write is this version");
 
-  const stored = parseRunDocumentDetailed(JSON.stringify(touched));
-  assert.ok("run" in stored, "and the list is part of the stored contract");
-  assert.deepEqual(stored.run.touched, touched.touched);
-
-  assert.throws(
-    () => touchObject(run, { accountId: "acc-1", kind: "nope", id: "x" } as never),
-    /is not one/,
-    "a reference of a kind no reader knows is refused, not written",
+  const bogus = parseRunDocumentDetailed(
+    JSON.stringify({ ...older, touched: [{ kind: "nope" }] }),
+  );
+  assert.ok(
+    "run" in bogus,
+    "even a list this build would never write is a retired key: ignored, never fatal",
   );
 });
 
@@ -790,10 +793,10 @@ test("a run this build cannot read is reported, with what was wrong", () => {
   const bad = [
     ["not JSON at all", /Not valid JSON/],
     ["[]", /must be a JSON object/],
-    [JSON.stringify({ v: RUN_VERSION + 1, id: "r6" }), /this build reads version 6/],
-    // The two versions before this are read (with the fields they lack
+    [JSON.stringify({ v: RUN_VERSION + 1, id: "r6" }), /this build reads version 7/],
+    // The three versions before this are read (with the fields they lack
     // defaulted); anything older is a document this build did not write.
-    ['{"v":3,"id":"r3"}', /this build reads version 6/],
+    ['{"v":3,"id":"r3"}', /this build reads version 7/],
     [
       '{"v":5,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
       /"id" must be/,
@@ -860,7 +863,6 @@ test("a run this build cannot read is reported, with what was wrong", () => {
       // A rule is woken by a change, so a rule-started run that names no change
       // is a document this build did not write.
     ],
-    [JSON.stringify({ ...whole, touched: [{ kind: "nope" }] }), /"touched" must be/],
     [
       JSON.stringify({ ...whole, recalled: ["f-1", ""] }),
       /"recalled" must be the ids of the facts/,

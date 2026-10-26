@@ -7,11 +7,13 @@
  * which instruction started it and which change in the account
  * woke it, the plan — each step, what it waits on and how it left it, so a
  * reader of the record alone can say why a step ran and why one did not —
- * the objects it touched, what it waits for, where it asked a person and until
+ * the change it answered — the plan, each step, what it waits on and how it left
+ * it, so a reader of the record alone can say why a step ran and why one did not
+ * — what it waits for, where it asked a person and until
  * when, which facts of the installation's memory its calls carried (ADR 0033),
  * every authorisation with the sentence it arrived in, the authority that
- * was given and the act it is for, the evidence behind what it claims, the
- * budget it has spent,
+ * was given and the act it is for, the evidence behind what it claims, what it
+ * has spent,
  * and the state it is in. A **wait is a date in this document** — a dated wait for
  * an instant, and the deadline a question to a person carries (ADR 0029, 0030) —
  * not a timer in a process, so the agent re-arms the waits it finds when it
@@ -30,14 +32,13 @@ import { errorDetail } from "./errors.js";
 import { isInstant, isRecord } from "./json.js";
 import type { Recall } from "./memory.js";
 import { isSurfaceMatrix, type SurfaceMatrix } from "./surfaces.js";
-import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 
 /**
  * The schema this build writes and reads. A document of another version is
  * refused, so a field of the shape below moves this with it — the version is
  * how the change reaches a run an installation has already written.
  */
-export const RUN_VERSION = 6;
+export const RUN_VERSION = 7;
 
 /**
  * The default the installation's `limits.maxRunSteps` is set to.
@@ -152,18 +153,21 @@ export function compactAt(run: RunDoc): number | null {
 /**
  * The versions before this one, which this build reads as well.
  *
- * `recalled` was added by version 5 (ADR 0033) and `retrieval` by this one
- * (ADR 0038), and a **known** older version is read with the fields it does not
- * carry defaulted — an installation that ran an earlier build has runs on its
- * accounts, and refusing them would stop every pass before it worked a change,
- * forever, with no surface to delete them from: the version exists to carry a
- * change to those runs, never to orphan them on an upgrade. A version this build
- * does not know stays refused, because a document written by a newer Gilbert may
- * carry a field whose meaning changed, and reading it as though it had not is
- * worse than saying so.
+ * `recalled` was added by version 5 (ADR 0033), `retrieval` by version 6 (ADR
+ * 0038), and this version retires the `touched` list a run never filled. A
+ * **known** older version is read with the field it lacks defaulted and the one
+ * it still carries ignored — an installation that ran an earlier build has runs on
+ * its accounts, and refusing them would stop every pass before it worked a
+ * change, forever, with no surface to delete them from: the version exists to
+ * carry a change to those runs, never to orphan them on an upgrade. A version
+ * this build does not know stays refused, because a document written by a newer
+ * Gilbert may carry a field whose meaning changed, and reading it as though it
+ * had not is worse than saying so.
  */
 const RUN_VERSION_WITHOUT_RETRIEVAL = 5;
 const RUN_VERSION_WITHOUT_RECALLED = 4;
+/** The version before this one, which still wrote the retired `touched` list. */
+const RUN_VERSION_WITH_TOUCHED = 6;
 
 /**
  * A step's state: `open` until it leaves the plan, and the three ways it can.
@@ -514,7 +518,7 @@ export type RunRetrieval = Recall["retrieval"];
  */
 export interface RunDoc {
   /** The schema version; `RUN_VERSION` today. */
-  v: 6;
+  v: 7;
   /** The run's identity: its document's name under `runs/`. */
   id: string;
   /** When the run was opened. Absent on a document written before it existed. */
@@ -555,12 +559,6 @@ export interface RunDoc {
    */
   compactedUpTo?: number;
   plan: RunStep[];
-  /**
-   * What the run touched, so a person can undo by hand what can be undone
-   * (ADR 0030). The objects themselves are Stalwart's; what is written here is
-   * a reference to one, never a copy of it.
-   */
-  touched: WorkorderRef[];
   /** The live wait, or null when the run is not waiting. */
   waiting: RunWait | null;
   /**
@@ -999,11 +997,12 @@ export function parseRunDocumentDetailed(
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };
   if (
     whole.v !== RUN_VERSION &&
+    whole.v !== RUN_VERSION_WITH_TOUCHED &&
     whole.v !== RUN_VERSION_WITHOUT_RETRIEVAL &&
     whole.v !== RUN_VERSION_WITHOUT_RECALLED
   )
     return {
-      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION} and the two before it.`,
+      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION} and the three before it.`,
     };
   if (typeof whole.id !== "string" || !whole.id)
     return { problem: '"id" must be the run\'s name.' };
@@ -1025,8 +1024,6 @@ export function parseRunDocumentDetailed(
     return {
       problem: 'every step of "plan" must wait on a step the plan already carries.',
     };
-  if (!Array.isArray(whole.touched) || !whole.touched.every(isWorkorderRef))
-    return { problem: '"touched" must be a list of what the run touched.' };
   if (whole.waiting !== null && !isRunWait(whole.waiting))
     return {
       problem:
@@ -1049,7 +1046,11 @@ export function parseRunDocumentDetailed(
    * did not exist when it was written: it reads as the exact retrieval, which is
    * the only one the build that wrote it had.
    */
-  const retrieval = whole.retrieval ?? (whole.v === RUN_VERSION ? undefined : "exact");
+  const retrieval =
+    whole.retrieval ??
+    (whole.v === RUN_VERSION || whole.v === RUN_VERSION_WITH_TOUCHED
+      ? undefined
+      : "exact");
   if (retrieval !== "exact" && retrieval !== "exact+similarity")
     return {
       problem: '"retrieval" must be "exact" or "exact+similarity".',
@@ -1114,7 +1115,6 @@ export function parseRunDocumentDetailed(
       ...(whole.slice === undefined ? {} : { slice: whole.slice }),
       ...(compactedUpTo === undefined ? {} : { compactedUpTo }),
       plan: whole.plan,
-      touched: whole.touched,
       waiting: whole.waiting,
       recalled,
       retrieval,
@@ -1181,7 +1181,6 @@ export function startRun(input: {
       outcome: "",
       needs: null,
     })),
-    touched: [],
     waiting: null,
     recalled: [],
     retrieval: "exact",
@@ -1271,21 +1270,6 @@ export function appendStep(
  */
 export function stepIdentity(step: RunStep): string {
   return step.ask ?? step.what;
-}
-
-/**
- * Record an object the run touched (ADR 0030).
- *
- * The list a person reads to undo by hand what can be undone, and the one
- * transition that writes it: an act the run cannot name is an act nobody can
- * undo, so the reference is the same shape a workorder keeps and is checked
- * like one.
- */
-export function touchObject(run: RunDoc, ref: WorkorderRef): RunDoc {
-  mustBeRunning(run);
-  if (!isWorkorderRef(ref))
-    throw new Error(`a reference the run "${run.id}" touched is not one.`);
-  return { ...run, touched: [...run.touched, ref] };
 }
 
 /**

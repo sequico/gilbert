@@ -150,8 +150,8 @@ evidence beside it, never a person's name on a thing that person did not do.
 **A run is one document in the group's account** and the whole of the agent's
 durable state: the change that woke it, the
 plan the model chose — each step, what it waits on and the outcome of each one,
-so the record alone says why a step ran and why one did not — what it touched,
-what it waits for and the sentence it asked in,
+so the record alone says why a step ran and why one did not — what it waits for
+and the sentence it asked in,
 every authorisation with the message it arrived in and the authority given, the
 evidence behind its claims, and what it has spent — the shape, its parser
 and its transitions are `server/src/shared/run.ts`, and where a run lives is

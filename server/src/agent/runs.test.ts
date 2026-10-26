@@ -28,8 +28,9 @@ const { filesAccountId, readAppFileAt, writeAppBytesAt, writeAppFileAt } = await
   "../appFolder.js"
 );
 const { isStateMismatch } = await import("../jmap.js");
-const { finishRun, isRunDue, RUN_VERSION, spendRun, startRun, touchObject, waitUntil } =
-  await import("../shared/run.js");
+const { finishRun, isRunDue, RUN_VERSION, spendRun, startRun, waitUntil } = await import(
+  "../shared/run.js"
+);
 const { createRun, listRuns, listRunsForReading, readRun, replaceRun, RunError } =
   await import("./runs.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
@@ -62,20 +63,17 @@ async function restarted(): Promise<Ctx> {
   };
 }
 
-test("a run read by a process that never wrote it carries its wait, its tally and what it touched", async () => {
+test("a run read by a process that never wrote it carries its wait and its tally", async () => {
   const until = new Date(Date.now() + 60 * 60_000).toISOString();
   const asked = { channel: "mail", id: "m-ask" } as const;
   const waiting = spendRun(
-    touchObject(
-      waitUntil(
-        startRun({
-          id: "restart-1",
-          startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
-          plan: ["read the mail"],
-        }),
-        { what: "the shipper's answer", asked, until },
-      ),
-      { accountId, kind: "message", id: "m-9" },
+    waitUntil(
+      startRun({
+        id: "restart-1",
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        plan: ["read the mail"],
+      }),
+      { what: "the shipper's answer", asked, until },
     ),
     { steps: 1, calls: 2, ms: 800 },
   );
@@ -93,11 +91,6 @@ test("a run read by a process that never wrote it carries its wait, its tally an
     record.run.spent,
     { steps: 1, calls: 2, ms: 800 },
     "and the tally is in the document, so a restart does not spend the budget twice",
-  );
-  assert.deepEqual(
-    record.run.touched.map((ref) => ref.id),
-    ["m-9"],
-    "and what the run touched is there for a person to undo by hand",
   );
 });
 

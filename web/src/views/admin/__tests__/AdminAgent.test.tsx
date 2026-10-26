@@ -39,7 +39,6 @@ const RUN = {
       needs: { step: 0, when: "done" },
     },
   ],
-  touched: [],
   waiting: {
     what: "the shipper's answer",
     asked: { channel: "mail", id: "m-ask" },
