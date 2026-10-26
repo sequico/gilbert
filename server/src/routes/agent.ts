@@ -763,6 +763,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           instruction: held?.instruction ?? "",
           areas: held?.areas ?? [],
           surfaces: held?.surfaces ?? { ...CHAT_ONLY },
+          ...(held?.report === undefined ? {} : { report: held.report }),
           state,
         });
       } catch (err) {
@@ -802,10 +803,14 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           instruction?: unknown;
           areas?: unknown;
           surfaces?: unknown;
+          report?: unknown;
           ifInState?: unknown;
         }>(c);
         const instruction =
           typeof body?.instruction === "string" ? body.instruction.trim() : "";
+        /* The declared shape of a report, when the group declares one: prose the
+           judge reads, and the one thing the harness knows about it (ADR 0038). */
+        const report = typeof body?.report === "string" ? body.report.trim() : "";
         const areas = Array.isArray(body?.areas)
           ? body.areas.filter((one): one is string => typeof one === "string")
           : [];
@@ -839,6 +844,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
             v: INSTRUCTION_VERSION,
             instruction,
             areas,
+            ...(report ? { report } : {}),
             ...(body?.surfaces === undefined ? {} : { surfaces: body.surfaces }),
           }),
         );

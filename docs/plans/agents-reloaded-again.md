@@ -494,17 +494,23 @@ report missing a field the instruction names fails a task of the eval.
 
 **Built:** the judge reads the plan's **tail** — the last six steps with their answers,
 every earlier one as its call and state — so a forty-step plan of four-kilobyte
-outcomes is a call a fraction of what it was (`JUDGE_STEPS_WHOLE`, `agent/model.ts`).
-And its verdict is about the report the group's instruction asked for: the instruction
-travels in the call, so a shape it declares and a "never restate what an earlier one
-said" are part of what stands.
+outcomes is a call a fraction of what it was (`JUDGE_STEPS_WHOLE`, `agent/model.ts`),
+and its verdict is about the report the group's instruction asked for: the instruction
+travels in the call. A group that declares the **shape a report takes**
+(`InstructionDoc.report`, the panel's field "The shape of a report") has every report
+judged, not only a suspect plan: the declaration is the one thing the harness reads
+about prose — that it is there — and the shape itself is the judge's to read.
 
-**Owed:** firing on **every** report rather than only on a suspect plan. It needs the
-group to *declare* that its instruction asks for a shape, and `InstructionDoc` carries
-prose only (`instruction`, `areas`, `surfaces`): a field an operator fills would be the
-signal, and the harness never parses prose. Until it exists, the shape is enforced where
-the judge already fires, and a run whose plan is clean is judged by the mechanical
-check alone.
+**Owed:** nothing. The judge reads the plan's **tail** — the last six steps with their
+answers, every earlier one as its call and state — so a forty-step plan of
+four-kilobyte outcomes is a call a fraction of what it was (`JUDGE_STEPS_WHOLE`,
+`agent/model.ts`). It reads the group's instruction, and when the group has declared
+the **shape a report takes** (`InstructionDoc.report`, written from the panel's "The
+shape of a report") it fires on **every** report, not only on a suspect plan: the
+declaration is the one thing the harness reads about prose — that it is there — and the
+shape itself is the judge's to read and never the harness's to parse. What is owed is
+its calibration against a human sample (ADR 0038's *Owed*), which is a measurement and
+not a mechanism.
 
 ### R11 — The system turn says less, and shows one worked case
 

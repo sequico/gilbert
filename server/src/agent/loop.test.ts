@@ -3018,6 +3018,51 @@ test("the same call in a later answer is the act already made, and is not made t
   assert.equal(steps[1]?.outcome, steps[0]?.outcome, "and its answer is the first one's");
 });
 
+test("a group that declares the shape of its report has every report judged", async () => {
+  /*
+   * The shape of a report is prose, and a model is the only reader of prose: what the
+   * harness knows is only **that** a shape was declared, which is what makes the judge
+   * read every report rather than only a suspect plan (ADR 0038, R10).
+   */
+  const id = "intake-shaped";
+  await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
+    ...instructionDoc(["mail"]),
+    report: "The booking, what arrived, what is missing.",
+  });
+  const agent = loop();
+  await agent.start();
+
+  let held = startRun({
+    id,
+    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+  });
+  held = recordStep(appendStep(held, "a step that answered"), 0, {
+    state: "done",
+    outcome: "answered",
+  });
+  await createRun(ctx, accountId, held);
+
+  onCall = (system, user) => {
+    if (isDecision(system)) return { facts: {} };
+    if (system.includes("judge whether a run's report stands")) {
+      assert.ok(
+        user.includes("The booking, what arrived, what is missing."),
+        "the judge is handed the shape the group declared",
+      );
+      return { stands: true, why: "the report says what the shape asks" };
+    }
+    return { done: "the mail is answered" };
+  };
+  await agent.pass();
+
+  const run = (await readRun(ctx, accountId, id))?.run;
+  assert.equal(run?.state, "done", "a report that follows the shape ends the run");
+  assert.ok(
+    run?.plan.some((step) => step.what === "the report, judged against the plan"),
+    "and the verdict is a step of the record",
+  );
+});
+
 test("a pass leaves a long run on purpose, and the next pass takes it at once", async () => {
   /*
    * A pass is the clock of every group at once: a run that works for six minutes makes

@@ -366,9 +366,12 @@ spent the provider's default budget before writing anything.
   **tail** — the last few steps with their answers, every earlier one as its call and
   state, because forty outcomes are a call larger than any the loop makes — and the
   group's **instruction**, so the verdict is also about the report the instruction
-  asked for: its shape, and "never restate what an earlier one said". Asking it on
-  **every** report needs the group to declare that its instruction declares a shape,
-  and the instruction is prose: the harness never parses prose, so that half is owed
+  asked for: its shape, and "never restate what an earlier one said". And when the
+  group has **declared the shape a report takes** (`InstructionDoc.report`, written
+  from the panel's own field), the judge is asked on **every** report and not only on a
+  suspect plan: the declaration is the one thing the harness reads about prose — that it
+  is there — and the shape itself stays the judge's to read, never the harness's to
+  parse.
   (`docs/plans/agents-reloaded-again.md`).
 
 ### The agent is measured on tasks it has already failed
@@ -409,9 +412,9 @@ wherever an answer could carry it.
 ## Owed
 
 - The **judge's calibration** on a human sample: the judge is built, reads the plan's
-  tail and the group's instruction, and fires only on a suspect plan — what is owed is
-  the sample it is measured against, and the declared report shape that would let it
-  fire on every report. It runs on the installation's own model, so its verdict shares
+  tail, the group's instruction and the report shape the group declares, and fires on
+  every report when a shape is declared. What is owed is the sample it is measured
+  against. It runs on the installation's own model, so its verdict shares
   that model's blind spots; an installation that has a second model owes the judge one
   of its own.
 - The **live embeddings** probe: similarity is built and pinned against a stub,

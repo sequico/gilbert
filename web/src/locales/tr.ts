@@ -1664,6 +1664,9 @@ export const catalog: Catalog = {
     "recorded, never a budget": "kaydedilir, bütçe değildir",
     "Gilbert is writing…": "Gilbert yazıyor…",
     "Open the runs": "Çalışmaları aç",
+    "The shape of a report": "Raporun biçimi",
+    "How a report of this group's work reads, when the group wants one: what it names and in what order. Declaring one has every report judged against it.":
+      "Grup bir rapor istiyorsa, bu grubun işine dair raporun nasıl okunacağı: neyi hangi sırayla adlandırır. Bir biçim bildirildiğinde her rapor ona göre değerlendirilir.",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "Bir çalıştırmanın kendi bütçesi yoktur: iş bittiğinde, birini beklediğinde, bir kişi onu durdurduğunda veya başarısız olduğunda sona erer. Günün tokenları yeni çalıştırma açmayan şeydir.",
     "Blocked on a person": "Bir kişiyi bekliyor",

@@ -2096,6 +2096,9 @@ export const catalog: Catalog = {
     "recorded, never a budget": "записано, але не бюджет",
     "Gilbert is writing…": "Gilbert пише…",
     "Open the runs": "Відкрити запуски",
+    "The shape of a report": "Форма звіту",
+    "How a report of this group's work reads, when the group wants one: what it names and in what order. Declaring one has every report judged against it.":
+      "Як читається звіт про роботу цієї групи, якщо група його хоче: що він називає і в якому порядку. Коли форму задано, кожен звіт оцінюється за нею.",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "У запуску немає власного бюджету: він завершується, коли роботу виконано, коли він чекає на людину, коли людина його зупиняє або коли він зазнає невдачі. Токени дня — це те, що не відкриває нові запуски.",
     "Blocked on a person": "Чекає на людину",

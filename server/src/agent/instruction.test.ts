@@ -188,6 +188,25 @@ test("the parser takes the version this build writes and refuses every other sha
   assert.ok("instruction" in pinned);
   assert.equal(pinned.instruction.surfaces.mail, "watch", "a matrix it carries is read");
 
+  /*
+   * The declared shape of a report (ADR 0038): prose the judge reads, and the one
+   * thing the harness knows about it — that it is there. A declaration that says
+   * nothing is refused rather than carried as one that declares a shape.
+   */
+  const shaped = doc(["mail"], {
+    report: "The booking, what arrived, what is missing.",
+  });
+  assert.ok("instruction" in shaped);
+  assert.equal(
+    shaped.instruction.report,
+    "The booking, what arrived, what is missing.",
+    "a declared shape is read with the instruction",
+  );
+  assert.equal(parsed.instruction.report, undefined, "and an absent one stays absent");
+  const empty = doc(["mail"], { report: "   " });
+  assert.ok("problem" in empty, "a shape that says nothing is refused");
+  assert.match(empty.problem, /"report"/, "and the refusal names the field");
+
   for (const raw of [
     "[]",
     JSON.stringify({ v: 2, instruction: "x" }),

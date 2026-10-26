@@ -2037,6 +2037,9 @@ export const catalog: Catalog = {
     "recorded, never a budget": "仅作记录，并非预算",
     "Gilbert is writing…": "Gilbert 正在输入…",
     "Open the runs": "打开运行记录",
+    "The shape of a report": "报告的形式",
+    "How a report of this group's work reads, when the group wants one: what it names and in what order. Declaring one has every report judged against it.":
+      "如果小组需要一份报告，这份报告应如何阅读：它按什么顺序列出什么。声明形式后，每份报告都会据此评判。",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "一次运行没有自己的预算：工作在完成、等待某人、被人停止或失败时结束。当天的令牌决定是否开启新的运行。",
     "Blocked on a person": "等待某人",

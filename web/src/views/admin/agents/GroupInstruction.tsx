@@ -49,6 +49,7 @@ function withAlwaysOn(areas: readonly AreaName[]): AreaName[] {
 export function GroupInstructionPanel({ group }: { group: string }) {
   const [prose, setProse] = useState<GroupInstruction | null>(null);
   const [instruction, setInstruction] = useState("");
+  const [report, setReport] = useState("");
   const [areas, setAreas] = useState<AreaName[]>([]);
   const [surfaces, setSurfaces] = useState<SurfaceMatrix | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
       const next = await readGroupInstruction(id);
       setProse(next);
       setInstruction(next.instruction);
+      setReport(next.report ?? "");
       setAreas(withAlwaysOn(next.areas));
       setSurfaces(next.surfaces);
     } catch (err) {
@@ -82,7 +84,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
     setBusy(true);
     setError(null);
     try {
-      await saveInstruction(group, instruction, areas, surfaces, prose?.state);
+      await saveInstruction(group, instruction, areas, surfaces, report, prose?.state);
       /*
        * Read the document back: a stored version this build could not read is
        * replaced by the write, and the notice that said so belongs to the state
@@ -91,6 +93,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
       const next = await readGroupInstruction(group);
       setProse(next);
       setInstruction(next.instruction);
+      setReport(next.report ?? "");
       setAreas(withAlwaysOn(next.areas));
       setSurfaces(next.surfaces);
       setSaved(true);
@@ -161,6 +164,23 @@ export function GroupInstructionPanel({ group }: { group: string }) {
               value={instruction}
               onChange={(e) => {
                 setInstruction(e.target.value);
+                setSaved(false);
+              }}
+            />
+          </div>
+          <div className="field" style={{ marginTop: 12 }}>
+            <label htmlFor="group-report">{t("The shape of a report")}</label>
+            <p className="hint">
+              {t(
+                "How a report of this group's work reads, when the group wants one: what it names and in what order. Declaring one has every report judged against it.",
+              )}
+            </p>
+            <textarea
+              id="group-report"
+              rows={3}
+              value={report}
+              onChange={(e) => {
+                setReport(e.target.value);
                 setSaved(false);
               }}
             />

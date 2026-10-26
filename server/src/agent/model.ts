@@ -1572,6 +1572,8 @@ export interface JudgeQuestion {
   woke: string;
   /** The group's one instruction, when it has one. */
   instruction?: string;
+  /** The shape the group declared a report of its work takes, when it declared one. */
+  report?: string;
   /** The sentence the run says stands for its work. */
   done: string;
   /** Every step of the plan, with how it ended. */
@@ -1629,6 +1631,12 @@ export async function judgeRun(
     dataBlock(token, [question.woke]),
     ...(question.instruction
       ? ["The group's instruction:", dataBlock(token, [question.instruction])]
+      : []),
+    ...(question.report
+      ? [
+          "The shape the group declared a report of its work takes — a report that does not follow it does not stand:",
+          dataBlock(token, [question.report]),
+        ]
       : []),
     "What the run did, step by step:",
     ...(steps.length ? steps : [dataBlock(token, ["(nothing)"])]),

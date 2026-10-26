@@ -2100,6 +2100,9 @@ export const catalog: Catalog = {
     "recorded, never a budget": "記録のみで、予算ではありません",
     "Gilbert is writing…": "Gilbert が入力中…",
     "Open the runs": "実行を開く",
+    "The shape of a report": "報告の形",
+    "How a report of this group's work reads, when the group wants one: what it names and in what order. Declaring one has every report judged against it.":
+      "グループが報告を求める場合の、その仕事の報告の読み方：何をどの順に挙げるか。形を宣言すると、すべての報告がそれに照らして判定されます。",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "実行には独自の予算がありません。作業が完了したとき、人の返答を待つとき、人が停止したとき、または失敗したときに終わります。その日のトークンが新しい実行を開くかどうかを決めます。",
     "Blocked on a person": "人の回答待ち",

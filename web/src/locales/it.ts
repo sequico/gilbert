@@ -3099,6 +3099,9 @@ export const catalog: Catalog = {
     "recorded, never a budget": "registrato, mai un limite di spesa",
     "Gilbert is writing…": "Gilbert sta scrivendo…",
     "Open the runs": "Apri le esecuzioni",
+    "The shape of a report": "La forma di un report",
+    "How a report of this group's work reads, when the group wants one: what it names and in what order. Declaring one has every report judged against it.":
+      "Come si legge un report del lavoro di questo gruppo, quando il gruppo ne vuole uno: cosa nomina e in che ordine. Dichiararne la forma fa giudicare ogni report rispetto a essa.",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "Una run non ha un budget proprio: finisce quando il lavoro è fatto, quando aspetta una persona, quando una persona la ferma o quando fallisce. I token del giorno sono ciò che non apre nuove run.",
     "Blocked on a person": "In attesa di una persona",

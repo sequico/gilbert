@@ -24,6 +24,11 @@ export interface GroupInstruction {
   areas: AreaName[];
   /** What wakes the agent: one mode per surface of the group's account. */
   surfaces: SurfaceMatrix;
+  /**
+   * The shape a report of this group's work takes, when the group declared one:
+   * prose the judge reads, and the one thing the harness reads about it (ADR 0038).
+   */
+  report?: string;
   /** The account's FileNode state the read saw: what a write is conditioned on. */
   state: string;
   /**
@@ -48,6 +53,7 @@ export async function saveInstruction(
   text: string,
   areas: readonly AreaName[],
   surfaces: SurfaceMatrix,
+  report: string,
   state?: string,
 ): Promise<void> {
   await apiFetch(prosePath(group, "/instruction"), {
@@ -56,6 +62,7 @@ export async function saveInstruction(
       instruction: text,
       areas,
       surfaces,
+      ...(report.trim() ? { report: report.trim() } : {}),
       ...(state ? { ifInState: state } : {}),
     }),
   });

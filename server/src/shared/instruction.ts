@@ -36,6 +36,15 @@ export interface InstructionDoc {
   areas: AreaName[];
   /** What wakes the agent, one mode per surface of the group's own account. */
   surfaces: SurfaceMatrix;
+  /**
+   * The shape a report of this group takes, when the group declares one.
+   *
+   * Prose, like the instruction, and never parsed by the harness: what the harness
+   * knows is only **that** a shape was declared, which is what makes the judge read
+   * every report instead of only a suspect one (ADR 0038). A group that declares none
+   * is judged on its plan alone.
+   */
+  report?: string;
 }
 
 /**
@@ -106,12 +115,20 @@ export function parseInstructionDocumentDetailed(
         problem: '"surfaces" must be one mode per surface of the group\'s account.',
       };
   }
+  if (
+    whole.report !== undefined &&
+    (typeof whole.report !== "string" || !whole.report.trim())
+  )
+    return {
+      problem: '"report" must say the shape a report of this group takes, or be absent.',
+    };
   return {
     instruction: {
       v: INSTRUCTION_VERSION,
       instruction: whole.instruction,
       areas: [...areas.areas],
       surfaces: whole.surfaces ?? { ...CHAT_ONLY },
+      ...(whole.report === undefined ? {} : { report: whole.report }),
     },
   };
 }

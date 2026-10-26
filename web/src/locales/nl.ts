@@ -2104,6 +2104,9 @@ export const catalog: Catalog = {
     "recorded, never a budget": "vastgelegd, nooit een budget",
     "Gilbert is writing…": "Gilbert is aan het schrijven…",
     "Open the runs": "De uitvoeringen openen",
+    "The shape of a report": "De vorm van een rapport",
+    "How a report of this group's work reads, when the group wants one: what it names and in what order. Declaring one has every report judged against it.":
+      "Hoe een rapport over het werk van deze groep leest, als de groep er een wil: wat het noemt en in welke volgorde. Een vorm aangeven laat elk rapport daaraan toetsen.",
     "A run has no budget of its own: it ends when the work is done, when it waits on a person, when a person stops it, or when it fails. The day's tokens are what opens no new run.":
       "Een run heeft geen eigen budget: hij eindigt wanneer het werk klaar is, wanneer hij op een persoon wacht, wanneer een persoon hem stopt, of wanneer hij mislukt. De tokens van de dag zijn wat geen nieuwe runs opent.",
     "Blocked on a person": "Wacht op een persoon",
