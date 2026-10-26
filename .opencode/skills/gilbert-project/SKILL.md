@@ -117,15 +117,16 @@ document, and the record is the product), **0032** (one installation claims
 its agent) and **0033** (its memory is a graph of facts it recalls). Each record's `Implementation` line says what
 the tree carries and what it still owes, and it is the truth about the tree
 rather than a summary of the design: read it instead of assuming. The
-catalogue and its authority guard are `server/src/agent/tools.ts`, a rule is
-`server/src/agent/rule.ts`, the model's turns are `server/src/agent/model.ts`,
+catalogue and its authority guard are `server/src/agent/tools.ts` — four verbs over
+`server/src/agent/tools/jobs.ts` — the model's turns are `server/src/agent/model.ts`,
 and the loop that works a run is `server/src/agent/loop.ts`, which the server's
 own boot starts with itself (`server/src/agent/supervisor.ts`, a pass every ten
 seconds over the groups the Master holds, read from the mail server on each
-pass). **The mail channel is in the tree**: `mail.ask` parks a run on a person by
-mail, `mailAnsweredBy` continues it on the thread, `mail.send` goes outward on a
-person's word or a rule's own declaration, and `personWord` (`agent/trust.ts`) is
-what decides whether a message is anybody's word at all — a submission on the
+pass). **The conversation is the group's chat**: `say` reports and `ask` parks the
+run on a person's answer; nothing is sent by mail — an outward message is a draft a
+person sends (ADR 0038) — and `mailAnsweredBy` continues a run an older build parked
+on a mail question, with `personWord` (`agent/trust.ts`) deciding
+what is anybody's word at all — a submission on the
 account the server authenticated, and never an outside verdict until its
 `authserv-id` is probed.
 - **Identifiers follow those words.** Two halves: the names, and the things that
