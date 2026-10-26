@@ -2,25 +2,23 @@
 
 Status: Accepted
 
-Implementation: Built.
-(`server/src/agent/tools.ts`: `chat.say`, `chat.ask`, `chat.read`, `chat.find`)
-over the group's own chat (ADR 0004), with `replyTo` as the correlation and a
-question leaving the run waiting on a person's answer with no date — and the
-answer **continuing the run that asked for it**: a message that replies to the
-question a run recorded, sent by somebody other than the agent, is that run's
-answer and is worked on as its own next step, rather than a change that opens a
-run of its own (`server/src/agent/loop.ts`, `repliesToAuthor` in
-`server/src/shared/chat.ts`). **The mail half is built**: `mail.ask` (`server/src/agent/tools.ts`) sends a
-question from the group's own identity to a **principal with access** to the group
-— read from the directory (`groupMembers`), and nobody else, because a question to
-anybody outside is an act outward and asking for it is not this tool's — and parks
-the run on that message with no date. The answer is the message whose thread names
-it (`inReplyTo`, `references`), read by `mailAnsweredBy` in
-`server/src/agent/loop.ts`: the sender must not be the group itself, and the run
-that asked is the one whose question is in that thread. Whether a message is a
+Implementation: Built. **The conversation is the group's own chat**
+(`server/src/agent/tools/chat.ts`, reached through `say`): `say` posts a message,
+`ask` posts a question and parks the run on a person's answer with no date, and a
+message that replies to the question a run recorded, sent by somebody other than
+the agent, is that run's answer and is worked on as its own next step, rather than
+as a change that opens a run of its own (`server/src/agent/loop.ts`,
+`repliesToAuthor` in `server/src/shared/chat.ts`). **Nothing is sent by mail**: an
+outward message leaves as a draft a person sends (ADR 0038), and a question is
+asked in the chat and nowhere else. The reader for an answer that arrives in a
+mailbox is still in the tree, for a run an older build parked on a mail question:
+the answer is the message whose thread names it (`inReplyTo`, `references`), read
+by `mailAnsweredBy` in `server/src/agent/loop.ts`, where the sender must not be
+the group itself and the run that asked is the one whose question is in that
+thread. Whether a message is a
 person's word at all is `personWord` (`server/src/agent/trust.ts`), and the answer
 read asks it before anything is taken from the message
-(`readMessageForAnswer`, `server/src/agent/tools.ts`, handed the roster of who may
+(`readMessageForAnswer`, `server/src/agent/tools/mail.ts`, handed the roster of who may
 speak). A **submission** is trusted on the server's record of **which account
 authenticated**, and that address must be the sender: the hop is the one place
 `From:` is not evidence. A message from **outside** is refused until the
@@ -65,17 +63,18 @@ where the sentence sits.
   instruction; and a message that reads like an instruction without that trust is
   answered as such, because a person who meant to instruct it deserves to know why
   nothing happened.
-- **The agent signs its own sends.** Every message it sends carries
-  `X-Gilbert-Run: <id>`, and a message that returns with that mark is never an
-  instruction: the agent's own words cannot drive it, and two runs cannot
-  ping-pong.
-- **The correlation is the channel's own.** In mail, the thread
-  (`In-Reply-To`/`References`); in chat, a `replyTo` on the node (ADR 0004),
-  because a chat is a flat list and two runs may be waiting in it at once. A
-  question asked **in the chat** therefore says so: the message carries the one
-  line that tells the person a reply is what answers it, because a live question
-  sat unanswered for hours beside a person who had no way of knowing. In mail the
-  thread is the address, so the question is its own instruction to reply.
+- **A message the agent wrote is not an instruction.** Nothing the agent composes
+  leaves the account — what a run writes is a draft a person reads and sends (ADR
+  0038) — so it signs no send. A message that carries `X-Gilbert-Run: <id>`,
+  written by a build that did send, is never an instruction: the agent's own words
+  cannot drive it, and two runs cannot ping-pong (`RUN_MARK`, `trust.ts`).
+- **The correlation is the channel's own.** A question is asked in the chat, where
+  the node carries a `replyTo` (ADR 0004), because a chat is a flat list and two
+  runs may be waiting in it at once; the message also carries the one line that
+  tells the person a reply is what answers it, because a live question sat
+  unanswered for hours beside a person who had no way of knowing. In mail, the
+  thread (`In-Reply-To`/`References`) is what names the run an answer belongs to,
+  for a question an older build asked there.
 - **A question has a deadline** — 72 hours from the ask, in the run's own wait
   (`QUESTION_TTL_MS`, `shared/run.ts`), never a timer in a process. The answer is
   still the conversation's own event; the deadline is what a run does about a

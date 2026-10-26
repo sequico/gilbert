@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Built.
+Implementation: Built. The five classes and the guard that asks
 them — `ToolAuthority`, `authorityNeeded` and `mayRun` in
 `server/src/agent/tools.ts` — are built, and an authorisation names the act it is
 for (`RunAuthorityAct`), so a class alone answers for no act. **A person's word arrives in the conversation**: the sentence that answers a
@@ -16,17 +16,19 @@ nothing the step does not match. An **override** (class 4) is an installation
 administrator's and is proved by the **directory**, not by the sentence: before an
 answer is read, the agent presents the sender's account to the server and reads
 whether it is a Stalwart administrator (`isAdministrator`, `server/src/agent/loop.ts`),
-and only then may the reading report the class. The acts a person must authorise
-are in the catalogue: `mail.send` (class 3, `outward`) names the act it is for —
-the address it reaches and the words it carries — and `mayRun` compares that act
-exactly, so a person's word for one message sends no other; a rule the group wrote
-may declare that it sends, and the declaration travels on the run (ADR 0031).
-**`mail.trash`** is class 2: it **moves** a message to the account's Deleted
+and only then may the reading report the class. **No catalogue act sends**: an
+outward message leaves as a draft a person sends (ADR 0038), so `act` with
+`what: "reply"` writes a draft in the group's own Drafts and a draft is class 1 —
+reversible and inside the account — while class 3 is the licence an instruction's
+own **declaration** that it sends carries, travelling on the run
+(`startedBy.sends`). A person's word still names the act it is for, and `mayRun`
+compares target and content exactly, so a word for one message licenses no other.
+**Trash is class 2**: `act` with `what: "trash"` **moves** a message to the account's Deleted
 Items, where it can be recovered, and the act it asks a person to license is the
 message's id (owner decision 2026-10-18). The same class covers the acts that
-destroy or rewrite what was there — `files.overwrite`, `files.delete`,
-`calendar.update` and `calendar.delete` — each naming the object the person's
-word is for. `files.write`, `files.move`, `files.rename` and `calendar.create`
+destroy or rewrite what was there — `overwrite`, `delete`, `mailFolderDelete`,
+`reschedule` and `cancel` — each naming the object the person's
+word is for. `write`, `move`, `rename` and `schedule`
 are reversible and the agent's. The policy the agent reads is a KB page (ADR
 0020).
 
@@ -55,9 +57,9 @@ Five classes, and the agent's freedom is exactly the first.
    default: the product's own preference is that nothing disappears, because the
    record is what it is for.
 3. **Outward** — anything that reaches a person outside the mandate. **A person's
-   word, or a rule that declares it.** A rule that sends says so in its own text,
-   where its owner reads it; an instruction that asks for a send authorises that
-   send and no other.
+   word, or an instruction that declares it sends.** An instruction that sends
+   says so in its own text, where its owner reads it; the declaration authorises
+   that send and no other.
 4. **Beyond the policy** — an act the written policy forbids. The agent does not
    do it: it **names the policy and the page** and asks, and **only an
    installation administrator may override**. The trace carries the name, the
@@ -75,10 +77,10 @@ Two standing behaviours, whichever class is at hand:
 - **What the agent asserts is its own.** A step it settles records the agent as
   its signer with the evidence beside it, never a person's name on a thing that
   person did not do.
-- **Where a run may act is its rule's matrix** (ADR 0031), and the guard refuses
-  a write on a surface the rule keeps `off` before the class is asked. That is a
-  scope, not a sixth class: a person's word cannot widen a surface the rule keeps
-  off, and a surface the rule allows does not replace the word a class requires.
+- **Where a run may act is its matrix** (ADR 0038), and the guard refuses
+  a write on a surface the matrix keeps `off` before the class is asked. That is a
+  scope, not a sixth class: a person's word cannot widen a surface the matrix keeps
+  off, and a surface the matrix allows does not replace the word a class requires.
 
 ## Consequences
 
@@ -88,7 +90,7 @@ Two standing behaviours, whichever class is at hand:
 - Confirmation fatigue is the risk of the other direction, so class 1 never asks.
   What protects a reversible act is that it can be undone and that it is written
   down — not a prompt per step.
-- The surfaces owe the reader the authority: a rule that sends says so where it
+- The surfaces owe the reader the authority: an instruction that sends says so where it
   is read, an override names who and when, a step names who signed it.
 - Class 2's preference — nothing disappears — has a cost the product accepts: the
   agent does not empty a mailbox, and a cleanup always ends with a person.

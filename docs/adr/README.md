@@ -243,7 +243,7 @@ is, not what a user sees.
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
   always, and the product's preference is that nothing disappears; **outward** a
-  person's word, or a rule that **declares** it sends; **beyond the policy** only
+  person's word, or an instruction that **declares** it sends; **beyond the policy** only
   an installation administrator may override, with the name, the moment and the
   message in the trace; **the intent** (which policy is right, what is approved)
   is never the agent's, only proposed. It **reopens** a settled step when the
@@ -251,11 +251,12 @@ is, not what a user sees.
   of a step it settles is the agent, never a person. **Built** — the five
   classes and the guard that asks them are `server/src/agent/tools.ts`, a
   person's word arrives in the sentence that answers a run (`readAnswerAuthority`,
-  `authoriseAnswer`), and `mail.send` is the outward act it licenses, for exactly
-  the message it names; a rule that declares it sends is the authority of its own
-  outward acts. `mail.trash` is class 2 and **moves** a message to Deleted Items,
-  licensed by the message's id; `files.overwrite`, `files.delete`,
-  `calendar.update` and `calendar.delete` are the same class, each licensed by the
+  `authoriseAnswer`), and **no catalogue act sends**: a reply is `act` with
+  `what: "reply"`, which writes a draft a person sends, and class 3 is the licence
+  an instruction's own declaration carries. `act` with `trash` is class 2 and
+  **moves** a message to Deleted Items,
+  licensed by the message's id; `overwrite`, `delete`,
+  `reschedule` and `cancel` are the same class, each licensed by the
   object it names; an override is proved by the
   directory's answer about the sender (`isAdministrator`, `server/src/agent/loop.ts`).
 - **0029 — The conversation runs in chat and mail.** One
@@ -264,17 +265,18 @@ is, not what a user sees.
   no link, no signed token, no form, because a person away from the product has a
   mail client and nothing else. An instruction by mail is honoured only from a
   sender the installation knows or lists **and** with a passing authentication
-  result from the receiving server; every message the agent sends carries
-  `X-Gilbert-Run: <id>` so its own words can never drive it; the correlation is
-  the thread in mail and a `replyTo` in chat. **Built** — the chat and mail
-  conversation tools are in `server/src/agent/tools.ts`, the mail answer continues
+  result from the receiving server; a message that carries
+  `X-Gilbert-Run: <id>` is never an instruction, so the agent's own words cannot
+  drive it; the correlation is `replyTo` in chat, and the thread in mail for a run
+  an older build parked there. **Built** — the chat conversation is
+  `server/src/agent/tools/chat.ts` (reached through `say`), the mail answer continues
   its run (`mailAnsweredBy`, `server/src/agent/loop.ts`), and `personWord`
   (`server/src/agent/trust.ts`) decides whether a message is anybody's word: a
   submission on the account the server authenticated, and an outside message
   refused until the `authserv-id` of a live verdict is probed.
 - **0030 — A run is a document, and the record is the product.** A run
   is one document in the group's account and the whole of the agent's durable
-  state: which rule or instruction started it, the plan, each step's outcome,
+  state: which instruction started it, the plan, each step's outcome,
   what it touched, what it waits for and where it asked, every authorisation with
   its message and its authority, the evidence, and what it has spent — recorded,
   never a budget, and each step carrying how long its own call took. **A
@@ -347,7 +349,7 @@ is, not what a user sees.
   group's Files or mail is sent to the agent as a chat draft: the context menu
   opens the group's conversation with the mention and the references — a file's
   path, a message's id and subject — and the person completes the request and
-  sends it. The agent needs no new capability: the chat rule wakes on the
+  sends it. The agent needs no new capability: the group's chat wakes it on the
   message, reads the references with the tools it has, and acts within the
   surface matrix (ADR 0038) and the authority classes (ADR 0028). Offered only
   where the agent serves the group, answered by a member route with the matrix;
