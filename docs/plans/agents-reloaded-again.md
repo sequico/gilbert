@@ -8,8 +8,9 @@ those records **in place**, and no record is minted without the owner's
 authorisation.
 
 This plan supersedes nothing: it is the current shape of the work, written after
-the three failed runs of 2026-10-26 were read step by step. The window, the digest
-and the budget line shipped on 2026-10-26 are what it builds on, not part of it.
+the three failed runs of 2026-10-26 were read step by step. The digest and the budget
+line shipped on 2026-10-26 are what it builds on; the **window** shipped beside them
+is transitional — it fixed a re-read and it costs the cache, and R13 replaces it.
 **The records now state these decisions** — ADR 0030, 0034 and 0038 were rewritten
 on the points below — and each one's Implementation line says what the tree still
 contradicts; this document is the work that closes the gap.
@@ -114,7 +115,7 @@ from that:
 | principle | source | what it means here |
 |---|---|---|
 | workflow where the path is known, agent where it is not | Anthropic, *Building effective agents* | filing a delivery note follows a path; deciding what a letter is about does not |
-| context is a finite budget: select, write, compress, isolate | Anthropic, *Effective context engineering*; LangChain, *Context engineering* | hand the case in; let the agent write the scratchpad; the plan's one-line-per-step is the compression; the reader is the isolation |
+| context is a finite budget: select, write, compress, isolate | Anthropic, *Effective context engineering*; LangChain, *Context engineering* | hand the case in; let the agent write the scratchpad; compaction when the transcript is long; the reader is the isolation |
 | the harness moves the data, not the model | Anthropic, *Code execution with MCP* (150 k → 2 k tokens) | prefetch, filter and compose inside the loop, hand the turn a small result |
 | few, high-level tools that express intentions | Anthropic, *Writing effective tools* | four verbs, not forty endpoints |
 | a session is a shift with handoff artifacts | Anthropic, *Effective harnesses for long-running agents* | the case note is the handoff between runs of a drop |
@@ -552,8 +553,8 @@ adds a line, not a body.
 | 2 | **R9 — the three failures as eval tasks** | `pass@1` of today's tree is recorded, and the three tasks fail |
 | 3 | R5 — no run ceilings | the 13:35 task reaches its act; its duration is recorded, not enforced |
 | 4 | R8 — per-step cost and the limits in force | a failed task's 27 s and 7 500 tokens per turn are attributable to steps |
-| 5 | R2 + R11 — the case in the turn (and the reader for a case bigger than one), with the prose that describes it | the first act is the right one on the task |
-| 6 | R1 + R3 — one run per drop, with the scratchpad | the seven messages file in one run, at no more than one message costs today |
+| 5 | R2 + R11 + R13 — the case in the turn, the prose that describes it, and the turn as an appended transcript | the first act is the right one on the task, and the cached share rises per turn |
+| 6 | R1 + R3 — one run per drop, the scratchpad, compaction into it | the seven messages file in one run, at no more than one message costs today |
 | 7 | R4 — four verbs, and a set opened in one call | the schema is a third of today's, four known messages open in one call, and the refusals stay at zero |
 | 8 | R6, R7, R10 | a run is resumed in the next interval; it is watchable and stoppable; the judge stays within the prompt bound |
 
