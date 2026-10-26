@@ -131,10 +131,12 @@ from that:
 ## 4. Recommendations
 
 Each one states what changes, where, why, and the proof that closes it. The
-order in §6 is the order of work. **Decided** — the record states it, and its
-Implementation line says the tree is behind: R1, R2, R3, R5, R8 (ADR 0030, 0034,
-0038). **Proposed** — the record and the tree still stand as they are, and the
-eval decides: R4, R6, R7, R9, R10, R11. R12 is a defect and needs no decision.
+order in §6 is the order of work. **What decides a recommendation is the harness
+practice it follows and the measurement that closes it**; the record is written to
+match, not the other way round — R1, R2, R3, R5 and R8 are already stated in ADR
+0030, 0034 and 0038, and a practice that outranks a record wins over it.
+**Proposed** until the eval speaks: R4, R6, R7, R9, R10, R11. R12 is a defect and
+needs no decision.
 
 ### R1 — A mail drop is one case, through the queue that already exists
 
@@ -482,7 +484,7 @@ a run arrives repeats no row and skips none.
 | 4 | R8 — per-step cost and the limits in force | a failed task's 27 s and 7 500 tokens per turn are attributable to steps |
 | 5 | R2 + R11 — the case in the turn (and the reader for a case bigger than one), with the prose that describes it | the first act is the right one on the task |
 | 6 | R1 + R3 — one run per drop, with the scratchpad | the seven messages file in one run, at no more than one message costs today |
-| 7 | R4 — four verbs | the schema is a third of today's, and the refusals stay at zero |
+| 7 | R4 — four verbs, and a set opened in one call | the schema is a third of today's, four known messages open in one call, and the refusals stay at zero |
 | 8 | R6, R7, R10 | a run is resumed in the next interval; it is watchable and stoppable; the judge stays within the prompt bound |
 
 Step 1 comes before the rest because the log is how the work is watched: a surface
