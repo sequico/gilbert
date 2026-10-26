@@ -93,7 +93,7 @@ import {
   metricsOf,
   type RunMetrics,
 } from "../shared/agentMetrics.js";
-import { CodedError, errorMessage, isStateMismatch } from "../shared/errors.js";
+import { errorMessage, isStateMismatch } from "../shared/errors.js";
 import {
   CHAT_ONLY,
   INSTRUCTION_FILE,
@@ -267,13 +267,6 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         },
         409,
       );
-    /*
-     * A document name the document model refuses is the caller's to fix: its own
-     * sentence and its own status, not the upstream 502 every unmatched error
-     * becomes.
-     */
-    if (err instanceof CodedError && err.name === "RuleError")
-      return c.json({ error: err.code, message: err.message }, err.status as 400);
     return doorFailure(c, err);
   };
 
