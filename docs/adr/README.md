@@ -416,10 +416,11 @@ is, not what a user sees.
 - **0038 — The agent is areas, jobs, and a person's yes.** The whole shape of the
   agent in one record: independent areas (mail, calendar, contacts, files,
   knowledge, workorders, chat, memory) whose actions a run is handed by
-  **selection** — the areas the group's **one instruction** declares, plus chat,
-  knowledge and memory — with job-shaped tools (eight, not forty-five) whose
-  arguments say which kind of id they take and whose results are distilled rather
-  than forwarded; three beats — read, act, report — as the common path and a plan
+  **selection** — the areas the group's **one instruction** declares, plus chat
+  and memory — with four verbs over the endpoint tools (`open` reads, `act`
+  changes, `say` speaks, `note` keeps the case) rather than one tool per endpoint,
+  whose arguments say which kind of id they take and whose results are distilled
+  rather than forwarded; three beats — read, act, report — as the common path and a plan
   only when the instruction asks for one; **the change as the trigger**, the stream
   as the clock and the cursor as reconciliation; a run document that is the session,
   read by the harness in bounded slices; an outward message as a **draft a person

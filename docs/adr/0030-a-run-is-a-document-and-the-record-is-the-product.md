@@ -7,8 +7,9 @@ transitions over it — is `server/src/shared/run.ts`, and where a run lives, ho
 it is read and how it is written whole is `server/src/agent/runs.ts`. **Built
 beside it:** a step's own duration (`RunStep.ms`, measured around the tool) and the
 limits in force when the run opened (`RunDoc.limits`, recorded and never enforced).
-**Not built:** the case's scratchpad (ADR 0034). The work is
-`docs/plans/agents-reloaded-again.md`. The plan
+The case's scratchpad (ADR 0034) is built beside them: the note is the case's file
+(`agent/case.ts`), and the run records the key it was filed under (`RunDoc.caseKey`).
+The work that remains is `docs/plans/agents-reloaded-again.md`. The plan
 carries **order and conditions**: each step names what it waits on — a step named
 before it in the same answer, and the outcome it needs that step to end with —
 and the loop that works a run (`server/src/agent/loop.ts`) runs the steps whose

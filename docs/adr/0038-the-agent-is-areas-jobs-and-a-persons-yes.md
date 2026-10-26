@@ -15,7 +15,7 @@ decision turn in the provider's structured output (`model.ts`), the provider pro
 and the declared output ceiling at publish (`installationAdmin.ts`), the daily token
 ceiling with the pass document's counter (`shared/installation.ts`,
 `shared/agent.ts`, `loop.ts`), a permanent provider failure stopping the pass, and
-the eval: eleven tasks in the repository (`agent/eval/tasks/`), one file each
+the eval: fourteen tasks in the repository (`agent/eval/tasks/`), one file each
 with its message, data and reference, graded with partial credit, a failed task
 tried once more, `pass@1` and cost printed beside the refusals a run recovered
 from, one task parking a run on a person's answer and continuing it there, and

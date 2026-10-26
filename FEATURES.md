@@ -203,15 +203,15 @@ entity**, and the index is rebuilt at boot from the documents and the vectors
 they carry, so it costs no model call. The live retrieval ignores closed facts
 and facts past the memory's **TTL**, which the pass applies when it reads the
 memory; a run that asks when something stopped being true reads the entity's
-interval (`read`, `kind: memory`), closed facts included.
+interval (`open` with `what: "memory"`), closed facts included.
 
 **Both turns read it** (`server/src/agent/model.ts`), it travels fenced as data
 like every other block of text somebody outside the group decided, and **what was
 recalled — and which retrieval found it — is written into the run's record**
 (`recalled`, `retrieval`), so a wrong conclusion traces to the fact that carried
 it, while a change the memory holds nothing about is worked exactly as it was
-before the memory existed. The agent records a fact with `remember` (`kind:
-fact`), within the authority classes, and **a fact a person wrote is in force**:
+before the memory existed. The agent records a fact with `act` (`what: "fact"`),
+within the authority classes, and **a fact a person wrote is in force**:
 the write refuses to overwrite it, in a code, rather than correcting it in
 silence. An installation administrator reads, corrects and removes the facts from
 **Administration → Agent**, through the server's own route as the Master — a
@@ -239,9 +239,9 @@ needs its area, and the conversation and memory are always writable. An
 instruction declares as many areas as its group works: there is no ceiling, and
 a run's catalogue follows the selection.
 
-**A job's shape is the interface the model reads**, and five rules hold it
+**A verb's shape is the interface the model reads**, and five rules hold it
 (`server/src/agent/tools/aci.test.ts`): a name is one lowercase word containing
-no dot, one verb means one thing, a call is chosen by one `kind`/`action` whose
+no dot, one verb means one thing, a call is chosen by one `what`/`action` whose
 every value is named where the turn reads it and carries its own schema branch, a
 refusal names what it accepts, and a tool answers a distillation rather than the
 payload. A value the schema hides and a refusal that says only "bad arguments" are
@@ -448,7 +448,7 @@ into the case's note, and those steps keep their place as a line each — the re
 still holds every outcome in full (`server/src/agent/prompt.ts`, `shared/run.ts`).
 **The case opens the turn**: the message the change carried — its text, who wrote it,
 and the quoted message a reply answers — is handed over by the pass that already read
-it, so the first step is never a `read` of what the process had; and the account's
+it, so the first step is never a lookup of what the process had; and the account's
 own shape is read once before the first turn — the knowledge base's page titles and
 the group's Files two levels deep, names only, bounded, and absent when the run's
 areas keep that surface away (`server/src/agent/changes.ts`, `agent/loop.ts`). The

@@ -1,19 +1,21 @@
 # Plan — the agent, reloaded again
 
-Status: **proposed, not started**. Nothing here is built. The decisions behind it
-live in ADR 0038 (the tools, the areas, the turn, the ceiling — it replaced 0027,
-so that record is not edited here), 0030 (the run is a document), 0034 (a burst is
-one drop), 0029 (the conversation) and 0033 (the memory); each step below revises
-those records **in place**, and no record is minted without the owner's
-authorisation.
+Status: **mostly built**. The tree carries R2, R3, R4, R5, R6, R7, R8, R10,
+R11, R12 and R13, each section saying what and where; what is still open is R1's
+folding of a burst of mail into one case (the drop queue folds a folder's files, and
+a delivery that arrives as one mail per item stays one run per mail), the `pass@1`
+R9 asks to record on its three tasks (the tasks are written; no run is recorded), and
+R10's calibration of the judge on a human sample. The decisions behind it live in ADR
+0038 (the tools, the areas, the turn, the ceiling — it replaced 0027, so that record
+is not edited here), 0030 (the run is a document), 0034 (a burst is one drop), 0029
+(the conversation) and 0033 (the memory); each step below revises those records **in
+place**, and no record is minted without the owner's authorisation.
 
 This plan supersedes nothing: it is the current shape of the work, written after
-the three failed runs of 2026-10-26 were read step by step. The digest and the budget
-line shipped on 2026-10-26 are what it builds on; the **window** shipped beside them
-is transitional — it fixed a re-read and it costs the cache, and R13 replaces it.
-**The records now state these decisions** — ADR 0030, 0034 and 0038 were rewritten
-on the points below — and each one's Implementation line says what the tree still
-contradicts; this document is the work that closes the gap.
+the three failed runs of 2026-10-26 were read step by step. **The records state these
+decisions** — ADR 0030, 0034 and 0038 were rewritten on the points below — and each
+one's Implementation line says what the tree carries; this document is the work that
+closes the gap, and the gap that is left is named in the status above.
 
 ## 1. What the record says
 
@@ -401,6 +403,11 @@ another with the work half-read. Neither was a decision the agent made.
 *Proof*: the 13:35 case reaches its act on the eval, and its duration and cost are
 recorded and reported rather than enforced.
 
+**Built:** `RUN_MS_MAX`, `RUN_CALLS_MAX`, `RUN_STEPS_MAX` as endings and `overBudget`
+are gone from `agent/loop.ts`; the valve is `RUN_TURNS_MAX`, the daily ceiling refuses
+new runs and never cuts one in flight, and the limits in force are recorded on the run
+(`RunDoc.limits`).
+
 ### R6 — The pass takes a slice, and says it left on purpose
 
 A run longer than a pass is resumed by the next pass from its document — the
@@ -484,6 +491,11 @@ the defaults for that pass.
 "what was in force" for the run, and a pass without a readable installation says so
 in its gaps.
 
+**Built:** `RunStep.ms` is measured around each call of a wave, `RunDoc.limits` is
+recorded when the run opens, `readInstallationForPass` reports a fallback as one of
+the pass's gaps, and a step's time and the limits are drawn under the tally
+(`RunCard.tsx`).
+
 ### R9 — The failures are the eval, and it measures the cost as well as the outcome
 
 The three runs of 2026-10-26 become the first three tasks of the eval, with
@@ -499,6 +511,14 @@ of the three changes shipped on 2026-10-26 were hygiene and the third was measur
 a synthetic plan. An optimisation nobody counts is a preference.
 *Proof*: the three tasks fail on today's tree and pass on the final one, with turns
 and tokens per task falling while `pass@1` holds.
+
+**Built:** the three tasks are `agent/eval/tasks/delivery-in-pieces.ts`,
+`thread-reference.ts` and `list-in-one-message.ts` — the shape kept, the objects
+invented — each graded with partial credit and pinned by `tasks/shapes.test.ts`, and
+the runner prints the cached share beside the tokens (`eval.ts`).
+
+**Owed:** the `pass@1` of today's tree on those three, which is a measurement and
+not a mechanism.
 
 ### R10 — The judge reads the instruction, and asks whether the report is the one it asked for
 
@@ -554,6 +574,11 @@ turn made false. The wording is not the argument; the eval's three tasks are. Th
 example names the acts a case takes — read, place, note, say — so a model that has
 read the catalogue knows the shape of a run without a rule for each step.
 
+**Built:** the choosing turn's prose is `chooseStep`'s (`agent/model.ts`): what the run
+is, what the four verbs are, what is never the model's to decide, and one worked
+example; the signature list beside the definitions is gone, `toolSignature` being the
+decision turn's alone.
+
 ### R12 — The run log shows the newest, not the first page ever filed
 
 The working-set listing — `GET /groups/:name/runs` — reads the group's `runs/`
@@ -592,6 +617,10 @@ to judge any of the work in this plan.
 *Proof*: with sixty runs in a fixture group, the first page holds the ten newest and
 the newest run of a group appears on page 0 once it ends; a second page taken while
 a run arrives repeats no row and skips none.
+
+**Built:** `byRecency`, `runCursor` and `pageAfter` in `shared/run.ts`, imported by the
+working-set route, the archive, the overview, the group's list and the chat, and
+applied before the page is cut; both routes answer with the cursor they ended at.
 
 ### R13 — The turn is a transcript: appended, never rewritten, compacted when long
 
@@ -672,6 +701,9 @@ plan that optimises without counting is a preference.
   stays one thread.
 
 ## 6. Order of work
+
+All eight steps are in the tree; the measurement each row names is what closes it, and
+the ones still owed are the three the status above names.
 
 | step | what | how it is judged (a measurement, not a gate) |
 |---|---|---|
