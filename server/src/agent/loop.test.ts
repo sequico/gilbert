@@ -1707,6 +1707,12 @@ test("a transcript past its bound is folded into the note, and the turn keeps a 
     id,
     startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
   });
+  /*
+   * A case with a name: the fold writes the note under the case, which is what a
+   * later increment reads. A run that names none keeps its note only while it
+   * works, and its ending leaves no file (`loop.ts`, ADR 0034).
+   */
+  held = withCase(held, "BK-901");
   const big = "x".repeat(4 * 1024);
   for (let at = 0; at < 18; at += 1) {
     held = appendStep(held, `read {"kind":"message","id":"big-${at}"}`);
@@ -1723,7 +1729,7 @@ test("a transcript past its bound is folded into the note, and the turn keeps a 
 
   const run = (await readRun(ctx, accountId, id))?.run;
   assert.equal(run?.compactedUpTo, 12, "the steps above the last six are folded");
-  const file = await readAppFileAt(ctx, accountId, `cases/${id}.md`);
+  const file = await readAppFileAt(ctx, accountId, "cases/bk-901.md");
   assert.equal(file?.text.trim(), note, "the summary is the case's note");
   assert.equal(run?.plan.length, 18, "and no step left the record");
   const folded = seen.filter(({ user }) => user.includes("summarised in the note above"));
