@@ -52,7 +52,10 @@ agent's durable state.
   what it is waiting
   for — and until when, when there is a date — every authorisation with the
   message it arrived in and the authority given, the evidence behind every claim,
-  and the budget it has spent.
+  and the budget it has spent. A step keeps the line a person reads **and** the
+  digest of the whole call it asked (`ask`): the line is clipped, so it cannot
+  tell two calls apart, and a repeat is recognised by the call rather than by
+  its beginning.
 - **One change of the server is one event.** The agent reads a group's activity
   from the server's own change logs, and a node written twice in one batch —
   created and then written again — reaches them as two changes for one address,
