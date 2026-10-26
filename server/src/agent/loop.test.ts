@@ -1504,6 +1504,46 @@ test("a done with nothing finished is put back once, then refused", async () => 
   assert.match(run?.ended?.why ?? "", /no step of the plan finished/);
 });
 
+test("a transcript past its bound is folded into the note, and the turn keeps a line a step", async () => {
+  /*
+   * The turn is a transcript (ADR 0038), so a run that reads a great deal would
+   * eventually be refused at the provider's window. Compaction is what bounds it: the
+   * model folds everything older than the last few steps into the case's note, and
+   * those steps keep their place in the turn as one line. Nothing leaves the record —
+   * a person still reads every outcome of the run.
+   */
+  const id = "intake-long";
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+  let held = startRun({
+    id,
+    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+  });
+  const big = "x".repeat(4 * 1024);
+  for (let at = 0; at < 18; at += 1) {
+    held = appendStep(held, `read {"kind":"message","id":"big-${at}"}`);
+    held = recordStep(held, held.plan.length - 1, { state: "done", outcome: big });
+  }
+  await createRun(ctx, accountId, held);
+
+  const note = "BK-901 · folder MS2/BK-901 · the eighteen reads are done";
+  onCall = (system) => {
+    if (system.includes("You keep a case's working memory")) return note;
+    return isDecision(system) ? { facts: {} } : { done: "folded and finished" };
+  };
+  await agent.pass();
+
+  const run = (await readRun(ctx, accountId, id))?.run;
+  assert.equal(run?.compactedUpTo, 12, "the steps above the last six are folded");
+  assert.equal(run?.note, note, "the summary is the case's note");
+  assert.equal(run?.plan.length, 18, "and no step left the record");
+  const folded = seen.filter(({ user }) => user.includes("summarised in the note above"));
+  assert.ok(folded.length >= 1, "the turn after it hands the folded steps as lines");
+  const carried = (folded.at(-1)?.user.split(big).length ?? 1) - 1;
+  assert.equal(carried, 6, "and carries answers for the last six steps only");
+});
+
 test("the model choosing the same step twice is a stall the record shows", async () => {
   const id = "intake-stall";
   await putInstruction();

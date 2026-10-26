@@ -1484,6 +1484,85 @@ const JUDGE_SCHEMA = {
   },
 };
 
+/**
+ * What a compaction is given: the case's note, and the steps it must take in.
+ *
+ * The transcript is appended and never rewritten, so what bounds a turn is a
+ * summary: the model folds the steps older than the last few into the note it
+ * already keeps, and those steps become their one-line records (ADR 0038).
+ */
+export interface SummaryQuestion {
+  /** The change that woke the run, in the group's own words. */
+  woke: string;
+  /** The note the case keeps now, as the model last wrote it. */
+  note?: string;
+  /** The steps being folded into it, in order, with what each answered. */
+  folding: readonly RunStep[];
+  /** How many of the newest steps stay whole in the turn, outside the summary. */
+  kept: number;
+}
+
+/**
+ * Ask the model to fold a run's older steps into the case's note (ADR 0038).
+ *
+ * One call, and it answers the note itself: the note is what travels whole on every
+ * turn, so the summary has to live there rather than beside it — a second document
+ * would be a second bound to keep in step.
+ */
+export async function summarisePlan(
+  access: ModelAccess,
+  question: SummaryQuestion,
+  opts: { meter?: UsageMeter } = {},
+): Promise<string> {
+  const token = randomUUID().slice(0, 8);
+  const folded = question.folding.map((step, at) =>
+    dataBlock(token, [
+      `step ${at + 1}: ${step.what}`,
+      `state: ${step.state}`,
+      `outcome: ${boundedText(step.outcome)}`,
+    ]),
+  );
+  const system = [
+    DATA_NOT_INSTRUCTIONS,
+    "You keep a case's working memory while its run is long.",
+    "You are given the note the case keeps now, the change that woke the run, and the steps the run has taken with what each answered.",
+    "Rewrite the note so that it alone carries what those steps taught: the reference the case is known by, where its work goes, the rule it follows, what was already reported, and what is still owed.",
+    "Keep what later work will ask for — names, ids, addresses, the decisions taken and the numbers acted on — and drop what only mattered while the step ran.",
+    "Answer the note and nothing else: no preamble, no account of what you left out, under six hundred words.",
+  ].join("\n");
+  const user = [
+    "The change that woke this run:",
+    dataBlock(token, [question.woke]),
+    "The note the case keeps now:",
+    dataBlock(token, [question.note ?? "(nothing yet)"]),
+    "What the run did, and what each step answered:",
+    ...(folded.length ? folded : [dataBlock(token, ["(nothing)"])]),
+    `The last ${question.kept} step(s) stay whole in the turn, and are not in this summary.`,
+  ].join("\n");
+  const answer = await callModel(access, { system, user }, opts.meter, {
+    allowText: true,
+  });
+  /*
+   * The note is prose, and a provider that wraps it in an object is still answering:
+   * `{text}` is the shape `allowText` gives, and a single string field is the model
+   * putting a name on it. Anything else is a summary that would lose the past, and it
+   * is refused rather than written over the note.
+   */
+  const wrapped = isRecord(answer) ? Object.values(answer) : [];
+  const text =
+    isRecord(answer) && typeof answer.text === "string"
+      ? answer.text
+      : wrapped.length === 1 && typeof wrapped[0] === "string"
+        ? wrapped[0]
+        : null;
+  if (!text?.trim())
+    throw new ModelError(
+      "model_answer_malformed",
+      "The summary came back without a note: the older steps would be lost from the turn.",
+    );
+  return text.trim();
+}
+
 /** What the judge is given: the ask, what the run did, and what it claims (ADR 0038). */
 export interface JudgeQuestion {
   /** The change that woke the run, in the group's own words. */
@@ -1876,6 +1955,13 @@ export interface StepQuestion {
    * sent looking for the same page again.
    */
   note?: string;
+  /**
+   * How many of the plan's steps the note already summarises (ADR 0038).
+   *
+   * The transcript is compacted, never re-rendered: a step below this mark keeps its
+   * place in the turn as one line, and what it answered is in the note.
+   */
+  compactedUpTo?: number;
   /** The prose the turn carries, outermost first (ADR 0031). */
   prose: Partial<Record<ProseLevel, string>>;
   /** What the decision found the change to be about, when this turn follows one. */

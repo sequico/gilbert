@@ -180,6 +180,17 @@ export function stepData(question: StepQuestion): string {
    * answered, because the answer never leaves (ADR 0038).
    */
   const done = question.plan.map((step, index) => {
+    /*
+     * A step the note now summarises keeps its place as its one-line record: the
+     * transcript is bounded by a document rather than by re-rendering the past, so
+     * what a folded step carries in the turn never changes again (ADR 0038).
+     */
+    if (index < (question.compactedUpTo ?? 0))
+      return dataBlock(token, [
+        `step ${index + 1}: ${step.what}`,
+        `state: ${step.state}`,
+        "summarised in the note above.",
+      ]);
     const first = answeredAt.get(stepIdentity(step));
     if (first !== undefined && first !== index)
       return dataBlock(token, [

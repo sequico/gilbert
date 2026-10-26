@@ -96,6 +96,8 @@ import { isRecord } from "../shared/json.js";
 import {
   answerOverdue,
   appendStep,
+  compactAt,
+  compactRun,
   finishRun,
   isRunDue,
   isRunWait,
@@ -151,6 +153,7 @@ import {
   readImage,
   type StepCall,
   setRunningModelAccess,
+  summarisePlan,
   usageMeter,
 } from "./model.js";
 import { type AgentMeasure, emitMeasures } from "./otlp.js";
@@ -1728,6 +1731,41 @@ export class AgentLoop {
           token,
         );
       }
+      /*
+       * The transcript is appended and never rewritten (ADR 0038), so what bounds a
+       * turn is a summary: once the steps above the mark carry more than a turn
+       * should, the model folds everything older than the last few into the case's
+       * note, and those steps keep their place in the turn as one line each. A
+       * summarising call that fails leaves the transcript as it was — the turn is
+       * then refused at the window and says so, rather than losing the past.
+       */
+      const fold = compactAt(current);
+      if (fold !== null) {
+        const folder = usageMeter();
+        current = spendRun(current, { calls: 1 });
+        try {
+          const note = await summarisePlan(
+            access,
+            {
+              woke: current.startedBy.woke ?? "the run was started by an instruction",
+              ...(current.note ? { note: current.note } : {}),
+              folding: current.plan.slice(current.compactedUpTo ?? 0, fold),
+              kept: current.plan.length - fold,
+            },
+            { meter: folder },
+          );
+          current = spendRun(compactRun(setNote(current, note), fold), {
+            promptTokens: folder.promptTokens,
+            completionTokens: folder.completionTokens,
+            cachedPromptTokens: folder.cachedTokens,
+          });
+          this.passTokens += folder.promptTokens + folder.completionTokens;
+        } catch (err) {
+          this.opts.log?.(
+            `[gilbert] agent: run ${current.id} could not fold its transcript: ${errorMessage(err)}`,
+          );
+        }
+      }
       const prose = above;
       const startedMs = Date.now();
       const question = {
@@ -1736,6 +1774,8 @@ export class AgentLoop {
         prose,
         // The case's working memory: written by the model, carried whole (ADR 0034).
         ...(current.note ? { note: current.note } : {}),
+        // How much of the plan that note already summarises (ADR 0038).
+        ...(current.compactedUpTo ? { compactedUpTo: current.compactedUpTo } : {}),
         ...(facts ? { facts } : {}),
         memory: selection.facts,
         ...(openQuestions?.length ? { openQuestions } : {}),

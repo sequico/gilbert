@@ -502,20 +502,25 @@ cached prefix from there. A repeat is a line pointing at the step that answered,
 because the answer never leaves. The prompt grows by one step per turn, and one that
 outgrows the provider's window is refused with the window named rather than truncated.
 
-**Owed:** compaction. When the transcript passes a share of the window the build
-measures, the harness asks the model for a summary of everything older than the last
-few steps, writes it into the case's scratchpad, and replaces those steps with their
-one-line records — so the transcript is bounded again by a document rather than a
-prompt. Until it is built, a very long run ends `refused` at the window instead of
-compacting, which is honest and is what the fixture's provider did in the test.
-*Where*: `agent/prompt.ts` (the transcript, built), `agent/loop.ts` and
-`shared/run.ts` (compaction, owed), ADR 0038's context section.
+And compaction, which is what bounds it: once the steps above the mark carry more than
+`COMPACT_AFTER_CHARS` (48 KB), one call folds everything older than the last
+`COMPACT_KEEP_STEPS` (six) into the case's note, and those steps keep their place in
+the turn as a line each under `RunDoc.compactedUpTo`. The summary is a document, not a
+prompt: it is the same note the model already keeps, so there is no second bound to
+hold in step. Nothing leaves the record — a person reads every outcome of the run — and
+a summarising call that fails leaves the transcript as it was, its turn then refused at
+the window with the window named.
+*Where*: `agent/prompt.ts` (the transcript and the folded line), `shared/run.ts`
+(`COMPACT_AFTER_CHARS`, `COMPACT_KEEP_STEPS`, `compactAt`, `compactRun`,
+`compactedUpTo`), `agent/model.ts` (`summarisePlan`), `agent/loop.ts` (the fold before
+a turn is built), ADR 0038's context section.
 *Why*: 61-71 % of the prompt was served from cache while the window rewrote the tail;
 a run paid for the body of one message twelve times in the failing runs, and the
 window's answer was to re-render the past rather than to stop changing it.
 *Proof*: no step's text changes between two turns (a test asserts the turn grows by a
-prefix), the cached share rises per turn on a run (R9's eval), and a transcript that
-outgrows the window is compacted rather than refused once compaction lands.
+prefix); a transcript past the bound is folded, the note carries the summary and the
+turn keeps six answers (`loop.test.ts`); and the cached share rises per turn on a run
+(R9's eval).
 
 ### The numbers this plan moves
 

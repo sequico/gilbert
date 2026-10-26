@@ -53,6 +53,29 @@ test("every step's answer is carried as the record keeps it", () => {
   );
 });
 
+/**
+ * A step the note summarises keeps its place as one line: compaction bounds the turn
+ * with a document, and a folded step's text never changes again (ADR 0038).
+ */
+test("a step the note summarises is carried as one line, and its answer is not repeated", () => {
+  const plan = Array.from({ length: 4 }, (_, at) => ended(at));
+  const prompt = stepData({
+    woke: "mail created: m-1",
+    plan,
+    prose: {},
+    note: "BK-901 · folder MS2/BK-901 · three reads done",
+    compactedUpTo: 2,
+  } as StepQuestion);
+
+  assert.ok(!prompt.includes(plan[0]?.outcome ?? ""), "the folded answer is not carried");
+  assert.ok(prompt.includes("step 1: step-0 action"), "but the step has its place");
+  assert.match(prompt, /summarised in the note above/, "and says where its answer is");
+  assert.ok(
+    prompt.includes(plan[3]?.outcome ?? ""),
+    "the steps above the mark are carried whole",
+  );
+});
+
 test("a step's text does not change when the plan grows", () => {
   const plan = Array.from({ length: 4 }, (_, at) => ended(at));
   const ask = (steps: RunStep[]) =>

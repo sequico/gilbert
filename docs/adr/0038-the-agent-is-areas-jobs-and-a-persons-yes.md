@@ -36,14 +36,17 @@ read by entity and interval, the embeddings capability probed with the provider'
 others, the run recording `retrieval` beside `recalled`, and precision and recall
 measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
-**Not built:** everything in *Owed*, and: compaction of the transcript, the reader,
-and the case's scratchpad in the turn as ADR 0034 describes it (the note and its
-tool are built; the case the turn is handed is not). The run ceilings this record
-refuses are gone from the loop (`overBudget` and the run's step, call, time and
-token endings), the valve is `RUN_TURNS_MAX`, and the turn is the appended
-transcript above (`prompt.ts`): every outcome written once, at the size it arrived,
-and never rewritten. What is still owed is per-step cost, the limits in force and
-the case's place in the turn. The work is `docs/plans/agents-reloaded-again.md`.
+**Not built:** everything in *Owed*, and: the reader, and the case's scratchpad in
+the turn as ADR 0034 describes it (the note, its tool and compaction are built; the
+case the turn is handed is not). The run ceilings this record refuses are gone from
+the loop (`overBudget` and the run's step, call, time and token endings), the valve
+is `RUN_TURNS_MAX`, and the turn is the appended transcript above (`prompt.ts`):
+every outcome written once, at the size it arrived, and never rewritten — compacted,
+not re-rendered, past `COMPACT_AFTER_CHARS` by one call that folds the older steps
+into the case's note and a mark (`compactedUpTo`) under which they keep a line each
+(`shared/run.ts`, `agent/model.ts`'s `summarisePlan`). What is still owed is the
+case's place in the turn. The work is
+`docs/plans/agents-reloaded-again.md`.
 
 ## What this replaces, and what it keeps
 

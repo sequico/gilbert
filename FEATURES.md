@@ -429,7 +429,10 @@ keeps it — bounded when it was written and never clipped when it is read, so n
 step's text changes between two turns and the prefix a provider caches stays intact —
 beside the facts the memory recalled, the case's note as the model wrote it, the
 catalogue and the instruction. A call asked again is a line pointing at the step that
-answered, because the answer never leaves (`server/src/agent/prompt.ts`).
+answered, because the answer never leaves. A run long enough to fill the window is
+**compacted, not truncated**: one call folds everything older than the last six steps
+into the case's note, and those steps keep their place as a line each — the record
+still holds every outcome in full (`server/src/agent/prompt.ts`, `shared/run.ts`).
 
 ## The agent is measured on the tasks it has failed
 

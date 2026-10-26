@@ -83,6 +83,62 @@ export function setNote(run: RunDoc, text: string): RunDoc {
 }
 
 /**
+ * The most of a transcript a turn carries before it is compacted.
+ *
+ * A run's turns are its own transcript, appended and never rewritten (ADR 0038), so
+ * what bounds one is a summary of what came before rather than a shorter rendering of
+ * it: at this much carried text the harness asks the model to fold everything older
+ * than the last few steps into the case's note, and those steps become their one-line
+ * records. Forty-eight kilobytes is about twelve thousand tokens — a turn and its
+ * answer inside the smallest window this build meets — and it is a threshold, not a
+ * ceiling: a run is never ended for reaching it.
+ */
+export const COMPACT_AFTER_CHARS = 48 * 1024;
+
+/**
+ * How many of the newest steps a compaction leaves whole.
+ *
+ * What the next choice is made beside: the steps of the increment in hand. Everything
+ * older than these is what the note summarises.
+ */
+export const COMPACT_KEEP_STEPS = 6;
+
+/**
+ * Fold the steps up to a mark into the case's note, and stop carrying them whole.
+ *
+ * The transcript is compacted, never truncated: the model writes the summary into the
+ * note (`note` travels whole on every turn), and the steps it covers keep their place
+ * on the record with one line in the turn. The mark only ever moves forward, and it
+ * never covers a step the run has still to run.
+ */
+export function compactRun(run: RunDoc, upTo: number): RunDoc {
+  mustBeRunning(run);
+  if (!Number.isInteger(upTo) || upTo < 0 || upTo > run.plan.length)
+    throw new Error(`"${upTo}" is not a step of the run "${run.id}"`);
+  const mark = Math.max(upTo, run.compactedUpTo ?? 0);
+  if (mark === 0) return run;
+  return { ...run, compactedUpTo: mark };
+}
+
+/**
+ * The step a long transcript should be folded up to, or null when it is not long.
+ *
+ * Measured on what a turn actually carries — the steps above the mark, their call
+ * and their answer — so the threshold is about the prompt and not about how many
+ * steps a run happens to have taken. The last few steps are always left whole: they
+ * are what the next choice is made beside.
+ */
+export function compactAt(run: RunDoc): number | null {
+  const mark = run.compactedUpTo ?? 0;
+  const upTo = run.plan.length - COMPACT_KEEP_STEPS;
+  if (upTo <= mark) return null;
+  const carried = run.plan
+    .slice(mark, upTo)
+    .reduce((sum, step) => sum + step.what.length + step.outcome.length, 0);
+  return carried > COMPACT_AFTER_CHARS ? upTo : null;
+}
+
+/**
  * The versions before this one, which this build reads as well.
  *
  * `recalled` was added by version 5 (ADR 0033) and `retrieval` by this one
@@ -461,6 +517,16 @@ export interface RunDoc {
    * (ADR 0033), not a longer note.
    */
   note?: string;
+  /**
+   * How many of the plan's steps the case's note now summarises (ADR 0038).
+   *
+   * The transcript is appended and never rewritten, so what bounds a turn is
+   * compaction: every step below this mark is carried as its one-line record, and the
+   * summary of what it answered is in the note. The steps themselves stay on the
+   * record in full — a person reading the run reads every outcome, and the mark says
+   * only how much of the past the model is being handed.
+   */
+  compactedUpTo?: number;
   plan: RunStep[];
   /**
    * What the run touched, so a person can undo by hand what can be undone
@@ -933,6 +999,17 @@ export function parseRunDocumentDetailed(
     };
   if (whole.note !== undefined && typeof whole.note !== "string")
     return { problem: '"note" must be the text the case kept.' };
+  const compactedUpTo = whole.compactedUpTo;
+  if (
+    compactedUpTo !== undefined &&
+    (typeof compactedUpTo !== "number" ||
+      !Number.isInteger(compactedUpTo) ||
+      compactedUpTo < 0 ||
+      compactedUpTo > whole.plan.length)
+  )
+    return {
+      problem: '"compactedUpTo" must name a step the run has, and no more.',
+    };
   if (!isRunState(whole.state))
     return {
       problem:
@@ -959,6 +1036,7 @@ export function parseRunDocumentDetailed(
       startedBy: whole.startedBy,
       ...(whole.limits === undefined ? {} : { limits: whole.limits }),
       ...(whole.note === undefined ? {} : { note: whole.note }),
+      ...(compactedUpTo === undefined ? {} : { compactedUpTo }),
       plan: whole.plan,
       touched: whole.touched,
       waiting: whole.waiting,

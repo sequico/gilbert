@@ -21,6 +21,8 @@ import { test } from "node:test";
 import {
   answerOverdue,
   appendStep,
+  compactAt,
+  compactRun,
   finishRun,
   isRunDue,
   NOTE_MAX,
@@ -272,6 +274,44 @@ test("a case note is kept whole, cut at its bound, and cleared when empty", () =
 
   const bad = parseRunDocumentDetailed(JSON.stringify({ ...noted, note: 7 }));
   assert.ok("problem" in bad, "a note that is not text is refused");
+});
+
+test("a long transcript is folded up to a mark, and the mark only moves forward", () => {
+  /*
+   * The turn is a transcript (ADR 0038), so what bounds it is a summary: the steps
+   * above the mark are the ones carried whole, and the rest keep their place as one
+   * line each. The mark is a fact about the turn, never a claim about the record:
+   * every outcome stays on the run in full.
+   */
+  let run = startRun({ id: "r18", startedBy: START });
+  for (let at = 0; at < 18; at += 1) {
+    run = appendStep(run, `read ${at}`);
+    run = recordStep(run, run.plan.length - 1, {
+      state: "done",
+      outcome: "x".repeat(4 * 1024),
+    });
+  }
+  assert.equal(
+    compactAt(run),
+    12,
+    "eighteen steps of four kilobytes are folded up to the last six",
+  );
+
+  const folded = compactRun(run, 12);
+  assert.equal(folded.compactedUpTo, 12, "the mark is on the run");
+  assert.equal(folded.plan.length, 18, "and no step left the record");
+  assert.equal(compactRun(folded, 1).compactedUpTo, 12, "the mark never moves back");
+  assert.equal(compactAt(folded), null, "and what is left is short enough");
+
+  const stored = parseRunDocumentDetailed(JSON.stringify(folded));
+  assert.ok("run" in stored, "the document reads back");
+  assert.equal(stored.run.compactedUpTo, 12, "with its mark");
+  assert.ok(
+    "problem" in
+      parseRunDocumentDetailed(JSON.stringify({ ...folded, compactedUpTo: 19 })),
+    "a mark past the plan is refused",
+  );
+  assert.throws(() => compactRun(folded, 99), /is not a step of the run/);
 });
 
 test("a step may wait on an earlier step, and is left unrun when no branch names its outcome", () => {
