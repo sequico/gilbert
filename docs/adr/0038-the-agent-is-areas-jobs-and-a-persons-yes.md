@@ -38,9 +38,11 @@ measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
 **Not built:** everything in *Owed*, and the change of this record's ceilings: the
 run-level step, call and time ceilings are still endings (`loop.ts`'s
-`RUN_MS_MAX`, `RUN_CALLS_MAX`, `RUN_STEPS_MAX`, `limits.maxRunSteps`), and the turn
-is still the plan's tail without the case, the scratchpad or the reader. The work
-that carries the record as it now stands is `docs/plans/agents-reloaded-again.md`.
+`RUN_MS_MAX`, `RUN_CALLS_MAX`, `RUN_STEPS_MAX`, `limits.maxRunSteps`); the turn is
+still the plan's tail rendered as a **sliding window** (`prompt.ts` clips an older
+outcome to its beginning and re-carries whole the last three distinct answers), not
+the appended transcript above, with no compaction and no reader. The work that carries
+the record as it now stands is `docs/plans/agents-reloaded-again.md`.
 
 ## What this replaces, and what it keeps
 
@@ -171,17 +173,20 @@ stays available and is used **when the model judges the work needs it**.
 
 ### The turn's context is selected, not accumulated
 
-The run document holds everything; the turn is handed **the case**: the change and
-the object it names, the thread's lines when it answers one, the titles of the
-knowledge pages (never their text), the customer's folder skeleton, the facts the
-memory recalled, the case's own scratchpad, and the plan's tail — the last few
-**distinct answers** in full, everything earlier as one line each, and a call asked
-again answered at the step that answered it rather than repeated. The thresholds
-fix that tail; no model call writes the summary. When the case is bigger than a
-turn — a long thread, a folder of documents — a **reader** answers one question
-about it in a few lines and the working turn sees the lines: it reads, it never
-acts. The document is complete, the prompt is bounded, and the model is not sent to
-fetch what the harness already has.
+The run document holds everything; the turn is the system, **the case**, and the
+run's own history **appended** — each outcome written once, at the size it arrived,
+and never rewritten, so the prefix a provider caches stays intact while the transcript
+grows. When the transcript passes a share of the window the build measures, the harness
+asks the model for a summary of everything older than the last few steps, writes it
+into the case's scratchpad (ADR 0034), and replaces those steps with their one-line
+records: **compaction, not a sliding window that rewrites the past**. The case is the
+change and the object it names, the thread's lines when it answers one, the titles of
+the knowledge pages (never their text), the case's place, the last report it sent, the
+facts the memory recalled, and its scratchpad. When the case is bigger than a turn — a
+long thread, a folder of documents — a **reader** answers one question about it in a
+few lines and the working turn sees the lines: it reads, it never acts. The document is
+complete, the prompt is bounded, the stable prefix stays stable, and the model is not
+sent to fetch what the harness already has.
 
 The **stable prefix** (installation line, catalogue, instruction) is sent first and
 unchanged, so a caching provider pays for it once per run; the facts and the plan's
