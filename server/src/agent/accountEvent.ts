@@ -20,8 +20,9 @@
  * **event** surfaces are answered as five, and the three of them that live in
  * Files are told apart by the folder a node sits in. `eventSourceOf` is the one
  * place that decides, and it reads the folder's own name rather than a second
- * spelling of the path. A surface matrix also names **calendar**, whose change
- * log is not read yet: no event carries it (ADR 0038).
+ * spelling of the path. The sixth, **calendar**, is not a node: its events are
+ * read from their own change log (`events.ts`, `CalendarEvent/changes`), which
+ * is why a calendar event is named by its id and carries no path.
  */
 
 import { APP_FOLDER_NAME } from "../shared/appFolder.js";

@@ -6,7 +6,7 @@
  * an event like any other, and among mail changes only an **arrival** is one — and
  * a change is reported **once**, because the
  * cursor is the server's own state token and the next read resumes after it. The
- * second is the whole reason the cursor exists: a rule that fired twice on one
+ * second is the whole reason the cursor exists: an agent that fired twice on one
  * arrival would answer one message twice. The third is what a removal is: a
  * destroyed node cannot be read again, so the surface it happened on is the one
  * its former path was read at, and a log bigger than one page is drained rather
@@ -187,7 +187,7 @@ test("a create and the update that writes its bytes are one event", async () => 
   const anchor = await anchorEvents(ctx, accountId);
   // A node written twice in one batch: the write path makes it, then a second
   // write goes through the update path (`setFileNode`, `appFolder.ts`), and the
-  // change log carries `created` and `updated` for one address. A rule watching
+  // change log carries `created` and `updated` for one address. An agent watching
   // that surface must hear about one document once.
   await writeAppFileAt(ctx, accountId, "workorders/wo-fused.json", {
     v: 1,
@@ -531,7 +531,7 @@ test("a removal is reported on the surface its former path was read at", async (
   );
 });
 
-test("a removal whose path this process never read never wakes a rule", async () => {
+test("a removal whose path this process never read never wakes a run", async () => {
   const anchor = await anchorEvents(ctx, accountId);
   await writeAppFileAt(ctx, accountId, "workorders/wo-3.json", { v: 1, uid: "wo-3" });
   const written = await readAppFileAt(ctx, accountId, "workorders/wo-3.json");

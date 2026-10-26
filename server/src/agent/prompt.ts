@@ -29,12 +29,12 @@ export const READ_IN_PROMPT_MAX = 16 * 1024;
 export const REPORT_IN_PROMPT_MAX = 600;
 
 /**
- * The volatile tail of one call: the change, the candidate rules, and what has
- * been read so far.
+ * The volatile tail of one call: the change, the shape the account holds for the
+ * case, and what has been read so far.
  *
  * Every one of the three is **data**, and each is fenced as such: the change is
- * what happened in the group's own account, a rule's instruction is prose a group
- * wrote, and a reading is whatever the group's own state answered with — none of
+ * what happened in the group's own account, the group's instruction is prose its
+ * members wrote, and a reading is whatever the group's own state answered with — none of
  * them is a directive to the agent, and the standing sentence above the prompt
  * says so. The fence carries a token drawn per call, because a block that ended
  * with a fixed marker could be ended by the text inside it, and a message or a

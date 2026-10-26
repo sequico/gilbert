@@ -9,9 +9,9 @@
  * an installation with no model is refused in the same coded shape, an answer
  * that is not the demanded shape is refused rather than guessed at, an answer can
  * carry no authority and can name no tool that writes, and the prose a turn
- * carries is the record's three levels in the record's order. Every block of
- * somebody else's text in the prompt — the change, a candidate rule's
- * instruction, a reading, the facts the installation's memory recalled — is
+ * carries is the record's two levels in the record's order. Every block of
+ * somebody else's text in the prompt — the change, the group's instruction, a
+ * reading, the facts the installation's memory recalled — is
  * fenced as data, under a token drawn per call.
  *
  * The four ways a call or a turn can fail without an answer are pinned too: a

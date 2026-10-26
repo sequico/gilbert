@@ -61,7 +61,7 @@
  * log. What is said is said **when it changes** — a pass that failed and its
  * reason, an installation whose Master works no group and the one that picks a
  * group up again, a claim a peer holds and this process taking it back, and a
- * gap a pass reported (a rule sheet this build cannot read, a change log that
+ * gap a pass reported (an instruction this build cannot read, a change log that
  * skipped) — and never once per ten seconds. The line a person reads is one
  * they can act on.
  *

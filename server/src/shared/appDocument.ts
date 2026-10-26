@@ -18,7 +18,7 @@
  * shown in (`policyDocumentText`, `server/src/adminPolicy.ts`). An app-folder
  * document is not private to the code that wrote it: it lies in the account's
  * own Files, where another client and an administrator looking into an account
- * can read it, and it is what a rule that misbehaved is understood from. The
+ * can read it, and it is what a run that misbehaved is understood from. The
  * folder is hidden from Gilbert's Files view, not from the account. Indentation
  * costs a few hundred bytes on documents that are written whole and read by
  * people, and it buys one fixed shape instead of whichever `JSON.stringify`

@@ -83,7 +83,7 @@ export function isTrashFolder(node: TrashFolderNodeLike): boolean {
  *
  * Visible paths are `/`-joined from the top level of Files (`pathSegments` in
  * `appFolder.ts`), so the Trash is the **first** segment. The reader that
- * decides which changes may wake a rule asks this: what a person deleted is no
+ * decides which changes may wake a run asks this: what a person deleted is no
  * longer the group's work, and the move into the Trash is what a delete is.
  */
 export function isTrashPath(path: string): boolean {

@@ -1,17 +1,17 @@
 /**
- * The surfaces of a group's own account, and what a rule may do on each
+ * The surfaces of a group's own account, and what a run may do on each
  * (ADR 0038).
  *
- * One definition for both tiers: the rule's parser and guard read it, the run
- * document carries it, and the Administration editor draws it. A mode is not an
+ * One definition for both tiers: the instruction's parser and the guard read it,
+ * the run document carries it, and the Administration editor draws it. A mode is not an
  * authority class (ADR 0028): it says **where** a run may act, never that a
  * destructive act needs no person's word.
  *
  * - `off`: no wake, no write. Reading stays free — a reading is proof, not an
  *   act.
- * - `watch`: the surface wakes the rule, and the rule may write it inside the
- *   run that wake opened.
- * - `ondemand`: the surface never wakes the rule; an open run may write it.
+ * - `watch`: the surface wakes a run, and the run may write it inside the
+ *   turn that wake opened.
+ * - `ondemand`: the surface never wakes a run; an open run may write it.
  *
  * Chat is always `watch`: the conversation is where the group calls the agent
  * and where its report is written.
@@ -19,7 +19,7 @@
 
 export type SurfaceMode = "off" | "watch" | "ondemand";
 
-/** Every surface a rule's matrix names, in the order the editor draws them. */
+/** Every surface the matrix names, in the order the editor draws them. */
 export type SurfaceName =
   | "chat"
   | "mail"

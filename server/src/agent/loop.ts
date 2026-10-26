@@ -915,8 +915,8 @@ export class AgentLoop {
           let records: RunRecord[] | null = null;
           /*
            * One account that cannot be read is not the installation failing: a
-           * single rule sheet this build cannot parse is a group to leave alone for
-           * this pass, not a reason to stop working every other group — and the
+           * single instruction this build cannot parse is a group to leave alone
+           * for this pass, not a reason to stop working every other group — and the
            * pass that throws here would throw again on the next beat, for ever. The
            * reason goes into the pass's gaps, which the supervisor reports.
            */

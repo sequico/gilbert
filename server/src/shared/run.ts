@@ -810,13 +810,15 @@ function isStart(x: unknown): x is RunStart {
     return false;
   if ("about" in x && typeof (x as { about?: unknown }).about !== "string") return false;
   if ("by" in x && typeof (x as { by?: unknown }).by !== "string") return false;
-  // A run is started by one thing: a rule (the shape before ADR 0038), the
-  // sentence a person wrote, or the group's standing instruction — which names
-  // neither and is named by the change it answered.
+  // A run is started by one thing: a rule document an older run carries and is
+  // still read as it was written, the sentence a person wrote, or the group's
+  // standing instruction — which names neither and is named by the change it
+  // answered.
   const named = [rule !== null, instruction !== null].filter(Boolean).length;
   if (named > 1) return false;
-  // A rule or the standing instruction is woken by a change in the group's
-  // account; a person's own sentence **is** the change, so it names none beside it.
+  // A rule document or the standing instruction is woken by a change in the
+  // group's account; a person's own sentence **is** the change, so it names none
+  // beside it.
   if (instruction !== null) return woke === null;
   return woke !== null;
 }
@@ -1146,8 +1148,8 @@ function requireInstant(where: string, value: string): void {
  * Start a run: its identity, what started it, and the plan's first steps.
  *
  * The plan arrives as what each step is, in order — the steps the model chose,
- * or the ones a rule declared — and every one of them starts `open`. A caller
- * with no plan yet starts with none.
+ * or the ones the instruction declared — and every one of them starts `open`. A
+ * caller with no plan yet starts with none.
  */
 export function startRun(input: {
   id: string;
@@ -1357,7 +1359,7 @@ export function recordEvidence(run: RunDoc, evidence: RunEvidence): RunDoc {
  * The one place the tally moves: the caller says which of the three counters a
  * turn touched — the step it took, the model call it made, the milliseconds it
  * cost — and the run carries the sum. What the sum is measured against is the
- * ceiling the run declares, not the rule's (ADR 0030, 0038).
+ * ceiling the run declares, not the instruction's (ADR 0030, 0038).
  */
 export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
   mustBeRunning(run);

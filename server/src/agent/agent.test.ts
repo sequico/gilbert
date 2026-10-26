@@ -19,9 +19,9 @@
  * the demo seeds the agent into two of them, so the pass works real accounts and
  * leaves the claim behind it.
  *
- * No model call is made: the demo ships no rules, so no pass reaches a provider
- * and none is stubbed. What a pass does with a rule and a model is `loop.test.ts`,
- * and the agent's own conditions are `supervisor.test.ts`.
+ * No model call is made: the demo ships no instruction, so no pass reaches a
+ * provider and none is stubbed. What a pass does with an instruction and a model
+ * is `loop.test.ts`, and the agent's own conditions are `supervisor.test.ts`.
  */
 
 import assert from "node:assert/strict";

@@ -2,8 +2,8 @@
  * A group's standing instruction, against the mock Stalwart (ADR 0038).
  *
  * What is pinned here is the one mechanism the design rests on: the document a
- * group wrote is read from its own account and carried as the middle of the
- * three levels, and a document this build cannot read is refused with its path
+ * group wrote is read from its own account and carried as the second of the two
+ * levels, and a document this build cannot read is refused with its path
  * rather than read as an instruction that says nothing.
  */
 

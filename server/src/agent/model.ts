@@ -1703,12 +1703,14 @@ export interface JudgeQuestion {
 /**
  * Ask whether a report stands on what the run did (ADR 0038, the judge).
  *
- * Fires only on a **suspect plan** — the loop decides which, and it is the case
- * the mechanical check cannot see: a step was refused and a later step
- * succeeded, so the plan "has a finished step" while the claim may rest on the
- * refusal. The judge is one structured call over the ask and the record; its
- * answer is a step on the run, so the second `done` is accepted with the
- * judgement beside it.
+ * Two things send a report here. The loop decides the first: a **suspect plan** —
+ * a step was refused and a later step succeeded, so the plan "has a finished
+ * step" while the claim may rest on the refusal — is the case the mechanical
+ * check cannot see. The second is the group's own declaration: a group that
+ * stated the shape its report takes has **every** report judged, because that is
+ * the shape the judge is asked to hold it to. The judge is one structured call
+ * over the ask and the record; its answer is a step on the run, so the report it
+ * accepted is read with the judgement beside it.
  */
 export async function judgeRun(
   access: ModelAccess,
@@ -2335,11 +2337,11 @@ export function surfaceLines(surfaces?: SurfaceMatrix): string[] {
 /**
  * One argument as a phrase: its name, its kind, and the bound it is held to.
  *
- * The catalogue line both turns read. It exists because the schema alone is not
- * what a model follows: a live run was sent `maxLength: 400` and answered with a
- * `fact` five times longer, and one invented name refused a whole five-call plan.
- * The same `ArgSpec` writes this line and the provider's schema, so the two
- * cannot say different things.
+ * The line a reading turn reads (`toolLine`). It exists because the schema alone
+ * is not what a model follows: a live run was sent `maxLength: 400` and answered
+ * with a `fact` five times longer, and one invented name refused a whole
+ * five-call plan. The same `ArgSpec` writes this line and the provider's schema,
+ * so the two cannot say different things.
  */
 function argPhrase(key: string, spec: ArgSpec): string {
   const bound =
@@ -2461,17 +2463,11 @@ export async function chooseStep(
   const heads = proseForModel(question.prose);
   const tools = catalogueTools(catalogue);
   /*
-   * The catalogue reaches the turn **twice, and on purpose**: as the provider's
-   * own `tools`, and as one line per tool stating its name, its arguments and the
-   * bound each is held to.
-   *
-   * It used to travel once — the definitions only — to save the repetition on
-   * every step of every run. A live installation paid for that saving: the turn
-   * answered from memory, invented `mail.search` and `mail.threads`, put a
-   * mailbox id where a message id goes, and one invented name refused the whole
-   * plan (260 refused steps over 94 runs, 55%). The lines are the **signature**
-   * only — no description, which the definitions already carry — so what is
-   * duplicated is what the model demonstrably does not read from the schema.
+   * The catalogue travels once, as the provider's own `tools` (ADR 0038): the
+   * names, the descriptions and the bounds are the catalogue's own, and the
+   * system turn carries no second list of the same lines. The definitions are
+   * what the provider checks a call against; the one example of a run's shape
+   * below is what a model that invents names is given instead.
    */
   const system = [
     DATA_NOT_INSTRUCTIONS,
