@@ -631,9 +631,22 @@ export function registerAgentRoutes(api: Hono<Env>): void {
               rows.filter((one) => one.state === "running" || one.state === "blocked")
             : rows;
       const cursor = (one: RunSummary): string => `${runRecency(one)}|${one.id}`;
-      const at = after ? filtered.findIndex((one) => cursor(one) === after) : -1;
-      const start = at >= 0 ? at + 1 : 0;
-      const page = filtered.slice(start, start + limit);
+      /*
+       * The rows the cursor has not answered yet, by the list's own order: newer
+       * first, the id breaking a tie. A cursor names a row, not a place, so a row
+       * that ended or left the page does not rewind the reader to the top.
+       */
+      const afterAt = after.indexOf("|");
+      const when = afterAt < 0 ? "" : after.slice(0, afterAt);
+      const id = afterAt < 0 ? "" : after.slice(afterAt + 1);
+      const rest =
+        afterAt < 0
+          ? filtered
+          : filtered.filter((one) => {
+              const recency = runRecency(one);
+              return recency < when || (recency === when && one.id > id);
+            });
+      const page = rest.slice(0, limit);
       /*
        * The history list is a header per run; the plan travels only to the
        * surface that watches a run, where a step turning from open to done is
@@ -647,7 +660,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       return c.json({
         group: name,
         runs,
-        more: start + page.length < filtered.length,
+        more: page.length < rest.length,
         /** The last row drawn: the next page asks after it. */
         after: page.length ? cursor(page[page.length - 1] as RunSummary) : null,
       });
