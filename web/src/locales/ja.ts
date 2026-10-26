@@ -2428,6 +2428,7 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "他の領域が選択されていないため、エージェントは会話とメモリだけを扱います。",
     "What wakes the agent": "エージェントを起動するもの",
+    "AI Agents can always write knowledge": "AI エージェントは常にナレッジに書き込めます",
     "AI Agents can always write memory": "AI エージェントは常にメモリに書き込めます",
     "AI Agents can always write on their chat":
       "AI エージェントは常に自分のチャットに書き込めます",

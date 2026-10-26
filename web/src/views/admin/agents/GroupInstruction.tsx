@@ -6,14 +6,20 @@
  * areas are the whole of what a run may write, and every area may be declared;
  * the wake row is the whole of what opens a run, and chat is always on.
  *
- * The conversation and memory are **always on** as areas and are drawn checked
- * and disabled: every run has them (transversal areas), so a group does not
- * choose them. The wake row draws **the same areas in the same order**, one
+ * The conversation, knowledge and memory are **always on** as areas and are drawn
+ * checked and disabled: every run has them (transversal areas, the one definition
+ * both tiers read), so a group does not choose them. The wake row draws **the same
+ * areas in the same order**, one
  * surface each: chat checked and dimmed (the conversation is where the group
  * calls the agent), and memory and contacts unchecked and dimmed, because no
  * change on either is a surface that can wake a run.
  */
-import { AREA_NAMES, type AreaName, surfaceOfArea } from "@gilbert/shared/areas";
+import {
+  AREA_NAMES,
+  type AreaName,
+  surfaceOfArea,
+  TRANSVERSAL_AREAS,
+} from "@gilbert/shared/areas";
 import { errorMessage } from "@gilbert/shared/errors";
 import type { SurfaceMatrix, SurfaceName } from "@gilbert/shared/surfaces";
 import { useCallback, useEffect, useState } from "react";
@@ -37,12 +43,9 @@ const AREA_LABEL: Record<AreaName, string> = {
   memory: "Memory",
 };
 
-/** The areas every run has, drawn checked and disabled: they are not a choice. */
-const ALWAYS_ON: readonly AreaName[] = ["memory", "chat"];
-
 /** The areas as the panel edits them: the always-on ones are included. */
 function withAlwaysOn(areas: readonly AreaName[]): AreaName[] {
-  const next = new Set<AreaName>([...areas, ...ALWAYS_ON]);
+  const next = new Set<AreaName>([...areas, ...TRANSVERSAL_AREAS]);
   return [...next];
 }
 
@@ -114,7 +117,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
   };
 
   const toggle = (area: AreaName) => {
-    if (ALWAYS_ON.includes(area)) return;
+    if (TRANSVERSAL_AREAS.includes(area)) return;
     setSaved(false);
     setAreas((held) =>
       held.includes(area) ? held.filter((one) => one !== area) : [...held, area],
@@ -135,8 +138,11 @@ export function GroupInstructionPanel({ group }: { group: string }) {
    * The always-on areas are drawn after the ones a group chooses, the
    * conversation last, and a group may declare every other area it works.
    */
-  const chosen = areas.filter((one) => !ALWAYS_ON.includes(one));
-  const listed = [...AREA_NAMES.filter((one) => !ALWAYS_ON.includes(one)), ...ALWAYS_ON];
+  const chosen = areas.filter((one) => !TRANSVERSAL_AREAS.includes(one));
+  const listed = [
+    ...AREA_NAMES.filter((one) => !TRANSVERSAL_AREAS.includes(one)),
+    ...TRANSVERSAL_AREAS,
+  ];
 
   return (
     <div>
@@ -192,13 +198,15 @@ export function GroupInstructionPanel({ group }: { group: string }) {
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               {listed.map((area) => {
-                const always = ALWAYS_ON.includes(area);
+                const always = TRANSVERSAL_AREAS.includes(area);
                 const why =
                   area === "memory"
                     ? t("AI Agents can always write memory")
                     : area === "chat"
                       ? t("AI Agents can always write on their chat")
-                      : undefined;
+                      : area === "knowledge"
+                        ? t("AI Agents can always write knowledge")
+                        : undefined;
                 return (
                   <label
                     key={area}

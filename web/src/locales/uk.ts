@@ -2421,6 +2421,7 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "Інших ділянок не позначено: агент працює лише з листуванням і пам’яттю.",
     "What wakes the agent": "Що будить агента",
+    "AI Agents can always write knowledge": "ШІ-агенти завжди можуть записувати знання",
     "AI Agents can always write memory": "ШІ-агенти завжди можуть писати в пам'ять",
     "AI Agents can always write on their chat":
       "ШІ-агенти завжди можуть писати у свій чат",

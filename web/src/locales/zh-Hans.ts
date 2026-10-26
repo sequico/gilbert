@@ -2349,6 +2349,7 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "未勾选其他范围：代理只处理会话和记忆。",
     "What wakes the agent": "唤醒代理的时机",
+    "AI Agents can always write knowledge": "AI 代理始终可以写入知识",
     "AI Agents can always write memory": "AI 代理始终可以写入记忆",
     "AI Agents can always write on their chat": "AI 代理始终可以在自己的聊天中写入",
     "AI Agents are always awaken by chat messages": "AI 代理始终会被聊天消息唤醒",
