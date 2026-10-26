@@ -202,6 +202,9 @@ have open on the desk — names and text, never a verdict:
   one lookup, and the note (R3) keeps the rule it read;
 - the skeleton of **the case's place** — the folder the instruction sends the work
   to, two levels, names only, and absent when nothing is there yet;
+- **the last report this case already sent**, one line: an instruction that says
+  "never restate what an earlier report said" cannot be obeyed by an agent that was
+  not shown the sentence it must not repeat;
 - the facts the memory recalled (already carried).
 
 Every part is bounded and says when it was cut, like every other block of the
@@ -507,7 +510,6 @@ a run arrives repeats no row and skips none.
 
 | step | what | how it is judged (a measurement, not a gate) |
 |---|---|---|
-| 0 | rotate the agent's credential and remove its copies from `/tmp` (owner's call) | nothing of the agent's is left outside `/etc/gilbert` |
 | 1 | **R12 — the run log shows the newest** | with sixty runs in a fixture, page 0 holds the ten newest |
 | 2 | **R9 — the three failures as eval tasks** | `pass@1` of today's tree is recorded, and the three tasks fail |
 | 3 | R5 — no run ceilings | the 13:35 task reaches its act; its duration is recorded, not enforced |
@@ -537,9 +539,9 @@ the turn cheap, 8 is polish.
 - **What the model writes as output**: 2 044 tokens a call on a slow call suggests
   reasoning that the harness never sees. The provider bills it; R8 should record
   it.
-- **The installation is switched off**: `agent/switch.json` = `{"enabled":false}`,
-  written at **13:43:26Z** — three minutes after the third run ended. No further
-  evidence comes from production until the owner turns it back on.
+- **The agent is on again**, and the next production runs are the evidence: the plan
+  is not built, so they run on the window fix alone — which is exactly the question
+  above.
 
 ## 8. What this plan does not change
 
