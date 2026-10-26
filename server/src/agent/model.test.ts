@@ -945,7 +945,7 @@ test("a call the catalogue does not hold is refused alone, and the rest of the p
    * A live installation lost four good calls to one invented name, and the model
    * came back with the same name because nothing had told it what the catalogue
    * holds. So the refusal is **per call**: the plan keeps the calls that pass, and
-   * the one that failed is returned beside them with the nearest real name.
+   * the one that failed is returned beside them with the names this run may call.
    */
   answerWith({
     calls: [
@@ -1034,12 +1034,11 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
 
   const system = SYSTEM(0);
   /*
-   * The catalogue reaches the turn **once**: as the provider's own `tools`. A list of
-   * signature lines travelled beside it while a turn handed only the definitions had
-   * invented names it was never given; with four verbs the value a call names is the
-   * schema's own `enum`, so the second list was only a thing to drift from the first
-   * (R4). What this test holds is that the definition the provider sees is the
-   * catalogue's own words, and that the guard's rule is still said in prose.
+   * The catalogue reaches the turn **once**: as the provider's own `tools`. With
+   * four verbs the value a call names is the schema's own `enum`, so a second
+   * list of signature lines is only a thing to drift from the first (R4). What
+   * this test holds is that the definition the provider sees is the catalogue's
+   * own words, and that the guard's rule is still said in prose.
    */
   const first = seen[0] as { body?: { tools?: unknown } } | undefined;
   const carried = first?.body?.tools;

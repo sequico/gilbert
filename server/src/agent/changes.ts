@@ -104,9 +104,9 @@ const CHANGES_PER_PASS = 20;
 
 /**
  * One account's changes for one pass, on the cursor the process already holds
- * or anchored where it stands now. The reading is the same one `workChanges`
- * used to make for itself; the pass makes it first so the FileNode state it
- * ends at is the state the run listing is judged against.
+ * or anchored where it stands now. The pass makes this reading before it lists
+ * the runs, so the FileNode state it ends at is the state the run listing is
+ * judged against.
  */
 export async function readChangesForPass(
   ctx: Ctx,

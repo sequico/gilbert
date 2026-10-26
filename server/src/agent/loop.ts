@@ -379,9 +379,10 @@ export interface AgentLoopOptions {
    * Where the loop says what it is doing, one line as it starts an account and a
    * run.
    *
-   * A pass is not an event and used to write nothing: a pass that hung in a model
-   * call or a folder read was indistinguishable from an agent that had stopped,
-   * because the only line there was came **after** the pass returned. Progress
+   * A pass is not an event and writes no line of its own: without a line as it
+   * starts, a pass that hung in a model call or a folder read is indistinguishable
+   * from an agent that had stopped, because the only line there is comes **after**
+   * the pass returns. Progress
    * recorded as it happens is what a stall is read from — the last line names the
    * account and run that never finished — and it needs no watchdog: a missing end
    * line is the fact.
@@ -788,12 +789,11 @@ export class AgentLoop {
            * that arrived while it was down, and the hour's rule still applies to
            * a position that is genuinely old.
            *
-           * It is a document of its own on purpose. This branch used to delete
-           * the shared working cursor and write its own fresh anchor into it, so
-           * an installation switched off for an hour lost the window the on path
-           * exists to keep — and the loss was written down. Two readers with two
-           * freshness rules need two positions, and neither may destroy the
-           * other's.
+           * It is a document of its own on purpose: the off path must not write
+           * into the working cursor, or an installation switched off for an hour
+           * loses the window the on path exists to keep — and the loss is written
+           * down. Two readers with two freshness rules need two positions, and
+           * neither may destroy the other's.
            */
           const unreadable = await this.restoreNotice(accountId);
           if (unreadable) problems.push(unreadable);
@@ -922,7 +922,7 @@ export class AgentLoop {
            */
           /*
            * The account's changes are read first: the FileNode state they end at
-           * is the state the run listing is judged against, so the pass no longer
+           * is the state the run listing is judged against, so the pass never
            * asks the account for that state separately. A read that fails is said
            * and the due runs are still worked from the state `workDue` reads for
            * itself — the handed alarm is not lost with the reading.
@@ -1168,7 +1168,7 @@ export class AgentLoop {
       /*
        * One run that fails is **that run's** failure. The pass goes on with the
        * others and, above all, with the account's own bookkeeping — the cursor,
-       * the archive, the debts of every other run. A throw here used to leave the
+       * the archive, the debts of every other run. A throw here would leave the
        * whole account unworked for that pass and for every pass after it, which
        * is a defect in one run turning into an installation that stopped.
        */

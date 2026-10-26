@@ -33,7 +33,7 @@
  *   an argument of another route is refused before the step is paid for.
  * - **A refusal names what it accepts**: the values of the discriminator, or the
  *   argument it could not read; and a name the catalogue does not hold is
- *   answered with the nearest real one (`nearestTool` in `model.ts`).
+ *   answered with the names it does hold (`refusedByCatalogue` in `model.ts`).
  * - A tool answers a distillation, never the payload: what happened, and the id
  *   to use next.
  */

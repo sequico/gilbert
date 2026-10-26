@@ -1,20 +1,22 @@
 /**
  * The agent's tools, read from the group's own account (ADR 0038).
  *
- * A tool is a **task over one object Stalwart offers**, not a step of the
- * protocol: one that finds messages by the mail client's own search grammar,
- * one that reads a message, a KB page, a workorder, a node or a run, and one
- * that lists a mailbox's folders or a folder of Files. Two tools that do one
- * thing are a defect — they make the choice a lottery — and a tool that answers
- * with more context than the caller needs is one too.
+ * A tool is one of **four verbs** over the endpoints Stalwart offers (ADR 0038):
+ * `open` reads what the account holds, `act` changes it, `say` speaks in the
+ * group's conversation, `note` keeps the case's scratchpad. Each value a verb
+ * accepts names its endpoint (`tools/jobs.ts`), so the catalogue the model reads
+ * is four lines rather than one per endpoint. Two tools that do one thing are a
+ * defect — they make the choice a lottery — and a tool that answers with more
+ * context than the caller needs is one too.
  *
- * **What defines a tool** is six things beside its executor: its **name**, its
- * **description** (the product's interface to the model, written as prose a
- * person's agent should reach for), its **arguments** (validated before the
- * executor runs, never inside it), the **authority class it exercises** (ADR
- * 0028), the **act** that class is about when the class asks a person, and what
- * it **spends** of the run's tally (ADR 0038) — which the loop applies with
- * `spendRun`, and which for a read is nothing.
+ * **What defines a tool** is its **name**, its **description** (the product's
+ * interface to the model, written as prose a person's agent should reach for),
+ * its **routes** — one per value of its discriminator, each naming the endpoint,
+ * the **authority class** it exercises (ADR 0028), the **act** that class is
+ * about when it asks a person, and what it **spends** of the run's tally (ADR
+ * 0038), which the loop applies with `spendRun` and which for a read is nothing
+ * — and the **argument schemas** validated before the executor runs, never
+ * inside it.
  *
  * **The reading half cannot change anything.** Reading before acting is what
  * makes these the tools a run opens with, and every one of them declares
@@ -32,12 +34,13 @@
  * whole installation, which is what makes what one group learned worth knowing
  * in the next.
  *
- * What a tool is, and the arguments it reads, are defined once beside this file
- * under `tools/`, and each surface defines its own there: mail, chat, files,
- * workorders, knowledge, calendars, runs and the installation's memory. This module is the
- * catalogue's entry point: it composes `TOOLS` in the order the model reads, and
- * holds the two doors a call is made through. It re-exports the names callers
- * already import rather than a second spelling of any of them.
+ * The four verbs are defined once, in `tools/jobs.ts`, and each value routes to
+ * the endpoint's own executor under `tools/` — mail, chat, files, workorders,
+ * knowledge, calendars, contacts, runs and the installation's memory — so the
+ * validation, the authority and the answer stay the endpoint's. This module is
+ * the catalogue's entry point: it composes `TOOLS`, and holds the two doors a
+ * call is made through. It re-exports the names callers already import rather
+ * than a second spelling of any of them.
  */
 
 import { errorMessage } from "../shared/errors.js";
