@@ -95,7 +95,6 @@ import {
 } from "../shared/agentMetrics.js";
 import { errorMessage, isStateMismatch } from "../shared/errors.js";
 import {
-  CHAT_ONLY,
   INSTRUCTION_FILE,
   INSTRUCTION_VERSION,
   parseInstructionDocumentDetailed,
@@ -110,6 +109,7 @@ import {
   type RunSummary,
   summarizeRun,
 } from "../shared/run.js";
+import { CHAT_ONLY } from "../shared/surfaces.js";
 import {
   type Env,
   failureFor,

@@ -14,7 +14,7 @@
 import { type AreaName, declaredAreas } from "./areas.js";
 import { errorDetail } from "./errors.js";
 import { isRecord } from "./json.js";
-import { isSurfaceMatrix, SURFACES, type SurfaceMatrix } from "./surfaces.js";
+import { CHAT_ONLY, isSurfaceMatrix, SURFACES, type SurfaceMatrix } from "./surfaces.js";
 
 /** Where a group's standing instruction lives: the one path constant. */
 export const INSTRUCTION_FILE = "instruction.json";
@@ -46,21 +46,6 @@ export interface InstructionDoc {
    */
   report?: string;
 }
-
-/**
- * The matrix of an instruction that names none: the conversation, and nothing
- * else. A group that writes an instruction and declares no area has told the
- * agent about the chat and about nothing more, and the matrix says exactly that
- * rather than handing it every surface the account has.
- */
-export const CHAT_ONLY: SurfaceMatrix = {
-  chat: "watch",
-  mail: "off",
-  files: "off",
-  knowledge: "off",
-  workorder: "off",
-  calendar: "off",
-};
 
 /**
  * Parse one stored instruction.

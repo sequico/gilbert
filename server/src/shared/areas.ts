@@ -17,7 +17,7 @@
  * is the server's (`agent/areas.ts`) — a client has no catalogue to select.
  */
 
-import { SURFACES, type SurfaceMatrix, type SurfaceName } from "./surfaces.js";
+import { CHAT_ONLY, SURFACES, type SurfaceMatrix, type SurfaceName } from "./surfaces.js";
 
 /** The areas the agent works in. */
 export const AREA_NAMES = [
@@ -56,14 +56,7 @@ export const TRANSVERSAL_AREAS: readonly AreaName[] = ["chat", "memory"];
  * authority guard instead.
  */
 export function writeSurfacesOf(areas: readonly AreaName[]): SurfaceMatrix {
-  const matrix: SurfaceMatrix = {
-    chat: "watch",
-    mail: "off",
-    files: "off",
-    knowledge: "off",
-    workorder: "off",
-    calendar: "off",
-  };
+  const matrix: SurfaceMatrix = { ...CHAT_ONLY };
   for (const surface of SURFACES) {
     const area = areaOfSource(surface);
     if (area && areas.includes(area)) matrix[surface] = "watch";

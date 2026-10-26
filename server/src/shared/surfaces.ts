@@ -38,6 +38,21 @@ export const SURFACES: readonly SurfaceName[] = [
   "calendar",
 ];
 
+/**
+ * The matrix of a group that declares nothing to work on: the conversation, and
+ * nothing else. A group that writes an instruction and ticks no area has told the
+ * agent about the chat and about nothing more, and the matrix says exactly that
+ * rather than handing it every surface the account has.
+ */
+export const CHAT_ONLY: SurfaceMatrix = {
+  chat: "watch",
+  mail: "off",
+  files: "off",
+  knowledge: "off",
+  workorder: "off",
+  calendar: "off",
+};
+
 /** One rule's matrix: what wakes it and what it may touch. */
 export interface SurfaceMatrix {
   chat: "watch";
