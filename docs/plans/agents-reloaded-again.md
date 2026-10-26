@@ -105,8 +105,8 @@ from that:
 4. **The tool surface is an RPC catalogue, not an agent interface.** Eight names
    over ~forty endpoints and sixteen kilobytes of schema, every turn, to express
    intentions the harness could express in four verbs.
-5. **The counters are the only stop.** The time ceiling measures the provider, not
-   the agent; the cost ceilings arrive before the act; and no counter is a product
+5. **A counter is the only stop.** The time ceiling measures the provider, not the
+   agent; the cost ceilings arrive before the act; and no counter on a run is a
    decision a person made.
 
 ## 3. Principles taken from the field
