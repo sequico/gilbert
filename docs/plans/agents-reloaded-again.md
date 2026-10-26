@@ -318,20 +318,22 @@ which is the same wait in a different place.
 *Proof*: a run left unfinished by a pass is resumed by the next pass within the
 interval, and a run that was genuinely lost is still retried after a minute.
 
-### R7 — The run is watchable while it works
+### R7 — The run in flight is one click from the overview
 
-The run's page in Administration shows the steps as they are written — the document
-already carries them — and a person can stop the run from there. The group's
-conversation keeps only the report: progress lines there would be noise in
-somebody's chat, and `say` is what ends a run (the `spoke` rule stays untouched).
-This is the terminal of a coding harness, with the operator on this side of it and
-the group on the other.
-*Where*: the run view under `web/src/views/admin/agents/`; nothing in `say` or
-`spoke`.
-*Why*: today the group sees one message at the end and an operator sees a run only
-after it ended; the 300-second run was invisible while it spent.
-*Proof*: a run in flight shows its steps and can be stopped from the view, and no
-run posts more than its report in the conversation.
+The detail exists and already behaves: `/groups/:name/runs/:id` answers one run,
+the expanded row reloads when its header's `version` moves, and the list follows the
+stream with a ten-second poll behind it. What is missing is the way in: the
+overview's *live* list is a dead end, so a run that is spending is visible there and
+not openable from there. The fix is that link — the live row opens the same detail
+the group's history opens — and nothing else. The group's conversation keeps only
+the report: a progress line there would be noise in somebody's chat, and `say` is
+what ends a run (the `spoke` rule stays untouched).
+*Where*: `AgentOverview.tsx` (a live row opens the detail), nothing in `say`,
+`spoke`, or the route.
+*Why*: the 300-second run was invisible while it spent; an operator who cannot open
+it from the page they are watching has to go and find it in a group's history.
+*Proof*: a run in flight is opened from the overview, shows the steps it has written
+so far, and is stopped from there; no run posts more than its report.
 
 ### R8 — A run explains itself
 
