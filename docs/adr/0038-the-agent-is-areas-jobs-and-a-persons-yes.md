@@ -52,7 +52,7 @@ it arrived, and never rewritten — compacted, not re-rendered, past
 mark (`compactedUpTo`) under which they keep a line each (`shared/run.ts`,
 `agent/model.ts`'s `summarisePlan`). **Not built:** the three measurements named in
 *Owed* — the judge's sample, the live embeddings probe and the pruning of closed
-facts. The work is `docs/plans/agents-reloaded-again.md`.
+facts — and the runs' own numbers are in `ROADMAP.md`.
 
 ## What this replaces, and what it keeps
 
@@ -379,7 +379,6 @@ spent the provider's default budget before writing anything.
   suspect plan: the declaration is the one thing the harness reads about prose — that it
   is there — and the shape itself stays the judge's to read, never the harness's to
   parse.
-  (`docs/plans/agents-reloaded-again.md`).
 
 ### The agent is measured on tasks it has already failed
 

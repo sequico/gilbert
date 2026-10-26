@@ -27,8 +27,8 @@ as the two tallies they are (`web/src/views/admin/agents/AgentOverview.tsx`).
 `changes.ts` folds a folder's files, not a case's mail. The case's scratchpad is built:
 `agent/case.ts` keeps `gilbert/cases/<key>.md`, the `note` tool writes it under the key
 the group's report calls the case, the run records that key (`RunDoc.caseKey`), and the
-turn reads the note and lists the keys already on file. The work that remains is
-`docs/plans/agents-reloaded-again.md`.
+turn reads the note and lists the keys already on file. Folding a burst of mail into
+one case is a group's own choice, named in `ROADMAP.md`.
 
 ## Context
 

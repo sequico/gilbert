@@ -59,10 +59,15 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   **calibration** on a human sample, the live **embeddings** probe and the
   pruning of closed facts (ADR 0038, *Owed*); a live provider, the
   arrival record a real Stalwart writes and the change log's own paging cap stay
-  owed as their ADRs say. Two measures are owed beside them: a `pass@k` for the
+  owed as their ADRs say. Three measures are owed beside them: a `pass@k` for the
   eval, because one retry of a failed task is not the reliability a person
-  experiences, and a read of the memory's index that is not O(facts) per pass up
-  to the cap.
+  experiences; the `pass@1` of the **three tasks taken from the failures of
+  2026-10-26** (a delivery in pieces, a reference that lives in the thread, a list
+  carried whole), which are written and pinned but never run on the tree; and a read
+  of the memory's index that is not O(facts) per pass up to the cap. **Folding a
+  burst of mail into one case** is a group's own choice and not the harness's: the
+  drop queue folds a folder's files, while a delivery that arrives as one mail per
+  item is one run per mail, and the case's note is what makes the second one cheap.
 
 - **Two models in the key: a small one for the cheap turns, a frontier one for the
   work.** The installation chooses **one** model (ADR 0038) and every turn runs on
