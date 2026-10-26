@@ -390,18 +390,21 @@ steps) for that pass.
 every step, "how much of this prompt was cached" for every step, and "which budget
 was in force" for the run.
 
-### R9 — The failures are the eval
+### R9 — The failures are the eval, and it measures the cost as well as the outcome
 
 The three runs of 2026-10-26 become the first three tasks of the eval, with
-anonymised fixtures: the seven-message drop of `280228874`, the Tarros thread
-`c...l` (BL 010 532SPEIST004), and the run with nineteen steps. `pass@1` on that
-set is the gate every later change is measured against, and the number reported
-in the plan's status line.
+**shape-derived fixtures** (the objects, references and attachments invented; the
+shape kept): a delivery that arrives as one mail per item, a thread whose booking
+reference lives across it with PDF attachments, and a message that set a run reading
+itself twice. Each task reports **`pass@1`, the turns it took, the tokens it spent and
+the share of its prompt the provider served from cache** — the three numbers this
+plan is optimising, beside the one it is judged by.
 *Where*: `agent/eval/tasks/`, `agent/eval.ts`.
 *Why*: the eval has eleven mock tasks today and none came from a real failure; two
-of the three changes shipped yesterday were hygiene and the third was measured on
-a synthetic plan.
-*Proof*: the three tasks fail on today's tree and pass on the final one.
+of the three changes shipped on 2026-10-26 were hygiene and the third was measured on
+a synthetic plan. An optimisation nobody counts is a preference.
+*Proof*: the three tasks fail on today's tree and pass on the final one, with turns
+and tokens per task falling while `pass@1` holds.
 
 ### R10 — The judge reads the instruction, and asks whether the report is the one it asked for
 
