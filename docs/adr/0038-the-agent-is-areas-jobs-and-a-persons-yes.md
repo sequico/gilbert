@@ -12,10 +12,10 @@ the `done` read against its plan (nothing finished → `refused`), the repair of
 invalid call (`model.ts`, `loop.ts`), the credential filter (`redact.ts`), the eval
 runner (`eval.ts`), native function calling as the only action protocol with the
 decision turn in the provider's structured output (`model.ts`), the provider probe
-and the declared output ceiling at publish (`installationAdmin.ts`), the two token
-ceilings with the pass document's daily counter (`shared/installation.ts`,
-`shared/agent.ts`, `loop.ts`), and a permanent provider failure stopping the pass,
-and the eval: eleven tasks in the repository (`agent/eval/tasks/`), one file each
+and the declared output ceiling at publish (`installationAdmin.ts`), the daily token
+ceiling with the pass document's counter (`shared/installation.ts`,
+`shared/agent.ts`, `loop.ts`), a permanent provider failure stopping the pass, and
+the eval: eleven tasks in the repository (`agent/eval/tasks/`), one file each
 with its message, data and reference, graded with partial credit, a failed task
 tried once more, `pass@1` and cost printed beside the refusals a run recovered
 from, one task parking a run on a person's answer and continuing it there, and
@@ -36,7 +36,11 @@ read by entity and interval, the embeddings capability probed with the provider'
 others, the run recording `retrieval` beside `recalled`, and precision and recall
 measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
-**Not built:** everything in *Owed*.
+**Not built:** everything in *Owed*, and the change of this record's ceilings: the
+run-level step, call and time ceilings are still endings (`loop.ts`'s
+`RUN_MS_MAX`, `RUN_CALLS_MAX`, `RUN_STEPS_MAX`, `limits.maxRunSteps`), and the turn
+is still the plan's tail without the case, the scratchpad or the reader. The work
+that carries the record as it now stands is `docs/plans/agents-reloaded-again.md`.
 
 ## What this replaces, and what it keeps
 
@@ -167,12 +171,17 @@ stays available and is used **when the model judges the work needs it**.
 
 ### The turn's context is selected, not accumulated
 
-The run document holds everything; the turn is handed the ask, the instruction, the
-retrieved facts, the calls it can make, and the plan's tail — the last few
+The run document holds everything; the turn is handed **the case**: the change and
+the object it names, the thread's lines when it answers one, the titles of the
+knowledge pages (never their text), the customer's folder skeleton, the facts the
+memory recalled, the case's own scratchpad, and the plan's tail — the last few
 **distinct answers** in full, everything earlier as one line each, and a call asked
-again answered at the step that answered it rather than repeated. The threshold
-fixes that tail; no model call writes the summary. The document is complete, the
-prompt is bounded.
+again answered at the step that answered it rather than repeated. The thresholds
+fix that tail; no model call writes the summary. When the case is bigger than a
+turn — a long thread, a folder of documents — a **reader** answers one question
+about it in a few lines and the working turn sees the lines: it reads, it never
+acts. The document is complete, the prompt is bounded, and the model is not sent to
+fetch what the harness already has.
 
 The **stable prefix** (installation line, catalogue, instruction) is sent first and
 unchanged, so a caching provider pays for it once per run; the facts and the plan's
@@ -284,22 +293,22 @@ spent the provider's default budget before writing anything.
   same answer still run.
 - **The schema is narrow**: `enum` for a set, ids naming their kind, required where
   required.
-- **The run has a token ceiling** (`limits.maxRunTokens`, in admin): each call
-  sends what is left **after the prompt** as `max_tokens` — a declared estimate, or
-  the provider's own count where it offers one, corrected by the next call's usage —
-  **capped by the output ceiling the provider declares** — read with the
-  capabilities and kept with them, with a conservative fallback when it declares
-  none — so a reasoning model has room and a run cannot burn without end; reaching
-  it ends `out-of-budget` naming the token, and when what is left cannot pay for a
-  call the run ends **before** asking. A turn whose run is down to a fifth of the
-  ceiling is told how little is left, so what it found becomes the report instead of
-  one more look: the ceiling is a stop, and a run that meets it leaves the group a
-  notice that it could not finish rather than what it found.
-- **The run has a step ceiling** (`limits.maxRunSteps`, in admin; the shared
-  `RUN_STEPS_MAX` as its default): a run whose plan has taken that many steps
-  ends `out-of-budget` naming the step count. It is the plan's own count — the
-  steps a reader sees — not a counter nobody can read; a call that costs several
-  steps still ends on the internal charge.
+- **The run has no budget of its own; what it costs is a fact on its record.** Each
+  call sends what is left of the provider's declared output ceiling as `max_tokens`
+  — a declared estimate, or the provider's own count where it offers one, corrected
+  by the next call's usage, with a conservative fallback when it declares none — so
+  a reasoning model has room. A run ends when the work is done, when it waits on a
+  person, when a person stops it, or when it fails: **no step, call or time counter
+  ends it**, because a counter nobody watching can explain is not a decision about
+  the work (the three failed runs of 2026-10-26 ended on a clock with 117 000 tokens
+  and 26 calls unspent, on tokens with the work half-read, and on a stall). What
+  keeps a machine from hanging is the per-call timeout; what keeps a bill from
+  running away is the daily ceiling below, which refuses new runs and never cuts one
+  in flight; and the stall guard — the same answer twice — names a loop as a loop.
+- **A run says what it spent and what it was held to**: milliseconds and tokens per
+  step, and the limits in force when it opened, on its own document
+  (`shared/run.ts`, `agent/loop.ts`), so a budget that fell back to a default is
+  visible in the run that paid for it.
 - **The installation has a daily ceiling** (`limits.maxDailyTokens`), counted in the
   pass's own document — one write per pass, not per call — and reset lazily when the
   date changes. Past it no new run opens, a run already open finishes its own
@@ -384,5 +393,5 @@ wherever an answer could carry it.
 - The catalogue is small enough to read every turn, and an area grows a tool without
   growing the others.
 - The durability layer (document, claim, cursor, memory, wait) is untouched; the
-  rewrite is the catalogue, the planning turn, the two ceilings and the provider
+  rewrite is the catalogue, the planning turn, the daily ceiling and the provider
   path.
