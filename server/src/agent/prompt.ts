@@ -171,17 +171,21 @@ export function clipped(text: string, max = OUTCOME_IN_PROMPT_MAX): string {
  */
 export function stepData(question: StepQuestion): string {
   const token = randomUUID().slice(0, 8);
-  const whole = carriedWhole(question.plan);
-  const seen = new Map<string, number>();
+  /** The step that answered each call: a repeat points there for its answer. */
+  const answeredAt = new Map<string, number>();
+  for (const [index, step] of question.plan.entries()) {
+    const identity = stepIdentity(step);
+    if (!answeredAt.has(identity)) answeredAt.set(identity, index);
+  }
+  const whole = carriedWhole(question.plan, answeredAt);
   const done = question.plan.map((step, index) => {
-    const first = seen.get(stepIdentity(step));
-    if (first !== undefined)
+    const first = answeredAt.get(stepIdentity(step));
+    if (first !== undefined && first !== index)
       return dataBlock(token, [
         `step ${index + 1}: ${step.what}`,
         `state: ${step.state}`,
         `same call as step ${first + 1}; its answer is there and is not repeated.`,
       ]);
-    seen.set(stepIdentity(step), index);
     return dataBlock(token, [
       `step ${index + 1}: ${step.what}`,
       `state: ${step.state}`,
@@ -234,7 +238,10 @@ export function stepData(question: StepQuestion): string {
     "What this run has done so far, and what each step answered. A step that says it is the same call as an earlier one is answered there; do not repeat it:",
     ...(done.length ? done : [dataBlock(token, ["(nothing yet)"])]),
     ...(question.plan.some(
-      (step, index) => !whole.has(index) && step.outcome.length > STEP_OUTCOME_OLD_MAX,
+      (step, index) =>
+        answeredAt.get(stepIdentity(step)) === index &&
+        !whole.has(index) &&
+        step.outcome.length > STEP_OUTCOME_OLD_MAX,
     )
       ? [
           "An outcome that ends in … is carried as its beginning. Asking for the same call again brings it back whole once more, so ask when you need it — and finish with what you have when you can.",
@@ -255,12 +262,11 @@ export function stepData(question: StepQuestion): string {
  * Every other ended step is a line, and the run document is where its outcome is
  * kept.
  */
-function carriedWhole(plan: readonly RunStep[]): Set<number> {
+function carriedWhole(
+  plan: readonly RunStep[],
+  answeredAt: ReadonlyMap<string, number>,
+): Set<number> {
   const whole = new Set<number>();
-  /** The step that answered each call: where a repeat's answer lives. */
-  const answeredAt = new Map<string, number>();
-  for (const [index, step] of plan.entries())
-    if (!answeredAt.has(stepIdentity(step))) answeredAt.set(stepIdentity(step), index);
   let carried = 0;
   for (
     let index = plan.length - 1;

@@ -199,6 +199,14 @@ test("a step keeps the identity of the whole call it made, beside its readable l
     "run" in stored,
     "and a step that carries one is a document this build reads",
   );
+
+  const broken = parseRunDocumentDetailed(
+    JSON.stringify({
+      ...ended,
+      plan: [ended.plan[0], { ...ended.plan[1], ask: 7 }],
+    }),
+  );
+  assert.ok("problem" in broken, "a digest that is not a string is refused");
 });
 
 test("a step may wait on an earlier step, and is left unrun when no branch names its outcome", () => {

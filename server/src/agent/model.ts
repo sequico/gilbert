@@ -2168,7 +2168,7 @@ export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] 
  * and never said a word to the group. The turn that still has a fifth of its
  * budget can turn what it found into the sentence the group reads.
  */
-export const BUDGET_WARNING_SHARE = 0.2;
+const BUDGET_WARNING_SHARE = 0.2;
 
 /**
  * What is left of the run's budget, when the end is near.
@@ -2176,8 +2176,9 @@ export const BUDGET_WARNING_SHARE = 0.2;
  * Nothing is said while there is room: a line that is always there is a line the
  * model learns to skip. `left` is the same remainder the answer's own ceiling is
  * computed from, so what the turn is told and what it may spend cannot disagree.
- * It is written after the catalogue, so the prefix a caching provider keeps is
- * unchanged up to the turn that has to use the line.
+ * It is written **last**, after the catalogue and the instruction, because it is
+ * the one line of the system turn that moves from call to call: everything above
+ * it stays the prefix a caching provider keeps.
  */
 function budgetLine(opts: { left?: number; cap?: number }): string[] {
   const { left, cap } = opts;
@@ -2245,8 +2246,8 @@ export async function chooseStep(
     "Each tool's definition in this call says what it is for; the list above says how it is called. An argument name a tool does not state is refused, and so is a value outside the bound written beside it.",
     "When the work needs a person's decision, ask them: `say` with the `ask` action posts the question in the group's conversation and parks the run until they answer.",
     ...surfaceLines(question.surfaces),
-    ...budgetLine(opts),
     ...heads,
+    ...budgetLine(opts),
   ]
     .filter(Boolean)
     .join("\n");

@@ -639,25 +639,32 @@ test("a turn near the end of the run's budget is told what is left, and one with
   answers = [];
   answerWith({ done: "nothing to do" });
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(), {
-    left: 30_000,
+    left: 150_000,
     cap: 200_000,
   });
-  assert.match(
-    SYSTEM(0),
-    /About 30000 of this run's 200000 tokens are left: say in the conversation what you have found/,
-    "the turn that is nearly out of budget is told to report",
-  );
+  const withRoom = SYSTEM(0);
 
   seen = [];
   answers = [];
   answerWith({ done: "nothing to do" });
   await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(), {
-    left: 150_000,
+    left: 30_000,
     cap: 200_000,
   });
+  const nearlyOut = SYSTEM(0);
+
+  assert.match(
+    nearlyOut,
+    /About 30000 of this run's 200000 tokens are left: say in the conversation what you have found/,
+    "the turn that is nearly out of budget is told to report",
+  );
   assert.ok(
-    !SYSTEM(0).includes("tokens are left"),
+    !withRoom.includes("tokens are left"),
     "a run with three quarters of its budget is told nothing about it",
+  );
+  assert.ok(
+    nearlyOut.startsWith(withRoom),
+    "and the line is the last of the system turn, so everything above it is the prefix a caching provider keeps",
   );
 });
 

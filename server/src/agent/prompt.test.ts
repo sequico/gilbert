@@ -91,6 +91,28 @@ test("a repeated call is shown once, and the repeat points at the answer", () =>
 });
 
 /**
+ * A cut outcome is explained only when one is *shown*: a repeat's copy is never
+ * printed, so the sentence would describe a "…" the turn does not carry.
+ */
+test("the sentence about a cut outcome is there only when a cut one is shown", () => {
+  const body = `the body:${"m".repeat(STEP_OUTCOME_OLD_MAX * 4)}`;
+  const read: RunStep = {
+    what: 'read {"kind":"message","id":"m-1"}',
+    state: "done",
+    outcome: body,
+    needs: null,
+  };
+  const plan: RunStep[] = [{ ...read }, ended(0), { ...read }];
+  const prompt = stepData({ woke: "mail created: m-1", plan, prose: {} } as StepQuestion);
+
+  assert.ok(prompt.includes(body), "the answer is carried whole");
+  assert.ok(
+    !prompt.includes("carried as its beginning"),
+    "and nothing shown is cut, so the cut is not explained",
+  );
+});
+
+/**
  * A repeat is a pointer and carries no answer of its own, so counting it among the
  * steps carried whole spends the window on pointers. A live run re-read one
  * message twelve times, and every time the body it wanted had been pushed out by
@@ -116,6 +138,36 @@ test("a repeated call does not take a place in the carried-whole window", () => 
     "the answer the run asked for again is carried whole, not only as its beginning",
   );
   assert.match(prompt, /same call as step 1/, "and the repeat still says where it is");
+});
+
+/**
+ * A step still to run has answered nothing, so a repeat of it must not take a
+ * place: the window would be spent on a pointer to an empty line. The plan of a
+ * live wave is exactly that while it runs — the first call open, its copy in the
+ * same answer already recorded — and the older answers are what the next choice
+ * is made beside.
+ */
+test("a repeat of a step that has not run does not take the place of an answer", () => {
+  const first = `the answer:${"a".repeat(STEP_OUTCOME_OLD_MAX * 4)}`;
+  const plan: RunStep[] = [
+    {
+      what: 'read {"kind":"message","id":"m-1"}',
+      state: "done",
+      outcome: first,
+      needs: null,
+    },
+    ...Array.from({ length: STEP_OUTCOME_FULL_MAX - 1 }, (_, at) => ended(at)),
+    { what: 'find {"kind":"files"}', state: "open", outcome: "", needs: null },
+    {
+      what: 'find {"kind":"files"}',
+      state: "skipped",
+      outcome: "the same call is step 4 of this answer: it is made there, not twice.",
+      needs: null,
+    },
+  ];
+  const prompt = stepData({ woke: "mail created: m-1", plan, prose: {} } as StepQuestion);
+
+  assert.ok(prompt.includes(first), "the older answer keeps its place in the window");
 });
 
 test("a step a later step waits on is carried whole however old it is", () => {
