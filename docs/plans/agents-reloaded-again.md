@@ -92,10 +92,10 @@ endpoints one object per call, the harness re-sends the plan every turn, and
 three counters decide when the work is over. Everything measured above follows
 from that:
 
-1. **The unit of work is the message, not the case.** Seven messages of one
+1. **The unit of work is the transport, not the case.** Seven messages of one
    shipment are seven sessions that each rediscover the same booking, folder and
-   convention. ADR 0034 already made a burst of files one drop and one run; the
-   same rule is not applied to mail.
+   convention. ADR 0034 made a burst of **files** one drop and one run; nothing gives
+   a mail case the same memory, and the run that follows has no key to recognise it by.
 2. **The harness does not carry the case.** It fetches the message for the
    decision turn and drops it; it clips every answer to 240 characters after three
    steps; there is nowhere to write down what was learned. The model's only
@@ -208,8 +208,8 @@ have open on the desk — names and text, never a verdict:
 - the facts the memory recalled (already carried).
 
 Every part is bounded and says when it was cut, like every other block of the
-prompt. For a drop (R1) the turn gets the list of items — subject, sender,
-attachment names — and the case note (R3), not seven bodies.
+prompt. For a case that has several changes (R1) the turn gets the standing note and
+the change in hand — subject, sender, attachment names — not seven bodies.
 *Where*: `agent/loop.ts` (the question), `agent/prompt.ts` (`stepData`), ADR 0038
 "the turn's context".
 *Why*: the first ten of the 13:35 run's twenty-one steps were exactly this, at
@@ -593,10 +593,9 @@ the turn cheap, 8 is polish.
 
 ## 7. What is still unknown
 
-- **Whether the seven messages are truly one case**: the subjects say "(1 of 7)"
-  and "(2 of 7)" of one booking and the group's instruction asks for **one report per
-  drop**, so folding them is the instruction's own rule; a person should still
-  confirm the group reads one report for a delivery, because R1 changes what it sees.
+- **How often the group wants to read a report**: the instruction allows "per change
+  or per drop", and the case's note makes either cheap; a person should say which the
+  group prefers, because it changes how many messages arrive per delivery.
 - **Whether a case with more than three objects still forces a re-fetch**: the window
   fix was measured on the pattern it was written for (twelve reads became three); a
   case holding five objects at once is what R2 and R3 exist for, and the next
