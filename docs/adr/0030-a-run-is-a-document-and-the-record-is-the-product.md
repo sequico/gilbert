@@ -111,20 +111,19 @@ agent's durable state.
   finds, so a restart in the middle of a run loses nothing and a container that
   dies is not an incident.
 - **A run ends in one of four ways** — the work is done, it is blocked on a
-  person, its budget (ADR 0027) is spent, or a member of the group stopped it —
-  and its ending is written down, so a run that stops says why. **The budget is
-  the only ceiling a refusal reaches**: an answer the parser cannot read, an
-  answer asking for more steps than the run has left, and a call the account
-  refuses are each a step that ended, and each spends a step — a model that
-  repeats a refused call stops on the twenty steps the run declares, not on a
-  counter of refusals the record cannot show. The one that ends
+  person, it failed, or a member of the group stopped it — and its ending is
+  written down, so a run that stops says why. **No budget ends a run** (ADR 0038):
+  an answer the parser cannot read, an answer asking for more steps than the plan
+  can hold, and a call the account refuses are each a step that ended, and the loop
+  asks again; a model that repeats the same call is named by the stall guard — the
+  same answer twice — rather than by a counter of refusals nobody can see. The one that ends
   blocked on a person keeps the question it left, and the sentence it asked it
   in, so the answer that comes back can be recognised as addressed to it. The
   one a person stopped is `cancelled` with the words it was stopped with, and the
   pass that was working it leaves that ending alone rather than writing its step
   over it. A guardrail that fires ends the run as `refused`, with the check that
-  fired and what it found (ADR 0038): it is not an out-of-budget, which would blame
-  the clock for a decision.
+  fired and what it found (ADR 0038): it is not a budget that ended it, which would
+  blame a counter for a decision.
 - **An ending is said, not only recorded.** A run that could not finish says so
   in the group's own conversation, with the sentence its ending carries; a run
   that finished says so when a person woke it there **and it has not spoken
