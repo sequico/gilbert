@@ -272,28 +272,39 @@ another with the work half-read. Neither was a decision the agent made.
 *Proof*: the 13:35 case reaches its act on the eval, and its duration and cost are
 recorded and reported rather than enforced.
 
-### R6 — The pass is hygiene, not a wall
+### R6 — The pass takes a slice, and says it left on purpose
 
-A run longer than a pass is resumed by the next pass, from its document — the
-mechanism already exists. The pass takes a slice of work per account and returns;
-nothing in the product depends on a run finishing inside one interval.
-*Where*: `agent/loop.ts` (`workPass`), `agent/supervisor.ts` (the interval's
-description), ADR 0030/0038.
-*Why*: today a 346-second pass makes every other group wait — the log says
-"what came after it waited".
-*Proof*: a long run leaves the next pass working other groups within the interval.
+A run longer than a pass is resumed by the next pass from its document — the
+mechanism already exists. What does not exist is the difference between a run a pass
+**left** on purpose and one it **lost**: a run found `running` with no wait is
+treated as a crash and retried after a minute (`stuckUntil`), so a deliberate slice
+would pay a minute per pass. The pass records that it stopped at a turn boundary,
+and the next pass picks the run up at once.
 
-### R7 — The chat is the terminal
+Nothing in the product depends on a run finishing inside one interval: a run's
+duration is a fact (R5), and the interval is what keeps the other groups moving.
+*Where*: `agent/loop.ts` (`workPass` and the slice, `stuckUntil`), `shared/run.ts`
+(the marker), `agent/supervisor.ts` (the interval's description).
+*Why*: a 346-second pass makes every other group wait — the log says "what came
+after it waited" — and a slice that looked like a crash would add a minute per pass,
+which is the same wait in a different place.
+*Proof*: a run left unfinished by a pass is resumed by the next pass within the
+interval, and a run that was genuinely lost is still retried after a minute.
 
-A run that works longer than a few steps says one line of progress in the group's
-conversation (what it is doing, not the report), so a person can see and
-intervene; the report still ends the run.
-*Where*: `agent/loop.ts` (the progress line), ADR 0029/0030.
-*Why*: today the group sees one message at the end, and only when the run ends;
-a person cannot intervene before the budget is spent. Mainstream harnesses show
-the trace live.
-*Proof*: a run of more than N steps leaves at least one progress line, and the
-report still ends it.
+### R7 — The run is watchable while it works
+
+The run's page in Administration shows the steps as they are written — the document
+already carries them — and a person can stop the run from there. The group's
+conversation keeps only the report: progress lines there would be noise in
+somebody's chat, and `say` is what ends a run (the `spoke` rule stays untouched).
+This is the terminal of a coding harness, with the operator on this side of it and
+the group on the other.
+*Where*: the run view under `web/src/views/admin/agents/`; nothing in `say` or
+`spoke`.
+*Why*: today the group sees one message at the end and an operator sees a run only
+after it ended; the 300-second run was invisible while it spent.
+*Proof*: a run in flight shows its steps and can be stopped from the view, and no
+run posts more than its report in the conversation.
 
 ### R8 — A run explains itself
 
@@ -367,7 +378,7 @@ a verdict that reads the states and the sentence.
 | 4 | R1 + R3 — one run per drop, with the case note | the seven-message drop files seven, under 250 k tokens |
 | 5 | R4 — four verbs | the schema is a third of today's, and zero refusals in the eval |
 | 6 | R9 — the three failures as eval tasks | they fail before, pass after; `pass@1` recorded |
-| 7 | R6, R7, R10 | a long run blocks no group; a run narrates; the judge stays bounded |
+| 7 | R6, R7, R10 | a long run blocks no group; a run in flight is watchable and stoppable; the judge stays bounded |
 
 Steps 1 and 2 are small and make the rest measurable. Steps 3 and 4 carry the
 gain; 5 makes it cheap per turn; 6 is the instrument; 7 is polish that can wait.
