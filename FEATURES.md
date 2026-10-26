@@ -99,8 +99,8 @@ works, including deleting in Files, which moves the node into the group's Trash.
 > [ADR 0038](docs/adr/0038-the-agent-is-areas-verbs-and-a-persons-yes.md) (the
 > agent is areas, verbs and a person's yes), [0028](docs/adr/0028-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
-> [0029](docs/adr/0029-the-conversation-runs-in-chat-and-mail.md) (one
-> conversation in chat and mail), [0030](docs/adr/0030-a-run-is-a-document-and-the-record-is-the-product.md)
+> [0029](docs/adr/0029-the-conversation-is-the-chat.md) (the conversation is the
+> chat, and a mail is a change), [0030](docs/adr/0030-a-run-is-a-document-and-the-record-is-the-product.md)
 > (a run is a document, and the record is the product),
 > [0032](docs/adr/0032-one-agent-per-installation-held-by-a-claim.md) (one claim
 > holds the installation's single agent) and
@@ -136,7 +136,7 @@ people's.
 | --- | --- | --- | --- |
 | 1 | Reversible, inside the group's account | filing a message, a keyword, a label, a folder, writing, moving or renaming a file, creating an event in the group's own calendar, a draft, a workorder step, a KB proposal, a fact, a question | **The agent** |
 | 2 | Irreversible or destructive | destroying a message, a folder or a page, emptying a folder, deleting or overwriting a document, changing or removing a calendar event | **A person, always** |
-| 3 | Outward | anything that reaches somebody outside the mandate, `mail.send` above all | **A person's word for exactly that message**, or an instruction that declares in its own text that it sends |
+| 3 | Outward | anything that reaches somebody outside the mandate — and nothing of this build does, since an outward message is a draft a person sends | **A person's word**, for the day a sending act exists; no step can match one today |
 | 4 | Beyond the policy | an act the written policy forbids | **Only an installation administrator**, proved by the directory and never by the sentence |
 | 5 | The intent | which policy is right, what a workorder should carry, whether a KB change is accepted | **Never the agent**: it proposes, a person approves |
 

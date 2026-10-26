@@ -19,9 +19,10 @@ whether it is a Stalwart administrator (`isAdministrator`, `server/src/agent/loo
 and only then may the reading report the class. **No catalogue act sends**: an
 outward message leaves as a draft a person sends (ADR 0038), so `act` with
 `what: "reply"` writes a draft in the group's own Drafts and a draft is class 1 —
-reversible and inside the account — while class 3 is the licence an instruction's
-own **declaration** that it sends carries, travelling on the run
-(`startedBy.sends`). A person's word still names the act it is for, and `mayRun`
+reversible and inside the account. Class 3 therefore has no act to license in
+this build: a person's answer is still read, and an `outward` authority it
+reports is recorded on the run, but no step can match it until a sending act
+exists. A person's word still names the act it is for, and `mayRun`
 compares target and content exactly, so a word for one message licenses no other.
 **Trash is class 2**: `act` with `what: "trash"` **moves** a message to the account's Deleted
 Items, where it can be recovered, and the act it asks a person to license is the
@@ -56,10 +57,11 @@ Five classes, and the agent's freedom is exactly the first.
    calendar event. **A person, always**, and never by
    default: the product's own preference is that nothing disappears, because the
    record is what it is for.
-3. **Outward** — anything that reaches a person outside the mandate. **A person's
-   word, or an instruction that declares it sends.** An instruction that sends
-   says so in its own text, where its owner reads it; the declaration authorises
-   that send and no other.
+3. **Outward** — anything that reaches a person outside the mandate. **A
+   person's word**, and no act of this build is outward: an outward message is a
+   draft a person sends (ADR 0038), so the class is named for the day a sending
+   act exists, and it licenses nothing today. An instruction cannot declare a
+   send, because nothing carries that declaration on a run.
 4. **Beyond the policy** — an act the written policy forbids. The agent does not
    do it: it **names the policy and the page** and asks, and **only an
    installation administrator may override**. The trace carries the name, the
@@ -90,7 +92,7 @@ Two standing behaviours, whichever class is at hand:
 - Confirmation fatigue is the risk of the other direction, so class 1 never asks.
   What protects a reversible act is that it can be undone and that it is written
   down — not a prompt per step.
-- The surfaces owe the reader the authority: an instruction that sends says so where it
-  is read, an override names who and when, a step names who signed it.
+- The surfaces owe the reader the authority: an override names who and when, and
+  a step names who signed it.
 - Class 2's preference — nothing disappears — has a cost the product accepts: the
   agent does not empty a mailbox, and a cleanup always ends with a person.

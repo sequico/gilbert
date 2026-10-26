@@ -112,7 +112,7 @@ the browser's service worker and nothing else.
 **ADR 0038** (the whole shape — areas, four verbs, the change as trigger, the turn,
 and a person's yes; it replaced 0027 and 0031), **0028** (what it decides and what only a person
 decides, an override being an administrator's and proved by the directory),
-**0029** (one conversation in chat and mail, in words), **0030** (a run is a
+**0029** (the conversation is the chat, and a mail is a change), **0030** (a run is a
 document, and the record is the product), **0032** (one installation claims
 its agent) and **0033** (its memory is a graph of facts it recalls). Each record's `Implementation` line says what
 the tree carries and what it still owes, and it is the truth about the tree

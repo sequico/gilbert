@@ -1,15 +1,13 @@
 /**
  * Whether a received message is a person's word (ADR 0029).
  *
- * ADR 0029 runs the conversation in the group's chat and in mail, in words. Mail
- * is the channel that reaches a person away from the product, and it is also the
- * channel anybody can write into, so the record does not trust a message for what
- * the message says about itself: a sentence is a person's word only when **the
- * sender is an address the installation knows** and **the server that received
- * the message vouches for how it arrived** — never the `From:` line, which a
- * sender writes and can write anything into. This module is that one answer,
- * about one received message: what the loop asks before it reads an instruction,
- * an answer or an authorisation out of mail, and nothing more.
+ * Mail is a channel that reaches a person away from the product, and it is also
+ * the channel anybody can write into, so the record does not trust a message for
+ * what the message says about itself: a sentence is a person's word only when
+ * **the sender is an address the installation knows** and **the server that
+ * received the message vouches for how it arrived** — never the `From:` line,
+ * which a sender writes and can write anything into. This module is that one
+ * answer, about one received message, and nothing more.
  *
  * **The vouching has two shapes, and they differ by who was watching.**
  *
@@ -36,12 +34,14 @@
  * readable record — and a `From:` naming somebody the installation knows is
  * exactly the case the rule exists for.
  *
- * **It is called where a mail answer is read.** `readMessageForAnswer`
+ * **It is called where a mail is read.** `readMessageForAnswer`
  * (`tools/mail.ts`) hands every received message to `personWord` and carries its
- * `word` answer, and the loop's `mailAnsweredBy` refuses an answer whose word is
- * false. The correlation — which run the message answers — is the channel's own
- * (`In-Reply-To`/`References` against the wait's `asked`, ADR 0029, 0030) and
- * stays the loop's; this module decides only whether the message is anybody's
+ * `word` answer beside the message's own fields. No run takes its answer from
+ * mail (ADR 0038): a mail opens a run as a change like any other, and the trust
+ * this module decides is what the reading knows about the sender — never a
+ * licence to act. The correlation — which run a message answers — is the
+ * conversation's own (`In-Reply-To`/`References` against the wait's `asked`, ADR
+ * 0029, 0030) and stays the loop's; this module decides only whether the message is anybody's
  * word at all.
  *
  * **It answers codes, never sentences.** A refusal is one of `TrustRefusal`'s

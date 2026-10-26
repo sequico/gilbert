@@ -212,10 +212,11 @@ export interface RunMessageRef {
 
 /**
  * Which authority a person gave (ADR 0028): the word for something irreversible
- * or destructive (class 2), the word that sends outward — or the instruction that
- * declared it sends (class 3) — or the administrator's override of the written
- * policy (class 4). The class the agent decides alone, and the intent, which is
- * approved where ADR 0020 puts it, are not authorisations.
+ * or destructive (class 2), the word for something outward (class 3) — which no
+ * act of this build asks for, since an outward message is a draft a person sends
+ * (ADR 0038) — or the administrator's override of the written policy (class 4).
+ * The class the agent decides alone, and the intent, which is approved where ADR
+ * 0020 puts it, are not authorisations.
  */
 export type RunAuthority = "destructive" | "outward" | "override";
 

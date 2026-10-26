@@ -259,21 +259,20 @@ is, not what a user sees.
   `reschedule` and `cancel` are the same class, each licensed by the
   object it names; an override is proved by the
   directory's answer about the sender (`isAdministrator`, `server/src/agent/loop.ts`).
-- **0029 — The conversation runs in chat and mail.** One
-  conversation, two channels: a question, an answer, an authorisation and a report
-  are the same in the group's chat and in mail, and **everything is in words** —
-  no link, no signed token, no form, because a person away from the product has a
-  mail client and nothing else. An instruction by mail is honoured only from a
-  sender the installation knows or lists **and** with a passing authentication
-  result from the receiving server; a message that carries
-  `X-Gilbert-Run: <id>` is never an instruction, so the agent's own words cannot
-  drive it; the correlation is `replyTo` in chat, and the thread in mail for a run
-  an older build parked there. **Built** — the chat conversation is
-  `server/src/agent/tools/chat.ts` (reached through `say`), the mail answer continues
-  its run (`mailAnsweredBy`, `server/src/agent/loop.ts`), and `personWord`
-  (`server/src/agent/trust.ts`) decides whether a message is anybody's word: a
-  submission on the account the server authenticated, and an outside message
-  refused until the `authserv-id` of a live verdict is probed.
+- **0029 — The conversation is the chat, and a mail is a change.** A question, an
+  answer, an authorisation and a report are the group's own chat, and **everything
+  is in words** — no link, no signed token, no form. A mail arrives as a change
+  like any other and opens a run the instruction covers; nothing in it is read as
+  an answer or an authorisation, and an outward message is a draft a person sends
+  (0038). A message's sender is trusted only from an address the installation
+  knows or lists **and** with a passing authentication result from the receiving
+  server; a message that carries `X-Gilbert-Run: <id>` is never a person's word,
+  and a question's correlation is `replyTo` in chat. **Built** — the chat
+  conversation is `server/src/agent/tools/chat.ts` (reached through `say`), a
+  reply continues its run (`runAnsweredBy`, `server/src/agent/loop.ts`), and
+  `personWord` (`server/src/agent/trust.ts`) decides whether a message is
+  anybody's word: a submission on the account the server authenticated, and an
+  outside message refused until the `authserv-id` of a live verdict is probed.
 - **0030 — A run is a document, and the record is the product.** A run
   is one document in the group's account and the whole of the agent's durable
   state: which instruction started it, the plan, each step's outcome,
