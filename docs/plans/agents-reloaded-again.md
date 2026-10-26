@@ -526,17 +526,14 @@ the turn cheap, 8 is polish.
 
 ## 7. What is still unknown
 
-- **The group's standing instruction**: whether it asks for a filing under the
-  conventions (R2 is enough) or for the whole shipment handled (R1 and R3 carry
-  more weight). The document is `gilbert/instruction.json` in `freight`.
-- **Whether the window fix ends the stall for every body**: the 07:59 run ended on
-  two identical reads of one message, on the build before the fix. The next
-  production runs answer whether a case holding more than three objects still
-  forces a re-fetch — which is what R2 and R3 are for.
 - **Whether the seven messages are truly one case**: the subjects say "(1 of 7)"
-  and "(2 of 7)" of one booking; a person should confirm that filing them
-  together is what the group wants, because R1 changes what the group sees (one
-  run, seven outcomes, instead of seven runs).
+  and "(2 of 7)" of one booking and the group's instruction asks for **one report per
+  drop**, so folding them is the instruction's own rule; a person should still
+  confirm the group reads one report for a delivery, because R1 changes what it sees.
+- **Whether a case with more than three objects still forces a re-fetch**: the window
+  fix was measured on the pattern it was written for (twelve reads became three); a
+  case holding five objects at once is what R2 and R3 exist for, and the next
+  production runs say whether the window alone is enough.
 - **What the model writes as output**: 2 044 tokens a call on a slow call suggests
   reasoning that the harness never sees. The provider bills it; R8 should record
   it.
