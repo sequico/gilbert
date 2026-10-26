@@ -2304,7 +2304,7 @@ export const catalog: Catalog = {
     "The provider's URL is not valid": "Sağlayıcının URL'si geçerli değil",
     "The provider could not be reached": "Sağlayıcıya ulaşılamadı",
     "Checking the model…": "Model kontrol ediliyor…",
-    "Standing rule": "Kalıcı kural",
+    "Installation instruction": "Kurulum talimatı",
     "Above every group's instruction. Applies at the next pass.":
       "Her grubun talimatının üstünde. Bir sonraki geçişte geçerli olur.",
     "No installation document yet.": "Henüz kurulum belgesi yok.",
@@ -2350,11 +2350,11 @@ export const catalog: Catalog = {
       "Yapay zekâ ajanları her zaman hafızaya yazabilir",
     "AI Agents can always write on their chat":
       "Yapay zekâ ajanları her zaman kendi sohbetlerine yazabilir",
-    "AI Agents are always awaken by chat messages":
+    "AI Agents are always woken by chat messages":
       "Yapay zekâ ajanları her zaman sohbet mesajlarıyla uyandırılır",
-    "AI Agents cannot be awaken by memory changes":
+    "AI Agents cannot be woken by memory changes":
       "Yapay zekâ ajanları hafıza değişiklikleriyle uyandırılamaz",
-    "AI Agents cannot be awaken by contacts changes":
+    "AI Agents cannot be woken by contacts changes":
       "Yapay zekâ ajanları kişi değişiklikleriyle uyandırılamaz",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "İşaretli bir yüzeydeki değişiklikler ajana otomatik olarak iletilir; yukarıda bir alanı işaretlemek onu kendi başına uyandırmaz.",

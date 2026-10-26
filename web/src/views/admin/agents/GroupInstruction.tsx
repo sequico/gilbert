@@ -261,11 +261,11 @@ export function GroupInstructionPanel({ group }: { group: string }) {
                 const watched =
                   always || (surface !== null && surfaces?.[surface] === "watch");
                 const why = always
-                  ? t("AI Agents are always awaken by chat messages")
+                  ? t("AI Agents are always woken by chat messages")
                   : area === "memory"
-                    ? t("AI Agents cannot be awaken by memory changes")
+                    ? t("AI Agents cannot be woken by memory changes")
                     : cannotWake
-                      ? t("AI Agents cannot be awaken by contacts changes")
+                      ? t("AI Agents cannot be woken by contacts changes")
                       : undefined;
                 return (
                   <label

@@ -1036,11 +1036,11 @@ export const catalog: Catalog = {
       "Gli agenti AI possono sempre scrivere nella memoria",
     "AI Agents can always write on their chat":
       "Gli agenti AI possono sempre scrivere nella loro chat",
-    "AI Agents are always awaken by chat messages":
+    "AI Agents are always woken by chat messages":
       "Gli agenti AI vengono sempre svegliati dai messaggi della chat",
-    "AI Agents cannot be awaken by memory changes":
+    "AI Agents cannot be woken by memory changes":
       "Gli agenti AI non possono essere svegliati da modifiche alla memoria",
-    "AI Agents cannot be awaken by contacts changes":
+    "AI Agents cannot be woken by contacts changes":
       "Gli agenti AI non possono essere svegliati da modifiche ai contatti",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "Le modifiche su una superficie selezionata vengono portate all'agente automaticamente; selezionare un'area sopra non lo sveglia da sola.",
@@ -3349,7 +3349,7 @@ export const catalog: Catalog = {
     Memory: "Memoria",
     Knowledge: "Conoscenza",
     Instruction: "Istruzione",
-    "Standing rule": "Regola permanente",
+    "Installation instruction": "Istruzione dell'installazione",
     "Above every group's instruction. Applies at the next pass.":
       "Sopra l'istruzione di ogni gruppo. Si applica alla prossima passata.",
     "No installation document yet.": "Nessun documento dell'installazione per ora.",

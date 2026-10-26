@@ -11,10 +11,10 @@ import { AgentOverview } from "./AgentOverview";
 
 /**
  * The installation's agent, in one place: the document that configures it, the
- * rule and memory that are the installation's, and one tab per group it works.
+ * instruction and memory that are the installation's, and one tab per group it works.
  *
  * The installation's document is its own administration section; what is here
- * is the agent's part of it — the model, the standing rule, the memory — and one
+ * is the agent's part of it — the model, the installation's instruction, the memory — and one
  * tab per group it works, with that group's rules and runs.
  *
  * Tabs are mounted the first time they are opened and kept mounted afterwards,

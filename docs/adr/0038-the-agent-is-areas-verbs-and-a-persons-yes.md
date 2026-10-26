@@ -367,7 +367,8 @@ spent the provider's default budget before writing anything.
   spent day does not read the whole day at once, and the cursor advances **only past
   what the pass has worked**. A change the account already answers — a run's key is
   the change — is not put to the decision turn a second time when the batch is
-  re-read, so the rule costs no extra model call. A pass that dies before writing
+  re-read, so the deduplication costs no extra model call. A pass that dies before
+  writing
   under-counts by that pass, and that is accepted.
 - **The bounds are per verb and per call**: a reading value opens a set of at most ten
   objects, an answer carries at most twenty calls, and one call waits on the provider

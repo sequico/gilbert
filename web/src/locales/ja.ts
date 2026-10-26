@@ -2385,7 +2385,7 @@ export const catalog: Catalog = {
     "The provider's URL is not valid": "プロバイダーの URL が正しくありません",
     "The provider could not be reached": "プロバイダーに到達できませんでした",
     "Checking the model…": "モデルを確認しています…",
-    "Standing rule": "常設のルール",
+    "Installation instruction": "インストールの指示",
     "Above every group's instruction. Applies at the next pass.":
       "すべてのグループの指示より優先されます。次回のパスから適用されます。",
     "No installation document yet.": "インストールのドキュメントはまだありません。",
@@ -2432,11 +2432,11 @@ export const catalog: Catalog = {
     "AI Agents can always write memory": "AI エージェントは常にメモリに書き込めます",
     "AI Agents can always write on their chat":
       "AI エージェントは常に自分のチャットに書き込めます",
-    "AI Agents are always awaken by chat messages":
+    "AI Agents are always woken by chat messages":
       "AI エージェントは常にチャットのメッセージで起動します",
-    "AI Agents cannot be awaken by memory changes":
+    "AI Agents cannot be woken by memory changes":
       "AI エージェントはメモリの変更では起動しません",
-    "AI Agents cannot be awaken by contacts changes":
+    "AI Agents cannot be woken by contacts changes":
       "AI エージェントは連絡先の変更では起動しません",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "チェックした対象の変更はエージェントに自動で届きます。上の領域にチェックを入れても、それだけで起動するわけではありません。",

@@ -2407,7 +2407,7 @@ export const catalog: Catalog = {
     "The provider's URL is not valid": "La URL del proveedor no es válida",
     "The provider could not be reached": "No se pudo contactar con el proveedor",
     "Checking the model…": "Comprobando el modelo…",
-    "Standing rule": "Regla permanente",
+    "Installation instruction": "Instrucción de la instalación",
     "Above every group's instruction. Applies at the next pass.":
       "Por encima de la instrucción de cada grupo. Se aplica en la próxima pasada.",
     "No installation document yet.": "Todavía no hay documento de instalación.",
@@ -2454,11 +2454,11 @@ export const catalog: Catalog = {
       "Los agentes de IA siempre pueden escribir en la memoria",
     "AI Agents can always write on their chat":
       "Los agentes de IA siempre pueden escribir en su chat",
-    "AI Agents are always awaken by chat messages":
+    "AI Agents are always woken by chat messages":
       "Los agentes de IA siempre se activan con los mensajes del chat",
-    "AI Agents cannot be awaken by memory changes":
+    "AI Agents cannot be woken by memory changes":
       "Los agentes de IA no pueden activarse por cambios en la memoria",
-    "AI Agents cannot be awaken by contacts changes":
+    "AI Agents cannot be woken by contacts changes":
       "Los agentes de IA no pueden activarse por cambios en los contactos",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "Los cambios en una superficie marcada se llevan al agente automáticamente; marcar un área arriba no lo despierta por sí solo.",

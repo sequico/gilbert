@@ -211,7 +211,7 @@ export function AgentGeneral({ onDocumentSaved }: { onDocumentSaved: () => void 
       </section>
 
       <section style={{ marginTop: 24 }}>
-        <h2>{t("Standing rule")}</h2>
+        <h2>{t("Installation instruction")}</h2>
         <p className="hint">
           {t("Above every group's instruction. Applies at the next pass.")}
         </p>
@@ -220,7 +220,7 @@ export function AgentGeneral({ onDocumentSaved }: { onDocumentSaved: () => void 
             <div className="field">
               <textarea
                 rows={4}
-                aria-label={t("Standing rule")}
+                aria-label={t("Installation instruction")}
                 value={line}
                 disabled={busy}
                 onChange={(e) => {

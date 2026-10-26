@@ -2378,7 +2378,7 @@ export const catalog: Catalog = {
     "The provider's URL is not valid": "URL провайдера недійсна",
     "The provider could not be reached": "Не вдалося досягти провайдера",
     "Checking the model…": "Перевіряємо модель…",
-    "Standing rule": "Постійне правило",
+    "Installation instruction": "Інструкція встановлення",
     "Above every group's instruction. Applies at the next pass.":
       "Вище за інструкцію кожної групи. Застосовується під час наступного проходу.",
     "No installation document yet.": "Документа установлення ще немає.",
@@ -2425,11 +2425,11 @@ export const catalog: Catalog = {
     "AI Agents can always write memory": "ШІ-агенти завжди можуть писати в пам'ять",
     "AI Agents can always write on their chat":
       "ШІ-агенти завжди можуть писати у свій чат",
-    "AI Agents are always awaken by chat messages":
+    "AI Agents are always woken by chat messages":
       "ШІ-агентів завжди будить повідомлення в чаті",
-    "AI Agents cannot be awaken by memory changes":
+    "AI Agents cannot be woken by memory changes":
       "ШІ-агентів не можна розбудити змінами в пам'яті",
-    "AI Agents cannot be awaken by contacts changes":
+    "AI Agents cannot be woken by contacts changes":
       "ШІ-агентів не можна розбудити змінами в контактах",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "Зміни на позначеній поверхні надходять агенту автоматично; позначення ділянки вище саме по собі його не будить.",

@@ -2389,7 +2389,7 @@ export const catalog: Catalog = {
     "The provider's URL is not valid": "De URL van de aanbieder is ongeldig",
     "The provider could not be reached": "De aanbieder kon niet worden bereikt",
     "Checking the model…": "Model wordt gecontroleerd…",
-    "Standing rule": "Vaste regel",
+    "Installation instruction": "Instructie van de installatie",
     "Above every group's instruction. Applies at the next pass.":
       "Gaat boven de instructie van elke groep. Geldt vanaf de volgende doorgang.",
     "No installation document yet.": "Nog geen installatiedocument.",
@@ -2436,11 +2436,11 @@ export const catalog: Catalog = {
       "AI-agenten kunnen altijd in het geheugen schrijven",
     "AI Agents can always write on their chat":
       "AI-agenten kunnen altijd in hun chat schrijven",
-    "AI Agents are always awaken by chat messages":
+    "AI Agents are always woken by chat messages":
       "AI-agenten worden altijd gewekt door chatberichten",
-    "AI Agents cannot be awaken by memory changes":
+    "AI Agents cannot be woken by memory changes":
       "AI-agenten kunnen niet gewekt worden door wijzigingen in het geheugen",
-    "AI Agents cannot be awaken by contacts changes":
+    "AI Agents cannot be woken by contacts changes":
       "AI-agenten kunnen niet gewekt worden door wijzigingen in contacten",
     "Changes on a ticked surface are brought to the agent automatically; ticking an area above does not wake it on its own.":
       "Wijzigingen op een aangevinkt oppervlak worden automatisch naar de agent gebracht; een gebied hierboven aanvinken wekt hem niet vanzelf.",
