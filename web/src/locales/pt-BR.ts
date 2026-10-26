@@ -2445,8 +2445,6 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "Nenhuma outra área está marcada: o agente trabalha apenas a conversa e a memória.",
     "What wakes the agent": "O que acorda o agente",
-    "AI Agents can always write knowledge":
-      "Os agentes de IA sempre podem gravar conhecimento",
     "AI Agents can always write memory":
       "Os agentes de IA sempre podem escrever na memória",
     "AI Agents can always write on their chat":

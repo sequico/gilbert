@@ -2346,8 +2346,6 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "Başka hiçbir alan işaretli değil: ajan yalnızca yazışma ve hafıza üzerinde çalışır.",
     "What wakes the agent": "Ajanı neyin uyandırdığı",
-    "AI Agents can always write knowledge":
-      "Yapay zekâ ajanları her zaman bilgi yazabilir",
     "AI Agents can always write memory":
       "Yapay zekâ ajanları her zaman hafızaya yazabilir",
     "AI Agents can always write on their chat":

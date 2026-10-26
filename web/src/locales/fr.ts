@@ -2458,8 +2458,6 @@ export const catalog: Catalog = {
     "No other area is ticked: the agent works only the conversation and memory.":
       "Aucune autre zone n'est cochée : l'agent ne travaille que la conversation et la mémoire.",
     "What wakes the agent": "Ce qui réveille l'agent",
-    "AI Agents can always write knowledge":
-      "Les agents IA peuvent toujours écrire dans les connaissances",
     "AI Agents can always write memory":
       "Les agents IA peuvent toujours écrire dans la mémoire",
     "AI Agents can always write on their chat":

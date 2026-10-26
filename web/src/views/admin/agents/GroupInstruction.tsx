@@ -6,10 +6,12 @@
  * areas are the whole of what a run may write, and every area may be declared;
  * the wake row is the whole of what opens a run, and chat is always on.
  *
- * The conversation, knowledge and memory are **always on** as areas and are drawn
- * checked and disabled: every run has them (transversal areas, the one definition
- * both tiers read), so a group does not choose them. The wake row draws **the same
- * areas in the same order**, one
+ * The conversation and memory are **always on** as areas and are drawn checked
+ * and disabled: every run has them (transversal areas, the one definition both tiers
+ * read), so a group does not choose them. Knowledge is **not** among them: a group
+ * that ticks it lets its agent propose pages, and a group that does not leaves the
+ * base readable and unchanged by the agent. The wake row draws **the same areas in
+ * the same order**, one
  * surface each: chat checked and dimmed (the conversation is where the group
  * calls the agent), and memory and contacts unchecked and dimmed, because no
  * change on either is a surface that can wake a run.
@@ -204,9 +206,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
                     ? t("AI Agents can always write memory")
                     : area === "chat"
                       ? t("AI Agents can always write on their chat")
-                      : area === "knowledge"
-                        ? t("AI Agents can always write knowledge")
-                        : undefined;
+                      : undefined;
                 return (
                   <label
                     key={area}

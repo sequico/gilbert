@@ -54,7 +54,7 @@ test("the selection keeps reading free and narrows the area writes", () => {
   assert.deepEqual(
     calendarOnly.find((tool) => tool.name === "act")?.args.what?.values,
     ["schedule", "reschedule", "cancel", "fact", "page"],
-    "the calendar's acts, and the memory and page every run may write",
+    "the calendar's acts, and the memory every run writes and the page this group declared",
   );
   assert.equal(
     TOOLS.find((tool) => tool.name === "act")?.narrow?.(["chat"]),
@@ -63,7 +63,7 @@ test("the selection keeps reading free and narrows the area writes", () => {
   );
 });
 
-test("the areas of a run are its instruction's and its matrix's, plus the three", () => {
+test("the areas of a run are its instruction's and its matrix's, plus the two", () => {
   const picked = selectedAreas(["workorders"], {
     chat: "watch",
     mail: "watch",
@@ -72,8 +72,35 @@ test("the areas of a run are its instruction's and its matrix's, plus the three"
     workorder: "off",
     calendar: "off",
   });
-  assert.deepEqual(picked, ["mail", "knowledge", "workorders", "chat", "memory"]);
+  assert.deepEqual(picked, ["mail", "workorders", "chat", "memory"]);
   assert.equal(selectedAreas([], undefined), null, "a run with neither selects nothing");
+});
+
+test("knowledge is read by every run and written only by a group that grants it", () => {
+  /*
+   * The base is a store a person owns: a run **reads** its pages whatever its areas
+   * say — reading is free — and **proposes** a page only when the group ticked the
+   * area (ADR 0038). This fails if knowledge ever returns to the transversal list.
+   */
+  const without = catalogueFor(TOOLS, ["mail", "chat", "memory"]);
+  const open = without.find((tool) => tool.name === "open");
+  assert.ok(
+    (open?.args.what?.values ?? []).includes("page"),
+    "a run without the area still opens a page",
+  );
+  const act = without.find((tool) => tool.name === "act");
+  assert.ok(
+    !(act?.args.what?.values ?? []).includes("page"),
+    "and proposes nothing without the area",
+  );
+
+  const granted = catalogueFor(TOOLS, ["knowledge", "chat", "memory"]);
+  assert.ok(
+    (granted.find((tool) => tool.name === "act")?.args.what?.values ?? []).includes(
+      "page",
+    ),
+    "the group's tick is what offers the proposal",
+  );
 });
 
 test("every area may be declared, with no ceiling", () => {
@@ -121,14 +148,14 @@ test("the matrix names the areas a group works, and forgets the ones turned off"
         calendar: "off",
       } as SurfaceMatrix) ?? []),
     ].sort(),
-    ["chat", "knowledge", "mail", "memory"],
+    ["chat", "mail", "memory"],
   );
   assert.deepEqual(
     [
       ...(selectedAreas([], { chat: "watch", workorder: "ondemand" } as SurfaceMatrix) ??
         []),
     ].sort(),
-    ["chat", "knowledge", "memory", "workorders"],
+    ["chat", "memory", "workorders"],
   );
 });
 

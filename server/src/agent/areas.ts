@@ -3,9 +3,8 @@
  *
  * Each area is a module of tools with one concern: mail, files, calendar,
  * contacts, knowledge, workorders, chat, memory. A run is handed **the areas its
- * instruction declares and its surface matrix names**, plus the three that every
- * run needs — chat (the interface), knowledge (the shared library) and memory
- * (what the installation knows).
+ * instruction declares and its surface matrix names**, plus the two that every
+ * run needs — chat (the interface) and memory (what the installation knows).
  *
  * The mapping from a value of the catalogue to its area lives on the value itself
  * (`Route.area`, `agent/tools/jobs.ts`), because that is where the narrowing reads
@@ -44,7 +43,7 @@ export function selectedAreas(
  *
  * The matrix says where a group works (`chat`, `mail`, `files`, `knowledge`,
  * `workorder`, `calendar`); this says which areas that amounts to. It adds
- * nothing of its own: the three every run has are `selectedAreas`' business.
+ * nothing of its own: the two every run has are `selectedAreas`' business.
  */
 function areasOfSurfaces(surfaces: SurfaceMatrix | undefined): readonly AreaName[] {
   const held = new Set<AreaName>();

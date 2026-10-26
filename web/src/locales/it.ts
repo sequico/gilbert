@@ -1033,8 +1033,6 @@ export const catalog: Catalog = {
     "What the group's agent may change. Reading is always allowed.":
       "Cosa può cambiare l'agente del gruppo. La lettura è sempre consentita.",
     "What wakes the agent": "Cosa sveglia l'agente",
-    "AI Agents can always write knowledge":
-      "Gli agenti AI possono sempre scrivere nella knowledge base",
     "AI Agents can always write memory":
       "Gli agenti AI possono sempre scrivere nella memoria",
     "AI Agents can always write on their chat":

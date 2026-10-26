@@ -3,9 +3,13 @@
  *
  * An area is a module of tools with one concern: mail, files, calendar,
  * contacts, knowledge, workorders, chat, memory. A run is handed the areas its
- * instruction declares and its surface matrix names, plus the three every run
- * needs — chat (the interface), knowledge (the shared library) and memory (what
- * the installation knows).
+ * instruction declares and its surface matrix names, plus the two every run
+ * needs — chat (the interface) and memory (what the installation knows).
+ *
+ * **Knowledge is declared, never assumed**: reading the base is free, so a run
+ * without the area still opens its pages; proposing one is a write, and only a group
+ * that ticked the area may. The same holds for mail, files, calendar, contacts and
+ * workorders.
  *
  * The **vocabulary** lives here because both tiers use it: the server selects a
  * run's catalogue from it, and a member's client draws the areas an instruction
@@ -32,11 +36,13 @@ export type AreaName = (typeof AREA_NAMES)[number];
 /**
  * The areas every run gets, whatever its change and instruction say.
  *
- * They are always on: the conversation is the interface, memory is what the
- * installation knows, knowledge is the shared library. They add no tools a run
- * would otherwise miss, so an instruction naming them spends nothing.
+ * They are always on: the conversation is the interface and memory is what the
+ * installation knows. **Knowledge is not one of them**: reading the base is free —
+ * `open` is never narrowed — and proposing a page is a write, so it is an area a
+ * group declares like mail or files, and a group that does not declare it reads the
+ * base and cannot change it.
  */
-export const TRANSVERSAL_AREAS: readonly AreaName[] = ["chat", "knowledge", "memory"];
+export const TRANSVERSAL_AREAS: readonly AreaName[] = ["chat", "memory"];
 
 /**
  * The matrix a run may write through, derived from the areas it works.
