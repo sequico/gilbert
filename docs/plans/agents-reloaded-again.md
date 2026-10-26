@@ -131,7 +131,10 @@ from that:
 ## 4. Recommendations
 
 Each one states what changes, where, why, and the proof that closes it. The
-order in §6 is the order of work.
+order in §6 is the order of work. **Decided** — the record states it, and its
+Implementation line says the tree is behind: R1, R2, R3, R5, R8 (ADR 0030, 0034,
+0038). **Proposed** — the record and the tree still stand as they are, and the
+eval decides: R4, R6, R7, R9, R10, R11. R12 is a defect and needs no decision.
 
 ### R1 — A mail drop is one case, through the queue that already exists
 
