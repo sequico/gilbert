@@ -150,40 +150,39 @@ out of the way of the instruction's procedure. The freight example is the **evid
 for this document, not its design: every recommendation below reads the same for a
 law firm's matters, a clinic's referrals or an agency's briefs.
 
-### R1 — A mail drop is one case, through the queue that already exists
+### R1 — A case, its key, and one report per increment
 
-ADR 0034 already folds a burst of **files** into one change and one run: a queue
-document (`gilbert/pending.json`), a quiet window, a key of folder and instant, and
-`startedBy.batch` on the run. **Mail uses the same queue, not a second one**: a
-message is noted against its sender — the mailbox's own "folder" — and answered
-once, when that sender has been quiet for `DROP_QUIET_MS` or the burst has been
-open for `DROP_CAP_MS`. One change names the messages and the instant it opened,
-one decision, one run.
+Every instruction reports on something — the report's own fields name it ("booking,
+container, what arrived" for a forwarder; "matter, document, next step" for a law
+firm; "referral, patient, urgency" for a clinic). That thing is the **case**, and its
+name is the **key**: the model reads it from the change and writes it into the case's
+note (R3). The harness never parses a key and never invents one.
 
-For mail the `batch` the turn is shown carries, per message: subject, sender and
-attachment names (R2), and the **decision turn** is shown the burst the way a file
-drop is (ADR 0034): the messages' subjects and senders and the instant it opened, so
-the facts it answers are about the delivery, not one message of it. Each message is
-worked as a **step**, so the record keeps one
-outcome per message — the audit is not coarser than seven runs, it is one document
-instead of seven. A reply that answers a message of the drop joins the case through
-its `threadId`; an answer arriving days later opens its own run, which finds the
-case's note (R3) and the facts in the memory.
+A run works **one increment** of a case: the change it was opened for, plus whatever
+the note says the case still owes. A change for a case already known is therefore cheap
+— the note holds the key, the place, the rule and what was already reported — and the
+second and the seventh message of a delivery cost a decision turn and a short run, not
+another investigation.
 
-What does not change: one message that arrives alone is one run, as today. A wrong
-fold — two unrelated deliveries from one sender inside the window — costs a longer
-run, not a wrong filing: where each message is filed is decided per message, from
-its own attachments.
-*Where*: `agent/queue.ts` (the key and the window it already has), `agent/changes.ts`
-(the fold), `agent/loop.ts` (the run's opening), ADR 0034 and 0038 rewritten on the
-point; `startedBy.batch` already exists.
-*Why*: one shipment of seven messages costs 7 × 105-192 k tokens and seven
-rediscoveries of the same booking, folder and convention — and the group's own
-instruction asks for **one report per change or per drop**, so seven reports for one
-delivery break its own rule, not only its budget.
-*Proof*: the seven-message drop of `280228874` opens **one** run that files all
-seven, each with its own step and outcome, at no more than one message costs today —
-and the group reads one report. The owner confirms the group wants that (see §7).
+**The report is per increment, and nothing is repeated.** The note records what the
+last report said, and the turn carries it (R2), so the instruction's "never restate
+what an earlier report said" is obeyable whichever way the group counts a change.
+
+Whether a burst of changes is **one** report or several is the group's rule, not the
+harness's. When the instruction reports "per drop", ADR 0034's drop queue is the
+mechanism — it already folds a folder's files, and its key is the case the changes
+name; when it reports "per change", each increment reports and the note keeps them from
+repeating. The harness provides both, and the prose decides.
+*Where*: `agent/changes.ts` (a change's identity), `agent/loop.ts` (the run's opening
+and the note's lookup), `agent/queue.ts` (the per-drop option), `shared/run.ts`, ADR
+0034 and 0038 rewritten on the point.
+*Why*: one delivery of seven messages cost seven runs of 105-192 k tokens that each
+rediscovered the same case, the same place and the same rule — and the group's
+instruction asks for one report per change or per drop, which seven full reports for one
+delivery break.
+*Proof*: the seven messages of one delivery are worked as seven increments of one case,
+each with its own outcome, at a few thousand tokens after the first, and the group reads
+a report that never repeats what an earlier one said.
 
 ### R2 — The turn starts with the case
 
@@ -547,6 +546,10 @@ plan that optimises without counting is a preference.
   step's text changes between two turns, so the provider's prefix is invalidated
   from there on, and a body that leaves the window has to be fetched again. R13
   replaces it with an append-only transcript and compaction.
+- **Folding a burst of mail into one run, for every group**: it is one way of reading
+  "one report per drop", and it is the drop queue's when a group's instruction says
+  so. With the case's note the per-change route costs the same, so folding is the
+  group's option and not a decision the harness makes in its place.
 - **A per-run alarm at a token threshold**: the cost is on the record and on the run's
   page (R7, R8), and a person can stop the run; a threshold that ends it is a ceiling
   with another name.
