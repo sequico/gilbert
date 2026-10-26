@@ -671,7 +671,14 @@ export interface RunSummary {
  * list is read for what is happening now, and a run without `startedAt` sorts by
  * its ending rather than last.
  */
-export function runRecency(one: RunSummary): string {
+/** The least a run must have to be ordered: an id and the instant it counts from. */
+export interface RunOrder {
+  id: string;
+  startedAt?: string;
+  ended?: { at: string } | null;
+}
+
+export function runRecency(one: RunOrder): string {
   return one.startedAt ?? one.ended?.at ?? "";
 }
 
@@ -683,8 +690,38 @@ export function runRecency(one: RunSummary): string {
  * a list cut in the folder's own order shows the first documents ever filed and
  * never the newest.
  */
-export function byRecency(a: RunSummary, b: RunSummary): number {
+export function byRecency(a: RunOrder, b: RunOrder): number {
   return runRecency(b).localeCompare(runRecency(a)) || a.id.localeCompare(b.id);
+}
+
+/** The cursor a list carries between pages: the row's instant, then its id. */
+export function runCursor(one: RunOrder): string {
+  return `${runRecency(one)}|${one.id}`;
+}
+
+/**
+ * One page of runs after a cursor, in the list's one order.
+ *
+ * The rows must already be sorted (`byRecency`); this only cuts. A cursor names a
+ * **row**, not a position, so a run that ended or was archived between two pages
+ * takes its own cursor with it without rewriting the list from its first page — the
+ * reader continues below where the row was, and nothing is drawn twice.
+ */
+export function pageAfter<T extends RunOrder>(
+  rows: readonly T[],
+  after: string,
+  limit: number,
+): { runs: T[]; more: boolean; after: string | null } {
+  const [when = "", id = ""] = after.split("|");
+  const past = after
+    ? rows.filter((one) => byRecency({ id, startedAt: when }, one) < 0)
+    : rows;
+  const runs = past.slice(0, limit);
+  return {
+    runs,
+    more: past.length > runs.length,
+    after: runs.length ? runCursor(runs[runs.length - 1] as T) : null,
+  };
 }
 
 /** The header of one listed run: the list's one shape, in both tiers. */

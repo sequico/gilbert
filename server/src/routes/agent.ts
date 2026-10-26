@@ -96,7 +96,7 @@ import {
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
 import { factView } from "../shared/memory.js";
-import { byRecency, type RunDoc, runRecency, type RunSummary } from "../shared/run.js";
+import { byRecency, pageAfter, type RunDoc, type RunSummary } from "../shared/run.js";
 import { finishRun, isInFlight, summarizeRun } from "../shared/run.js";
 import {
   type Env,
@@ -630,23 +630,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
               // page, so the overview lists them together.
               rows.filter((one) => one.state === "running" || one.state === "blocked")
             : rows;
-      const cursor = (one: RunSummary): string => `${runRecency(one)}|${one.id}`;
-      /*
-       * The rows the cursor has not answered yet, by the list's own order: newer
-       * first, the id breaking a tie. A cursor names a row, not a place, so a row
-       * that ended or left the page does not rewind the reader to the top.
-       */
-      const afterAt = after.indexOf("|");
-      const when = afterAt < 0 ? "" : after.slice(0, afterAt);
-      const id = afterAt < 0 ? "" : after.slice(afterAt + 1);
-      const rest =
-        afterAt < 0
-          ? filtered
-          : filtered.filter((one) => {
-              const recency = runRecency(one);
-              return recency < when || (recency === when && one.id > id);
-            });
-      const page = rest.slice(0, limit);
+      const page = pageAfter(filtered, after, limit);
       /*
        * The history list is a header per run; the plan travels only to the
        * surface that watches a run, where a step turning from open to done is
@@ -656,13 +640,15 @@ export function registerAgentRoutes(api: Hono<Env>): void {
        * what a run waits for — and it is answered with headers too.
        */
       const runs =
-        state === undefined || c.req.query("plan") === "0" ? page.map(headerOf) : page;
+        state === undefined || c.req.query("plan") === "0"
+          ? page.runs.map(headerOf)
+          : page.runs;
       return c.json({
         group: name,
         runs,
-        more: page.length < rest.length,
+        more: page.more,
         /** The last row drawn: the next page asks after it. */
-        after: page.length ? cursor(page[page.length - 1] as RunSummary) : null,
+        after: page.after,
       });
     } catch (err) {
       return doorFailure(c, err);
@@ -702,22 +688,15 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         )
       )
         .map((one) => summarizeRun(one))
-        .sort((a, b) => {
-          const when = (one: RunSummary) => one.startedAt ?? one.ended?.at ?? "";
-          return when(b).localeCompare(when(a)) || a.id.localeCompare(b.id);
-        });
-      const cursor = (one: RunSummary): string =>
-        `${one.startedAt ?? one.ended?.at ?? ""}|${one.id}`;
-      const at = after ? all.findIndex((one) => cursor(one) === after) : -1;
-      const start = at >= 0 ? at + 1 : 0;
-      const runs = all.slice(start, start + ARCHIVE_PAGE);
+        .sort(byRecency);
+      const page = pageAfter(all, after, ARCHIVE_PAGE);
       return c.json({
         group: name,
         month,
-        runs,
-        more: start + runs.length < all.length,
+        runs: page.runs,
+        more: page.more,
         /** The last row drawn: the next page asks after it. */
-        after: runs.length ? cursor(runs[runs.length - 1] as RunSummary) : null,
+        after: page.after,
       });
     } catch (err) {
       return doorFailure(c, err);
