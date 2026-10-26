@@ -138,6 +138,17 @@ match, not the other way round — R1, R2, R3, R5 and R8 are already stated in A
 **Proposed** until the eval speaks: R4, R6, R7, R9, R10, R11. R12 is a defect and
 needs no decision.
 
+**Everything here is generic.** A group's instruction names four things in prose:
+the **case** it works (a booking, a client, a project, a matter, a ticket), the
+**place** the work goes (the case's folder, a project tree, a file), the **rule** that
+governs it (a naming convention in the knowledge base), and the **shape of the
+report**. None of that is the harness's to know, and none of it is parsed: the
+instruction travels as the operator's own words, and the harness's part is only to
+carry the case, to give the agent **somewhere to record what it learns**, and to stay
+out of the way of the instruction's procedure. The freight example is the **evidence**
+for this document, not its design: every recommendation below reads the same for a
+law firm's matters, a clinic's referrals or an agency's briefs.
+
 ### R1 — A mail drop is one case, through the queue that already exists
 
 ADR 0034 already folds a burst of **files** into one change and one run: a queue
@@ -166,8 +177,9 @@ its own attachments.
 (the fold), `agent/loop.ts` (the run's opening), ADR 0034 and 0038 rewritten on the
 point; `startedBy.batch` already exists.
 *Why*: one shipment of seven messages costs 7 × 105-192 k tokens and seven
-rediscoveries of the same booking, folder and convention, and the group reads seven
-reports for one delivery.
+rediscoveries of the same booking, folder and convention — and the group's own
+instruction asks for **one report per change or per drop**, so seven reports for one
+delivery break its own rule, not only its budget.
 *Proof*: the seven-message drop of `280228874` opens **one** run that files all
 seven, each with its own step and outcome, at no more than one message costs today —
 and the group reads one report. The owner confirms the group wants that (see §7).
