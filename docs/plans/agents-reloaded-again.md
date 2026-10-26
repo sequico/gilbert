@@ -1,9 +1,10 @@
 # Plan — the agent, reloaded again
 
 Status: **proposed, not started**. Nothing here is built. The decisions behind it
-live in ADR 0027 (tools), 0030 (the run is a document), 0034 (a burst is one
-drop), 0038 (areas, jobs, budgets) and 0029 (the conversation); each step below
-revises those records **in place**, and no record is minted without the owner's
+live in ADR 0038 (the tools, the areas, the turn, the ceiling — it replaced 0027,
+so that record is not edited here), 0030 (the run is a document), 0034 (a burst is
+one drop), 0029 (the conversation) and 0033 (the memory); each step below revises
+those records **in place**, and no record is minted without the owner's
 authorisation.
 
 This plan supersedes nothing: it is the current shape of the work, written after
@@ -252,7 +253,7 @@ guard asks of each endpoint (`authorityOf`, `surfaceOf`, `waitsOf`), so the clas
 of an act and the surface it writes are still read from the act itself.
 *Where*: `agent/tools.ts` and `agent/tools/jobs.ts` (the façade over the existing
 endpoint modules), `agent/model.ts` (the catalogue the turn is given, and the
-signature lines beside it), ADR 0027 rewritten on the point.
+signature lines beside it), ADR 0038 rewritten on the point.
 *Why*: 12 315 characters of definitions and 1 807 of signature lines per turn — about
 4 000 of a turn's 6 200-7 500 prompt tokens — to choose among some forty endpoints;
 and the model still picked the wrong one (`read {"kind":"run"}` with an invented
@@ -371,7 +372,7 @@ clipped log whose older answers are one line each). It is rewritten at the
 altitude the field recommends: what the run is, what the verbs are, what is never
 the model's to decide, and **one worked example** — a delivery filed end to end —
 because an example carries what a list of rules does not.
-*Where*: `agent/model.ts` (the choosing turn's system prose), ADR 0027/0038.
+*Where*: `agent/model.ts` (the choosing turn's system prose), ADR 0038.
 *Why*: every turn pays for it, and under it the model still read one message twelve
 times; an instruction that describes a harness the turn no longer has teaches the
 model to work around it.
