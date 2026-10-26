@@ -298,10 +298,9 @@ spent the provider's default budget before writing anything.
   words (`open`, `say`, …) because a provider accepts only
   `^[a-zA-Z0-9_-]+$` — the live provider refused `mail.find` as an invalid
   function name. The catalogue travels **once**: the definitions are the whole of
-  it, and there is no list of signatures beside them. A line per tool existed because a
-  model invented `mail.search` from a catalogue it had not read; with four verbs the
+  it, and there is no list of signatures beside them. With four verbs the
   value a call names is in the schema's own `enum` and the arguments are the branch's,
-  so a second list is only a thing to drift from the first (R4). The administration's form **accepts a provider only if it takes
+  so a second list would only be a thing to drift from the first (R4). The administration's form **accepts a provider only if it takes
   both** what the turns need — `tools` for the action, a native JSON mode for the
   decision — and refuses one that fails the probe when the block is written; the
   probe checks both then (one request when they travel together, one per
