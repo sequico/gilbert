@@ -1,7 +1,7 @@
 /**
  * The catalogue as four verbs (ADR 0038).
  *
- * Forty-five endpoint tools are four, and every capability is a value of one or
+ * Forty-six endpoint tools are four, and every capability is a value of one or
  * consciously dropped: `open` what the account holds, `act` a change to it, `say`
  * in the conversation, `note` the case's scratchpad. The executors stay where they
  * were, one per endpoint; a verb routes to one by its own `what` or `action` and

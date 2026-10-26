@@ -102,14 +102,14 @@ an agent; the run is the one place where two areas meet.
 
 ### The catalogue is verbs over the endpoint tools
 
-Forty-five endpoint tools become four verbs and a scratchpad; every capability is a
+Forty-six endpoint tools become four verbs and a scratchpad; every capability is a
 value of a verb or **consciously dropped**. `open` is what the account holds — the
 singular opens one object by `id` or several by `ids` in one call, the plural searches
 or lists:
 
 | verb | what it is | absorbs |
 |---|---|---|
-| `open` | what the account holds: a message, an attachment, a file, an event, a page, a chat, a workorder, a run or the memory — or several at once; and the plural to search or list | `mail.read`, `mail.readAttachment`, `files.read`, `calendar.read`, `knowledge.read`, `chat.read`, `workorder.read`, `run.read`, `mail.find`, `mail.folders`, `files.list`, `calendar.list`, `calendar.find`, `chat.find`, `contacts.find`, `knowledge.list`, `knowledge.search`, `workorder.list` |
+| `open` | what the account holds: a message, an attachment, a file, an event, a page, a chat, a workorder, a run or the memory — or several at once; a `brief` asks a reader; and the plural to search or list | `mail.read`, `mail.readAttachment`, `files.read`, `calendar.read`, `knowledge.read`, `chat.read`, `workorder.read`, `run.read`, `memory.history`, `read.brief`, `mail.find`, `mail.folders`, `files.list`, `calendar.list`, `calendar.find`, `chat.find`, `contacts.find`, `knowledge.list`, `knowledge.search`, `workorder.list` |
 | `act` | change what the account holds: file, trash, untrash, keyword, label, a message printed as a PDF into Files, a mail folder made/renamed/deleted, a file saved/written/moved/renamed/deleted or a folder made, an outward message as a draft, an event scheduled/rescheduled/cancelled, a fact kept or a page proposed, a workorder step settled | `mail.file`, `mail.trash`, `mail.untrash`, `mail.keyword`, `mail.label`, `mail.print`, `files.save`, `files.write`, `files.overwrite`, `files.move`, `files.rename`, `files.delete`, `files.folder`, `mail.folder`, `mail.renameFolder`, `mail.deleteFolder`, `mail.draft`, `mail.editDraft`, `calendar.create`, `calendar.update`, `calendar.delete`, `memory.remember`, `knowledge.propose`, `workorder.settle` |
 | `say` | speak in the conversation, or ask | `chat.say`, `chat.ask` |
 **Dropped: `mail.send` and `mail.ask`.** An outward message is a draft a person
