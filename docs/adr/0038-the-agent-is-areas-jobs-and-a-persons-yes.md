@@ -36,15 +36,14 @@ read by entity and interval, the embeddings capability probed with the provider'
 others, the run recording `retrieval` beside `recalled`, and precision and recall
 measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
-**Not built:** everything in *Owed*, and the change of this record's context: the
-turn is still the plan's tail rendered as a **sliding window** (`prompt.ts` clips an
-older outcome to its beginning and re-carries whole the last three distinct answers),
-not the appended transcript above, with no compaction and no reader. The run
-ceilings this record refuses are gone from the loop (`overBudget` and the run's
-step, call, time and token endings), and the valve is `RUN_TURNS_MAX`; the
-per-step cost, the limits in force and the case's scratchpad are still owed. The
-work that carries the record as it now stands is
-`docs/plans/agents-reloaded-again.md`.
+**Not built:** everything in *Owed*, and: compaction of the transcript, the reader,
+and the case's scratchpad in the turn as ADR 0034 describes it (the note and its
+tool are built; the case the turn is handed is not). The run ceilings this record
+refuses are gone from the loop (`overBudget` and the run's step, call, time and
+token endings), the valve is `RUN_TURNS_MAX`, and the turn is the appended
+transcript above (`prompt.ts`): every outcome written once, at the size it arrived,
+and never rewritten. What is still owed is per-step cost, the limits in force and
+the case's place in the turn. The work is `docs/plans/agents-reloaded-again.md`.
 
 ## What this replaces, and what it keeps
 

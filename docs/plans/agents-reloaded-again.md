@@ -494,37 +494,28 @@ a run arrives repeats no row and skips none.
 
 ### R13 — The turn is a transcript: appended, never rewritten, compacted when long
 
-The window of 2026-10-26 was a patch for a real failure — a run re-read one message
-twelve times — and it bought that at a price the bill shows: **every turn re-renders
-the past**. A step carried whole at one turn becomes a 240-character line at the next,
-so the prompt changes in the middle and the provider's cache is invalidated from
-there on; the cache hit today is 61-71 %, and the tail of the plan is where the misses
-are. The harness practice is the opposite: **an append-only transcript**. The turn is
-the system, the case, and then the run's own history in the order it happened — each
-outcome written **once**, at the size it arrived (bounded), and never rewritten. The
-prompt grows by one step per turn and everything before it is a stable prefix the
-provider caches; on a provider that reports cached tokens the effect is visible per
-turn (R8).
+**Built:** the turn is the run's own history, appended. Each outcome is written once,
+at the size it arrived (the record's own four kilobytes, `boundedText`), and never
+re-rendered: the window of 2026-10-26 is gone from `prompt.ts`, and with it the
+clipping that changed a step's text between two turns and invalidated the provider's
+cached prefix from there. A repeat is a line pointing at the step that answered,
+because the answer never leaves. The prompt grows by one step per turn, and one that
+outgrows the provider's window is refused with the window named rather than truncated.
 
-What bounds it is **compaction**, not a sliding window: when the transcript passes a
-share of the window this build knows (the prompt's own measured size, R8), the harness
-asks the model for a summary of everything older than the last few steps, writes it
-into the case's scratchpad (R3), and replaces those steps with their one-line records.
-The transcript is then bounded again, and the summary is a document rather than a
-prompt.
-
-A repeat of a call follows: the answer is **still in the transcript**, because nothing
-clips it, so the repeat step is one line pointing at the step that answered — no copy
-of the body, no re-fetch, and the window's re-pointing trick is no longer needed.
-*Where*: `agent/prompt.ts` (the turn is built by appending; `carriedWhole` and the
-clipping go), `shared/run.ts` (a step's rendering is fixed when it ends), `agent/loop.ts`
-(compaction at the threshold, the note as its destination), ADR 0038's context section.
-*Why*: 61-71 % of the prompt was served from cache while the plan's tail was rewritten
-every turn; a run paid for the body of one message twelve times in the failing runs, and
-the window's answer was to re-render the past rather than to stop changing it.
-*Proof*: on a run of twenty steps the cached share of the prompt rises against today's,
-measured per turn; no step's text changes between two turns; and a repeat of a call
-adds a line, not a body.
+**Owed:** compaction. When the transcript passes a share of the window the build
+measures, the harness asks the model for a summary of everything older than the last
+few steps, writes it into the case's scratchpad, and replaces those steps with their
+one-line records — so the transcript is bounded again by a document rather than a
+prompt. Until it is built, a very long run ends `refused` at the window instead of
+compacting, which is honest and is what the fixture's provider did in the test.
+*Where*: `agent/prompt.ts` (the transcript, built), `agent/loop.ts` and
+`shared/run.ts` (compaction, owed), ADR 0038's context section.
+*Why*: 61-71 % of the prompt was served from cache while the window rewrote the tail;
+a run paid for the body of one message twelve times in the failing runs, and the
+window's answer was to re-render the past rather than to stop changing it.
+*Proof*: no step's text changes between two turns (a test asserts the turn grows by a
+prefix), the cached share rises per turn on a run (R9's eval), and a transcript that
+outgrows the window is compacted rather than refused once compaction lands.
 
 ### The numbers this plan moves
 

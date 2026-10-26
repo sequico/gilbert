@@ -230,8 +230,9 @@ to work and **which areas** that work is in. The areas are the agent's own
 modules — **mail**, **files**, **calendar**, **contacts**, **knowledge**,
 **workorders**, **chat**, **memory** — and they are the whole of what a run may
 **change**: a run's catalogue is the **eight jobs** (`read`, `find`, `place`,
-`draft`, `event`, `say`, `remember`, `settle`), narrowed to the values whose area
-its instruction declares, with reading, the conversation and memory always
+`draft`, `event`, `say`, `remember`, `settle`) and the case's `note`, narrowed to
+the values whose area
+its instruction declares, with reading, the note, the conversation and memory always
 there. **Reading is free**; a write
 needs its area, and the conversation and memory are always writable. An
 instruction declares as many areas as its group works: there is no ceiling, and
@@ -300,7 +301,8 @@ model may sit inside the deployment's own network
 group's own account, what the change is about, with **one** lookup of the group's
 own state when the change does not say enough — asked in the provider's native
 JSON mode (a schema where the provider enforces one); and the **choosing turn**,
-handed the catalogue of eight jobs as the provider's own `tools`, which answers
+handed the catalogue of eight jobs and the case's note as the provider's own `tools`,
+which answers
 with **calls** — one, several, or the same one twice — or with the sentence that
 ends the run. There is no JSON-in-the-text plan and no second request without the
 tools: a provider is accepted only if it takes `tools` and a native JSON mode,
@@ -422,13 +424,12 @@ groups — are read from the mail server by that pass rather than decided at the
 boot, so a group added or
 withdrawn in Stalwart needs no restart.
 
-**The turn is handed the plan's tail, not the whole plan** (ADR 0038): the last
-three distinct answers in full — a call asked again is answered at the step that
-answered it, and never takes one of the three places — every earlier step as one
-line of its outcome's beginning, the facts the memory recalled, the catalogue and
-the instruction — and no model call writes the summary. A forty-step run of
-three-kilobyte outcomes costs the turn about a fifth of what the whole plan would,
-and each further step adds a line (`server/src/agent/prompt.ts`).
+**The turn is the run's own transcript** (ADR 0038): every step's answer as the record
+keeps it — bounded when it was written and never clipped when it is read, so no
+step's text changes between two turns and the prefix a provider caches stays intact —
+beside the facts the memory recalled, the case's note as the model wrote it, the
+catalogue and the instruction. A call asked again is a line pointing at the step that
+answered, because the answer never leaves (`server/src/agent/prompt.ts`).
 
 ## The agent is measured on the tasks it has failed
 

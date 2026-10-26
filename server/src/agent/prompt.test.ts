@@ -2,13 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { RunStep } from "../shared/run.js";
 import type { DecisionQuestion, StepQuestion } from "./model.js";
-import {
-  READ_IN_PROMPT_MAX,
-  STEP_OUTCOME_FULL_MAX,
-  STEP_OUTCOME_OLD_MAX,
-  stepData,
-  turnData,
-} from "./prompt.js";
+import { READ_IN_PROMPT_MAX, stepData, turnData } from "./prompt.js";
 
 /**
  * The prompt is paid for by the token and bounded by the provider's context: a
@@ -30,39 +24,48 @@ test("a lookup larger than the prompt's bound is clipped, and says so", () => {
   );
 });
 
-/** One ended step whose outcome is longer than the prompt carries of an old one. */
+/** One ended step whose answer is longer than one line, so a cut would show. */
 function ended(at: number, state: RunStep["state"] = "done"): RunStep {
   return {
     what: `step-${at} action`,
     state,
-    outcome: `${at}:${"x".repeat(STEP_OUTCOME_OLD_MAX * 4)}`,
+    outcome: `${at}:${"x".repeat(1_000)}`,
     needs: null,
   };
 }
 
 /**
- * The plan is re-sent on every choosing turn, so its outcomes are what makes a
- * long run's prompt grow: the last few are carried whole, an older one as its
- * beginning, and the step a step still to run waits on stays whole however old
- * it is — that is what the next choice branches on.
+ * The turn is a transcript: every step's answer is carried as the record keeps it —
+ * bounded when it was written, never clipped when it is read — and nothing that is
+ * already in it changes on a later turn. The window that re-clipped older answers
+ * bought a shorter prompt at the price of the provider's cache and of a body the
+ * model had to fetch again (ADR 0038).
  */
-test("an old step's outcome is carried as its beginning, the last few whole", () => {
-  const plan = Array.from({ length: STEP_OUTCOME_FULL_MAX + 2 }, (_, at) => ended(at));
+test("every step's answer is carried as the record keeps it", () => {
+  const plan = Array.from({ length: 6 }, (_, at) => ended(at));
   const prompt = stepData({ woke: "mail created: m-1", plan, prose: {} } as StepQuestion);
 
-  assert.ok(!prompt.includes(plan[0]?.outcome ?? ""), "the oldest is cut");
-  assert.ok(prompt.includes("0:"), "what is kept is its own beginning");
+  for (const step of plan)
+    assert.ok(prompt.includes(step.outcome), `step ${step.what} is carried whole`);
   assert.ok(
-    prompt.includes("An outcome that ends in … is carried as its beginning"),
-    "and the model is told what the cut means",
+    !prompt.includes("carried as its beginning"),
+    "and nothing is cut, so nothing explains a cut",
   );
+});
+
+test("a step's text does not change when the plan grows", () => {
+  const plan = Array.from({ length: 4 }, (_, at) => ended(at));
+  const ask = (steps: RunStep[]) =>
+    stepData({ woke: "mail created: m-1", plan: steps, prose: {} } as StepQuestion);
+  /* The fence token is drawn per call; what must not move is the text inside it. */
+  const strip = (text: string) => text.replace(/\[[0-9a-f]{8}\]/g, "");
+
+  const first = strip(ask(plan));
+  const grown = strip(ask([...plan, ended(4)]));
   assert.ok(
-    prompt.includes("Asking for the same call again brings it back whole once more"),
-    "and how to get that answer back, since a read of the run's record is clipped to its first four kilobytes",
+    grown.startsWith(first),
+    "the turn grows by a step at the end; no earlier step's text is rewritten",
   );
-  for (const at of plan.slice(-STEP_OUTCOME_FULL_MAX))
-    assert.ok(prompt.includes(at.outcome), "the steps just taken are whole");
-  assert.ok(prompt.includes(`step ${plan.length}`), "the plan's own shape is untouched");
 });
 
 test("a repeated call is shown once, and the repeat points at the answer", () => {
@@ -91,35 +94,11 @@ test("a repeated call is shown once, and the repeat points at the answer", () =>
 });
 
 /**
- * A cut outcome is explained only when one is *shown*: a repeat's copy is never
- * printed, so the sentence would describe a "…" the turn does not carry.
+ * A repeat is a line pointing at the step that answered: the answer never leaves the
+ * transcript, so the repeat needs no copy of it and no re-fetch.
  */
-test("the sentence about a cut outcome is there only when a cut one is shown", () => {
-  const body = `the body:${"m".repeat(STEP_OUTCOME_OLD_MAX * 4)}`;
-  const read: RunStep = {
-    what: 'read {"kind":"message","id":"m-1"}',
-    state: "done",
-    outcome: body,
-    needs: null,
-  };
-  const plan: RunStep[] = [{ ...read }, ended(0), { ...read }];
-  const prompt = stepData({ woke: "mail created: m-1", plan, prose: {} } as StepQuestion);
-
-  assert.ok(prompt.includes(body), "the answer is carried whole");
-  assert.ok(
-    !prompt.includes("carried as its beginning"),
-    "and nothing shown is cut, so the cut is not explained",
-  );
-});
-
-/**
- * A repeat is a pointer and carries no answer of its own, so counting it among the
- * steps carried whole spends the window on pointers. A live run re-read one
- * message twelve times, and every time the body it wanted had been pushed out by
- * repeats of itself: two of the three places held a pointer to the same step.
- */
-test("a repeated call does not take a place in the carried-whole window", () => {
-  const body = `the body:${"m".repeat(STEP_OUTCOME_OLD_MAX * 4)}`;
+test("a repeated call is a line, and the answer stays where it was", () => {
+  const body = `the body:${"m".repeat(1_000)}`;
   const read: RunStep = {
     what: 'read {"kind":"message","id":"m-1"}',
     state: "done",
@@ -128,27 +107,29 @@ test("a repeated call does not take a place in the carried-whole window", () => 
   };
   const plan: RunStep[] = [
     read,
-    ...Array.from({ length: STEP_OUTCOME_FULL_MAX }, (_, at) => ended(at)),
+    ...Array.from({ length: 3 }, (_, at) => ended(at)),
     { ...read },
   ];
   const prompt = stepData({ woke: "mail created: m-1", plan, prose: {} } as StepQuestion);
 
   assert.ok(
     prompt.includes(body),
-    "the answer the run asked for again is carried whole, not only as its beginning",
+    "the answer the run asked for again is still there, whole",
   );
-  assert.match(prompt, /same call as step 1/, "and the repeat still says where it is");
+  assert.equal(
+    prompt.split(body).length - 1,
+    1,
+    "and the repeat adds a line rather than a second copy",
+  );
+  assert.match(prompt, /same call as step 1/, "the repeat says where the answer is");
 });
 
 /**
- * A step still to run has answered nothing, so a repeat of it must not take a
- * place: the window would be spent on a pointer to an empty line. The plan of a
- * live wave is exactly that while it runs — the first call open, its copy in the
- * same answer already recorded — and the older answers are what the next choice
- * is made beside.
+ * A step still to run has answered nothing, and the transcript says so rather than
+ * printing an empty answer as if it were one.
  */
-test("a repeat of a step that has not run does not take the place of an answer", () => {
-  const first = `the answer:${"a".repeat(STEP_OUTCOME_OLD_MAX * 4)}`;
+test("a step still to run is shown as having answered nothing", () => {
+  const first = `the answer:${"a".repeat(1_000)}`;
   const plan: RunStep[] = [
     {
       what: 'read {"kind":"message","id":"m-1"}',
@@ -156,18 +137,16 @@ test("a repeat of a step that has not run does not take the place of an answer",
       outcome: first,
       needs: null,
     },
-    ...Array.from({ length: STEP_OUTCOME_FULL_MAX - 1 }, (_, at) => ended(at)),
     { what: 'find {"kind":"files"}', state: "open", outcome: "", needs: null },
-    {
-      what: 'find {"kind":"files"}',
-      state: "skipped",
-      outcome: "the same call is step 4 of this answer: it is made there, not twice.",
-      needs: null,
-    },
   ];
   const prompt = stepData({ woke: "mail created: m-1", plan, prose: {} } as StepQuestion);
 
-  assert.ok(prompt.includes(first), "the older answer keeps its place in the window");
+  assert.ok(prompt.includes(first), "the answer that is there is carried whole");
+  assert.match(
+    prompt,
+    /state: open\noutcome: \(nothing yet\)/,
+    "and the open one is empty",
+  );
 });
 
 test("the case's note is carried whole in the turn", () => {
@@ -221,15 +200,12 @@ function ran(at: number): RunStep {
 }
 
 /**
- * The threshold is measured, not guessed (ADR 0038): the whole plan is what a
- * turn used to be handed, and the projection is what it is handed now.
- *
- * Forty ended steps of three kilobytes are 120 000 characters of outcome; the
- * turn carries the last three whole and thirty-seven beginnings, 23 064
- * characters — about a fifth — and the extra cost of twenty more steps is one
- * line each, not three kilobytes each.
+ * A long run's prompt is what the record holds, and it grows by one answer a step —
+ * which is what the provider's cache is worth, and why the transcript is compacted
+ * rather than re-clipped (ADR 0038). The record's own bound is what limits one
+ * answer; the plan is not projected down to a fraction of itself any more.
  */
-test("a long run's prompt is a fraction of the whole plan, and grows a line a step", () => {
+test("a long run's prompt grows by one answer a step, and no earlier answer moves", () => {
   const plan = Array.from({ length: 20 }, (_, at) => ran(at));
   const longer = Array.from({ length: 40 }, (_, at) => ran(at));
   const ask = (steps: RunStep[]) =>
@@ -238,18 +214,16 @@ test("a long run's prompt is a fraction of the whole plan, and grows a line a st
   const whole = longer.reduce((sum, step) => sum + step.outcome.length, 0);
   const prompt = ask(longer);
   assert.ok(
-    prompt.length < whole * 0.2,
-    `the turn carries ${Math.round((prompt.length / whole) * 100)}% of the plan`,
+    prompt.length > whole,
+    "every answer the record holds is in the turn, not a projection of them",
   );
-
   const grew = prompt.length - ask(plan).length;
   const wholeGrew = whole - plan.reduce((sum, step) => sum + step.outcome.length, 0);
+  const overhead = grew - wholeGrew;
   assert.ok(
-    grew < wholeGrew / 8,
-    `twenty more steps add ${grew} characters, against ${wholeGrew} carried whole`,
+    overhead >= 0 && overhead < 20 * 200,
+    `twenty more steps add ${grew} characters: ${wholeGrew} of answers and ${overhead} of fence`,
   );
-  for (const step of longer.slice(-STEP_OUTCOME_FULL_MAX))
-    assert.ok(prompt.includes(step.outcome), "the steps just taken are whole");
 });
 
 /**

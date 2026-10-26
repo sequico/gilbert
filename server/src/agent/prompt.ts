@@ -4,7 +4,15 @@ import { type RunStep, stepIdentity } from "../shared/run.js";
 import type { DecisionQuestion, ReadMade, StepQuestion } from "./model.js";
 import { redactText } from "./redact.js";
 
-/** The most of an outcome, a question or a note one prompt carries. */
+/**
+ * The most of an outcome the **record** keeps, and therefore the most a prompt
+ * carries of it.
+ *
+ * The bound is applied where the outcome is written (`boundedText`), never where it
+ * is read: a prompt that re-clipped an older answer would change the text of a step
+ * between two turns, which invalidates a provider's cached prefix from there on and
+ * sends the model looking for a body it thought it had (ADR 0038).
+ */
 export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
 
 /**
@@ -16,21 +24,6 @@ export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
  * is visible rather than a call that fails.
  */
 export const READ_IN_PROMPT_MAX = 16 * 1024;
-
-/**
- * How many of a plan's answers the prompt carries whole.
- *
- * The record keeps every outcome in full, and **every** choosing turn of the
- * run re-sends the whole plan: twenty steps re-read up to forty times is a
- * prompt that grows with the square of the plan. The last few **distinct** answers
- * are carried whole — they are what the next choice is made beside, and a call
- * asked twice is answered at the step that answered it — and an older one is
- * carried as its beginning, because what is done stays done.
- */
-export const STEP_OUTCOME_FULL_MAX = 3;
-
-/** The most of an older step's outcome the prompt carries. */
-export const STEP_OUTCOME_OLD_MAX = 240;
 
 /**
  * The volatile tail of one call: the change, the candidate rules, and what has
@@ -177,7 +170,15 @@ export function stepData(question: StepQuestion): string {
     const identity = stepIdentity(step);
     if (!answeredAt.has(identity)) answeredAt.set(identity, index);
   }
-  const whole = carriedWhole(question.plan, answeredAt);
+  /*
+   * **Appended, never rewritten.** Every step's answer is carried as the record
+   * keeps it — bounded when it was written, not clipped here — so a step's text is
+   * the same on every later turn and the prompt is a growing transcript. That is
+   * what the provider's cache is worth: a turn that re-clips an older answer
+   * invalidates the prefix from the first step it changes, and a body that leaves
+   * the window is fetched again. A repeat is a line pointing at the step that
+   * answered, because the answer never leaves (ADR 0038).
+   */
   const done = question.plan.map((step, index) => {
     const first = answeredAt.get(stepIdentity(step));
     if (first !== undefined && first !== index)
@@ -194,7 +195,7 @@ export function stepData(question: StepQuestion): string {
       ...(step.needs
         ? [`waits on: step ${step.needs.step + 1} ending "${step.needs.when}"`]
         : []),
-      `outcome: ${outcomeOf(step.outcome, whole.has(index))}`,
+      `outcome: ${step.outcome || "(nothing yet)"}`,
     ]);
   });
   return [
@@ -243,60 +244,5 @@ export function stepData(question: StepQuestion): string {
       : []),
     "What this run has done so far, and what each step answered. A step that says it is the same call as an earlier one is answered there; do not repeat it:",
     ...(done.length ? done : [dataBlock(token, ["(nothing yet)"])]),
-    ...(question.plan.some(
-      (step, index) =>
-        answeredAt.get(stepIdentity(step)) === index &&
-        !whole.has(index) &&
-        step.outcome.length > STEP_OUTCOME_OLD_MAX,
-    )
-      ? [
-          "An outcome that ends in … is carried as its beginning. Asking for the same call again brings it back whole once more, so ask when you need it — and finish with what you have when you can.",
-        ]
-      : []),
   ].join("\n");
-}
-
-/**
- * Which steps of a plan the prompt carries whole.
- *
- * The last few **answers**, and any step a step still to run waits on: what the
- * next choice is made beside. A repeat of a call carries no outcome of its own —
- * it is shown as a pointer to the step that answered — so counting ended steps
- * would spend the window on the pointers and hide the answers a long run keeps
- * asking for: a live run re-read one message twelve times, and the body it wanted
- * was out of the window each time because two of the three places were repeats.
- * Every other ended step is a line, and the run document is where its outcome is
- * kept.
- */
-function carriedWhole(
-  plan: readonly RunStep[],
-  answeredAt: ReadonlyMap<string, number>,
-): Set<number> {
-  const whole = new Set<number>();
-  let carried = 0;
-  for (
-    let index = plan.length - 1;
-    index >= 0 && carried < STEP_OUTCOME_FULL_MAX;
-    index -= 1
-  ) {
-    const step = plan[index];
-    if (!step || step.state === "open") continue;
-    const answered = answeredAt.get(stepIdentity(step));
-    // A step still to run answers nothing yet, and a repeat of one carries no
-    // answer: neither spends a place in the window.
-    if (answered === undefined || whole.has(answered)) continue;
-    if (plan[answered]?.state === "open") continue;
-    whole.add(answered);
-    carried += 1;
-  }
-  for (const step of plan) {
-    if (step.state === "open" && step.needs) whole.add(step.needs.step);
-  }
-  return whole;
-}
-
-/** One step's outcome, as much of it as the prompt carries. */
-function outcomeOf(outcome: string, whole: boolean): string {
-  if (!outcome) return "(nothing yet)";
-  return whole ? clipped(outcome) : clipped(outcome, STEP_OUTCOME_OLD_MAX);
 }
