@@ -1409,7 +1409,9 @@ export class AgentLoop {
           ? [one.path]
           : [],
     );
-    for (const folder of folders.slice(0, CASE_PLACE_FOLDERS_MAX))
+    for (const folder of folders.slice(0, CASE_PLACE_FOLDERS_MAX)) {
+      // The block is bounded, so a level read after it is full is a call nobody reads.
+      if (place.length >= CASE_PLACE_LINES_MAX) break;
       place.push(
         ...strings(
           await look({ what: "files", path: folder, limit: CASE_PLACE_MAX }),
@@ -1417,6 +1419,7 @@ export class AgentLoop {
           "path",
         ),
       );
+    }
     const held: CaseHeld = {};
     if (pages.length) held.pages = pages.slice(0, CASE_PLACE_MAX);
     if (place.length) held.place = place.slice(0, CASE_PLACE_LINES_MAX);

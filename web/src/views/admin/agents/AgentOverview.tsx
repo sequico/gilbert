@@ -357,73 +357,24 @@ export function AgentOverview({
               </div>
               <div style={{ display: "grid", gap: 6 }}>
                 {entry.rows.map(({ listed }) => (
-                  <details key={listed.id} className="run-current">
-                    <summary>
-                      <span className={`run-state run-state-${listed.state}`}>
-                        {listed.state && t(RUN_STATE_LABELS[listed.state])}
-                      </span>
-                      <span className="run-row-id">{listed.id}</span>
-                      {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
-                      {listed.startedAt && (
-                        <span className="run-row-meta">
-                          {formatFullDate(listed.startedAt)}
-                        </span>
-                      )}
-                      <StopRun
-                        group={entry.group}
-                        id={listed.id}
-                        onStopped={() =>
-                          setLive((held) =>
-                            held.map((row) =>
-                              row.group === entry.group
-                                ? {
-                                    ...row,
-                                    runs: row.runs.filter((one) => one.id !== listed.id),
-                                  }
-                                : row,
-                            ),
-                          )
-                        }
-                      />
-                      {/*
-                       * Why the run exists, in the words of the thing that woke
-                       * it, and who set it off: the header a person reads before
-                       * deciding whether to stop it.
-                       */}
-                      {(listed.about ?? listed.woke) && (
-                        <span
-                          className="hint"
-                          style={{
-                            margin: "4px 0 0",
-                            flexBasis: "100%",
-                            display: "block",
-                          }}
-                          title={listed.about ?? listed.woke ?? undefined}
-                        >
-                          {listed.by
-                            ? t("{what} — from {who}", {
-                                what: listed.about ?? listed.woke ?? "",
-                                who: listed.by,
-                              })
-                            : (listed.about ?? listed.woke)}
-                        </span>
-                      )}
-                    </summary>
-                    {/*
-                     * The run in flight opens the same document the group's history
-                     * opens: the plan with the step it is on, the tally and what it
-                     * has touched, following the poll.
-                     */}
-                    <div className="run-current-body">
-                      <RunDetail
-                        group={entry.group}
-                        id={listed.id}
-                        month=""
-                        facts={memory}
-                        version={`${listed.state}:${listed.steps}:${listed.spent.calls}:${listed.spent.ms}:${listed.failed}:${listed.ended?.at ?? ""}`}
-                      />
-                    </div>
-                  </details>
+                  <LiveRunCard
+                    key={listed.id}
+                    group={entry.group}
+                    listed={listed}
+                    memory={memory}
+                    onStopped={() =>
+                      setLive((held) =>
+                        held.map((row) =>
+                          row.group === entry.group
+                            ? {
+                                ...row,
+                                runs: row.runs.filter((one) => one.id !== listed.id),
+                              }
+                            : row,
+                        ),
+                      )
+                    }
+                  />
                 ))}
               </div>
             </div>
@@ -431,6 +382,75 @@ export function AgentOverview({
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * One run in flight, as a row that opens the same document the group's history
+ * opens: the plan with the step it is on, the tally and what it has touched.
+ *
+ * The document is read when the row is opened and not before: a collapsed row
+ * costs the header the list already carries, so a page watching six running runs
+ * does not fetch six records on every poll.
+ */
+function LiveRunCard({
+  group,
+  listed,
+  memory,
+  onStopped,
+}: {
+  group: string;
+  listed: RunSummary;
+  memory: readonly FactView[];
+  onStopped: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      className="run-current"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        <span className={`run-state run-state-${listed.state}`}>
+          {listed.state && t(RUN_STATE_LABELS[listed.state])}
+        </span>
+        <span className="run-row-id">{listed.id}</span>
+        {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
+        {listed.startedAt && (
+          <span className="run-row-meta">{formatFullDate(listed.startedAt)}</span>
+        )}
+        <StopRun group={group} id={listed.id} onStopped={onStopped} />
+        {/*
+         * Why the run exists, in the words of the thing that woke it, and who set
+         * it off: the header a person reads before deciding whether to stop it.
+         */}
+        {(listed.about ?? listed.woke) && (
+          <span
+            className="hint"
+            style={{ margin: "4px 0 0", flexBasis: "100%", display: "block" }}
+            title={listed.about ?? listed.woke ?? undefined}
+          >
+            {listed.by
+              ? t("{what} — from {who}", {
+                  what: listed.about ?? listed.woke ?? "",
+                  who: listed.by,
+                })
+              : (listed.about ?? listed.woke)}
+          </span>
+        )}
+      </summary>
+      <div className="run-current-body">
+        {open && (
+          <RunDetail
+            group={group}
+            id={listed.id}
+            month=""
+            facts={memory}
+            version={`${listed.state}:${listed.steps}:${listed.spent.calls}:${listed.spent.ms}:${listed.failed}:${listed.ended?.at ?? ""}`}
+          />
+        )}
+      </div>
+    </details>
   );
 }
 
