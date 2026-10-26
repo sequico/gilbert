@@ -34,7 +34,7 @@ import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type Drop, dropEvent } from "./queue.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
-import { takeOwnCalendarChange } from "./tools/calendar.js";
+import { takeOwnWrite, eventWriteKey } from "./ownWrites.js";
 import type { ToolCall } from "./tools/define.js";
 import { readMessageForPass, sendNotice } from "./tools/mail.js";
 
@@ -419,7 +419,10 @@ export async function workChanges(
       (event) =>
         // The agent's own calendar events are not activity to answer: the
         // instruction woken by them would open a run whose write wakes it again.
-        !(event.source === "calendar" && takeOwnCalendarChange(event.where)),
+        !(
+          event.source === "calendar" &&
+          takeOwnWrite(accountId, eventWriteKey(event.where))
+        ),
     ),
   ];
   if (!events.length) {

@@ -597,7 +597,7 @@ test("the agent's own calendar write leaves a mark the reading takes once", asyn
    * the agent's own act is never answered.
    */
   const { runTool, TOOLS } = await import("./tools.js");
-  const { takeOwnCalendarChange } = await import("./tools/calendar.js");
+  const { eventWriteKey, takeOwnWrite } = await import("./ownWrites.js");
   const { startRun } = await import("../shared/run.js");
   const run = startRun({
     id: "r-calendar",
@@ -629,12 +629,12 @@ test("the agent's own calendar write leaves a mark the reading takes once", asyn
     "the change is in the log: the reading reports it, and the mark is what answers it",
   );
   assert.equal(
-    takeOwnCalendarChange(created.id),
+    takeOwnWrite(accountId, eventWriteKey(created.id)),
     true,
     "the writer's mark is there for the change it explains",
   );
   assert.equal(
-    takeOwnCalendarChange(created.id),
+    takeOwnWrite(accountId, eventWriteKey(created.id)),
     false,
     "and it explains one change only",
   );

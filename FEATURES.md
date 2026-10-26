@@ -448,7 +448,10 @@ at once — so one group's long run does not make the others wait; the accounts 
 pass works — the Master's
 groups — are read from the mail server by that pass rather than decided at the
 boot, so a group added or
-withdrawn in Stalwart needs no restart.
+withdrawn in Stalwart needs no restart. **A change the agent itself made is not
+activity to answer**: a file it saved, a page it drafted, a step it settled, a
+label it defined or an event it created is marked by the tool that wrote it, and
+the reading skips it (`server/src/agent/ownWrites.ts`).
 
 **The turn is the run's own transcript** (ADR 0038): every step's answer as the record
 keeps it — bounded when it was written and never clipped when it is read, so no

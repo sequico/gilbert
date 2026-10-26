@@ -42,6 +42,7 @@ import {
   withOrigins,
 } from "../../shared/trash.js";
 import { clientOf } from "../../util.js";
+import { fileWriteKey, markOwnWrite } from "../ownWrites.js";
 import {
   argsRecord,
   countArg,
@@ -245,7 +246,10 @@ export async function writeNewFile(
       409,
     );
   const id = await writeBytesIntoVisibleFolder(ctx, accountId, folder, name, bytes, type);
-  return { path: folder ? `${folder}/${name}` : name, id };
+  const written = folder ? `${folder}/${name}` : name;
+  // Its own write, so the change reading does not answer it.
+  markOwnWrite(accountId, fileWriteKey(written));
+  return { path: written, id };
 }
 
 export const writeDocument = defineTool({
@@ -333,8 +337,11 @@ export const saveFile = defineTool({
             source.bytes,
             source.type,
           );
+    const saved = folder ? `${folder}/${held}` : held;
+    // Its own save, so the change reading does not answer it.
+    markOwnWrite(accountId, fileWriteKey(saved));
     return {
-      path: folder ? `${folder}/${held}` : held,
+      path: saved,
       from: source.from,
       type: source.type,
       bytes: source.kind === "blob" ? source.bytes : source.bytes.byteLength,
@@ -453,6 +460,8 @@ export const overwriteDocument = defineTool({
       bytes,
       textType(name),
     );
+    // Its own write, so the change reading does not answer it.
+    markOwnWrite(accountId, fileWriteKey(path));
     return { path, id: String(held.file.id ?? ""), bytes: bytes.byteLength };
   },
 });
@@ -609,7 +618,10 @@ export const moveFile = defineTool({
     // dropped it would leave the node where it was.
     await writeNode(ctx, accountId, String(held.file.id), { parentId: dest });
     const name = String(held.file.name ?? "");
-    return { path: folder ? `${folder}/${name}` : name, folder: folder || null };
+    const moved = folder ? `${folder}/${name}` : name;
+    // Its own move, so the change reading does not answer it.
+    markOwnWrite(accountId, fileWriteKey(moved));
+    return { path: moved, folder: folder || null };
   },
 });
 
@@ -634,6 +646,10 @@ export const renameFile = defineTool({
     if (isTrashFolder(held.file))
       throw new ToolError("bad_arguments", `"${path}" is the Trash; it is not renamed.`);
     await writeNode(ctx, accountId, String(held.file.id), { name });
+    // Its own rename, so the change reading does not answer it: the node's path
+    // after the write is the folder it was in and the name it now carries.
+    const { folder } = splitDocumentPath(path);
+    markOwnWrite(accountId, fileWriteKey(folder ? `${folder}/${name}` : name));
     return { path, name };
   },
 });

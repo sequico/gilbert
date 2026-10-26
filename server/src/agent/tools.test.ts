@@ -46,6 +46,8 @@ const {
 } = await import("../appFolder.js");
 const { readGroupLabels } = await import("../account.js");
 const { clientOf } = await import("../util.js");
+const { anchorEvents, readAccountEvents } = await import("./events.js");
+const { forgetOwnWrites } = await import("./ownWrites.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { blocksFromText, buildDraft, knowledgeFolderName } = await import(
   "../shared/knowledge.js"
@@ -552,6 +554,41 @@ test("a workorder listing is the newest page, not the first files the folder hol
   );
   assert.ok(page.total >= 21, "and the total counts every workorder");
   assert.equal(page.truncated, true, "and says there is more");
+});
+
+test("a file the agent writes is not a change it answers", async () => {
+  /*
+   * The agent acts in the group's own Files — a report saved, a message printed,
+   * a document moved. Every such write is a FileNode change, and a run woken by
+   * its own write would answer the folder it just wrote into, then write again.
+   * The tool marks what it wrote and the reading takes the mark; a person's write
+   * in the same folder is activity like any other.
+   */
+  forgetOwnWrites();
+  const anchor = await anchorEvents(ctx, accountId);
+  const written = await writeTool<{ path: string }>("files.write", {
+    path: "Documents/an-agent-note.md",
+    text: "the agent wrote this",
+  });
+  const person = "Documents/a-person-note.md";
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    "Documents",
+    "a-person-note.md",
+    new TextEncoder().encode("a person wrote this"),
+    "text/markdown",
+  );
+
+  const { events } = await readAccountEvents(ctx, accountId, anchor);
+  assert.ok(
+    !events.some((event) => event.where === written.path),
+    "the file the agent wrote is not a change it answers",
+  );
+  assert.ok(
+    events.some((event) => event.where === person),
+    "and the one a person wrote in the same folder still is",
+  );
 });
 
 test("a tool refuses arguments it cannot use, and asks the server nothing", async () => {
@@ -2479,7 +2516,7 @@ test("the agent finds the workorders its account holds a part of, and reads one 
       steps: number;
     }>;
     truncated: boolean;
-  }>("workorder.list", {});
+  }>("workorder.list", { limit: 50 });
   const row = listed.workorders.find((one) => one.uid === uid);
   assert.equal(row?.name, "Booking 3", "the listing names the workorder");
   assert.equal(row?.state, "running", "and says whether it is still worked");
@@ -2495,6 +2532,27 @@ test("the agent finds the workorders its account holds a part of, and reads one 
   assert.equal(read.name, "Booking 3", "a read answers the workorder's own name");
   assert.equal(read.state, "running", "and its state");
   assert.equal(read.steps.length, 2, "with the steps this account holds");
+
+  // A second part, so the page and the total are the folder's and not an earlier
+  // test's leavings: the listing is asked for one row and must say there are two.
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    "workorders/wo-list-2.json",
+    buildWorkorderDoc({
+      uid: "wo-list-2",
+      name: "Booking 4",
+      state: "running",
+      by: "a@example.com",
+      at,
+      checklist: buildChecklist({
+        template: { accountId, id: "template-1", revision: "rev-1" },
+        variants: {},
+        items: {},
+        stepPaths: ["intake.confirm"],
+      }),
+    }),
+  );
 
   const limited = await callTool<{
     workorders: unknown[];

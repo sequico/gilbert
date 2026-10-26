@@ -94,6 +94,7 @@ import {
 import { CASES_FOLDER } from "./case.js";
 import { CURSOR_FILE, NOTICE_CURSOR_FILE } from "./cursors.js";
 import { LEGACY_RULES_DIR } from "./legacy.js";
+import { fileWriteKey, takeOwnWrite } from "./ownWrites.js";
 import { PENDING_FILE } from "./queue.js";
 import { RUNS_DIR } from "./runs.js";
 
@@ -469,6 +470,12 @@ export async function readAccountEvents(
          * it names.
          */
         if (path && isTrashPath(path)) continue;
+        /*
+         * This process's own write is not activity to answer: a run that saved a
+         * file would otherwise be woken by the folder it just wrote into, and the
+         * run that answered that write would write again (`ownWrites.ts`).
+         */
+        if (path && takeOwnWrite(accountId, fileWriteKey(path))) continue;
         if (!path && change === "destroyed") {
           /*
            * A removal nobody can name is not actionable: the node is gone, its

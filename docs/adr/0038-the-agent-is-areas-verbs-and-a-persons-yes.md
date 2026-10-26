@@ -170,6 +170,15 @@ a drop or a restart, one read from the durable cursor covers what was missed (AD
 — the run's key is the deduplication — and a run gets a **bounded slice**, resumed
 from its document.
 
+**The agent's own writes are not changes to answer.** A node it saves, a page it
+drafts, a step it settles, a label it defines or an event it creates is activity in
+the group's account, but it is the agent's own act: answering it would open a run
+whose write wakes the next. Every tool that writes a group document marks what it
+wrote (`agent/ownWrites.ts`, keyed by the node's path or the event's id), and the
+reading takes the mark with the first change it explains — process state beside the
+claim, lost by a restart and rebuilt by the next write. A person's write of the same
+path after the agent's change was read is activity like any other.
+
 ### The common path is a workflow; a plan is the exception
 
 A run runs three phases, each a step of the document: **read** (the change names what

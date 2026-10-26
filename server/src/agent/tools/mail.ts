@@ -22,6 +22,7 @@ import {
   AGENT_LABELS,
   DRAFT_KEYWORD,
   G_LABEL_PREFIX,
+  GROUP_LABELS_FILE,
   isAgentLabel,
   type LabelCatalogEntry,
 } from "../../shared/labels.js";
@@ -35,6 +36,7 @@ import {
 } from "../../shared/search.js";
 import { replySubject } from "../../shared/text.js";
 import { clientOf } from "../../util.js";
+import { fileWriteKey, markOwnWrite } from "../ownWrites.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
@@ -988,6 +990,8 @@ export const defineLabel = defineTool({
     if (at < 0) labels.push({ keyword, name, color });
     else labels[at] = { keyword, name, color };
     await writeGroupLabels(ctx, accountId, labels);
+    // Its own catalog, so the change reading does not answer it.
+    markOwnWrite(accountId, fileWriteKey(GROUP_LABELS_FILE));
     return { keyword, name, color, added: at < 0 };
   },
 });

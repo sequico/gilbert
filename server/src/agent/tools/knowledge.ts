@@ -21,6 +21,7 @@ import {
   KNOWLEDGE_FOLDER,
   knowledgeFolderName,
 } from "../../shared/knowledge.js";
+import { fileWriteKey, markOwnWrite } from "../ownWrites.js";
 import { READ_IN_PROMPT_MAX } from "../prompt.js";
 import {
   argsRecord,
@@ -261,6 +262,11 @@ export const proposePage = defineTool({
           checklist: held?.checklist ?? null,
         },
         AGENT_SIGNATURE,
+      );
+      // Its own draft, so the change reading does not answer it.
+      markOwnWrite(
+        accountId,
+        fileWriteKey(`${KNOWLEDGE_FOLDER}/${summary.folder}/${DRAFT_FILE}`),
       );
       return {
         title: summary.title,

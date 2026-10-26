@@ -31,6 +31,7 @@ import {
 } from "../../shared/workorder.js";
 import { type TemplateReader, templateDef } from "../../workorder/templates.js";
 import { settleStepAsAgent, WorkorderAdminError } from "../../workorderAdmin.js";
+import { fileWriteKey, markOwnWrite } from "../ownWrites.js";
 import { argsRecord, countArg, notFound, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 
@@ -259,6 +260,11 @@ export const settleStep = defineTool({
         note,
         by: AGENT_SIGNATURE,
       });
+      // Its own settlement, so the change reading does not answer it.
+      markOwnWrite(
+        accountId,
+        fileWriteKey(`${WORKORDER_FOLDER}/${workorderFileName(uid)}`),
+      );
       const step = stepOf(doc.checklist, path);
       const steps = doc.checklist.steps;
       return {
