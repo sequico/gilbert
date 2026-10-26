@@ -46,7 +46,7 @@ in a few lines by `decideEvent` asked a question instead of shown a change (the 
 write-free catalogue, one lookup, an answer of `lines`, and no act), so the
 investigation stays in its own context (`agent/tools/reader.ts`). **No ceiling ends a
 run:** the ceilings this record refuses are gone from the loop (`overBudget` and the
-run's step, call, time and token endings), and the valve is `RUN_TURNS_MAX`. The turn
+run's step, call, time and token endings), and the valve is `RUN_MODEL_CALLS_MAX`. The turn
 is the appended transcript above (`prompt.ts`): every outcome written once, at the size
 it arrived, and never rewritten — compacted, not re-rendered, past
 `COMPACT_AFTER_CHARS` by one call that folds the older steps into the case's note and a
@@ -349,7 +349,7 @@ spent the provider's default budget before writing anything.
   running away is the daily ceiling below, which refuses new runs and never cuts one
   in flight; and the stall guard — the same answer twice — names a loop as a loop.
   The one valve is **liveness, not money**: a run that has asked the model a hundred
-  times ends `stopped` (`RUN_TURNS_MAX`), because an agent stuck in a loop is a machine
+  times ends `stopped` (`RUN_MODEL_CALLS_MAX`), because an agent stuck in a loop is a machine
   fault and no report about it is worth the process. The number is far above any run
   the work has shown — the worst live run of 2026-10-26 spent twenty-three turns.
   `stopped` is the ending a guardrail writes — the valve and the stall guard — and

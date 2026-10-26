@@ -60,7 +60,7 @@ const SUMMARY = {
   ended: { at: "2026-10-17T09:00:00.000Z", why: "waiting for the shipper's answer" },
   woke: "mail created: m-1",
   steps: 2,
-  refused: 0,
+  failed: 0,
   spent: { steps: 1, calls: 2, ms: 800 },
 };
 
@@ -266,7 +266,7 @@ describe("the agent's administration surface", () => {
         ended: null,
         woke: null,
         steps: 0,
-        refused: 0,
+        failed: 0,
         spent: { steps: 0, calls: 0, ms: 0 },
       },
     ]);

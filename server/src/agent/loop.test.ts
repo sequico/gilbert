@@ -1350,7 +1350,7 @@ test("a run that never finishes stops on the turn valve, and the record says so"
 
   // A model that keeps taking steps and never says it is done. The calls differ
   // every turn, so the stall guard (the same answer twice) is not what stops it:
-  // the valve is, and it counts turns rather than money.
+  // the valve is, and it counts model calls rather than money.
   onCall = (system) => {
     if (isDecision(system)) return { facts: {} };
     return {
@@ -1363,10 +1363,10 @@ test("a run that never finishes stops on the turn valve, and the record says so"
 
   const run = await runOf(id);
   assert.equal(run.state, "stopped", "the valve ended it, not the model");
-  assert.equal(run.spent.calls, 100, "after a hundred turns and no more");
+  assert.equal(run.spent.calls, 100, "after a hundred calls and no more");
   assert.match(
     run.ended?.why ?? "",
-    /still asking after 100 turns/,
+    /still asking after 100 model calls/,
     "and the record says why",
   );
 });
@@ -3060,8 +3060,8 @@ test("a call the account refuses is on the record, and the turn valve ends the l
 
   const run = await runOf(id);
   assert.equal(run.state, "stopped", "the valve ends it, not a budget");
-  assert.equal(run.spent.calls, 100, "at a hundred turns");
-  assert.match(run.ended?.why ?? "", /still asking after 100 turns/);
+  assert.equal(run.spent.calls, 100, "at a hundred calls");
+  assert.match(run.ended?.why ?? "", /still asking after 100 model calls/);
   assert.ok(
     run.plan.every((step) => step.state === "failed"),
     "and every attempt is on the record as a refusal",

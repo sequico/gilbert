@@ -163,7 +163,7 @@ run that paid for it. **No amount ends a run**: no step, call,
 token or clock ceiling, so a run is never stopped for what it cost, and a refused
 answer or a call the account refuses is a step that ended rather than an ending.
 The one valve is **liveness** — a run that has asked the model a hundred times has
-not finished, and it ends `stopped`, drawn as *Did not finish* (`RUN_TURNS_MAX`), as
+not finished, and it ends `stopped`, drawn as *Did not finish* (`RUN_MODEL_CALLS_MAX`), as
 does one that answered the same calls twice. **An ending is
 said, not only recorded**: a run that
 could not finish says so in the group's own conversation with the sentence its

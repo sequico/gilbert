@@ -194,11 +194,11 @@ import {
  *
  * One valve: **liveness, not money**. A run ends when its work is done, when it
  * waits on a person, when a person stops it, or when it fails — never because of
- * what it cost (ADR 0038). What keeps a machine from hanging is the turn valve
- * below; what keeps a bill from running away is the installation's daily ceiling,
- * which refuses new runs and never cuts one in flight.
+ * what it cost (ADR 0038). What keeps a machine from hanging is the model-call
+ * valve below; what keeps a bill from running away is the installation's daily
+ * ceiling, which refuses new runs and never cuts one in flight.
  */
-const RUN_TURNS_MAX = 100;
+const RUN_MODEL_CALLS_MAX = 100;
 
 /**
  * How many steps of one wave run at once.
@@ -1912,14 +1912,14 @@ export class AgentLoop {
        * and the number is far above any run the work has shown (the worst live
        * run of 2026-10-26 spent twenty-three).
        */
-      if (current.spent.calls >= RUN_TURNS_MAX) {
+      if (current.spent.calls >= RUN_MODEL_CALLS_MAX) {
         return await this.endRun(
           accountId,
           current,
           "stopped",
           {
             at: new Date().toISOString(),
-            why: `the run was still asking after ${RUN_TURNS_MAX} turns, so it was stopped: it had not finished.`,
+            why: `the run was still asking after ${RUN_MODEL_CALLS_MAX} model calls, so it was stopped: it had not finished.`,
           },
           token,
         );
