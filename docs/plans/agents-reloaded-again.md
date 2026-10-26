@@ -12,13 +12,14 @@ the three failed runs of 2026-10-26 were read step by step.
 ## 1. What the record says
 
 Three runs, one group (`freight`), one day, **zero acts** (no `place`, no `draft`,
-no `say` in any plan):
+no `say` in any plan). Two ran on the build before the window and identity fixes
+(`43fdaf4`), one on the build after them (`168f43d`, installed at 12:49):
 
-| run | started | ended | calls | plan steps | spent ms | prompt tok | completion tok | cached | ending |
-|---|---|---|---|---|---|---|---|---|---|
-| `d4144cf0` | 07:59:03 | 08:00:34 | 14 | 19 | 88 491 | 86 644 | 18 474 | 61 696 | out-of-budget |
-| `b6053e8f` | 10:41:57 | 10:44:24 | 23 | 39 | 143 814 | 167 418 | 24 540 | 101 632 | token ceiling (200 000) |
-| `b2a8ceb8` | 13:35:04 | 13:40:11 | 11 | 21 | 301 581 | 82 374 | 22 487 | 50 816 | time ceiling (300 000 ms) |
+| run | build | started | ended | calls | plan steps | spent ms | prompt tok | completion tok | cached | ending |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `d4144cf0` | before | 07:59:03 | 08:00:34 | 14 | 19 | 88 491 | 86 644 | 18 474 | 61 696 | **stall**: the same calls twice |
+| `b6053e8f` | before | 10:41:57 | 10:44:24 | 23 | 39 | 143 814 | 167 418 | 24 540 | 101 632 | token ceiling (200 000) |
+| `b2a8ceb8` | after | 13:35:04 | 13:40:11 | 11 | 21 | 301 581 | 82 374 | 22 487 | 50 816 | time ceiling (300 000 ms) |
 
 - **Model**: `deepseek-flash` (provider `deepseek`, `api.deepseek.com`), declared
   output ceiling **393 216** tokens. Per call today: **6.2 s, 6.3 s, 27.4 s**;
@@ -46,21 +47,26 @@ no `say` in any plan):
   booking folder and the convention page, and was stopped by the clock with
   117 000 tokens and 26 calls unspent. The pre-fix 10:41 run read one message
   **twelve** times and never acted.
-- **The 07:59 run is the same disease in a third shape**: nineteen steps that open
-  with the root folder, the knowledge search and the convention page, then read the
-  message four times, page the same convention at four offsets, invent a run id
-  (`b355cfbf`) to consult its own record, and end with a `read` of the message that
-  **fails** (the message moved while the run worked). Zero acts.
-- **No per-step cost exists in the document**: `spent` is a single total, and the
-  ceiling that fired is not recorded. The 07:59 run spent 105 118 tokens against a
-  document that states 200 000, and no counter it records is reached — its own
-  ending cannot be reconstructed from its own document.
+- **The 07:59 run is the stall, and it is the same message and the same sentence
+  that opened this work**: `the model chose the same calls twice (read {"kind":
+  "message","id":"c0iaaaaxk"}) and made no progress`. Its plan opens with the root
+  folder, the knowledge search and the convention page, reads the message four
+  times, pages the same convention at four offsets, invents a run id (`b355cfbf`)
+  to consult its own record, ends with a `read` of the message that **fails** (the
+  message moved while the run worked), and its last two answers are the same single
+  call. Zero acts. The guard did its job; the window fix is what removes the reason.
+- **The 13:35 run is the one after the fix, and it is a different animal**: three
+  reads of the message instead of twelve, the PDF attachment read, the booking
+  folder and the convention found — and the clock stopped it with 117 000 tokens
+  and 26 calls unspent.
+- **No per-step cost exists in the document**: `spent` is a single total, and an
+  ending names a ceiling without the value it had. Where a failed run's seconds
+  and tokens went cannot be read from it.
 - **A budget can change silently**: `readInstallationForPass` falls back to
   `installationDefaults()` when the installation document cannot be read in a pass,
   and the defaults are 120 000 tokens and a twenty-step plan. A transient read
   failure therefore halves an installation's budget for a pass without leaving a
-  line anywhere. (The same fallback explains how a run can stop at a number the
-  document does not state — still to be confirmed against that run's `ended.why`.)
+  line anywhere.
 
 ## 2. Diagnosis
 
@@ -217,9 +223,9 @@ the run that paid for it; in the ending: which ceiling fired and the value it ha
 `agent/loop.ts` (spending per step, the fallback), `agent/model.ts` (the meter),
 `agent/supervisor.ts` (a gap line when the installation could not be read), the
 admin run view.
-*Why*: `spent` is a total today, the ceiling that fired is not recorded, one run
-cannot be explained from its own document, and a failed installation read silently
-lowers the budget to the defaults (120 000 tokens, twenty steps) for that pass.
+*Why*: `spent` is a total today, so a failed run cannot say where its 27 s and its
+7 500 tokens a turn went; and a failed installation read silently lowers the budget
+to the defaults (120 000 tokens, twenty steps) for that pass.
 *Proof*: the run view answers "where did the 27 s and the 7 500 tokens go" for
 every step, and "which budget was in force" for the run.
 
@@ -289,8 +295,10 @@ gain; 5 makes it cheap per turn; 6 is the instrument; 7 is polish that can wait.
 - **The group's standing instruction**: whether it asks for a filing under the
   conventions (R2 is enough) or for the whole shipment handled (R1 and R3 carry
   more weight). The document is `gilbert/instruction.json` in `freight`.
-- **The plan of `d4144cf0`** (nineteen steps): a third shape, or the same as the
-  other two. It widens the eval set either way.
+- **Whether the window fix ends the stall for every body**: the 07:59 run ended on
+  two identical reads of one message, on the build before the fix. The next
+  production runs answer whether a case holding more than three objects still
+  forces a re-fetch — which is what R2 and R3 are for.
 - **Whether the seven messages are truly one case**: the subjects say "(1 of 7)"
   and "(2 of 7)" of one booking; a person should confirm that filing them
   together is what the group wants, because R1 changes what the group sees (one
@@ -301,9 +309,6 @@ gain; 5 makes it cheap per turn; 6 is the instrument; 7 is polish that can wait.
 - **The installation is switched off**: `agent/switch.json` = `{"enabled":false}`,
   written at **13:43:26Z** — three minutes after the third run ended. No further
   evidence comes from production until the owner turns it back on.
-- **The 07:59 run's `ended.why`**: requested from the host three times and still
-  not in hand. If it names 120 000 tokens, the silent fallback above is confirmed
-  and R8's "limits in force" is a fix, not a nicety.
 
 ## 8. What this plan does not change
 
