@@ -459,8 +459,8 @@ still holds every outcome in full (`server/src/agent/prompt.ts`, `shared/run.ts`
 and the quoted message a reply answers — is handed over by the pass that already read
 it, so the first step is never a lookup of what the process had; and the account's
 own shape is read once before the first turn — the knowledge base's page titles and
-the group's Files two levels deep, names only, bounded, and absent when the run's
-areas keep that surface away (`server/src/agent/changes.ts`, `agent/loop.ts`). The
+the group's Files two levels deep, names only, bounded, because reading is free and
+no area narrows it (`server/src/agent/changes.ts`, `agent/loop.ts`). The
 last report a case sent is in the turn too — one line, found in the conversation by
 the case's key, so this report does not restate it. And the **thread** the waking
 message belongs to: who, when and what it was about, one line each, never a body — the

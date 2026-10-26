@@ -1359,9 +1359,9 @@ export class AgentLoop {
    *
    * These are the same lookups the model made by hand in the failing runs, and it
    * made ten of them before its first act. They are read through the tools' own
-   * reading half, narrowed to the areas the run declares, so a group that works no
-   * knowledge reads none of it — and an answer that fails leaves its block absent
-   * rather than failing the run.
+   * reading half, which no area narrows — reading is free (ADR 0038), so a group
+   * that declares no knowledge still sees the titles of what the base holds — and
+   * an answer that fails leaves its block absent rather than failing the run.
    */
   private async caseHeld(accountId: string, run: RunDoc): Promise<CaseHeld> {
     const catalogue = catalogueFor(this.catalogue, this.areasOfRun(accountId, run));

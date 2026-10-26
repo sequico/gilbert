@@ -230,9 +230,10 @@ already read it to decide the change, so the first step is not a `read` of what 
 process had (`StepQuestion.written`, `agent/changes.ts`, `agent/prompt.ts`). And the
 case the account holds, read once before the first turn: the knowledge base's page
 titles and the group's Files two levels deep, names only and bounded, through the
-tools' own reading half narrowed to the run's areas — a group that works no knowledge
-reads none of it, and a lookup that fails leaves its block out rather than the run
-(`caseOf`, `StepQuestion.case`). And the last report the case already sent, one line,
+tools' own reading half, which no area narrows — reading is free, so a group that
+declares no knowledge still sees what the base holds — and a lookup that fails leaves
+its block out rather than the run
+(`caseHeld`, `StepQuestion.case`). And the last report the case already sent, one line,
 found in the group's conversation by the case's key: an instruction that says "never
 restate what an earlier report said" cannot be obeyed by an agent that was never shown
 the sentence it must not repeat. And the thread the waking message belongs to — who,
