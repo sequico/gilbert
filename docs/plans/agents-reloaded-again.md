@@ -225,10 +225,15 @@ how much.
 **Built:** the message the change carried is in the working turn — its text, who
 wrote it, and the quoted message a reply answers — handed over by the pass that
 already read it to decide the change, so the first step is not a `read` of what the
-process had (`StepQuestion.written`, `agent/changes.ts`, `agent/prompt.ts`).
+process had (`StepQuestion.written`, `agent/changes.ts`, `agent/prompt.ts`). And the
+case the account holds, read once before the first turn: the knowledge base's page
+titles and the group's Files two levels deep, names only and bounded, through the
+tools' own reading half narrowed to the run's areas — a group that works no knowledge
+reads none of it, and a lookup that fails leaves its block out rather than the run
+(`caseOf`, `StepQuestion.case`).
 
-**Owed:** the thread's lines, the knowledge base's titles, the skeleton of the case's
-place, the last report the case sent, and the reader.
+**Owed:** the thread's lines, the last report the case sent (it needs the case key,
+R1/R3), and the reader.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the

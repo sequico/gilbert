@@ -435,8 +435,10 @@ into the case's note, and those steps keep their place as a line each — the re
 still holds every outcome in full (`server/src/agent/prompt.ts`, `shared/run.ts`).
 **The case opens the turn**: the message the change carried — its text, who wrote it,
 and the quoted message a reply answers — is handed over by the pass that already read
-it, so the first step is never a `read` of what the process had
-(`server/src/agent/changes.ts`).
+it, so the first step is never a `read` of what the process had; and the account's
+own shape is read once before the first turn — the knowledge base's page titles and
+the group's Files two levels deep, names only, bounded, and absent when the run's
+areas keep that surface away (`server/src/agent/changes.ts`, `agent/loop.ts`).
 
 ## The agent is measured on the tasks it has failed
 

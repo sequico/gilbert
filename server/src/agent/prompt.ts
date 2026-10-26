@@ -230,6 +230,18 @@ export function stepData(question: StepQuestion): string {
           ]),
         ]
       : []),
+    ...(question.case?.pages?.length
+      ? [
+          "The knowledge base holds these pages. Names only, so open the one you need:",
+          dataBlock(token, [...question.case.pages]),
+        ]
+      : []),
+    ...(question.case?.place?.length
+      ? [
+          "This group's Files, two levels deep, names only; a folder ends in a slash:",
+          dataBlock(token, [...question.case.place]),
+        ]
+      : []),
     ...(question.facts && Object.keys(question.facts).length
       ? [
           "What the change was found to be about:",

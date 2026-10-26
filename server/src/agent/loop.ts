@@ -143,6 +143,7 @@ import { forgetMemoryStores, listMemory, type MemoryStore, recallFor } from "./m
 import {
   askOf,
   boundedText,
+  type CaseHeld,
   chooseStep,
   embedTexts,
   judgeRun,
@@ -207,6 +208,15 @@ const RUN_TURNS_MAX = 100;
  * that ceiling and still turns a round trip each into a handful.
  */
 const TOOL_WAVE_MAX = 4;
+
+/** How many entries of a knowledge base or a folder one case block carries. */
+const CASE_PLACE_MAX = 40;
+
+/** How many of a folder's own levels the case block opens. */
+const CASE_PLACE_FOLDERS_MAX = 5;
+
+/** The most lines the case's place carries, levels together. */
+const CASE_PLACE_LINES_MAX = 120;
 
 /**
  * The step a `done` that closed over a refusal leaves on the record.
@@ -1317,6 +1327,77 @@ export class AgentLoop {
     };
   }
 
+  /**
+   * What the account holds for a case, as the pass reads it once before a run's
+   * first turn: the knowledge base's page titles and the group's Files, two levels,
+   * names only (ADR 0038).
+   *
+   * These are the same lookups the model made by hand in the failing runs, and it
+   * made ten of them before its first act. They are read through the tools' own
+   * reading half, narrowed to the areas the run declares, so a group that works no
+   * knowledge reads none of it — and an answer that fails leaves its block absent
+   * rather than failing the run.
+   */
+  private async caseOf(accountId: string, run: RunDoc): Promise<CaseHeld> {
+    const catalogue = catalogueFor(this.catalogue, this.areasOfRun(accountId, run));
+    const embed = this.embedder();
+    const call: ToolCall = {
+      ctx: this.ctx,
+      accountId,
+      readImage: this.eyes,
+      ...(embed ? { embed } : {}),
+      run,
+    };
+    const look = async (raw: Record<string, unknown>): Promise<unknown> => {
+      try {
+        return await runTool(catalogue, call, "find", raw);
+      } catch (err) {
+        this.opts.log?.(
+          `[gilbert] agent: run ${run.id} could not read part of its case: ${errorMessage(err)}`,
+        );
+        return null;
+      }
+    };
+    const strings = (answer: unknown, key: string, field: string): string[] => {
+      if (!isRecord(answer) || !Array.isArray(answer[key])) return [];
+      return answer[key].flatMap((one) =>
+        isRecord(one) && typeof one[field] === "string" ? [one[field]] : [],
+      );
+    };
+    /*
+     * A knowledge base is named by its pages' titles: the standing instruction is
+     * prose and names no page, so the turn is told what the base holds and opens the
+     * one it needs — and the note keeps the rule it read.
+     */
+    const pages = strings(await look({ kind: "pages" }), "pages", "title");
+    /*
+     * The case's place: the group's own Files, two levels, names only — the level a
+     * person browsing it sees. A folder is marked with a trailing slash so the model
+     * knows what it can ask for, and a level is bounded rather than paged: what the
+     * turn needs is the shape of the place, not its inventory.
+     */
+    const top = await look({ kind: "files", limit: CASE_PLACE_MAX });
+    const place = strings(top, "nodes", "path");
+    const folders = (isRecord(top) && Array.isArray(top.nodes) ? top.nodes : []).flatMap(
+      (one) =>
+        isRecord(one) && one.nodeType === "directory" && typeof one.path === "string"
+          ? [one.path]
+          : [],
+    );
+    for (const folder of folders.slice(0, CASE_PLACE_FOLDERS_MAX))
+      place.push(
+        ...strings(
+          await look({ kind: "files", path: folder, limit: CASE_PLACE_MAX }),
+          "nodes",
+          "path",
+        ),
+      );
+    const held: CaseHeld = {};
+    if (pages.length) held.pages = pages.slice(0, CASE_PLACE_MAX);
+    if (place.length) held.place = place.slice(0, CASE_PLACE_LINES_MAX);
+    return held;
+  }
+
   /** Open the run a change the group's instruction covers is answered by. */
   private async openRun(
     accountId: string,
@@ -1708,6 +1789,12 @@ export class AgentLoop {
       selection.facts.map((fact) => fact.id),
       selection.retrieval,
     );
+    /*
+     * The case, read once before the first turn: the knowledge base's titles and the
+     * shape of the group's Files (ADR 0038). A person with this change on the desk
+     * has both open, and the failing runs spent their first ten steps opening them.
+     */
+    const held = await this.caseOf(accountId, current);
     let previous: string | null = null;
     /*
      * A refusal is not an ending: an answer the parser cannot read, an answer
@@ -1786,6 +1873,9 @@ export class AgentLoop {
         ...(current.compactedUpTo ? { compactedUpTo: current.compactedUpTo } : {}),
         // The message the run was woken by, as the pass read it (ADR 0038).
         ...(written ? { written } : {}),
+        // The account's own shape for this case — page titles and the Files' top two
+        // levels — read once, so the run's first steps are acts and not looks.
+        ...(Object.keys(held).length ? { case: held } : {}),
         ...(facts ? { facts } : {}),
         memory: selection.facts,
         ...(openQuestions?.length ? { openQuestions } : {}),

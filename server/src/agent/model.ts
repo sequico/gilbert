@@ -1942,6 +1942,20 @@ type StepChoice =
  * would answer differently after a restart. `facts` is what the decision turn
  * found the change to be about, when this turn follows one.
  */
+/**
+ * What the account holds for a case, as a turn opens with it (ADR 0038).
+ *
+ * Names and never verdicts: the titles of the knowledge base's pages and the shape
+ * of the group's own Files. A run reads what it needs from there, and its note keeps
+ * what it found.
+ */
+export interface CaseHeld {
+  /** The knowledge base's page titles, names only. */
+  pages?: string[];
+  /** This group's Files, two levels deep, names only. */
+  place?: string[];
+}
+
 export interface StepQuestion {
   /** The change that woke the run, in the group's own words. */
   woke: string;
@@ -1966,6 +1980,8 @@ export interface StepQuestion {
   prose: Partial<Record<ProseLevel, string>>;
   /** What the decision found the change to be about, when this turn follows one. */
   facts?: Record<string, string>;
+  /** What a run's first turn is handed of its case, read once (ADR 0038). */
+  case?: CaseHeld;
   /**
    * The words the change carried, as the pass already read them (ADR 0038).
    *

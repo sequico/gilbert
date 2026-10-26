@@ -1504,6 +1504,33 @@ test("a done with nothing finished is put back once, then refused", async () => 
   assert.match(run?.ended?.why ?? "", /no step of the plan finished/);
 });
 
+test("the case opens the turn: what the account holds, names only", async () => {
+  /*
+   * A person with this change on the desk has the knowledge base and the group's
+   * Files open: the failing runs spent their first ten steps opening them one lookup
+   * at a time (ADR 0038). The turn is handed names, never a page's text, and a
+   * case that cannot be read leaves its block out rather than failing the run.
+   */
+  await putInstruction(["mail", "files", "knowledge"]);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ facts: {} });
+  answerWith(aLook());
+  answerWith({ done: "the case was in hand" });
+  await deliver("a change the case opens");
+  await agent.pass();
+
+  const turn = seen.find(({ user }) => user.includes("The change that woke this run"));
+  assert.ok(turn, "the working turn was made");
+  const place = turn.user.split("This group's Files, two levels deep")[1];
+  assert.ok(place, "the turn carries the shape of the group's Files");
+  assert.ok(
+    !turn.user.includes("The knowledge base holds these pages"),
+    "and says nothing about a base that holds none",
+  );
+});
+
 test("the message a run was woken by is handed to it, not fetched by a read", async () => {
   /*
    * The decision turn already has the message — it read it to decide — so the

@@ -54,6 +54,28 @@ test("every step's answer is carried as the record keeps it", () => {
 });
 
 /**
+ * The case opens the turn with names, not with a verdict and not with a page's
+ * text: the model opens the page it needs and its note keeps what it read
+ * (ADR 0038).
+ */
+test("the case the account holds is in the turn, names only", () => {
+  const prompt = stepData({
+    woke: "mail created: m-1",
+    plan: [],
+    prose: {},
+    case: {
+      pages: ["Container shipment checklist", "Customs dossier"],
+      place: ["MS2/", "MS2/BK-901/"],
+    },
+  } as StepQuestion);
+
+  assert.match(prompt, /The knowledge base holds these pages/, "the pages are named");
+  assert.ok(prompt.includes("Container shipment checklist"), "by their titles");
+  assert.match(prompt, /This group's Files, two levels deep/, "the place is drawn");
+  assert.ok(prompt.includes("MS2/BK-901/"), "with a folder marked as one");
+});
+
+/**
  * The message the change carried is in the working turn as data: the pass already
  * read it to decide, so the turn does not spend its first step on `read` (ADR 0038).
  */
