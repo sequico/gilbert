@@ -20,8 +20,9 @@ with its message, data and reference, graded with partial credit, a failed task
 tried once more, `pass@1` and cost printed beside the refusals a run recovered
 from, one task parking a run on a person's answer and continuing it there, and
 the provider put to the product's own probe before anything is measured (`eval.ts`), and the turn's
-context: the plan's last steps in full and earlier ones a line each, with the
-threshold measured and no summary call (`prompt.ts`, `prompt.test.ts`), and the
+context: the plan's last steps in full, earlier ones a line each, and the older
+ones folded into the case's note by a summary call once the carried text passes
+its threshold (`prompt.ts`, `shared/run.ts`, `agent/model.ts`'s `summarisePlan`), and the
 trend: a week of runs and failed steps read from the run documents in
 Administration, and each pass and run it ends emitted as OTLP/HTTP logs in the
 OpenTelemetry GenAI shape when `limits.otlp` names a collector (`agent/otlp.ts`,

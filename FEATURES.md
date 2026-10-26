@@ -383,7 +383,7 @@ workorder** signed as the agent, which the workorder panel reads as *"Set by the
 agent on …"* rather than as a name, writes a **proposal** as a knowledge page's
 draft for a person to approve, says something in
 the conversation, and asks a person a question — which leaves the run waiting for
-their answer, with no date, and **the answer in that same conversation is what
+their answer until its deadline, and **the answer in that same conversation is what
 picks the run up again**: a message that replies to the question it asked, written
 by somebody other than the agent, becomes a step of its own on the run that asked
 — naming the message it came in and carrying what the person said — rather than a
