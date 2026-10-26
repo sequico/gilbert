@@ -379,7 +379,7 @@ is, not what a user sees.
   changes, `say` speaks, `note` keeps the case) rather than one tool per endpoint,
   whose arguments say which kind of id they take and whose results are distilled
   rather than forwarded; three beats — read, act, report — as the common path and a plan
-  only when the instruction asks for one; **the change as the trigger**, the stream
+  only when the model judges the work needs one; **the change as the trigger**, the stream
   as the clock and the cursor as reconciliation; a run document that is the session,
   read by the harness in bounded slices; an outward message as a **draft a person
   sends** — no tool submits, a question is asked in the conversation, and the worst
