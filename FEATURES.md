@@ -388,7 +388,9 @@ their answer until its deadline, and **the answer in that same conversation is w
 picks the run up again**: a message that replies to the question it asked, written
 by somebody other than the agent, becomes a step of its own on the run that asked
 — naming the message it came in and carrying what the person said — rather than a
-change that opens a run beside it. That sentence is also read once for **what it
+change that opens a run beside it. A question the group already has open is not
+asked twice: a second run that needs the same answer waits on the same sentence,
+and the one reply continues every run that was waiting on it. That sentence is also read once for **what it
 authorises** (ADR 0028): an act it names is recorded on the run with the person's
 own words, the class, the act it is for and the message it arrived in, and the
 guard licenses exactly that act and no other. An **override** (class 4) is an

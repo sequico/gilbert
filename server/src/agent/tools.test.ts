@@ -1574,11 +1574,13 @@ test("the writing tools change the group's own account", async () => {
   );
 });
 
-test("a question already open on a person is not asked a second time", async () => {
+test("a question already open on a person is not asked again, and the run waits on it", async () => {
   /*
    * The live failure this pins: one booking question went to the group five
    * times in a morning, each from a new run that had no way to know the first
-   * was still waiting — and only one of the runs could be moved by the answer.
+   * was still waiting. The question is the **group's**: it is posted once, and a
+   * run that needs the same answer parks on that same sentence, so the one reply
+   * continues every run that was waiting on it (`loop.ts`'s `runsAwaiting`).
    */
   const parked = finishRun(
     waitUntil(
@@ -1600,14 +1602,18 @@ test("a question already open on a person is not asked a second time", async () 
   const asked = await writeTool<{
     id: string;
     alreadyAsked?: boolean;
-    wait?: unknown;
+    wait?: RunWait;
   }>("chat.ask", { text: "@sam@example.com is the seal confirmed?" });
   assert.equal(asked.alreadyAsked, true, "the same question is not posted again");
   assert.equal(asked.id, "c-old", "the open question's own message is the answer");
-  assert.equal(
+  assert.deepEqual(
     asked.wait,
-    undefined,
-    "and this run does not park on a second copy of the question",
+    {
+      what: "@sam is the seal confirmed?",
+      asked: { channel: "chat", id: "c-old" },
+      until: null,
+    },
+    "and this run parks on that question, so the one answer continues it",
   );
 });
 

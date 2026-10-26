@@ -9,7 +9,10 @@ Implementation: Built. **The conversation is the group's own chat**
 message that replies to the question a run recorded, sent by somebody other than
 the agent, is that run's answer and is worked on as its own next step, rather than
 as a change that opens a run of its own (`server/src/agent/loop.ts`,
-`repliesToAuthor` in `server/src/shared/chat.ts`). **Nothing is sent by mail**: an
+`repliesToAuthor` in `server/src/shared/chat.ts`); a question the group already has
+open is not asked twice — a second run that needs the same answer waits on the
+same sentence, and the one reply continues every run that was waiting on it
+(`runsAwaiting`, `loop.ts`). **Nothing is sent by mail**: an
 outward message leaves as a draft a person sends (ADR 0038), a question is
 asked in the chat and nowhere else, and a mail **continues no run and authorises
 nothing**: a run's answer is a reply in the conversation (`runAnsweredBy`), and a
@@ -52,7 +55,9 @@ covers, and nothing in a message is read as an answer or an authorisation.
   runs may be waiting in it at once; the message also carries the one line that
   tells the person a reply is what answers it, because a live question sat
   unanswered for hours beside a person who had no way of knowing. A mail answers
-  no run, so there is no correlation to make in mail.
+  no run, so there is no correlation to make in mail. A question is the
+  **group's**, not one run's: a second run that needs the same answer waits on
+  the same sentence, and one reply continues every run parked on it.
 - **A question has a deadline** — 72 hours from the ask, in the run's own wait
   (`QUESTION_TTL_MS`, `shared/run.ts`), never a timer in a process. The answer is
   still the conversation's own event; the deadline is what a run does about a

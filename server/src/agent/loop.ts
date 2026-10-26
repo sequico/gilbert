@@ -329,9 +329,13 @@ export interface PassSummary {
 
 /**
  * A run a person's answer continued, and what the reading of that answer needs.
+ *
+ * `runs` is every run parked on the question the answer replies to: a group has
+ * one conversation, so a question asked once is answered once, and each run that
+ * needed it goes on from the same words (ADR 0029).
  */
 export interface AnsweredRun {
-  run: RunDoc;
+  runs: RunDoc[];
   /** The sentence the run asked, which the answer is read against. */
   asked: string;
   /** What the person wrote. */
@@ -1573,18 +1577,23 @@ export class AgentLoop {
     };
     const parent = await readChatMessage(this.ctx, accountId, question.id);
     if (!repliesToAuthor(message, parent, this.ctx.username)) return null;
-    // The answer takes the run out of `blocked` at once, and the cursor only
-    // moves at the end of the batch: a pass that died in between re-reads this
-    // change. The step the answer wrote is what says it was already taken.
-    if (answeredAlready(records, "chat", message.id)) return "already";
-    const parked = runAwaiting(records, question);
-    if (!parked) return null;
+    /*
+     * The answer continues **every** run parked on that question: a group has one
+     * conversation, and the runs that needed the same answer were parked on the
+     * same sentence (`tools/chat.ts`), so one reply moves all of them. A run this
+     * pass already continued is left as it is — the answer takes a run out of
+     * `blocked` at once while the cursor moves only at the end of the batch, so a
+     * pass that died in between re-reads this change — and the step the answer
+     * wrote is what says it was already taken.
+     */
+    const waiting = runsAwaiting(records, question).filter(
+      (run) => !runAnswered(run, message.id),
+    );
+    if (!waiting.length)
+      return answeredAlready(records, "chat", message.id) ? "already" : null;
     return {
-      run: takeAnswer(
-        parked,
-        question,
-        { channel: "chat", id: message.id },
-        message.text,
+      runs: waiting.map((run) =>
+        takeAnswer(run, question, { channel: "chat", id: message.id }, message.text),
       ),
       asked: parent?.text ?? "",
       said: message.text,
@@ -2929,16 +2938,25 @@ export class AgentLoop {
    * still moves nothing. An answer the reading cannot use is a step that says so
    * and grants nothing; the answer itself still continues the run.
    */
-  private async authoriseAnswer(answer: AnsweredRun): Promise<RunDoc> {
+  private async authoriseAnswer(answer: AnsweredRun): Promise<RunDoc[]> {
     const access = this.access;
-    if (!access) return answer.run;
-    let run = spendRun(answer.run, { calls: 1 });
+    if (!access) return answer.runs;
+    /*
+     * One reading for the whole answer, and the licence written on every run it
+     * continued: the model is asked what the person's words authorise **once**,
+     * and each run carries the authority it acts under. The spend therefore
+     * lands on the first run only — the provider billed one call, and a day's
+     * counter that added one per run would over-count what the installation paid.
+     */
+    const [first, ...rest] = answer.runs;
+    if (!first) return [];
+    let run = spendRun(first, { calls: 1 });
     const meter = usageMeter();
     /*
      * Whether the person who answered is an installation administrator is asked
      * **here**, of the directory, as the Master: only that marker lets the
      * reading report an override (ADR 0028). A directory that will not answer is
-     * a no, and the answer still continues the run.
+     * a no, and the answer still continues the runs.
      *
      * The call is a model call like every other: its tokens are spent on the run
      * **and on the day's counter** (`passTokens`), whether it answers or is
@@ -2960,12 +2978,15 @@ export class AgentLoop {
       this.passTokens += meter.promptTokens + meter.completionTokens;
       if (!(err instanceof ModelError) || err.code !== "model_answer_malformed")
         throw err;
-      return this.withStep(
-        run,
-        "the answer's authorisation",
-        `refused: ${errorMessage(err)}`,
-        false,
-      );
+      return [
+        this.withStep(
+          run,
+          "the answer's authorisation",
+          `refused: ${errorMessage(err)}`,
+          false,
+        ),
+        ...rest,
+      ];
     }
     run = spendRun(run, {
       promptTokens: meter.promptTokens,
@@ -2973,16 +2994,19 @@ export class AgentLoop {
       cachedPromptTokens: meter.cachedTokens,
     });
     this.passTokens += meter.promptTokens + meter.completionTokens;
-    for (const one of granted)
-      run = takeAuthorisation(run, {
-        what: answer.said,
-        authority: one.authority,
-        act: { target: one.target, content: one.content },
-        by: answer.from,
-        at: answer.at,
-        from: answer.message,
-      });
-    return run;
+    return [run, ...rest].map((one) => {
+      let next = one;
+      for (const licensed of granted)
+        next = takeAuthorisation(next, {
+          what: answer.said,
+          authority: licensed.authority,
+          act: { target: licensed.target, content: licensed.content },
+          by: answer.from,
+          at: answer.at,
+          from: answer.message,
+        });
+      return next;
+    });
   }
 
   /**
@@ -3395,21 +3419,29 @@ function answeredAlready(
 }
 
 /**
- * The run of an account that is parked on this very question.
+ * The runs of the account parked on this very question.
  *
  * A run that ended blocked keeps the sentence it asked in (`finishRun`), which is
  * what a message coming back can be recognised against (ADR 0029): the question's
  * own address, matched on the document, rather than anything about the message
- * that answers it.
+ * that answers it. There is more than one when two runs needed the same answer —
+ * a question is asked once and both park on it (`tools/chat.ts`) — and the one
+ * reply continues them all.
  */
-function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDoc | null {
-  for (const { run } of records) {
-    if (run.state !== "blocked") continue;
-    const waiting = run.waiting?.asked;
-    if (waiting && waiting.channel === asked.channel && waiting.id === asked.id)
-      return run;
-  }
-  return null;
+function runsAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDoc[] {
+  return records.flatMap(({ run }) =>
+    run.state === "blocked" &&
+    run.waiting?.asked?.channel === asked.channel &&
+    run.waiting?.asked?.id === asked.id
+      ? [run]
+      : [],
+  );
+}
+
+/** Whether one run already carries the step an answer in this message wrote. */
+function runAnswered(run: RunDoc, id: string): boolean {
+  const what = `the answer in chat ${id}`;
+  return run.plan.some((step) => step.what === what);
 }
 
 /** The wait a tool's answer left behind, or null when it left none. */

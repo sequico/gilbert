@@ -62,7 +62,7 @@ export interface ChangesDeps {
     /** The words the change carried, so the first turn is handed the message. */
     written?: { from?: string; text: string; quoted?: string },
   ): Promise<RunDoc | null>;
-  authoriseAnswer(answer: AnsweredRun): Promise<RunDoc>;
+  authoriseAnswer(answer: AnsweredRun): Promise<RunDoc[]>;
   /** Hold a file event until its folder's burst is over (`queue.ts`). */
   noteDrop(accountId: string, path: string, now: Date): Promise<void>;
   /** The drops whose burst is over, one event each. */
@@ -498,17 +498,26 @@ export async function workChanges(
       const answer = await deps.runAnsweredBy(accountId, event, held);
       if (answer === "already") continue;
       if (answer) {
-        summary.due += 1;
-        const worked = await deps.workRun(
-          accountId,
-          await deps.authoriseAnswer(answer),
-          // The answer's own words are what the next call recalls facts by,
-          // as the decision turn's facts were for a change it opened.
-          { answer: answer.said },
-          openQuestionLines(held ?? [], answer.run.id),
-        );
-        held ??= [];
-        if (worked) remember(held, worked);
+        /*
+         * One answer continues **every** run that asked it: a group has one
+         * conversation, and a question asked once is answered once — the second
+         * run does not ask again and does not go on without the answer
+         * (`tools/chat.ts`). Each run is worked with the person's words, and the
+         * licence the words carry is written on each of them.
+         */
+        for (const licensed of await deps.authoriseAnswer(answer)) {
+          summary.due += 1;
+          const worked = await deps.workRun(
+            accountId,
+            licensed,
+            // The answer's own words are what the next call recalls facts by,
+            // as the decision turn's facts were for a change it opened.
+            { answer: answer.said },
+            openQuestionLines(held ?? [], licensed.id),
+          );
+          held ??= [];
+          if (worked) remember(held, worked);
+        }
         continue;
       }
     }

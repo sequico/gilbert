@@ -1891,6 +1891,74 @@ test("a person's answer continues the run that asked for it", async () => {
   );
 });
 
+test("one answer continues every run parked on the question it replies to", async () => {
+  /*
+   * A group has one conversation, so a question asked once is answered once: a
+   * second run that needs the same answer parks on the same sentence
+   * (`tools/chat.ts`) and the one reply moves every run waiting on it — none of
+   * them goes on as though it had been answered, and none asks again.
+   */
+  const asked = await postChatMessage(
+    ctx,
+    accountId,
+    ctx.username,
+    "which booking is this?",
+  );
+  const parked = (id: string, woke: string) =>
+    finishRun(
+      waitUntil(
+        startRun({
+          id,
+          startedBy: { rule: "intake", instruction: null, woke },
+        }),
+        {
+          what: "which booking is this?",
+          asked: { channel: "chat", id: asked },
+          until: null,
+        },
+      ),
+      "blocked",
+      {
+        at: new Date().toISOString(),
+        why: "waiting on a person: which booking is this?",
+      },
+    );
+  await createRun(
+    ctx,
+    accountId,
+    parked("parked-a", "chat created: gilbert/chat/a.json"),
+  );
+  await createRun(
+    ctx,
+    accountId,
+    parked("parked-b", "chat created: gilbert/chat/b.json"),
+  );
+  await putInstruction(["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  // One reading of the answer for what it authorises, then one turn per run.
+  answerWith({ authorisations: [] });
+  answerWith({ done: "the booking is filed under BK-1" });
+  answerWith({ done: "the booking is filed under BK-1" });
+  const reply = await postChatMessage(ctx, accountId, "sam@example.org", "it is BK-1", {
+    replyTo: asked,
+  });
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 0, "the answer opened no run of its own");
+  assert.equal(summary.due, 2, "and both parked runs were picked up");
+  for (const id of ["parked-a", "parked-b"]) {
+    const run = (await readRun(ctx, accountId, id))?.run;
+    assert.equal(run?.state, "done", `${id} was worked to its ending`);
+    assert.equal(
+      run?.plan.filter((step) => step.what === `the answer in chat ${reply}`).length,
+      1,
+      `${id} carries the answer once, with the message it came in`,
+    );
+  }
+});
+
 test("an answer is worked once, whatever the decision names beside it", async () => {
   /*
    * One person's reply continues the run that asked, and it is worked once

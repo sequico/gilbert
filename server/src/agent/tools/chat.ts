@@ -313,7 +313,8 @@ export const askInChat = defineTool({
     "Ask a person a question in this group's own conversation and leave the run " +
     "waiting on their answer: the run stops until somebody replies, and the " +
     "answer is read from the conversation. Use it for what only a person can " +
-    "decide; a report nobody has to answer is chat.say.",
+    "decide; a report nobody has to answer is chat.say. A question the group " +
+    "already has open is not asked again: this run waits on that same answer.",
   authority: "reversible",
   writes: true,
   surface: "chat",
@@ -338,7 +339,21 @@ export const askInChat = defineTool({
         sameQuestion(other.waiting.what, text),
     );
     if (held?.run.waiting?.asked)
-      return { id: held.run.waiting.asked.id, alreadyAsked: true };
+      /*
+       * The group already has this question open: the words are not posted twice,
+       * and this run waits on the same sentence and the same deadline — the one
+       * answer continues every run that needed it (ADR 0029, `loop.ts`'s
+       * `runsAwaiting`).
+       */
+      return {
+        id: held.run.waiting.asked.id,
+        alreadyAsked: true,
+        wait: {
+          what: held.run.waiting.what,
+          asked: held.run.waiting.asked,
+          until: held.run.waiting.until,
+        },
+      };
     const id = await postChatMessage(
       ctx,
       accountId,
