@@ -168,19 +168,19 @@ export const findChat = defineTool({
 const ANSWER_WITH_A_REPLY = "Reply to this message to answer it.";
 
 /**
- * The text of a chat message, bounded where the document is.
- *
- * `CHAT_MAX_TEXT` is the chat's own ceiling (ADR 0004): a message longer than it
- * is a message the reader would not render, so it is refused here rather than
- * written and silently cut.
- */
-/**
  * The most a question may be: the conversation's ceiling, less the line the
  * question carries and the blank line before it, so what is posted is inside
  * the ceiling the tool itself refuses.
  */
 const ASK_TEXT_MAX = CHAT_MAX_TEXT - ANSWER_WITH_A_REPLY.length - 2;
 
+/**
+ * The text of a chat message, bounded where the document is.
+ *
+ * `CHAT_MAX_TEXT` is the chat's own ceiling (ADR 0004): a message longer than it
+ * is a message the reader would not render, so it is refused here rather than
+ * written and silently cut.
+ */
 function chatText(args: Record<string, unknown>, max = CHAT_MAX_TEXT): string {
   /*
    * A mention is `@` and the local part, which is what the conversation reads

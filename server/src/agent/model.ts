@@ -2073,15 +2073,6 @@ type StepChoice =
   | { kind: "done"; why: string };
 
 /**
- * What one choosing turn is given: the change, the plan so far, and the prose.
- *
- * The plan is the whole of what the model is told it has done — what each step
- * was and what it answered — because the run document is the agent's only
- * durable state (ADR 0030) and a turn that could see more than the document
- * would answer differently after a restart. `facts` is what the decision turn
- * found the change to be about, when this turn follows one.
- */
-/**
  * What the account holds for a case, as a turn opens with it (ADR 0038).
  *
  * Names and never verdicts: the titles of the knowledge base's pages and the shape
@@ -2107,6 +2098,15 @@ export interface CaseHeld {
   thread?: Array<{ at: string; from: string; subject: string; attachments: boolean }>;
 }
 
+/**
+ * What one choosing turn is given: the change, the plan so far, and the prose.
+ *
+ * The plan is the whole of what the model is told it has done — what each step
+ * was and what it answered — because the run document is the agent's only
+ * durable state (ADR 0030) and a turn that could see more than the document
+ * would answer differently after a restart. `facts` is what the decision turn
+ * found the change to be about, when this turn follows one.
+ */
 export interface StepQuestion {
   /** The change that woke the run, in the group's own words. */
   woke: string;

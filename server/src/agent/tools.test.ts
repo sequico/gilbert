@@ -2478,12 +2478,6 @@ test("the agent finds the workorders its account holds a part of, and reads one 
 });
 
 /**
- * A page inside a topic folder is named by its folder, not by its title: the
- * listing answers the path, and the tree walks it segment by segment. Read by
- * title, the page under `Policies` answers no page at all — the folder is the
- * page's own identity.
- */
-/**
  * A step's path is its identity and its label is the words a reader sees; the
  * words live in the template's revision, never in the part. An agent handed only
  * `intake.confirm` reasons about a path; one handed "Confirm the booking" knows

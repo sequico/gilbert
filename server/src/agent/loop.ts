@@ -3368,14 +3368,6 @@ function readiness(plan: readonly RunStep[], base: number): StepReadiness {
 }
 
 /**
- * The run of an account that is parked on this very question.
- *
- * A run that ended blocked keeps the sentence it asked in (`finishRun`), which is
- * what a message coming back can be recognised against (ADR 0029): the question's
- * own address, matched on the document, rather than anything about the message
- * that answers it.
- */
-/**
  * Whether one address is an installation administrator, as the directory says.
  *
  * The agent acts as the Master, which is one, so it can present the person's
@@ -3414,6 +3406,14 @@ function answeredAlready(
   return records.some(({ run }) => run.plan.some((step) => step.what === what));
 }
 
+/**
+ * The run of an account that is parked on this very question.
+ *
+ * A run that ended blocked keeps the sentence it asked in (`finishRun`), which is
+ * what a message coming back can be recognised against (ADR 0029): the question's
+ * own address, matched on the document, rather than anything about the message
+ * that answers it.
+ */
 function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDoc | null {
   for (const { run } of records) {
     if (run.state !== "blocked") continue;

@@ -15,14 +15,6 @@ export type ImageReader = (image: {
 }) => Promise<{ text: string } | { problem: string }>;
 
 /**
- * The text of one file, as every reading tool answers it (ADR 0038).
- *
- * One file is one answer however it arrived — a document in Files, an attachment
- * of a message: the format readers say what a document says, the model's eyes
- * say what a picture says, and the two failures are told apart (a format nothing
- * reads, and a document that would not open) rather than answered with bytes.
- */
-/**
  * The most bytes one tool downloads to read.
  *
  * A document or an attachment is held whole to be read; past this bound the
@@ -31,6 +23,14 @@ export type ImageReader = (image: {
  */
 export const READ_BYTES_MAX = 32 * 1024 * 1024;
 
+/**
+ * The text of one file, as every reading tool answers it (ADR 0038).
+ *
+ * One file is one answer however it arrived — a document in Files, an attachment
+ * of a message: the format readers say what a document says, the model's eyes
+ * say what a picture says, and the two failures are told apart (a format nothing
+ * reads, and a document that would not open) rather than answered with bytes.
+ */
 export async function readFileText(
   file: { type: string; name: string; bytes: Uint8Array },
   readImage?: ImageReader,

@@ -254,27 +254,6 @@ export function readChangeSet(args: Record<string, unknown>, type: string): Chan
 }
 
 /**
- * What the account changed since `cursor`.
- *
- * Both logs are asked in one request per page: this is one question about one
- * account, and a notification that woke the agent for mail must not cost a
- * second round trip for the files that moved in the same instant. Each log is
- * paged until the server says it holds no more, so a burst larger than one
- * window is read whole rather than refused.
- *
- * A refusal of either log ends the loop: half an answer cannot advance the
- * cursor without re-reporting the other half, which is the one thing this must
- * never do. A `cannotCalculateChanges` — the cursor fell further behind than
- * the log the server still holds — is answered as a **gap**: the pages read
- * before it are kept, because they are real changes and no reader would see
- * them again, the cursor is anchored afresh at the state the server holds now,
- * and the loss is named rather than thrown away with them.
- *
- * A page that leaves its log's state where the one before it began, while the
- * server says it holds more, cannot be paged past: asking again would ask the
- * same window for ever and grow the answer without end. That is refused.
- */
-/**
  * Whether a path is one of the agent's own documents in the group's app folder.
  *
  * Only a path **inside** `gilbert/` can be: the names below are app-folder
@@ -361,6 +340,27 @@ async function arrivalsOf(
   return arrived;
 }
 
+/**
+ * What the account changed since `cursor`.
+ *
+ * Both logs are asked in one request per page: this is one question about one
+ * account, and a notification that woke the agent for mail must not cost a
+ * second round trip for the files that moved in the same instant. Each log is
+ * paged until the server says it holds no more, so a burst larger than one
+ * window is read whole rather than refused.
+ *
+ * A refusal of either log ends the loop: half an answer cannot advance the
+ * cursor without re-reporting the other half, which is the one thing this must
+ * never do. A `cannotCalculateChanges` — the cursor fell further behind than
+ * the log the server still holds — is answered as a **gap**: the pages read
+ * before it are kept, because they are real changes and no reader would see
+ * them again, the cursor is anchored afresh at the state the server holds now,
+ * and the loss is named rather than thrown away with them.
+ *
+ * A page that leaves its log's state where the one before it began, while the
+ * server says it holds more, cannot be paged past: asking again would ask the
+ * same window for ever and grow the answer without end. That is refused.
+ */
 export async function readAccountEvents(
   ctx: Ctx,
   accountId: string,

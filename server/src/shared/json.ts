@@ -24,18 +24,6 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * Whether a value is a map whose every value is a string.
- *
- * The shape behind the `{ by, at }` stamps the document families carry and the
- * instants beside them, and a workorder checklist's `variants`. One definition
- * for every reader, so a document one reader accepts is a document every reader
- * accepts.
- *
- * `isStringArray` is its sibling for the other half of what these documents
- * hold, and an empty map is a map: a document with nothing stamped yet is one
- * this build reads.
- */
-/**
  * Whether a value is an instant this build can order a document by.
  *
  * The one check for the dates a stored document carries — a run's, a fact's,
@@ -48,6 +36,18 @@ export function isInstant(x: unknown): x is string {
   return typeof x === "string" && Number.isFinite(Date.parse(x));
 }
 
+/**
+ * Whether a value is a map whose every value is a string.
+ *
+ * The shape behind the `{ by, at }` stamps the document families carry and the
+ * instants beside them, and a workorder checklist's `variants`. One definition
+ * for every reader, so a document one reader accepts is a document every reader
+ * accepts.
+ *
+ * `isStringArray` is its sibling for the other half of what these documents
+ * hold, and an empty map is a map: a document with nothing stamped yet is one
+ * this build reads.
+ */
 export function isStringMap(v: unknown): v is Record<string, string> {
   return isRecord(v) && Object.values(v).every((value) => typeof value === "string");
 }
