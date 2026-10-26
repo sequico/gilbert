@@ -445,7 +445,10 @@ own shape is read once before the first turn — the knowledge base's page title
 the group's Files two levels deep, names only, bounded, and absent when the run's
 areas keep that surface away (`server/src/agent/changes.ts`, `agent/loop.ts`). The
 last report a case sent is in the turn too — one line, found in the conversation by
-the case's key, so this report does not restate it.
+the case's key, so this report does not restate it. And the **thread** the waking
+message belongs to: who, when and what it was about, one line each, never a body — the
+reference a case is known by and the people it involves live across the conversation,
+not in one message (`server/src/agent/thread.ts`).
 
 **The case keeps a note the next increment reads** (ADR 0034): the agent's own
 scratchpad, one file per case at `gilbert/cases/<key>.md` in the group's own account,

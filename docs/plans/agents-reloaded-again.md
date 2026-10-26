@@ -233,9 +233,12 @@ reads none of it, and a lookup that fails leaves its block out rather than the r
 (`caseOf`, `StepQuestion.case`). And the last report the case already sent, one line,
 found in the group's conversation by the case's key: an instruction that says "never
 restate what an earlier report said" cannot be obeyed by an agent that was never shown
-the sentence it must not repeat.
+the sentence it must not repeat. And the thread the waking message belongs to — who,
+when, what it was about, one line each and never a body (`agent/thread.ts`, reached
+through JMAP's `Thread/get` from the message's own `threadId`, because a thread has no
+filter of its own).
 
-**Owed:** the thread's lines and the reader.
+**Owed:** the reader.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the

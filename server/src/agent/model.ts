@@ -1980,6 +1980,11 @@ export interface CaseHeld {
    * obeyed by an agent that was never shown the sentence it must not repeat.
    */
   lastReport?: { at: string; text: string };
+  /**
+   * The thread the waking message belongs to: who, when, what it was about, one line
+   * each and never a body (ADR 0038).
+   */
+  thread?: Array<{ at: string; from: string; subject: string; attachments: boolean }>;
 }
 
 export interface StepQuestion {

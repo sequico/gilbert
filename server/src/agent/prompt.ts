@@ -245,6 +245,18 @@ export function stepData(question: StepQuestion): string {
           dataBlock(token, [...question.case.place]),
         ]
       : []),
+    ...(question.case?.thread?.length
+      ? [
+          "The thread this message belongs to, one line each and never a body — who, when, what it was about:",
+          dataBlock(
+            token,
+            question.case.thread.map(
+              (one) =>
+                `${one.at || "(unknown)"} · ${one.from} · ${one.subject}${one.attachments ? " · has attachments" : ""}`,
+            ),
+          ),
+        ]
+      : []),
     ...(question.case?.lastReport
       ? [
           "The last report this case sent, so this one does not repeat it:",

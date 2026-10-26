@@ -149,6 +149,20 @@ export function chatWoken(woke: string | null | undefined): string | null {
 }
 
 /**
+ * The mail message a run's wake names, when a message woke it.
+ *
+ * The inverse of `wokeOf`, beside it for the same reason: `mail created: <id>` is the
+ * only shape a mail wake has, and the message it names is what a thread is read from.
+ * A wake that is not one answers null.
+ */
+export function mailWoken(woke: string | null | undefined): string | null {
+  const [head, ...rest] = (woke ?? "").split(": ");
+  if (head !== "mail created" || !rest.length) return null;
+  const id = rest.join(": ").trim();
+  return id && !id.includes("(") ? id : null;
+}
+
+/**
  * The account's runs by the change that woke them: one entry per change.
  *
  * A run woken by a person's own sentence names no change, and is not an answer to

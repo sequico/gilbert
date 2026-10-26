@@ -128,9 +128,11 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upst
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
 import { listCases, readCaseNote, writeCaseNote } from "./case.js";
+import { threadLines } from "./thread.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
 import {
   chatWoken,
+  mailWoken,
   offPath,
   readChangesForPass,
   wokeOf,
@@ -1443,6 +1445,23 @@ export class AgentLoop {
           at: typeof mine.at === "string" ? mine.at : "",
           text: mine.text,
         };
+    }
+    /*
+     * The thread the waking message belongs to (ADR 0038): the reference a case is
+     * known by, and the people it involves, live across the whole conversation — one
+     * line each, no bodies. A message the server no longer holds answers nothing, and
+     * the case simply starts without it.
+     */
+    const messageId = mailWoken(run.startedBy.woke);
+    if (messageId) {
+      try {
+        const lines = await threadLines(this.ctx, accountId, messageId);
+        if (lines.length > 1) held.thread = lines;
+      } catch (err) {
+        this.opts.log?.(
+          `[gilbert] agent: run ${run.id} could not read its thread: ${errorMessage(err)}`,
+        );
+      }
     }
     return held;
   }

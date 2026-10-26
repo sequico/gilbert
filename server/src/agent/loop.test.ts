@@ -491,7 +491,13 @@ async function inboxOf(account: string): Promise<string> {
   return inbox;
 }
 
-async function deliver(subject: string, into = accountId, body = ""): Promise<string> {
+async function deliver(
+  subject: string,
+  into = accountId,
+  body = "",
+  /** The message this one answers, when the test is about a conversation. */
+  answers?: string,
+): Promise<string> {
   const inbox = await inboxOf(into);
   const answer = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
     "Email/set",
@@ -500,6 +506,7 @@ async function deliver(subject: string, into = accountId, body = ""): Promise<st
       create: {
         c: {
           subject,
+          ...(answers ? { inReplyTo: [`${answers}@mock`] } : {}),
           mailboxIds: { [inbox]: true },
           // A message with words of its own, for the turns that are told them.
           ...(body
@@ -3016,6 +3023,43 @@ test("the same call in a later answer is the act already made, and is not made t
   assert.equal(steps[0]?.state, "done");
   assert.equal(steps[1]?.state, "done", "the repeat is a step that ended, not a refusal");
   assert.equal(steps[1]?.outcome, steps[0]?.outcome, "and its answer is the first one's");
+});
+
+test("the thread the message belongs to is in the turn, one line each", async () => {
+  /*
+   * The reference a case is known by, and the people it involves, live across the
+   * whole conversation: a turn handed one message alone looks for the rest by hand,
+   * which is where the failing runs spent their first ten steps (ADR 0038). The thread
+   * reaches the turn as lines — who, when, what it was about — and never as bodies.
+   */
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+  const first = await deliver("BK-901 booking request");
+  const held = await clientOf(ctx).call<{ list?: Array<{ threadId?: string }> }>(
+    "Email/get",
+    { accountId, ids: [first], properties: ["threadId"] },
+    [CAPABILITIES.mail],
+  );
+  assert.ok(held.list?.[0]?.threadId, "the mock gives a message its thread");
+  // A reply joins the thread by naming the message it answers, which is what a
+  // mail server reads to file it (the mock resolves the thread from `inReplyTo`).
+  await deliver("Re: BK-901 booking request", accountId, "", first);
+
+  answerWith({ facts: {} });
+  answerWith(aLook());
+  answerWith({ done: "the thread was in hand" });
+  await agent.pass();
+
+  const turn = seen.find(({ user }) =>
+    user.includes("The thread this message belongs to"),
+  );
+  assert.ok(turn, "the turn carries the thread");
+  assert.ok(turn.user.includes("BK-901 booking request"), "with what it was about");
+  assert.ok(
+    turn.user.includes("has attachments") === false,
+    "and a message with none says nothing about attachments",
+  );
 });
 
 test("a group that declares the shape of its report has every report judged", async () => {
