@@ -591,6 +591,13 @@ function rememberPaths(
   return next;
 }
 
+/** A node as the path walk reads it: its name, its parent and its type. */
+interface NamedNode {
+  name: string;
+  parentId: string | null;
+  nodeType?: unknown;
+}
+
 /**
  * The path of every node named, where one can still be read.
  *
@@ -601,13 +608,6 @@ function rememberPaths(
  * path, and neither has one whose parent is missing: half a chain would name a
  * node as something it is not. Such a node is the caller's to name by its id.
  */
-/** A node as the path walk reads it: its name, its parent and its type. */
-interface NamedNode {
-  name: string;
-  parentId: string | null;
-  nodeType?: unknown;
-}
-
 async function nodePaths(
   ctx: Ctx,
   accountId: string,

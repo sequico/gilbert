@@ -103,13 +103,6 @@ export async function folderOrder(
 /* ------------------------------------------------------------------ */
 
 /**
- * Create one article, never overwriting an existing one.
- *
- * The folder is the title's file name (`knowledgeFolderName`); a title whose
- * folder an article already holds gets a numbered sibling, because a create is
- * a create and not a way to replace a controlled document.
- */
-/**
  * Build a draft from an input, refusing rules that can never be satisfied.
  *
  * One door for both writers — a create and a save — so a condition naming a
@@ -124,6 +117,13 @@ function checkedDraft(spec: Parameters<typeof buildDraft>[0]): KnowledgeDraft {
   return draft;
 }
 
+/**
+ * Create one article, never overwriting an existing one.
+ *
+ * The folder is the title's file name (`knowledgeFolderName`); a title whose
+ * folder an article already holds gets a numbered sibling, because a create is
+ * a create and not a way to replace a controlled document.
+ */
 export async function createArticle(
   admin: LiveSession,
   target: KnowledgeTarget,

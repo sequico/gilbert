@@ -19,11 +19,6 @@ import { AgentModel } from "./AgentModel";
 /** What a document that names no limit uses: the shared defaults. */
 const LIMIT_DEFAULTS = installationDefaults().limits;
 
-/**
- * The agent as a whole: the model every call runs on, and the rule it is told
- * above every group's own. Both are the installation's document, seen through
- * the fields an administrator chooses; a save publishes that same document.
- */
 /** What the check says, in the reader's words. */
 function checkLabel(check: ModelCheck): string {
   if (check.ok) return t("Model connected");
@@ -47,6 +42,12 @@ function checkLabel(check: ModelCheck): string {
   }
 }
 
+/**
+ * The agent as a whole: the model every call runs on, and the line of prose it
+ * is told above every group's own. Both are the installation's document, seen
+ * through the fields an administrator chooses; a save publishes that same
+ * document.
+ */
 export function AgentGeneral({ onDocumentSaved }: { onDocumentSaved: () => void }) {
   const [check, setCheck] = useState<ModelCheck | null>(null);
   const [line, setLine] = useState("");

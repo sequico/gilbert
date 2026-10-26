@@ -134,16 +134,6 @@ function headerOf(summary: RunSummary): RunSummary {
 const memoryFailure = failureFor(MemoryError);
 
 /**
- * Stop one run, whatever it is doing — working, or waiting on a person's answer.
- *
- * Stopping is the race the run documents exist for: the pass records a step of
- * the same run while a person presses Stop. A lost compare-and-set is retried on
- * the document as it now stands — the same attempts every other writer makes —
- * and a stop that keeps losing answers `"moved"`, which the route turns into a
- * sentence that says the run is still in flight rather than an upstream error.
- * An already-ended run is handed back as it is: a second Stop is not an error.
- */
-/**
  * What one Stop did to one run — the fact, not a state to be re-read.
  *
  * `closed` is the only outcome where **this call** wrote the cancellation. It is

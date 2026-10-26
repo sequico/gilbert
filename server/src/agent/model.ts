@@ -342,22 +342,6 @@ interface ModelImage {
   data: Uint8Array;
 }
 
-/**
- * One call to an OpenAI-compatible chat endpoint.
- *
- * The catalogue travels in `tools` when the turn has one, and a turn without it
- * asks for the provider's own structured output (ADR 0038): there is no
- * JSON-in-the-text fallback and no second request without the tools. The
- * content is still parsed as JSON here, so a model that narrates instead of
- * answering fails as a malformed answer rather than as a silent empty decision.
- * `temperature: 0` is sent with it and is not what makes a turn repeatable: the
- * shape the answer is read against is what bounds it.
- */
-/*
- * The caller's contract is pinned against a stub in the tests, and what a real
- * provider answered is replayed through today's parsers (`agent/replay.test.ts`),
- * so a change to the shape is read back without a key and without a live call.
- */
 /** The model this process's agent runs on, as the last pass read it. */
 let running: ModelAccess | null = null;
 
@@ -369,7 +353,9 @@ export function runningModelAccess(): ModelAccess | null {
   return running;
 }
 
-/** The provider's token counts for the calls made through one meter. */
+/**
+ * The provider's token counts for the calls made through one meter.
+ */
 export interface UsageMeter {
   /** Model calls made, including the ones a provider timed out on. */
   calls: number;
@@ -430,6 +416,21 @@ export function jsonObjectIn(text: string): unknown | null {
   return null;
 }
 
+/**
+ * One call to an OpenAI-compatible chat endpoint.
+ *
+ * The catalogue travels in `tools` when the turn has one, and a turn without it
+ * asks for the provider's own structured output (ADR 0038): there is no
+ * JSON-in-the-text fallback and no second request without the tools. The
+ * content is still parsed as JSON here, so a model that narrates instead of
+ * answering fails as a malformed answer rather than as a silent empty decision.
+ * `temperature: 0` is sent with it and is not what makes a turn repeatable: the
+ * shape the answer is read against is what bounds it.
+ *
+ * The caller's contract is pinned against a stub in the tests, and what a real
+ * provider answered is replayed through today's parsers (`agent/replay.test.ts`),
+ * so a change to the shape is read back without a key and without a live call.
+ */
 export async function callModel(
   access: ModelAccess,
   req: ModelRequest,

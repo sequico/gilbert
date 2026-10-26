@@ -488,9 +488,6 @@ interface ItemDraft {
  * optional data fields. The rules are not on the listing, only on the revision
  * the template binds to, so the revision is read when a template is chosen and
  * the choices are drawn from it.
- */
-/**
- * The form a workorder is born from, in either of the two ways it is born.
  *
  * `replacing` names the workorder this one succeeds: the body the form builds is
  * a creation's either way — a name, a template, its choices — because a

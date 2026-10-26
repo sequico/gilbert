@@ -291,14 +291,6 @@ function bumpState(accountId: string, type: string): void {
 }
 
 /* ---------- data ---------- */
-/*
- * The names are Stalwart's own defaults, which follow the Exchange convention:
- * "Deleted Items" and "Sent Items", not "Trash" and "Sent". A list built
- * from the short forms reads differently here than in production -- "Empty
- * Trash" against the mock, "Empty Deleted Items" against a real server. The
- * role is what the client branches on; the name is only ever displayed, which
- * is exactly why it has to look right.
- */
 /**
  * Push subscriptions, as a fresh account has none.
  *
@@ -327,6 +319,14 @@ const pushSubscriptions: Obj[] = [];
  */
 const MAX_PUSH_SUBSCRIPTIONS = 15;
 
+/*
+ * The names are Stalwart's own defaults, which follow the Exchange convention:
+ * "Deleted Items" and "Sent Items", not "Trash" and "Sent". A list built
+ * from the short forms reads differently here than in production -- "Empty
+ * Trash" against the mock, "Empty Deleted Items" against a real server. The
+ * role is what the client branches on; the name is only ever displayed, which
+ * is exactly why it has to look right.
+ */
 const mailboxes: Obj[] = [
   mb("inbox", "Inbox", "inbox"),
   mb("drafts", "Drafts", "drafts"),
@@ -2742,18 +2742,6 @@ class SetError extends Error {
 }
 
 /**
- * The generic set, over one type's node list.
- *
- * `onDestroy` is a guard for the destroy path, and it exists for one caller: a
- * **folder** in Stalwart's files is refused when a destroy does not carry
- * `onDestroyRemoveChildren` and the folder still holds something, which is what
- * makes a merge's last step safe -- it never asks a folder to go with its
- * contents, so a folder it did not empty stops the merge instead of vanishing
- * with whatever landed in it meanwhile. A guard rather than a throw, because the
- * refusal belongs against that id in `notDestroyed` and nowhere else, exactly as
- * a create's refusal sits in `notCreated`.
- */
-/**
  * What this mock can say about a Sieve script without a Sieve parser.
  *
  * The checks are structural — it is not empty, its braces balance — which is
@@ -2769,6 +2757,18 @@ function badSieveContents(contents: unknown): string | null {
   return null;
 }
 
+/**
+ * The generic set, over one type's node list.
+ *
+ * `onDestroy` is a guard for the destroy path, and it exists for one caller: a
+ * **folder** in Stalwart's files is refused when a destroy does not carry
+ * `onDestroyRemoveChildren` and the folder still holds something, which is what
+ * makes a merge's last step safe -- it never asks a folder to go with its
+ * contents, so a folder it did not empty stops the merge instead of vanishing
+ * with whatever landed in it meanwhile. A guard rather than a throw, because the
+ * refusal belongs against that id in `notDestroyed` and nowhere else, exactly as
+ * a create's refusal sits in `notCreated`.
+ */
 function genericSet(
   list: Obj[],
   prefix: string,
@@ -2848,23 +2848,6 @@ function genericSet(
 /* ---------- calendar events ---------- */
 
 /**
- * `CalendarEvent/set`, including the synthetic-id handling 0.16.20 added.
- *
- * An update or destroy aimed at an occurrence does not touch the series: it
- * writes a `recurrenceOverrides` entry keyed by that date, exactly as Stalwart
- * does — `{ excluded: true }` for a destroy, the patch merged in for an update.
- *
- * The refusals are the point of reproducing this at all:
- *
- * - a base event and one of its instances in the same request is refused, both
- *   ids at once, because the server cannot apply them in a defined order;
- * - the same id twice is "Duplicate event id.";
- * - the ten event-level properties are refused with `invalidProperties`;
- * - and the twelve inherited ones are dropped in silence, with the response
- *   still saying the update succeeded. A mock that applied them would let a
- *   client that sends them look correct everywhere except a real server.
- */
-/**
  * Enough of an iCalendar reader to stand in for Stalwart's.
  *
  * It reads per VEVENT rather than across the whole file, because a file is the
@@ -2935,6 +2918,23 @@ function calendarEventParse(a: Obj) {
   return { accountId: ACCOUNT, parsed, notParsable };
 }
 
+/**
+ * `CalendarEvent/set`, including the synthetic-id handling 0.16.20 added.
+ *
+ * An update or destroy aimed at an occurrence does not touch the series: it
+ * writes a `recurrenceOverrides` entry keyed by that date, exactly as Stalwart
+ * does — `{ excluded: true }` for a destroy, the patch merged in for an update.
+ *
+ * The refusals are the point of reproducing this at all:
+ *
+ * - a base event and one of its instances in the same request is refused, both
+ *   ids at once, because the server cannot apply them in a defined order;
+ * - the same id twice is "Duplicate event id.";
+ * - the ten event-level properties are refused with `invalidProperties`;
+ * - and the twelve inherited ones are dropped in silence, with the response
+ *   still saying the update succeeded. A mock that applied them would let a
+ *   client that sends them look correct everywhere except a real server.
+ */
 function calendarEventSet(a: Obj) {
   /* CalendarEvent is an account-wide set like any other, so a conditional
      write is honoured here too (see `checkIfInState`). */
