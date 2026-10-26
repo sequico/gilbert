@@ -321,7 +321,7 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
   const cases: Array<[unknown, string]> = [
     ["not an object", "must be a JSON object"],
     [{ summary: "I decided something" }, "exactly one of"],
-    [{ rules: ["shipper-answer"] }, 'exactly one of "facts", "read", or "reply"'],
+    [{ rules: ["shipper-answer"] }, 'exactly one of "facts", "read", "reply" or "lines"'],
     [{ facts: { shipper: 42 } }, "values are text"],
     // An answer cannot produce an authorisation: naming a writing tool, or a
     // capability, is refused as the shape it is not.

@@ -7,10 +7,9 @@
  * run needs — chat (the interface), knowledge (the shared library) and memory
  * (what the installation knows).
  *
- * This file is the one place that says which area a tool belongs to: a new tool
- * names its area here, and nothing else in the tree repeats the mapping. The
- * catalogue a turn sees is computed from it, so the model never again reads
- * forty-five names to use four.
+ * The mapping from a value of the catalogue to its area lives on the value itself
+ * (`Route.area`, `agent/tools/jobs.ts`), because that is where the narrowing reads
+ * it; this file says which areas a run has and hands the catalogue back narrowed.
  */
 
 import {
@@ -62,12 +61,10 @@ function areasOfSurfaces(surfaces: SurfaceMatrix | undefined): readonly AreaName
 /**
  * The catalogue one turn reads, already narrowed to the run's areas (ADR 0038).
  *
- * `read`, `find`, `say` and `remember` are always present — reading is free, so
- * the selection narrows what a run may change, never what it may look at — and
- * the four area writes (`place`, `draft`, `event`, `settle`) keep only the
- * values whose area the instruction declared. The narrowing is each job's own
- * (`AnyTool.narrow`); a tool that does not narrow is a test's fixture and is
- * offered as it is.
+ * `open` and `say` are always present — reading is free, and the conversation is
+ * the interface — while `act` keeps only the values whose area the instruction
+ * declared. The narrowing is each job's own (`AnyTool.narrow`); a tool that does
+ * not narrow is a test's fixture and is offered as it is.
  */
 export function catalogueFor<
   T extends {

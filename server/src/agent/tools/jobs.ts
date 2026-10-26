@@ -1,27 +1,26 @@
 /**
- * The catalogue as eight jobs (ADR 0038).
+ * The catalogue as four verbs (ADR 0038).
  *
- * Forty-five endpoint tools became eight, and every capability is a value of a
- * job or consciously dropped: `read` one known object, `find` what the account
- * holds, `place` something where it belongs, `draft` an outward message,
- * `event` a calendar, `say` in the conversation, `remember` a fact, `settle` a
- * workorder. The executors stay where they were, one per endpoint; a job routes
- * to one by its own `kind`/`action` and hands it the call's arguments, so the
- * validation, the authority and the answer remain the endpoint's.
+ * Forty-five endpoint tools are four, and every capability is a value of one or
+ * consciously dropped: `open` what the account holds, `act` a change to it, `say`
+ * in the conversation, `note` the case's scratchpad. The executors stay where they
+ * were, one per endpoint; a verb routes to one by its own `what` or `action` and
+ * hands it the call's arguments, so the validation, the authority and the answer
+ * remain the endpoint's.
  *
  * Three things this buys, and the reason the ADR pays for the rewrite:
  *
  * - **A provider accepts the names.** Function names match
  *   `^[a-zA-Z0-9_-]+$` on the providers this product speaks to, and `mail.find`
  *   is refused as an invalid name — the live eval of 2026-10-22 answered 400
- *   for exactly that. Eight bare words are legal everywhere.
- * - **The schema follows the areas.** `place` offers only the actions of the
- *   surfaces the run's instruction declared, and `draft`/`event`/`settle` are
- *   absent when their area is: a tool-level filter could not say which half of
- *   a job is allowed, and the values can (ADR 0038).
- * - **The guard reads the act, not the tool.** `place` files a message and
- *   destroys a folder: its authority comes from the endpoint the value names,
- *   through `authorityOf`, and the surface from `surfaceOf`.
+ *   for exactly that. Four bare words are legal everywhere.
+ * - **The schema follows the areas.** `act` offers only the acts of the areas the
+ *   run's instruction declared, and `page`/`fact`/`settle` are absent when their
+ *   area is: a tool-level filter could not say which half of a verb is allowed,
+ *   and the values can (ADR 0038).
+ * - **The guard reads the act, not the tool.** `act` files a message and destroys
+ *   a folder: its authority comes from the endpoint the value names, through
+ *   `authorityOf`, and the surface from `surfaceOf`.
  *
  * **The interface rules, in the words `aci.test.ts` holds the catalogue to:**
  *
@@ -29,8 +28,8 @@
  *   provider's own pattern and a name it refuses costs a whole turn.
  * - One verb, one meaning: two tools that do one thing make the choice a
  *   lottery.
- * - A call is chosen by **one discriminator** — `kind` or `action` — whose every
- *   value appears in the job's description and carries its own schema branch, so
+ * - A call is chosen by **one discriminator** — `what` or `action` — whose every
+ *   value appears in the verb's description and carries its own schema branch, so
  *   an argument of another route is refused before the step is paid for.
  * - **A refusal names what it accepts**: the values of the discriminator, or the
  *   argument it could not read; and a name the catalogue does not hold is
@@ -93,15 +92,19 @@ import {
 } from "./mail.js";
 import { memoryHistoryTool, rememberFactTool } from "./memory.js";
 import { noteTool } from "./note.js";
-import { readRunTool } from "./runs.js";
 import { readBrief } from "./reader.js";
+import { readRunTool } from "./runs.js";
 import { listWorkorders, readWorkorder, settleStep } from "./workorders.js";
 
 /** One value of a job: the endpoint it reaches, and the area that owns it. */
 interface Route {
   tool: AnyTool;
-  /** The area whose selection keeps this value, or null when every run has it. */
-  area: AreaName | null;
+  /**
+   * The area whose selection keeps this value. Absent when every run has it: a
+   * reading is free, so no reading value is ever narrowed away — only a write
+   * names the area it needs (ADR 0038).
+   */
+  area?: AreaName;
   /**
    * Whether the value may name **several** objects at once, with `ids`: the job is
    * then run once per id and answers a list (R4's "a set answered in one call"). Only
@@ -117,15 +120,13 @@ export const OPEN_SET_MAX = 10;
 interface JobSpec {
   name: string;
   description: string;
-  /** The argument that names the endpoint: `kind`, `action` or `what`. */
-  discriminator: "kind" | "action" | "what";
+  /** The argument that names the endpoint of a call. */
+  discriminator: "action" | "what";
   /** What the discriminator means, in the turn's words. */
   about: string;
   routes: Record<string, Route>;
-  /** Whether the job changes anything (it does, except `read` and `find`). */
+  /** Whether the job changes anything (it does, except `open`). */
   writes: boolean;
-  /** Values a narrowing keeps whichever areas are declared. */
-  always?: boolean;
 }
 
 /** The arguments every route of a job takes, in one object. */
@@ -190,10 +191,12 @@ function routeOf(spec: JobSpec, routes: Record<string, Route>, raw: unknown): Ro
 /**
  * One job, built from its routes.
  *
- * The parsed answer of a job call is `{ endpoint, args }`: the guard reads the
- * endpoint's authority, surface and wait through it, and the endpoint runs the
- * call. `narrow` builds the same job again with only the values the run's areas
- * keep — the catalogue's selection, one definition.
+ * The parsed answer of a job call is a `Routed`: the endpoint the call names, and
+ * the endpoint's own validated arguments — or, for a set, the ids it named and the
+ * rest of the arguments, parsed per id as each is run. The guard reads the
+ * endpoint's authority, surface and wait through it. `narrow` builds the same job
+ * again with only the values the run's areas keep — the catalogue's selection, one
+ * definition.
  */
 function job(spec: JobSpec): AnyTool {
   const build = (routes: Record<string, Route>): AnyTool | null => {
@@ -278,10 +281,14 @@ function job(spec: JobSpec): AnyTool {
     return {
       ...tool,
       narrow: (areas) => {
-        if (spec.always || areas === null) return tool;
+        /*
+         * Reading is free: the selection narrows what a run may **change**, never
+         * what it may look at, so a reading verb is offered whole (ADR 0038).
+         */
+        if (!spec.writes || areas === null) return tool;
         const kept: Record<string, Route> = {};
         for (const [value, route] of Object.entries(routes))
-          if (route.area === null || areas.includes(route.area)) kept[value] = route;
+          if (route.area === undefined || areas.includes(route.area)) kept[value] = route;
         return build(kept);
       },
     };
@@ -316,28 +323,27 @@ export const openJob = job({
   about:
     "what to open: a message, an attachment, a file, an event, a page, a chat, a workorder, a run, the memory or a brief — or the plural, to search or list",
   writes: false,
-  always: true,
   routes: {
-    message: { tool: readMessage, area: "mail", set: true },
-    attachment: { tool: readAttachment, area: "mail", set: true },
-    file: { tool: readNode, area: "files", set: true },
-    event: { tool: readEvent, area: "calendar", set: true },
-    page: { tool: readKnowledgePage, area: "knowledge", set: true },
-    chat: { tool: readChat, area: "chat", set: true },
-    workorder: { tool: readWorkorder, area: "workorders", set: true },
-    run: { tool: readRunTool, area: null },
-    memory: { tool: memoryHistoryTool, area: "memory" },
-    brief: { tool: readBrief, area: null },
-    messages: { tool: findMessages, area: "mail" },
-    folders: { tool: listMailboxes, area: "mail" },
-    events: { tool: findEvents, area: "calendar" },
-    calendars: { tool: listCalendars, area: "calendar" },
-    chats: { tool: findChat, area: "chat" },
-    contacts: { tool: findContacts, area: "contacts" },
-    files: { tool: listFiles, area: "files" },
-    pages: { tool: listKnowledge, area: "knowledge" },
-    search: { tool: searchKnowledge, area: "knowledge" },
-    workorders: { tool: listWorkorders, area: "workorders" },
+    message: { tool: readMessage, set: true },
+    attachment: { tool: readAttachment, set: true },
+    file: { tool: readNode, set: true },
+    event: { tool: readEvent, set: true },
+    page: { tool: readKnowledgePage, set: true },
+    chat: { tool: readChat, set: true },
+    workorder: { tool: readWorkorder, set: true },
+    run: { tool: readRunTool },
+    memory: { tool: memoryHistoryTool },
+    brief: { tool: readBrief },
+    messages: { tool: findMessages },
+    folders: { tool: listMailboxes },
+    events: { tool: findEvents },
+    calendars: { tool: listCalendars },
+    chats: { tool: findChat },
+    contacts: { tool: findContacts },
+    files: { tool: listFiles },
+    pages: { tool: listKnowledge },
+    search: { tool: searchKnowledge },
+    workorders: { tool: listWorkorders },
   },
 });
 
@@ -410,10 +416,9 @@ export const sayJob = job({
   discriminator: "action",
   about: "say a message, or ask a question and wait",
   writes: true,
-  always: true,
   routes: {
-    say: { tool: sayInChat, area: "chat" },
-    ask: { tool: askInChat, area: "chat" },
+    say: { tool: sayInChat },
+    ask: { tool: askInChat },
   },
 });
 

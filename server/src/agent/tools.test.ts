@@ -2618,7 +2618,7 @@ test("a brief with no model to read with says so, rather than hanging", async ()
     "the reading verb carries the reader",
   );
   await assert.rejects(
-    () => callTool("read.brief", { question: "What does the thread say?" }),
+    () => callTool("open", { what: "brief", question: "What does the thread say?" }),
     /no model/i,
     "a brief without a model is refused, in the reader's own words",
   );
