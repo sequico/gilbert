@@ -93,7 +93,7 @@ export interface AnyTool {
   readonly waits: boolean;
   /** Whether this call waits, read from its parsed arguments. */
   readonly waitsOf: (args: unknown) => boolean;
-  /** What a call to it spends of the run's budget (ADR 0027). */
+  /** What a call to it spends of the run's tally (ADR 0038). */
   readonly spend: Partial<RunSpent>;
   /**
    * The act this call is, read from the arguments the model gave (ADR 0028).

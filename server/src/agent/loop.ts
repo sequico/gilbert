@@ -120,8 +120,6 @@ import {
   waitUntil,
 } from "../shared/run.js";
 
-export { RUN_STEPS_MAX } from "../shared/run.js";
-
 import type { AreaName } from "../shared/areas.js";
 import { writeSurfacesOf } from "../shared/areas.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
@@ -191,7 +189,7 @@ import {
 import { caseOf } from "./tools/note.js";
 
 /**
- * The other ceilings a run's budget is measured against (ADR 0027).
+ * The other limits a run records beside its tally.
  *
  * One valve: **liveness, not money**. A run ends when its work is done, when it
  * waits on a person, when a person stops it, or when it fails — never because of
@@ -1367,7 +1365,7 @@ export class AgentLoop {
    * knowledge reads none of it — and an answer that fails leaves its block absent
    * rather than failing the run.
    */
-  private async caseOf(accountId: string, run: RunDoc): Promise<CaseHeld> {
+  private async caseHeld(accountId: string, run: RunDoc): Promise<CaseHeld> {
     const catalogue = catalogueFor(this.catalogue, this.areasOfRun(accountId, run));
     const embed = this.embedder();
     const call: ToolCall = {
@@ -1900,7 +1898,7 @@ export class AgentLoop {
      * shape of the group's Files (ADR 0038). A person with this change on the desk
      * has both open, and the failing runs spent their first ten steps opening them.
      */
-    const held = await this.caseOf(accountId, current);
+    const held = await this.caseHeld(accountId, current);
     /* The cases already on file: the index a turn recognises one of its own by. */
     const caseKeys = await this.casesOnFile(accountId);
     let previous: string | null = null;
@@ -1940,11 +1938,11 @@ export class AgentLoop {
        */
       if (Date.now() - workStarted > (this.opts.sliceMs ?? SLICE_MS)) {
         const sliced = sliceRun(current, new Date().toISOString());
-        const kept = await this.store(accountId, sliced, token);
+        if ((await this.store(accountId, sliced, token)) === null) return null;
         this.opts.log?.(
           `[gilbert] agent: run ${current.id} — left for the next pass, mid-work`,
         );
-        return kept === null ? null : sliced;
+        return sliced;
       }
       /*
        * The case's scratchpad, read from its own file for this turn (ADR 0034): the
@@ -1963,7 +1961,7 @@ export class AgentLoop {
        */
       const fold = compactAt(current);
       if (fold !== null) {
-        const folder = usageMeter();
+        const foldMeter = usageMeter();
         current = spendRun(current, { calls: 1 });
         try {
           const summary = await summarisePlan(
@@ -1974,7 +1972,7 @@ export class AgentLoop {
               folding: current.plan.slice(current.compactedUpTo ?? 0, fold),
               kept: current.plan.length - fold,
             },
-            { meter: folder },
+            { meter: foldMeter },
           );
           await writeCaseNote(
             this.ctx,
@@ -1983,17 +1981,23 @@ export class AgentLoop {
             summary,
           );
           note = summary.trim();
-          current = spendRun(compactRun(current, fold), {
-            promptTokens: folder.promptTokens,
-            completionTokens: folder.completionTokens,
-            cachedPromptTokens: folder.cachedTokens,
-          });
-          this.passTokens += folder.promptTokens + folder.completionTokens;
+          current = compactRun(current, fold);
         } catch (err) {
           this.opts.log?.(
             `[gilbert] agent: run ${current.id} could not fold its transcript: ${errorMessage(err)}`,
           );
         }
+        /*
+         * The tokens are the run's whatever the call answered: a provider that billed
+         * a fold which then failed still billed it, and a tally that skipped it is
+         * optimistic exactly where the daily ceiling counts.
+         */
+        current = spendRun(current, {
+          promptTokens: foldMeter.promptTokens,
+          completionTokens: foldMeter.completionTokens,
+          cachedPromptTokens: foldMeter.cachedTokens,
+        });
+        this.passTokens += foldMeter.promptTokens + foldMeter.completionTokens;
       }
       const prose = above;
       const startedMs = Date.now();
@@ -2157,8 +2161,7 @@ export class AgentLoop {
          * The question is put **once**: asking costs a step, and a model that
          * answers it by claiming the same thing again has nothing left to add —
          * the run closes `refused` with the gap in the record rather than asking
-         * in a circle. (Before 2026-10-27 this was also a budget question, "is
-         * there a step left to spend"; a run has no step ceiling now.)
+         * in a circle.
          */
         if (gap && checked === 0) {
           current = this.withStep(current, DONE_CHECKED, gap, false);
@@ -3350,7 +3353,6 @@ function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDo
   return null;
 }
 
-/** The ceiling a run has spent, or null when it has budget left (ADR 0027, 0038). */
 /** The wait a tool's answer left behind, or null when it left none. */
 function waitOf(outcome: unknown): RunWait | null {
   if (!isRecord(outcome)) return null;

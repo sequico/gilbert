@@ -437,22 +437,19 @@ interface RunEvidence {
 }
 
 /**
- * What the run has spent (ADR 0027): the tally of its budget, and only the
- * tally.
+ * What the run has spent (ADR 0030, 0038): the tally of what the work cost, and
+ * only the tally.
  *
- * The budget is steps, time and model calls. The **ceiling** is not here: it is
- * the loop's own (`agent/loop.ts`), because a run measured against a ceiling it
- * carried itself is a run that could raise it. The tally is here because the run
- * is the whole of the agent's durable state and a tally that did not survive a
- * restart would start a run over on the budget it had already spent.
- *
- * The provider's token counts are recorded beside the budget and are **not** one
- * of its ceilings: they say what the work cost, not when the run must stop.
+ * The run keeps it because the run is the whole of the agent's durable state: a
+ * tally that did not survive a restart would start a run over on what it had
+ * already spent, and a report of the cost would be a guess. **Nothing here ends a
+ * run** — no step, call, millisecond or token amount is a ceiling — so the tally is
+ * read, never enforced.
  */
 export interface RunSpent {
   /**
-   * Steps the step budget charged: a refused act or a wait, not every free read.
-   * The plan's own count is `RunSummary.steps`.
+   * Steps the work charged: a refused act or a wait, not every free read. The
+   * plan's own count is `RunSummary.steps`.
    */
   steps: number;
   /** Model calls the run made. */

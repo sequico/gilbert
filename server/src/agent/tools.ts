@@ -13,7 +13,7 @@
  * person's agent should reach for), its **arguments** (validated before the
  * executor runs, never inside it), the **authority class it exercises** (ADR
  * 0028), the **act** that class is about when the class asks a person, and what
- * it **spends** of the run's budget (ADR 0027) — which the loop applies with
+ * it **spends** of the run's tally (ADR 0038) — which the loop applies with
  * `spendRun`, and which for a read is nothing.
  *
  * **The reading half cannot change anything.** Reading before acting is what

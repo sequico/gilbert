@@ -2570,10 +2570,9 @@ export async function chooseStep(
      * the answer keeps the calls that pass. A name the catalogue does not hold,
      * or arguments the tool cannot use, refuses **that call**: the plan's other
      * steps still run, and the refusal is recorded as a failed step the model
-     * reads before it chooses again. Refusing the whole answer — which is what
-     * this did, and what ADR 0027 said — cost a live installation four good calls
-     * for one invented name, and the model came back with the same name because
-     * nothing told it what the catalogue holds.
+     * reads before it chooses again. Refusing the whole answer for one invented
+     * name costs four good calls and teaches the model nothing about what the
+     * catalogue holds.
      */
     let asking = 0;
     const kept: StepCall[] = [];
