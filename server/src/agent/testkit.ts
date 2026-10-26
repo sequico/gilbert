@@ -69,7 +69,7 @@ export function jobCall(
     return { name: "act", args: { ...args, what: "page" } };
   if (name === "workorder.settle")
     return { name: "act", args: { ...args, what: "settle" } };
-  throw new Error(`the former tool "${name}" has no job`);
+  throw new Error(`the former tool "${name}" has no verb`);
 }
 
 /** The surfaces the former endpoint names belonged to; another prefix is not one. */

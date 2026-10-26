@@ -94,6 +94,6 @@ test("a list in one message is cheap as well as whole", async () => {
   });
   assert.ok(
     (await listInOneMessage.grade(harness({}), slow)) < 1,
-    "the same report at nineteen calls is not the same work",
+    "the same report at nine calls is not the same work",
   );
 });

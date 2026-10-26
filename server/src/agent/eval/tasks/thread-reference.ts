@@ -11,7 +11,7 @@ import type { EvalTask } from "../task.js";
 export const threadReference: EvalTask = {
   name: "a reference that lives in the thread is found, not re-read",
   message: "a reply that answers a booking mail without repeating its reference",
-  data: "a group holding the first message of a booking thread, whose reference BK-901 appears only there, instructed to report the reference in the conversation",
+  data: "a group holding the first message of a booking thread, whose reference BK-902 appears only there, instructed to report the reference in the conversation",
   reference: "the run reports BK-901 in the conversation and ends done",
   live: true,
   prepare: async (h) => {
