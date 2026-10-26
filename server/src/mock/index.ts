@@ -852,27 +852,12 @@ function addEmail(o: {
       ? "<mailto:unsub@newsletter.example?subject=unsubscribe>, <https://newsletter.example/unsub>"
       : null,
     /*
-     * How a message arrived, as the receiving server's own record of it: the hop
-     * it wrote last, which the message carries first — a submission accepted over
-     * an authenticated connection from one of this installation's accounts, or a
-     * hand-over by a server that is not this one.
-     *
-     * The submission names the account that authenticated, which is the address
-     * the reading compares with the sender — the one fact a `From:` line cannot
-     * carry for itself. The verdict below is written for the second case alone,
-     * because mail that never crossed a boundary has no SPF, no DKIM and no DMARC
-     * to verify; the signed fixture (`addSignedEmail`) is built around its blob
-     * rather than here and carries neither.
-     *
-     * Both are a shape and not *the* shape: what a live Stalwart 0.16 writes here
-     * is owed a probe, marked in `server/src/agent/trust.ts`, and
-     * `message-arrival.test.ts` pins that the one reading them reads these.
+     * The receiving server's own verdict on a delivered message, which the
+     * client's message view reads. Mail this account wrote never crossed a
+     * boundary, so it carries none: there is no SPF, no DKIM and no DMARC for
+     * the server to report on it. The signed fixture (`addSignedEmail`) is built
+     * around its blob rather than here and carries neither.
      */
-    "header:Received:asText:all": [
-      WRITTEN_MAIL.has(o.mailbox)
-        ? `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id m${id} (Authenticated sender: ${o.from[1]})`
-        : `from ${domain} (${domain} [203.0.113.7]) by mx.example.org with ESMTPS id m${id}`,
-    ],
     "header:Authentication-Results:asText": WRITTEN_MAIL.has(o.mailbox)
       ? null
       : `mx.example.org;\r\n dkim=pass header.d=${domain} (test key; unprotected);\r\n spf=pass smtp.mailfrom=${o.from[1]}`,

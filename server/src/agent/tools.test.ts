@@ -73,7 +73,6 @@ const {
   runTool: rawRunTool,
   TOOLS,
 } = await import("./tools.js");
-const { readMessageForAnswer } = await import("./tools/mail.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -510,52 +509,6 @@ async function deliver(subject: string): Promise<string> {
   assert.ok(id, "the mock created the message");
   return id;
 }
-
-test("a mail answer is its sender's word only on the server's record of the submission", async () => {
-  const created = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
-    "Email/set",
-    {
-      accountId,
-      create: {
-        c: {
-          subject: "Re: something",
-          from: [{ email: "person@example.org" }],
-          mailboxIds: { inbox: true },
-          bodyStructure: { partId: "text", type: "text/plain" },
-          bodyValues: { text: { value: "yes" } },
-        },
-      },
-    },
-    [CAPABILITIES.mail],
-  );
-  const id = created.created?.c?.id;
-  assert.ok(id, "the mock created the reply");
-  const asker = { own: ctx.username, known: ["person@example.org"] };
-
-  const noRecord = await readMessageForAnswer(ctx, accountId, id, asker);
-  assert.equal(noRecord?.word, false, "no arrival record is nobody's word");
-
-  await clientOf(ctx).call(
-    "Email/set",
-    {
-      accountId,
-      update: {
-        [id]: {
-          "header:Received:asText:all": [
-            "from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id x1 (Authenticated sender: person@example.org)",
-          ],
-        },
-      },
-    },
-    [CAPABILITIES.mail],
-  );
-  const recorded = await readMessageForAnswer(ctx, accountId, id, asker);
-  assert.equal(
-    recorded?.word,
-    true,
-    "the submission names the account, which is the sender",
-  );
-});
 
 test("a tool refuses arguments it cannot use, and asks the server nothing", async () => {
   const before = mock.methodCalls["Email/query"] ?? 0;

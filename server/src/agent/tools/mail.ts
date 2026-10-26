@@ -35,7 +35,6 @@ import {
 } from "../../shared/search.js";
 import { replySubject } from "../../shared/text.js";
 import { clientOf } from "../../util.js";
-import { personWord, RECEIVED_HOPS, RUN_MARK, type TrustRefusal } from "../trust.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
@@ -66,6 +65,7 @@ const MESSAGE_PROPS = [
    * answered them", so the names have to be in this answer.
    */
   "attachments",
+  "preview",
   "textBody",
   "bodyValues",
 ];
@@ -511,77 +511,24 @@ async function sendingIdentities(
   });
 }
 
-/** One message as a run's answer path reads it (ADR 0029). */
-export async function readMessageForAnswer(
+/**
+ * One message as the pass reads it: its sender, its text and its subject.
+ *
+ * The pass reads a mail twice — to decide the change it woke, and to answer a
+ * person while the agent is off — and neither reads anything about how the
+ * message arrived: no run takes its answer from mail (ADR 0038), so a mail is
+ * data like any other, and its sender is a fact the pass records, never a
+ * licence.
+ */
+export async function readMessageForPass(
   ctx: Ctx,
   accountId: string,
   id: string,
-  /** Who may speak, and who the agent is: the one trust question (ADR 0029). */
-  asker: { own: string; known: ReadonlyArray<string> },
-): Promise<{
-  from: string | null;
-  thread: string[];
-  text: string;
-  at: string | null;
-  /** Whether the message is the sender's own word — refused, it answers nothing. */
-  word: boolean;
-  /** Why it is not a person's word, or null when it is. */
-  refusal: TrustRefusal | null;
-  /**
-   * The message's subject, as the server states it.
-   *
-   * Read beside the rest and not only for a run's label: the subject is what a
-   * person recognises a message by, and the run the message opened carries it in
-   * `startedBy.about`.
-   */
-  subject: string | null;
-} | null> {
-  const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
-    "Email/get",
-    {
-      accountId,
-      ids: [id],
-      properties: [
-        ...MESSAGE_PROPS,
-        "inReplyTo",
-        "references",
-        "messageId",
-        RECEIVED_HOPS,
-        RUN_MARK,
-      ],
-      fetchTextBodyValues: true,
-      maxBodyValueBytes: MESSAGE_BODY_MAX,
-    },
-    [CAPABILITIES.mail],
-  );
-  const message = answer.list?.[0];
-  if (!message) return null;
-  const thread: string[] = [];
-  for (const key of ["inReplyTo", "references"] as const) {
-    const held = message[key];
-    if (!Array.isArray(held)) continue;
-    for (const one of held)
-      if (typeof one === "string" && !thread.includes(one)) thread.push(one);
-  }
-  const from = addressesIn(message.from)[0]?.email ?? null;
-  const arrival = {
-    from: message.from as ReadonlyArray<{ email?: string | null }> | null,
-    [RECEIVED_HOPS]: message[RECEIVED_HOPS] as ReadonlyArray<string> | null,
-    [RUN_MARK]: message[RUN_MARK] as string | null,
-  };
-  const decision = personWord(arrival, asker);
+): Promise<{ from: string | null; text: string; subject: string | null }> {
+  const message = await messageDocument(ctx, accountId, id);
   return {
-    from,
-    thread,
+    from: addressesIn(message.from)[0]?.email ?? null,
     text: messageTextOf(message),
-    at:
-      typeof message.receivedAt === "string"
-        ? message.receivedAt
-        : typeof message.sentAt === "string"
-          ? message.sentAt
-          : null,
-    word: decision.word,
-    refusal: decision.refusal,
     subject: typeof message.subject === "string" ? message.subject : null,
   };
 }
@@ -589,7 +536,7 @@ export async function readMessageForAnswer(
 /**
  * The first non-empty text part of a message, and whether the read cut it short.
  *
- * One selection for every reader of a body: the answer path, the decision turn and the
+ * One selection for every reader of a body: the pass that reads a message and the
  * print. A part the server truncated is still the text — the caller says so rather than
  * presenting half a message as the whole one.
  */

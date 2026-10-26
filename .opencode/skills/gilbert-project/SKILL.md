@@ -124,11 +124,9 @@ own boot starts with itself (`server/src/agent/supervisor.ts`, a pass every ten
 seconds over the groups the Master holds, read from the mail server on each
 pass). **The conversation is the group's chat**: `say` reports and `ask` parks the
 run on a person's answer; nothing is sent by mail — an outward message is a draft a
-person sends (ADR 0038) — and `mailAnsweredBy` continues a run an older build parked
-on a mail question, with `personWord` (`agent/trust.ts`) deciding
-what is anybody's word at all — a submission on the
-account the server authenticated, and never an outside verdict until its
-`authserv-id` is probed.
+person sends (ADR 0038) — a mail continues no run and authorises nothing, and the
+pass reads one for its sender, its subject and its words
+(`readMessageForPass`, `agent/tools/mail.ts`).
 - **Identifiers follow those words.** Two halves: the names, and the things that
 are contracts rather than names — a field in a document an installation has
 already written, a refusal code a client composes a sentence from, an environment

@@ -36,7 +36,7 @@ import { type Drop, dropEvent } from "./queue.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
 import { takeOwnCalendarChange } from "./tools/calendar.js";
 import type { ToolCall } from "./tools/define.js";
-import { readMessageForAnswer, sendNotice } from "./tools/mail.js";
+import { readMessageForPass, sendNotice } from "./tools/mail.js";
 
 /** What the changes of one account need from the loop that asked for them. */
 export interface ChangesDeps {
@@ -278,11 +278,8 @@ export async function offPath(
           replyTo: message.id,
         });
       } else if (event.source === "mail") {
-        const message = await readMessageForAnswer(deps.ctx, accountId, event.where, {
-          own: deps.self,
-          known: [],
-        });
-        if (!message?.from || message.from === deps.self) continue;
+        const message = await readMessageForPass(deps.ctx, accountId, event.where);
+        if (!message.from || message.from === deps.self) continue;
         /*
          * Only mail the agent was addressed in **alone**: if the message also
          * went to anybody else — the group's own address, a colleague, a Cc —
@@ -470,10 +467,7 @@ export async function workChanges(
      */
     const mail =
       event.source === "mail" && event.change !== "destroyed"
-        ? await readMessageForAnswer(deps.ctx, accountId, event.where, {
-            own: deps.ctx.username,
-            known: [],
-          }).catch(() => null)
+        ? await readMessageForPass(deps.ctx, accountId, event.where).catch(() => null)
         : null;
     /*
      * The agent's own words are not activity to answer: its own status message

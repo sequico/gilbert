@@ -11,59 +11,42 @@ the agent, is that run's answer and is worked on as its own next step, rather th
 as a change that opens a run of its own (`server/src/agent/loop.ts`,
 `repliesToAuthor` in `server/src/shared/chat.ts`). **Nothing is sent by mail**: an
 outward message leaves as a draft a person sends (ADR 0038), a question is
-asked in the chat and nowhere else, and a mail **continues no run**: a run's
-answer is a reply in the conversation (`runAnsweredBy`), and a mail opens one as
-a change like any other. What a mail is trusted for is `personWord`
-(`server/src/agent/trust.ts`), read on every received message
-(`readMessageForAnswer`, `server/src/agent/tools/mail.ts`). A **submission** is
-trusted on the server's record of **which account
-authenticated**, and that address must be the sender: the hop is the one place
-`From:` is not evidence. A message from **outside** is read as nobody's word
-until the `authserv-id` of a live server's own verdict is recorded — the probe the
-record owes — because a header is as writable as a `From:` line.
+asked in the chat and nowhere else, and a mail **continues no run and authorises
+nothing**: a run's answer is a reply in the conversation (`runAnsweredBy`), and a
+mail opens one as a change like any other. The pass reads a mail for its sender,
+its subject and its words (`readMessageForPass`,
+`server/src/agent/tools/mail.ts`) and records them on the run; what a `From:` line
+says about itself is never proof of anything.
 
 ## Context
 
-The person the agent works for is not always in front of the application. Away
-from it, the only channel that reaches them — and the only one they can answer
-from a phone — is mail. An agent that only speaks in chat therefore serves the
-person at their desk and nobody else.
+The person the agent works for is not always in front of the application, and mail
+reaches them from a phone. That boundary is the product's to accept: mail is a
+channel anybody can write into, nothing in it is proved to be the word of the
+person it names, and an agent that speaks outward on its own is the thing ADR 0038
+refuses. So the conversation that can ask, answer and authorise is the chat.
 
-For the agent's purpose a chat message and a mail both carry a person's words into
-the same turn: each is a change in the account, and what differs is only where the
-sentence sits. The conversation that can ask, answer and authorise is the chat.
+A chat message and a mail still both carry a person's words into the same turn:
+each is a change in the account, and what differs is only where the sentence sits.
 
 ## Decision
 
 **One conversation, in the chat.** A question, an answer, an authorisation and a
 report are the group's own chat (ADR 0004). Mail is the group's correspondence: a
 message **arrives as a change** like any other and opens a run the instruction
-covers, and nothing in a message is read as an answer or an authorisation — its
-words are data to the turn that decides it, fenced as such (ADR 0038).
+covers, and nothing in a message is read as an answer or an authorisation.
 
 - **A question is said in words.** A question says what it needs, with the values
   the agent proposes; an answer is a sentence — "sì, rispondi che non è
   possibile", "autorizzo override", "no, aspetta" — and the agent interprets it.
   No link to click, no signed token, no form.
-- **Trust is the sender and the receiving server, in that order.** A message's
-  sender is an address the installation knows — a user, a group mailbox — or one
-  on the installation's own list, **and** the server that received the message
-  vouches for how it arrived. That vouching has
-  two shapes, and they differ by who was watching. A message handed over by
-  another server is trusted only when the receiving server's own authentication
-  result on it passes: that is where a forged `From:` lives, and refusing there is
-  the point. A message the receiving server itself accepted from one of its own
-  accounts — an account of the installation writing to a mailbox of the
-  installation — never crossed a boundary and has no SPF, DKIM or DMARC to verify,
-  so it is trusted on the server's own record of that submission, which is the
-  **stronger** of the two facts and not the weaker one: nobody had to be believed,
-  because the server was there. Anything else is information, never an
-  instruction.
+- **A mail is data, not a word.** A message's sender is recorded as the message
+  states it, and nothing it says about itself is evidence: the turn that decides
+  the change reads its words fenced as data (ADR 0038), and the message can ask
+  for nothing.
 - **A message the agent wrote is not an instruction.** Nothing the agent composes
   leaves the account — what a run writes is a draft a person reads and sends (ADR
-  0038) — so it signs no send. A message that carries `X-Gilbert-Run: <id>`,
-  written by a build that did send, is never a person's word: the agent's own
-  words cannot drive it (`RUN_MARK`, `trust.ts`).
+  0038) — so its own words never reach a turn.
 - **The correlation is the channel's own.** A question is asked in the chat, where
   the node carries a `replyTo` (ADR 0004), because a chat is a flat list and two
   runs may be waiting in it at once; the message also carries the one line that
@@ -86,11 +69,6 @@ words are data to the turn that decides it, fenced as such (ADR 0038).
 
 - The product must be usable entirely in text: an interaction that exists only in
   the UI is a defect, and the chat is where that is kept honest.
-- The mail channel is exactly as trustworthy as the server's own account of how a
-  message arrived, and not one bit more. What a real Stalwart writes on a message
-  it received, and on one it took from an account of the installation, is owed as
-  a probe before the channel is trusted, not after.
-<!-- owed: arrival-record-shape -->
 - An authorisation names the message it arrived in: a person can read back what
   they authorised.
 - Mail from a stranger that asks for something is the ordinary case, and the

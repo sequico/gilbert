@@ -263,16 +263,13 @@ is, not what a user sees.
   answer, an authorisation and a report are the group's own chat, and **everything
   is in words** — no link, no signed token, no form. A mail arrives as a change
   like any other and opens a run the instruction covers; nothing in it is read as
-  an answer or an authorisation, and an outward message is a draft a person sends
-  (0038). A message's sender is trusted only from an address the installation
-  knows or lists **and** with a passing authentication result from the receiving
-  server; a message that carries `X-Gilbert-Run: <id>` is never a person's word,
-  and a question's correlation is `replyTo` in chat. **Built** — the chat
-  conversation is `server/src/agent/tools/chat.ts` (reached through `say`), a
-  reply continues its run (`runAnsweredBy`, `server/src/agent/loop.ts`), and
-  `personWord` (`server/src/agent/trust.ts`) decides whether a message is
-  anybody's word: a submission on the account the server authenticated, and an
-  outside message refused until the `authserv-id` of a live verdict is probed.
+  an answer or an authorisation, an outward message is a draft a person sends
+  (0038), and what a message says about itself is never proof, so its words are
+  data to the turn that decides it. A question's correlation is `replyTo` in chat.
+  **Built** — the chat conversation is `server/src/agent/tools/chat.ts` (reached
+  through `say`), a reply continues its run (`runAnsweredBy`,
+  `server/src/agent/loop.ts`), and the pass reads a mail for its sender, its
+  subject and its words (`readMessageForPass`, `server/src/agent/tools/mail.ts`).
 - **0030 — A run is a document, and the record is the product.** A run
   is one document in the group's account and the whole of the agent's durable
   state: which instruction started it, the plan, each step's outcome,
