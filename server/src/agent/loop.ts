@@ -81,6 +81,8 @@ import {
   PASS_STATUS_FILE,
   type PassStatusDoc,
 } from "../shared/agent.js";
+import type { AreaName } from "../shared/areas.js";
+import { writeSurfacesOf } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { mapLimit } from "../shared/concurrency.js";
@@ -109,24 +111,21 @@ import {
   type RunWait,
   recordRecall,
   recordStep,
+  resumeRun,
+  sliceRun,
   spendRun,
   startRun,
-  sliceRun,
-  resumeRun,
-  withCase,
   takeAnswer,
   takeAuthorisation,
   waitUntil,
+  withCase,
 } from "../shared/run.js";
 
-import type { AreaName } from "../shared/areas.js";
-import { writeSurfacesOf } from "../shared/areas.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
-import { listCases, readCaseNote, writeCaseNote } from "./case.js";
-import { threadLines } from "./thread.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
+import { listCases, readCaseNote, writeCaseNote } from "./case.js";
 import {
   chatWoken,
   mailWoken,
@@ -176,8 +175,10 @@ import {
   replaceRun,
 } from "./runs.js";
 import { readAgentSwitch } from "./switch.js";
+import { threadLines } from "./thread.js";
 import { type DueWait, WaitTimers } from "./timers.js";
 import { READ_BYTES_MAX, readFileText } from "./tools/content.js";
+import { caseOf } from "./tools/note.js";
 import {
   type AnyTool,
   type ImageReader,
@@ -185,7 +186,6 @@ import {
   TOOLS,
   type ToolCall,
 } from "./tools.js";
-import { caseOf } from "./tools/note.js";
 
 /**
  * The other limits a run records beside its tally.

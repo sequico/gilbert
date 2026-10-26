@@ -70,7 +70,7 @@ function plainText(text: string): string {
       .replace(/\u2026/g, "...")
       .replace(/\u00a0/g, " ")
       .replace(/\t/g, "    ")
-      // Control characters have no glyph: they are dropped before the font sees them.
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters have no glyph.
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
   );
 }

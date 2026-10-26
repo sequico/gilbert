@@ -10,9 +10,10 @@
  * The tool writes the note; what it answers is the key it filed it under, so the run
  * records which case it worked.
  */
+
+import { writeCaseNote } from "../case.js";
 import { argsRecord, optionalTextArg, textArg } from "./args.js";
 import { defineTool } from "./define.js";
-import { writeCaseNote } from "../case.js";
 
 export const noteTool = defineTool<{ text: string; key?: string }>({
   name: "note",

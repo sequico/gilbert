@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FactView } from "../shared/memory.js";
-import { type RunStep, stepIdentity } from "../shared/run.js";
+import { stepIdentity } from "../shared/run.js";
 import type { DecisionQuestion, ReadMade, StepQuestion } from "./model.js";
 import { redactText } from "./redact.js";
 

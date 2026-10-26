@@ -36,7 +36,7 @@ export const threadReference: EvalTask = {
       "the papers are attached to this answer",
     );
   },
-  grade: async (h, got) => {
+  grade: async (_h, got) => {
     const said = got.said ?? "";
     const found = said.includes("BK-902");
     const ended = got.ending === "done";

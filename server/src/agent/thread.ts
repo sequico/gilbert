@@ -10,7 +10,7 @@
  * JMAP's own route to a thread is `Thread/get`, reached from the message's
  * `threadId`: a thread has no filter of its own, and `Email/query` cannot ask for one.
  */
-import { type Ctx } from "../appFolder.js";
+import type { Ctx } from "../appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { isRecord } from "../shared/json.js";
 import { clientOf } from "../util.js";

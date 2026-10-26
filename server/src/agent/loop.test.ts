@@ -1379,7 +1379,6 @@ test("a run that never finishes stops on the turn valve, and the record says so"
 });
 
 test("a run records the limits in force and the time each step took", async () => {
-  const id = "intake-cost";
   await putInstruction();
   const agent = loop();
   await agent.start();
@@ -1412,7 +1411,6 @@ test("a note the model keeps is a file the next turn reads, under the case it na
    * own bookkeeping (ADR 0034), so the next increment of the same case reads it; the
    * run records the key it was filed under, and keeping it spends no step.
    */
-  const id = "intake-note";
   await putInstruction();
   const agent = loop();
   await agent.start();

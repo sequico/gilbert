@@ -96,8 +96,15 @@ import {
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
 import { factView } from "../shared/memory.js";
-import { byRecency, pageAfter, type RunDoc, type RunSummary } from "../shared/run.js";
-import { finishRun, isInFlight, summarizeRun } from "../shared/run.js";
+import {
+  byRecency,
+  finishRun,
+  isInFlight,
+  pageAfter,
+  type RunDoc,
+  type RunSummary,
+  summarizeRun,
+} from "../shared/run.js";
 import {
   type Env,
   failureFor,

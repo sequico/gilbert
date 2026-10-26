@@ -9,8 +9,9 @@
  *
  * It reads and answers, and never acts: no two decision-makers touch one shipment.
  */
-import { argsRecord, optionalTextArg, textArg } from "./args.js";
+
 import { decideEvent, runningModelAccess } from "../model.js";
+import { argsRecord, optionalTextArg, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 
 /** The most of a question, and of what the reader is told the question is about. */

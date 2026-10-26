@@ -30,7 +30,7 @@ export const listInOneMessage: EvalTask = {
       `the consignment carries five containers:\n${ITEMS.map((one, at) => `${at + 1}. ${one}`).join("\n")}`,
     );
   },
-  grade: async (h, got) => {
+  grade: async (_h, got) => {
     const said = got.said ?? "";
     const carried = ITEMS.filter((one) => said.includes(one)).length;
     const ended = got.ending === "done";
