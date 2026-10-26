@@ -87,7 +87,7 @@ export const readChat = defineTool({
     "reply can be read as what it is about.",
   authority: "reversible",
   writes: false,
-  args: { id: { type: "text", about: "a chat message id, from chat.find" } },
+  args: { id: { type: "text", about: "a chat message id, from open (chats)" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const message = await readChatMessageBy(ctx, accountId, id);

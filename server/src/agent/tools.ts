@@ -58,13 +58,13 @@ export type { AnyTool, ArgSpec, ImageReader, ToolCall };
 export { argSchema, defineTool, mayRun };
 
 /**
- * Every job this build has (ADR 0038).
+ * Every verb this build has (ADR 0038).
  *
- * Eight tools, each a value its call names: reading and finding are free, and
- * the four area writes are narrowed by the run's instruction (`areas.ts`). What
- * a call may take is `mayRun`'s answer over the run that asks, read from the
- * endpoint the value names — never the list's order or a caller's assumption
- * about which half a tool is in.
+ * Four of them — `open`, `act`, `say`, `note` — each naming the value its call
+ * means: reading is free, so `open` is offered whole, and `act`'s values are narrowed
+ * by the run's instruction (`areas.ts`). What a call may take is `mayRun`'s answer
+ * over the run that asks, read from the endpoint the value names — never the list's
+ * order or a caller's assumption about which half a tool is in.
  */
 export const TOOLS: readonly AnyTool[] = JOBS;
 
