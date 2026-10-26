@@ -63,16 +63,25 @@ export async function threadLines(
       : [];
   if (!ids.length) return [];
 
-  const messages = await client.call<{ list?: unknown[] }>(
-    "Email/get",
-    {
-      accountId,
-      ids,
-      properties: ["from", "subject", "receivedAt", "sentAt", "hasAttachment"],
-    },
-    [CAPABILITIES.mail],
-  );
-  const lines = (messages.list ?? []).flatMap((one): ThreadLine[] => {
+  /*
+   * A thread can be longer than one `get` carries: the ids are asked for in pages
+   * of the server's own bound, so a conversation of two hundred messages answers
+   * the newest lines instead of being refused whole.
+   */
+  const found: unknown[] = [];
+  for (let at = 0; at < ids.length; at += client.maxObjectsInGet) {
+    const messages = await client.call<{ list?: unknown[] }>(
+      "Email/get",
+      {
+        accountId,
+        ids: ids.slice(at, at + client.maxObjectsInGet),
+        properties: ["from", "subject", "receivedAt", "sentAt", "hasAttachment"],
+      },
+      [CAPABILITIES.mail],
+    );
+    found.push(...(messages.list ?? []));
+  }
+  const lines = found.flatMap((one): ThreadLine[] => {
     if (!isRecord(one)) return [];
     const from = isRecord(one.from) && Array.isArray(one.from) ? one.from[0] : null;
     const address =
