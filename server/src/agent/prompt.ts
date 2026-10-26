@@ -43,6 +43,30 @@ export const REPORT_IN_PROMPT_MAX = 600;
 export function turnData(question: DecisionQuestion, reads: readonly ReadMade[]): string {
   const { event } = question;
   const token = randomUUID().slice(0, 8);
+  /*
+   * A reader is asked a **question about the account** (ADR 0038, R2), not told
+   * which change woke it: what it is given is the question, what the question is
+   * about, and one lookup to spend.
+   */
+  if (question.ask)
+    return [
+      "The question you are asked:",
+      dataBlock(token, [question.ask.question]),
+      ...(question.ask.about
+        ? [
+            "What it is about, in the account's own words:",
+            dataBlock(token, [question.ask.about]),
+          ]
+        : []),
+      ...memoryBlock(token, question.memory),
+      ...reads.map(
+        (read) =>
+          `What ${read.name} answered:\n${dataBlock(token, [
+            clipped(textOf(read.result), READ_IN_PROMPT_MAX),
+          ])}`,
+      ),
+    ].join("\n");
+  if (!event) throw new Error("a decision turn names the change it is about");
   return [
     "The change in the group's own account:",
     dataBlock(token, [

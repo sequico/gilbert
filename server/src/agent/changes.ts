@@ -669,7 +669,9 @@ export async function workChanges(
       }
     }
     /** What the decision found, or nothing when it only had words. */
-    const facts = decision.kind === "reply" ? {} : decision.facts;
+    // A change is decided in facts; a reply carries none, and only a reader answers
+    // lines — which a change never is (R2).
+    const facts = decision.kind === "decision" ? decision.facts : {};
     /*
      * A group has **one** instruction, so a change it covers is one run: there is
      * no second to choose between and no routing to do (ADR 0038). The run this

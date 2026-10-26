@@ -1572,6 +1572,69 @@ test("the judge reads the plan's tail and the shape the instruction asked for", 
   );
 });
 
+test("a question about the account is answered in lines, and never in facts", async () => {
+  /*
+   * The reader (R2, ADR 0038) is the decision turn asked a **question** instead of
+   * shown a change: one question, the same write-free catalogue, at most one lookup,
+   * and an answer of a few lines. The shapes do not cross — a change is decided in
+   * facts, a question is answered in lines — so a decision never reads as a summary
+   * of the account, nor a summary as a decision about it.
+   */
+  answerWith({
+    lines: ["BK-901 leaves Antwerp on the 4th.", "Two containers of brackets."],
+  });
+  const answer = await decideEvent(
+    { model, allowPrivateProvider: true },
+    {
+      ask: { question: "What does the thread say about BK-901?", about: "thread t-1" },
+      prose,
+    },
+    toolCall(),
+  );
+  assert.deepEqual(answer, {
+    kind: "lines",
+    lines: ["BK-901 leaves Antwerp on the 4th.", "Two containers of brackets."],
+  });
+  assert.match(
+    SYSTEM(0),
+    /answer one question about it/,
+    "the turn is told it is a reader",
+  );
+  assert.match(MESSAGE(0), /What does the thread say about BK-901\?/, "and is asked it");
+  assert.match(MESSAGE(0), /thread t-1/, "with what the question is about");
+
+  answers = [];
+  seen = [];
+  answerWith({ facts: { shipper: "Maersk" } });
+  await assert.rejects(
+    () =>
+      decideEvent(
+        { model, allowPrivateProvider: true },
+        { ask: { question: "What does the thread say?" }, prose },
+        toolCall(),
+      ),
+    (err: unknown) =>
+      err instanceof ModelError &&
+      /answered with "lines"/.test(err.message) &&
+      err.code === "model_answer_malformed",
+    "a reader that answers in facts is refused",
+  );
+
+  answers = [];
+  seen = [];
+  answerWith({ lines: ["one line"] });
+  await assert.rejects(
+    () =>
+      decideEvent(
+        { model, allowPrivateProvider: true },
+        { event: mailEvent, prose },
+        toolCall(),
+      ),
+    (err: unknown) => err instanceof ModelError && /never in "lines"/.test(err.message),
+    "and a change answered in lines is refused",
+  );
+});
+
 test("a provider's leaked tool markup is not prose the agent says", async () => {
   // A reasoning model sometimes emits its tool-call tokens as text; those are
   // not words the group should read in its conversation.

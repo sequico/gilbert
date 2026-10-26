@@ -2605,6 +2605,25 @@ test("a workorder's steps carry the template's words beside their paths", async 
   );
 });
 
+test("a brief with no model to read with says so, rather than hanging", async () => {
+  /*
+   * The reader is one model call in the account's own context (R2): with no model
+   * there is nothing to read with, and the turn is told that instead of waiting for an
+   * answer nobody was asked for. The tool writes nothing and spends no step.
+   */
+  const brief = TOOLS.find((tool) => tool.name === "open");
+  assert.ok(brief);
+  assert.ok(
+    (brief.args.what?.values ?? []).includes("brief"),
+    "the reading verb carries the reader",
+  );
+  await assert.rejects(
+    () => callTool("read.brief", { question: "What does the thread say?" }),
+    /no model/i,
+    "a brief without a model is refused, in the reader's own words",
+  );
+});
+
 test("the base is paged by offset and searched by the words of its pages", async () => {
   // Its own page, with words no other fixture carries: a search that leans on
   // another test's fixture is a test that reads the file's order.

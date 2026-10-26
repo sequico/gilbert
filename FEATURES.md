@@ -451,7 +451,11 @@ last report a case sent is in the turn too — one line, found in the conversati
 the case's key, so this report does not restate it. And the **thread** the waking
 message belongs to: who, when and what it was about, one line each, never a body — the
 reference a case is known by and the people it involves live across the conversation,
-not in one message (`server/src/agent/thread.ts`).
+not in one message (`server/src/agent/thread.ts`). When the case is **bigger than a
+turn** — a long thread, a folder of documents — the run asks one question and gets a few
+lines back: `open` with `brief`, answered by a **reader** that is the decision turn
+asked a question instead of shown a change, with the same write-free catalogue, one
+lookup and no act at all (`server/src/agent/tools/reader.ts`).
 
 **The case keeps a note the next increment reads** (ADR 0034): the agent's own
 scratchpad, one file per case at `gilbert/cases/<key>.md` in the group's own account,

@@ -1160,11 +1160,14 @@ type ModelAnswer =
   | { kind: "decision"; facts: Record<string, string> }
   | { kind: "read"; name: string; args: unknown }
   /** A short chat reply with no work behind it: the fast path, one call. */
-  | { kind: "reply"; text: string };
+  | { kind: "reply"; text: string }
+  /** What a **reader** answered: a few lines about a case too big for a turn. */
+  | { kind: "lines"; lines: string[] };
 
 /**
  * What a decision turn answers its caller: the rules that take the change, or
- * the words to send.
+ * the words to send — or, when it was asked a **question**, the lines a reader
+ * answers it with (R2's reader, ADR 0038).
  *
  * A `read` is the turn's own and never leaves `decideEvent` — the loop makes it,
  * tells the model what it found, and asks again — so it is not part of the answer
@@ -1197,10 +1200,31 @@ export function parseAnswerDetailed(
   const hasFacts = keys.includes("facts");
   const hasRead = keys.includes("read");
   const hasReply = keys.includes("reply");
-  if ([hasFacts, hasRead, hasReply].filter(Boolean).length !== 1)
+  const hasLines = keys.includes("lines");
+  if ([hasFacts, hasRead, hasReply, hasLines].filter(Boolean).length !== 1)
     return {
-      problem: 'The answer carries exactly one of "facts", "read", or "reply".',
+      problem: 'The answer carries exactly one of "facts", "read", "reply" or "lines".',
     };
+  /*
+   * A reader's answer: the few lines a question about the account is answered with.
+   * `decideEvent` is what refuses it on a turn that was not asked a question — the
+   * parser reads the shape, and the turn decides which shapes it takes.
+   */
+  if (hasLines) {
+    if (keys.length !== 1)
+      return {
+        problem: 'An answer that answers a question carries nothing beside "lines".',
+      };
+    const lines = raw.lines;
+    if (!Array.isArray(lines) || !lines.every((one) => typeof one === "string"))
+      return { problem: '"lines" must be a list of sentences.' };
+    return {
+      answer: {
+        kind: "lines",
+        lines: lines.map((one) => (one as string).trim()).filter(Boolean),
+      },
+    };
+  }
   if (hasReply) {
     if (keys.length !== 1)
       return { problem: 'An answer that replies carries nothing beside "reply".' };
@@ -1303,7 +1327,12 @@ const DECISION_SCHEMA = {
 /** What one turn is given: the change and the prose above it. */
 export interface DecisionQuestion {
   /** The change in the group's own account the agent was woken by. */
-  event: AccountEvent;
+  event?: AccountEvent;
+  /**
+   * A **question about the account** instead of a change: what a reader is asked
+   * (R2). One or the other is present, never both.
+   */
+  ask?: { question: string; about?: string };
   /**
    * The prose that reaches every call, outermost first (ADR 0038): the
    * installation's own line, then the group's standing instruction.
@@ -1362,23 +1391,44 @@ export async function decideEvent(
 ): Promise<DecisionAnswer> {
   const maxReads = opts.maxReads ?? DECISION_READS_MAX;
   const heads = proseForModel(question.prose);
-  const system = [
-    DATA_NOT_INSTRUCTIONS,
-    "You are the agent of one group. You are told one change in the group's own account, and the instruction the group wrote for it.",
-    'Answer with one JSON object and nothing else: {"facts": {"<name>": "<what you found>"}}.',
-    '"facts" is what the change is about, in the group\'s own vocabulary: which booking, which shipper, which client, and what is being asked. Its names are yours; its values are text.',
-    "You never decide what may be done: what is allowed is the authority classes, not you, and an answer that carries a capability, a tool or an authorisation is refused.",
-    `When you need the group's own state to answer, you may look it up once: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookup${maxReads === 1 ? "" : "s"}, so look up only what the change does not already tell you.`,
-    "In the knowledge base, look for a subject with knowledge.search, or list the pages with knowledge.list, and read one by the folder that answered: never guess a folder.",
-    'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
-    'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
-    "The tools you may read with:",
-    ...READING_TOOLS.map(toolLine),
-    "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
-    ...heads,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  /*
+   * A **reader** is the same turn asked a question instead of shown a change (R2,
+   * ADR 0038): one question, the same write-free catalogue, at most one lookup, and
+   * an answer of a few **lines** rather than facts. It reads and answers, and never
+   * acts — which is what keeps two decision-makers off one shipment.
+   */
+  const reader = question.ask !== undefined;
+  const system = reader
+    ? [
+        DATA_NOT_INSTRUCTIONS,
+        "You are reading a group's own account to answer one question about it.",
+        'Answer with one JSON object and nothing else: {"lines": ["<a sentence>", "…"]}.',
+        "A line is what answers the question — the reference, the date, the person, the amount, what happened — and nothing else: a few short sentences, never a copy of what you read.",
+        "You read and you answer: you never decide what may be done, and an answer that carries a capability, a tool or an authorisation is refused.",
+        `When the question cannot be answered from what you are told, you may look it up: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookup${maxReads === 1 ? "" : "s"}.`,
+        "The tools you may read with:",
+        ...READING_TOOLS.map(toolLine),
+        ...heads,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : [
+        DATA_NOT_INSTRUCTIONS,
+        "You are the agent of one group. You are told one change in the group's own account, and the instruction the group wrote for it.",
+        'Answer with one JSON object and nothing else: {"facts": {"<name>": "<what you found>"}}.',
+        '"facts" is what the change is about, in the group\'s own vocabulary: which booking, which shipper, which client, and what is being asked. Its names are yours; its values are text.',
+        "You never decide what may be done: what is allowed is the authority classes, not you, and an answer that carries a capability, a tool or an authorisation is refused.",
+        `When you need the group's own state to answer, you may look it up once: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookup${maxReads === 1 ? "" : "s"}, so look up only what the change does not already tell you.`,
+        "In the knowledge base, list the pages with `open` (`what: pages`), find a page by words with `search`, and read one by the folder that answered: never guess a folder.",
+        'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
+        'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
+        "The tools you may read with:",
+        ...READING_TOOLS.map(toolLine),
+        "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
+        ...heads,
+      ]
+        .filter(Boolean)
+        .join("\n");
 
   const reads: ReadMade[] = [];
   for (let round = 0; round <= maxReads; round++) {
@@ -1414,6 +1464,9 @@ export async function decideEvent(
      * unworked for ever (the eval measured exactly that on a mail), so the
      * change is opened with **no facts** and the run reads it itself. The record
      * still shows the run; nothing is lost to a sentence.
+     *
+     * A **reader** is held to its own shape: it was asked a question, and a sentence
+     * with no JSON object is not the lines it was asked for.
      */
     if (
       isRecord(answer) &&
@@ -1421,13 +1474,30 @@ export async function decideEvent(
       typeof answer.text === "string" &&
       answer.text.trim()
     ) {
-      if (question.event.source === "chat")
+      if (reader)
+        throw new ModelError(
+          "model_answer_malformed",
+          "A question is answered with lines, and this answer was a sentence with no JSON object.",
+        );
+      if (question.event?.source === "chat")
         return { kind: "reply", text: answer.text.trim() };
       return { kind: "decision", facts: {} };
     }
     const parsed = parseAnswerDetailed(answer);
     if ("problem" in parsed)
       throw new ModelError("model_answer_malformed", parsed.problem);
+    if (reader) {
+      if (parsed.answer.kind === "lines") return parsed.answer;
+      throw new ModelError(
+        "model_answer_malformed",
+        `A question is answered with "lines", and this answer is a ${parsed.answer.kind}.`,
+      );
+    }
+    if (parsed.answer.kind === "lines")
+      throw new ModelError(
+        "model_answer_malformed",
+        'A change is decided in "facts", never in "lines": only a reader answers lines.',
+      );
     if (parsed.answer.kind === "decision") return parsed.answer;
     if (parsed.answer.kind === "reply") return parsed.answer;
     /*

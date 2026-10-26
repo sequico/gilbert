@@ -94,6 +94,7 @@ import {
 import { memoryHistoryTool, rememberFactTool } from "./memory.js";
 import { noteTool } from "./note.js";
 import { readRunTool } from "./runs.js";
+import { readBrief } from "./reader.js";
 import { listWorkorders, readWorkorder, settleStep } from "./workorders.js";
 
 /** One value of a job: the endpoint it reaches, and the area that owns it. */
@@ -306,13 +307,14 @@ export const openJob = job({
     "Open what this account holds. `what` is the object: `message`, `attachment`, " +
     "`file`, `event`, `page`, `chat`, `workorder`, `run` or `memory` opens one by " +
     "`id` — or several at once by `ids`, answered as a list — and `messages`, " +
-    "`folders`, `events`, `calendars`, `chats`, `contacts`, `files`, `pages` or " +
-    "`workorders` searches or lists, by a `query`, a `path` or a range, and " +
-    "`search` looks for a knowledge page by words. The answer " +
-    "carries the ids the next call takes.",
+    "`folders`, `events`, `calendars`, `chats`, `contacts`, `files`, `pages`, " +
+    "`search` or `workorders` searches or lists, by a `query`, a `path` or a range. " +
+    "`brief` asks one question about the account (`question`, and `about` what it " +
+    "concerns) and is answered in a few lines, by a reader that reads what it needs " +
+    "itself. The answer carries the ids the next call takes.",
   discriminator: "what",
   about:
-    "what to open: a message, an attachment, a file, an event, a page, a chat, a workorder, a run or the memory — or the plural, to search or list",
+    "what to open: a message, an attachment, a file, an event, a page, a chat, a workorder, a run, the memory or a brief — or the plural, to search or list",
   writes: false,
   always: true,
   routes: {
@@ -325,6 +327,7 @@ export const openJob = job({
     workorder: { tool: readWorkorder, area: "workorders", set: true },
     run: { tool: readRunTool, area: null },
     memory: { tool: memoryHistoryTool, area: "memory" },
+    brief: { tool: readBrief, area: null },
     messages: { tool: findMessages, area: "mail" },
     folders: { tool: listMailboxes, area: "mail" },
     events: { tool: findEvents, area: "calendar" },

@@ -36,12 +36,15 @@ read by entity and interval, the embeddings capability probed with the provider'
 others, the run recording `retrieval` beside `recalled`, and precision and recall
 measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
-**Not built:** everything in *Owed*, and: the reader, the thread's lines, the last
-report a case sent, and the case's scratchpad on the run as ADR 0034 describes it
-(its note and compaction are built). What the turn opens with is built: the message
-the change carried (`StepQuestion.written`), and the case the account holds — the
+**Not built:** everything in *Owed*. What the turn opens with is built: the message
+the change carried (`StepQuestion.written`), the **thread's lines**
+(`agent/thread.ts`), the last report a case sent, and the case the account holds — the
 knowledge base's page titles and the group's Files two levels deep, names only
-(`caseOf`, `StepQuestion.case`). The run ceilings this record refuses are gone from
+(`caseOf`, `StepQuestion.case`) — plus, for a case bigger than a turn, the **reader**:
+`open` carries `brief`, one question answered in a few lines by `decideEvent` asked a
+question instead of shown a change (the same write-free catalogue, one lookup, an answer
+of `lines`, and no act), so the investigation stays in its own context
+(`agent/tools/reader.ts`). The run ceilings this record refuses are gone from
 the loop (`overBudget` and the run's step, call, time and token endings), the valve
 is `RUN_TURNS_MAX`, and the turn is the appended transcript above (`prompt.ts`):
 every outcome written once, at the size it arrived, and never rewritten — compacted,
@@ -188,7 +191,9 @@ change and the object it names, the thread's lines when it answers one, the titl
 the knowledge pages (never their text), the case's place, the last report it sent, the
 facts the memory recalled, and its scratchpad. When the case is bigger than a turn — a
 long thread, a folder of documents — a **reader** answers one question about it in a
-few lines and the working turn sees the lines: it reads, it never acts. The document is
+few lines and the working turn sees the lines: it reads, it never acts (`open` with
+`brief`, `agent/tools/reader.ts` — the same `decideEvent`, asked a question instead of
+shown a change). The document is
 complete, the prompt is bounded, the stable prefix stays stable, and the model is not
 sent to fetch what the harness already has.
 
