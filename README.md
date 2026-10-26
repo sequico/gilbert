@@ -129,8 +129,7 @@ running one.
 
 A run has **no budget of its own**: no step, call, time or token amount ends it. What
 stops one is the work finishing, a person, or the liveness valve at a hundred turns.
-**One
-claim per installation** keeps exactly one agent working it; a holder that died
+**One claim per installation** keeps exactly one agent working it; a holder that died
 on the same host is taken over at once, and one on another host waits the lease —
 a restart never leaves a document to delete by hand.
 

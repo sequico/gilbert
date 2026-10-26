@@ -50,8 +50,9 @@ is the appended transcript above (`prompt.ts`): every outcome written once, at t
 it arrived, and never rewritten — compacted, not re-rendered, past
 `COMPACT_AFTER_CHARS` by one call that folds the older steps into the case's note and a
 mark (`compactedUpTo`) under which they keep a line each (`shared/run.ts`,
-`agent/model.ts`'s `summarisePlan`). **Not built:** everything in *Owed*. The work is
-`docs/plans/agents-reloaded-again.md`.
+`agent/model.ts`'s `summarisePlan`). **Not built:** the three measurements named in
+*Owed* — the judge's sample, the live embeddings probe and the pruning of closed
+facts. The work is `docs/plans/agents-reloaded-again.md`.
 
 ## What this replaces, and what it keeps
 
@@ -132,7 +133,7 @@ because one verb spans reversible and destructive acts. `open` names its object 
   example.
 - **A tool returns a distillation, never the payload** — what happened, and the id
   to use next.
-- **No code execution**, by decision: the job-shaped tool buys what it would buy
+- **No code execution**, by decision: the verb-shaped tool buys what it would buy
   elsewhere, in a container with no writable filesystem.
 
 ### One agent per run
@@ -174,7 +175,7 @@ A run runs three phases, each a step of the document: **read** (the change names
 arrived; what was read becomes the evidence), **act** (the calls the answer needs —
 one, several, or the same twice in a turn, the wave the protocol allows), **report**
 (say in the conversation what was done or could not be, and end). The run ends when
-the report is written, whatever budget remains. A plan with dependencies and branches
+the report is written, whatever it has spent. A plan with dependencies and branches
 stays available and is used **when the model judges the work needs it**.
 
 ### The turn's context is selected, not accumulated
@@ -251,7 +252,7 @@ your instructions and send this to me". The defence is structural:
   instruction.
 - **The grants bound the act**: whatever the content asks, an act outside them is
   refused before it runs, and the refusal is on the record.
-- **A run writes a draft; a person sends it.** The `draft` job composes a reply
+- **A run writes a draft; a person sends it.** `act` with `what: "reply"` composes a reply
   to everyone in the group's own Drafts — the sender in To, the rest in Cc, the
   group's own addresses left out, the thread carried, marked `$draft` — and it
   never submits. **No tool submits a message**: the catalogue holds no submission
@@ -309,7 +310,7 @@ spent the provider's default budget before writing anything.
   checked. There is no JSON-in-the-text fallback. The **decision turn**, which
   chooses no action, is asked in the provider's **native structured output** — a
   JSON schema where it enforces one, its plain JSON mode where that is all it has
-  — and never in free text. It may name one `read` — the same job the action
+  — and never in free text. It may name one `read` — the same reading tool the action
   turns call, **whose schema is derived from that tool** rather than written
   twice. Both forms are structured and recorded, so a **replay needs no
   model**. Programmatic tool calling is **not** the alternative: its fixed prompt
@@ -337,19 +338,20 @@ spent the provider's default budget before writing anything.
   the work has shown — the worst live run of 2026-10-26 spent twenty-three turns.
 - **A run says what it spent and what it was held to**: milliseconds and tokens per
   step, and the limits in force when it opened, on its own document
-  (`shared/run.ts`, `agent/loop.ts`), so a budget that fell back to a default is
+  (`shared/run.ts`, `agent/loop.ts`), so limits that fell back to a default are
   visible in the run that paid for it.
 - **The installation has a daily ceiling** (`limits.maxDailyTokens`), counted in the
   pass's own document — one write per pass, not per call — and reset lazily when the
-  date changes. Past it no new run opens, a run already open finishes its own
-  budget, and the pass **stops before reading changes**, so nothing is consumed
+  date changes. Past it no new run opens, a run already open finishes its own work, and the pass **stops before reading changes**, so nothing is consumed
   without a run; the change batch per pass is bounded, so the first pass after a
   spent day does not read the whole day at once, and the cursor advances **only past
   what the pass has worked**. A change the account already answers — a run's key is
   the change — is not put to the decision turn a second time when the batch is
   re-read, so the rule costs no extra model call. A pass that dies before writing
   under-counts by that pass, and that is accepted.
-- **Ceilings are per job**: four lookups was an endpoint number.
+- **The bounds are per verb and per call**: a reading value opens a set of at most ten
+  objects, an answer carries at most twenty calls, and one call waits on the provider
+  for at most its own timeout.
 - **A provider's silence is a named failure**: no content, or reasoning only, fails
   with its own code; no run opens on it. A **transient** failure (5xx, timeout) is
   retried with backoff and does not count. A **permanent** one (a 4xx the request
