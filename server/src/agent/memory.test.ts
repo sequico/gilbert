@@ -555,6 +555,52 @@ test("a person's correction and removal are refused when the fact they saw moved
   assert.ok(await readFact(ctx, accountId, first.fact.id), "so it is still in memory");
 });
 
+test("a person's correction lands after a run wrote beside the memory", async () => {
+  /*
+   * The pass's reading of the memory is cached between passes, and a run's own
+   * document is a FileNode write in the same account: by the time a person
+   * corrects a fact, the cached state can be older than that write. The person's
+   * write is decided on the document (`movedSheet`), so the chain reads the store
+   * again and the correction lands instead of answering `fact_moved` for a fact
+   * nobody touched.
+   */
+  forgetMemoryStores();
+  const first = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Ravenna Terminal",
+      kind: "place",
+      fact: "the terminal the group books through",
+      run: "r-race",
+      at: AT,
+    },
+    await store(),
+  );
+  written.push(first.fact.id, first.entity.id);
+
+  // A run writes its own document: the account's state moves beside the memory.
+  await writeAppFileAt(ctx, accountId, "agent/race.json", { v: 1 });
+
+  const corrected = await correctFactByPerson(
+    ctx,
+    accountId,
+    {
+      id: first.fact.id,
+      subject: "Ravenna Terminal",
+      fact: "the terminal the group books through, as the office confirmed",
+      who: "admin@example.com",
+      at: LATER,
+    },
+    await store(),
+  );
+  assert.equal(
+    corrected.fact,
+    "the terminal the group books through, as the office confirmed",
+    "the correction lands although a run wrote beside it",
+  );
+});
+
 test("a person's correction moves the fact to the entity they named", async () => {
   const held = await rememberFact(
     ctx,

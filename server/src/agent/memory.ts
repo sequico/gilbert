@@ -490,7 +490,10 @@ export function forgetMemoryStores(): void {
  *
  * The link hands the work the store it must write against: the one an earlier
  * link produced, or the seed the caller's reading supplies when the chain has
- * none. A caller never carries the token itself — that was the defect: a person's
+ * none. A **person's** write (`personWrite`) takes its seed every time instead of
+ * the cached one: it is decided on the document the person was shown, and the
+ * cached state can be older than a run's own write in the same account. A caller
+ * never carries the token itself — that was the defect: a person's
  * dismissal and the agent's `remember` in the same window carried the state their
  * own reads saw, so the second one lost the compare-and-set and answered
  * `fact_moved` for a fact nobody had touched.
@@ -499,10 +502,18 @@ function oneAtATime<T>(
   accountId: string,
   seed: () => Promise<MemoryStore>,
   work: (store: MemoryStore) => Promise<T>,
+  /**
+   * Read the store again for this link, whatever the chain holds. A person's
+   * write is decided on **the document** it was shown (`movedSheet`), and the
+   * account's state has moved since the pass's reading — a run writes its own
+   * document beside the memory — so reusing that token refuses a correction
+   * nobody touched.
+   */
+  fresh = false,
 ): Promise<T> {
   const previous = memoryWrites.get(accountId) ?? Promise.resolve();
   const link = async (): Promise<T> => {
-    let held = memoryStores.get(accountId);
+    let held = fresh ? undefined : memoryStores.get(accountId);
     if (!held) {
       held = await seed();
       memoryStores.set(accountId, held);
@@ -518,6 +529,21 @@ function oneAtATime<T>(
     ),
   );
   return next;
+}
+
+/**
+ * One link of the chain for a **person's** write: the store is read again.
+ *
+ * A person's write is decided on the document it was shown, and the state the
+ * pass cached may be older than the run writes that moved the account since — so
+ * the seed is taken rather than the cache, and a correction nobody raced lands.
+ */
+function personWrite<T>(
+  accountId: string,
+  seed: () => Promise<MemoryStore>,
+  work: (store: MemoryStore) => Promise<T>,
+): Promise<T> {
+  return oneAtATime(accountId, seed, work, true);
 }
 
 /** A write's own view of the store, as it makes the writes it needs. */
@@ -738,7 +764,7 @@ export async function dismissProposal(
   id: string,
   seen: MemoryStore,
 ): Promise<FactDoc> {
-  return await oneAtATime(
+  return await personWrite(
     accountId,
     () => listMemory(ctx, accountId),
     async (held) => {
@@ -877,7 +903,7 @@ export async function correctFactByPerson(
   edit: PersonCorrection,
   seen: MemoryStore,
 ): Promise<FactDoc> {
-  return await oneAtATime(
+  return await personWrite(
     accountId,
     () => listMemory(ctx, accountId),
     async (opening) => {
@@ -947,7 +973,7 @@ export async function forgetFact(
   id: string,
   seen: MemoryStore,
 ): Promise<void> {
-  return await oneAtATime(
+  return await personWrite(
     accountId,
     () => listMemory(ctx, accountId),
     async (opening) => {
