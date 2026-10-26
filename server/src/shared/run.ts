@@ -710,9 +710,15 @@ export function pageAfter<T extends RunOrder>(
   limit: number,
 ): { runs: T[]; more: boolean; after: string | null } {
   const [when = "", id = ""] = after.split("|");
-  const past = after
-    ? rows.filter((one) => byRecency({ id, startedAt: when }, one) < 0)
-    : rows;
+  /*
+   * A cursor is opaque, so one that is not the shape `runCursor` writes — a client
+   * built before this page, a hand-written request — reads as no cursor at all and
+   * starts from the top, rather than as a row nothing sorts after.
+   */
+  const past =
+    after && id
+      ? rows.filter((one) => byRecency({ id, startedAt: when }, one) < 0)
+      : rows;
   const runs = past.slice(0, limit);
   return {
     runs,
