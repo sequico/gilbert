@@ -222,19 +222,32 @@ still picks the wrong one (`read {"kind":"run"}` with an invented id, twice).
 *Proof*: the schema the turn is given is under 4 000 characters; the eval's
 refusals for an unknown name or a wrong argument stay at zero.
 
-### R5 — No ceiling on a run; safety stays per call, cost stays per day
+### R5 — No ceiling on a run; the nets are safety, not accounting
 
 A run ends **done**, **waiting on a person**, **stopped by a person**, or
-**failed**. `RUN_MS_MAX`, `RUN_CALLS_MAX`, `RUN_STEPS_MAX` and `limits.maxRunSteps`
-stop being endings: the per-call timeout (60 s) remains, and the daily token
-ceiling remains as the installation's commercial alarm.
+**failed**. `RUN_MS_MAX`, `RUN_CALLS_MAX`, `RUN_STEPS_MAX` and
+`limits.maxRunSteps` stop being endings — they become numbers in the record
+(R8). What stays is what keeps a machine from hanging or a bill from running away,
+and none of it is a judgement on the work:
+
+- **the per-call timeout** (60 s): a provider that does not answer is not a step;
+- **the stall guard that already exists**: the same answer twice, with the same
+  calls, is a loop and is named as one — the 07:59 run ended that way, and it is a
+  detection, not a budget;
+- **a person**: a run can be stopped from Administration, and R7 makes it visible
+  while it works;
+- **the daily token ceiling** (`limits.maxDailyTokens`): it stops *new* runs when
+  the installation has spent its day, and it never cuts one in flight.
+
+A run that takes twenty minutes is a run of twenty minutes: what makes that
+acceptable is R6, not a smaller number.
 *Where*: `agent/loop.ts` (`overBudget`, the endings), `shared/installation.ts`
-(the limits the admin sees), ADR 0038's ceiling section.
-*Why*: the clock killed a converging run at eleven calls with 117 k tokens
-unspent, because the provider took 27 s per call; a provider's latency is not a
-decision the agent made. The cost ceilings arrived before the act in every run.
-*Proof*: a run over the seven-message drop completes with no ceiling reached, and
-its duration is recorded, not enforced.
+(the limits Administration shows), ADR 0038's ceiling section.
+*Why*: the clock killed a converging run at eleven calls with 117 000 tokens and
+26 calls unspent, because the provider took 27 s a call; the token ceiling killed
+another with the work half-read. Neither was a decision the agent made.
+*Proof*: the 13:35 case reaches its act on the eval, and its duration and cost are
+recorded and reported rather than enforced.
 
 ### R6 — The pass is hygiene, not a wall
 
