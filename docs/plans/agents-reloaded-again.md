@@ -366,10 +366,9 @@ the value names, and the areas narrow the values exactly as they narrowed five v
 
 **Built:** the third unit too — the turn's prose names the four verbs (`open` reads,
 `act` changes, `say` speaks, `note` keeps) and shows one worked example in their words,
-and the **list of signatures beside the definitions is gone** (`toolSignature` is the
-decision turn's alone now, and `argLine` with it): with four verbs the value a call
-names is the schema's own `enum`, so a second list was only a thing to drift from the
-first. The example and the guard rule stay.
+and **the catalogue travels as its definitions alone**: `toolSignature` serves the
+decision turn, and no signature list stands beside the definitions, because a second
+list is only a thing to drift from the first. The example and the guard rule stay.
 
 **Owed:** nothing. R4 is complete: `open`, `act`, `say`, `note`.
 
@@ -506,9 +505,8 @@ itself twice. Each task reports **`pass@1`, the turns it took, the tokens it spe
 the share of its prompt the provider served from cache** — the three numbers this
 plan is optimising, beside the one it is judged by.
 *Where*: `agent/eval/tasks/`, `agent/eval.ts`.
-*Why*: the eval has eleven mock tasks today and none came from a real failure; two
-of the three changes shipped on 2026-10-26 were hygiene and the third was measured on
-a synthetic plan. An optimisation nobody counts is a preference.
+*Why*: an eval of mock tasks and none taken from a real failure measures the mock;
+an optimisation nobody counts is a preference.
 *Proof*: the three tasks fail on today's tree and pass on the final one, with turns
 and tokens per task falling while `pass@1` holds.
 
@@ -576,8 +574,8 @@ read the catalogue knows the shape of a run without a rule for each step.
 
 **Built:** the choosing turn's prose is `chooseStep`'s (`agent/model.ts`): what the run
 is, what the four verbs are, what is never the model's to decide, and one worked
-example; the signature list beside the definitions is gone, `toolSignature` being the
-decision turn's alone.
+example. The catalogue is the definitions in the call's `tools`; `toolSignature`
+serves the decision turn alone.
 
 ### R12 — The run log shows the newest, not the first page ever filed
 
@@ -626,9 +624,8 @@ applied before the page is cut; both routes answer with the cursor they ended at
 
 **Built:** the turn is the run's own history, appended. Each outcome is written once,
 at the size it arrived (the record's own four kilobytes, `boundedText`), and never
-re-rendered: the window of 2026-10-26 is gone from `prompt.ts`, and with it the
-clipping that changed a step's text between two turns and invalidated the provider's
-cached prefix from there. A repeat is a line pointing at the step that answered,
+re-rendered, so no step's text changes between two turns and the provider's cached
+prefix stays intact. A repeat is a line pointing at the step that answered,
 because the answer never leaves. The prompt grows by one step per turn, and one that
 outgrows the provider's window is refused with the window named rather than truncated.
 

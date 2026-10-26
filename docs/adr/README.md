@@ -238,27 +238,7 @@ is, not what a user sees.
   form builder. The workorder side materialises the applicable steps by **path**,
   with the four step states. **Built.**
 - **0027 — The agent's tools are described and composable.** **Superseded by
-  0038.** The
-  agent's capabilities are a small catalogue of **tools**, each one a task over an
-  object Stalwart offers, and the **model chooses** which to call and in what
-  order — **one or more in a single answer, together where independent** — never a
-  list of permitted business actions, and no plan compiled at write time. It
-  works on **six surfaces — the group's chat, mail, KB (checklist templates among
-  its pages), workorders, Files and calendar** — with its own runs beside them,
-  each readable, and writeable within the matrix its areas gave (ADR 0038) and the
-  authority classes. A tool's description is the product's interface to the
-  model; two tools that do one thing are a defect. The catalogue **grows freely** — a new tool is not an architectural
-  decision, a new **object** or a change to the authority classes is — and every
-  run carries a budget of steps, time and model calls. One model serves the
-  installation, chosen in Administration → Installation
-  (`web/src/views/admin/AdminInstallation.tsx`), in the installation's own
-  document with a write-only key. **Built**, with the live provider probe owed —
-  the catalogue is
-  `server/src/agent/tools.ts`, both halves and the guard, the installation's one
-  model is `server/src/agent/model.ts` (its two turns — the decision over the
-  reading tools, the choosing over the whole catalogue and answering a plan), and
-  the loop that works a run is `server/src/agent/loop.ts`, started by the server's
-  own boot (`server/src/agent/supervisor.ts`).
+  0038**, which carries the catalogue's decision.
 - **0028 — What the agent decides, and what only a person decides.**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
@@ -296,7 +276,8 @@ is, not what a user sees.
   is one document in the group's account and the whole of the agent's durable
   state: which rule or instruction started it, the plan, each step's outcome,
   what it touched, what it waits for and where it asked, every authorisation with
-  its message and its authority, the evidence, and the budget it has spent. **A
+  its message and its authority, the evidence, and what it has spent — recorded,
+  never a budget, and each step carrying how long its own call took. **A
   turn may carry several calls**, the independent ones made together and each its
   own step, and **a plan carries order and conditions**: a step waits on an
   earlier one and the outcome it needs, the loop takes the branch that outcome
@@ -304,7 +285,8 @@ is, not what a user sees.
   **A
   wait is a date in the run**, re-armed on boot, so a restart or a dead container
   costs nothing — and a run blocked on a person keeps the question it left. A run
-  ends done, blocked on a person, or out of budget — written down. There is no
+  ends done, blocked on a person, stopped by a person, refused, or stopped by the
+  liveness valve — written down. There is no
   separate audit ledger, and a person can read a run and undo by hand what can be
   undone. **Built** — the run document is `server/src/shared/run.ts`, addressed by
   `server/src/agent/runs.ts`, the plan's order and conditions are worked out by
@@ -312,29 +294,8 @@ is, not what a user sees.
   runs from Administration → Agent, where the record is drawn as it is stored and
   a document this build cannot read is said rather than guessed at
   (`server/src/routes/agent.ts`, `web/src/views/admin/agents/GroupRuns.tsx`).
-- **0031 — A group's engagement is a rule in prose.** **Superseded by 0038.** One rule is one
-  document in the group's own account, giving **each surface a mode** — the
-  account's chat, mail, KB, workorders, Files and calendar — and saying **in
-  prose what should happen** when the rule is woken. `watch` wakes the rule and
-  lets the run it opens write the surface; `ondemand` never wakes it but lets an
-  open run write it; `off` neither wakes nor writes, and reading stays free.
-  Chat is always `watch`. The matrix is the rule's and the run carries it; the
-  guard refuses a write on an `off` surface (`surface_off`) and the authority
-  classes (ADR 0028) still bound what an act may be. A v1 rule is read as the
-  matrix it means (watched surfaces `watch`, the rest `ondemand`). The calendar
-  surface is in the matrix; the change log that would wake a rule on it is owed.
-  A rule may **declare that it sends**. The agent's prose has three levels,
-  outermost first: the installation's line, the group's standing instruction,
-  the rule's own; a member reads the rules, and an **installation
-  administrator** changes them and the standing instruction through the
-  administration's route. **Partly built** — the rule documents are
-  `server/src/agent/rule.ts`, the modes `server/src/shared/surfaces.ts`,
-  addressed by `server/src/agent/rules.ts`, and the three levels are built by
-  `server/src/agent/prose.ts`; a run records the rule and its matrix
-  (`server/src/shared/run.ts`), and the loop that matches an event against the
-  rules and gives every rule that fits it its own run is
-  `server/src/agent/loop.ts`, started by the server's own boot
-  (`server/src/agent/supervisor.ts`).
+- **0031 — A group's engagement is a rule in prose.** **Superseded by 0038**,
+  which carries the group's one instruction and the areas it works.
 - **0032 — One agent per installation, held by a claim.** One
   `agent-claim.json` in the app folder of the account the agent signs in as — the
   Master's, one per installation and no per-group lease — taken by the
@@ -360,8 +321,7 @@ is, not what a user sees.
   correction and removal are `server/src/agent/memory.ts` in the Master's
   `memory/` folder, both turns carry the selection fenced as data
   (`server/src/agent/model.ts`), the run records what it recalled (`recalled`,
-  `server/src/shared/run.ts`), `memory.remember` is the tool
-  (`server/src/agent/tools.ts`), and the surface is
+  `server/src/shared/run.ts`), a fact is kept with `act` (`what: "fact"`), and the surface is
   `server/src/routes/agent.ts` and `web/src/views/admin/agents/AgentMemory.tsx`. A conclusion
   against a person's fact is kept as a **proposal** (`FactProposal`) beside the
   person's sentence, and Administration accepts it — the correction path, whose

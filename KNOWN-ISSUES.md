@@ -1,8 +1,8 @@
 # Known issues and what they need
 
 > **What `gilbertagents` still owes is calibration, not a feature.** The tree
-> carries a run's durable state, the eight jobs, a group's one instruction and the
-> prose levels every call is told, the installation's one model with its turns,
+> carries a run's durable state, the four verbs, a group's one instruction and the
+> two prose levels every call is told, the installation's one model with its turns,
 > its memory of entities and facts, the loop that works a run, the supervisor the
 > server's own boot starts with itself, the conversation in chat, the judge on the
 > evidence, the injection test and the keyless replay, and the administration of

@@ -73,7 +73,7 @@ case is a fact in the memory (ADR 0033), not a longer note. The note is what mak
 second message of a delivery cheap and what a later change of the same case finds.
 
 **Only documents are changes.** A folder that appears is not a delivery, and a
-removal whose path is no longer known is not actionable: neither wakes a rule.
+removal whose path is no longer known is not actionable: neither wakes an agent.
 
 **A question is asked once.** The plan turn is shown the questions the group
 already has open, from the runs parked on a person, and `chat.ask` refuses to
@@ -98,9 +98,9 @@ bounds the wait. A drop that straddles a process restart is resumed from the
 queue rather than lost. A second drop in the same folder the same day is a
 second run, because the instant the drop opened is part of its key.
 
-A question asked before this record's change was parked in its own run remains
-parked; the mechanism prevents a second copy, it does not close the first.
+A question parked in its own run is a question the conversation already holds;
+the mechanism prevents a second copy, it does not close the first.
 
 The queue is the agent's own bookkeeping under `gilbert/`, and is filtered from
-the change reading like the runs and the rules: it is not activity a person
+the change reading like the runs and the instruction: it is not activity a person
 caused.

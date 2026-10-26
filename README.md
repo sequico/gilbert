@@ -123,11 +123,13 @@ plan with what each step waited on, the branch that was not taken,
 what each step answered, every authorisation with the words it arrived in, what
 it recalled, what it spent and where it parked. The plan and what each step is
 about to do are written **before** the act. A run ends done, waiting on a person,
-out of budget or stopped — and any member of the group can read it and stop a
+stopped by a person, stopped by the liveness valve or refused — and any member of
+the group can read it and stop a
 running one.
 
-A run is capped at **20 steps, 40 model calls and five minutes of work**, so a
-model that is stuck ends at a record instead of looping on the account. **One
+A run has **no budget of its own**: no step, call, time or token amount ends it. What
+stops one is the work finishing, a person, or the liveness valve at a hundred turns.
+**One
 claim per installation** keeps exactly one agent working it; a holder that died
 on the same host is taken over at once, and one on another host waits the lease —
 a restart never leaves a document to delete by hand.

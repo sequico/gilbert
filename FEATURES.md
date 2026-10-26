@@ -155,7 +155,11 @@ what it waits for and the sentence it asked in,
 every authorisation with the message it arrived in and the authority given, the
 evidence behind its claims, and what it has spent — the shape, its parser
 and its transitions are `server/src/shared/run.ts`, and where a run lives is
-`server/src/agent/runs.ts` (ADR 0030). **No amount ends a run**: no step, call,
+`server/src/agent/runs.ts` (ADR 0030). **Every step says how long its own call
+took** (`RunStep.ms`), so a wave of four is four durations, and the run records the
+limits that were in force when it opened (`RunDoc.limits`) — recorded and never
+enforced, so a pass that fell back to the installation's defaults is visible in the
+run that paid for it. **No amount ends a run**: no step, call,
 token or clock ceiling, so a run is never stopped for what it cost, and a refused
 answer or a call the account refuses is a step that ended rather than an ending.
 The one valve is **liveness** — a run that has asked the model a hundred times has
@@ -272,8 +276,13 @@ installation's own document, carried into every call from the boot; the second i
 read once per pass so an edit is in force at the next one. A level that says
 nothing contributes nothing. **An installation administrator decides** the group's
 instruction, from **Administration → AI Agents → Instruction**: the group is
-chosen, the prose is one field, the areas a list of checkboxes, and what wakes
-the agent a second list where chat is drawn on and dimmed. The launcher is
+chosen, the prose is one field, the areas a list of checkboxes, what wakes
+the agent a second list where chat is drawn on and dimmed, and the shape a report
+of the group's work takes a third field. **A declared report shape is judged**: the
+harness knows only that a shape was declared and passes it to the judge, which then
+reads **every** report against it rather than only a suspect plan — the shape itself
+is prose, and it is the judge's to read, never the harness's to parse (ADR 0038).
+The launcher is
 offered only to an administrator, and the write goes through the administration's
 own route (`/api/admin/groups/<name>/prose`), which writes as the Master behind
 `requireAdmin` — the decision is a boundary and not a hidden button (owner
@@ -402,10 +411,10 @@ run's tally — a call naming a field the tool does not take is refused whole,
 naming the fields it does, rather than read as if the field it meant were
 absent; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
-the run carries no authority for that act. The reading jobs are what the decision
+the run carries no authority for that act. The reading half of the catalogue is what the decision
 turn looks the group's state up with; the loop runs each chosen call through the
 guard, so a refusal is a failed step on the run rather than a silent skip, and the
-jobs and their endpoints are exercised against the mock Stalwart.
+verbs and their endpoints are exercised against the mock Stalwart.
 
 ## The loop
 
@@ -472,20 +481,24 @@ was reported, what is owed — instead of looking for it again
 
 ## The agent is measured on the tasks it has failed
 
-**The agent is measured on eleven tasks in the repository** (ADR 0038,
+**The agent is measured on fourteen tasks in the repository** (ADR 0038,
 `server/src/agent/eval/tasks/`): one file per task, holding the message that
 arrives, the data it arrives into and the outcome a person would accept — so a
 regression needs no corpus to describe it and no key to read it. `npx tsx
 src/agent/eval.ts` runs them on the mock against the installation's own provider,
 which is put to **the product's own probe** first, and prints `pass@1` — the
 tasks answered whole on the first attempt — beside what the measure cost in
-tokens and model calls and the run's own `refused=` and `recovered=` counts: a
+tokens, model calls and the share of the prompt the provider served from its cache,
+and the run's own `refused=` and `recovered=` counts: a
 step that ended refused — a call the catalogue would not take, or a probe the
 account answered *not there* — and how many of those the run recovered from by a
-step that worked. A task with more than one side is graded in halves, and a task that fails is tried once more: one that passes only on the
-second attempt is reported `unstable`, not passed. Three of the eleven measure
+step that worked. Three of the fourteen are the shapes the live installation
+failed on: a delivery that arrives as one mail per item and is filed once, a
+reference that lives in another message of the thread, and a list that is carried
+whole in one report. A task with more than one side is graded in halves, and a task that fails is tried once more: one that passes only on the
+second attempt is reported `unstable`, not passed. Three of the fourteen measure
 silence — no instruction, an area the instruction does not declare, the agent
-switched off — and the other eight drive the model. **One of them parks**: a
+switched off — and the other eleven drive the model. **One of them parks**: a
 question only a person can answer, a reply to that very question, and the run
 continuing to its report, so the park and the continuation are measured rather
 than assumed (ADR 0029, 0030). It is a measure a person runs on purpose, not the

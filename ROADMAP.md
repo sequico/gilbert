@@ -14,15 +14,15 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   time today: the agent lives on changes, and the supervisor's pass is the only
   clock.
 
-- **The agent is one instruction, eight jobs, and three probes still owed.**
+- **The agent is one instruction, four verbs, and three probes still owed.**
   ADR 0038 is its design: it replaces 0027 (the catalogue) and 0031 (the rules),
   amends 0029 (the conversation) and 0030 (the plan), and keeps 0028 (what it
   decides and what only a person decides), 0032 (one installation claims its
   agent), 0033 (its memory is entities, typed relations and facts with their
-  interval — rewritten by 0038), 0034 (a batched drop)
+  interval), 0034 (a batched drop)
   and 0037 (the cursor as reconciliation). What the tree
   carries is a run's durable
-  state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the eight jobs
+  state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the four verbs
   and their per-value schemas (`server/src/agent/tools/jobs.ts`), narrowed to the
   areas a group's one instruction declares (`server/src/agent/instruction.ts`,
   `areas.ts`, `prose.ts`), the installation's memory of facts
@@ -32,7 +32,7 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   agent (`server/src/agent/claim.ts`), the loop that works a run
   (`server/src/agent/loop.ts`) — a pass claims
   the installation, re-arms the waits it finds, reads each account's changes, and
-  works a run from the model's own calls with the budget, the guard and the
+  works a run from the model's own calls with the guard and the
   record — and **the supervisor the server's own boot starts with itself**
   (`server/src/agent/supervisor.ts`, started in `server/src/index.ts`): it runs on
   the installation's model, reads the Master's groups from the mail server on
@@ -40,18 +40,18 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   one, with no restart — and asks for a pass every ten seconds, or thirty while
   the wake stream is connected, with the claim
   keeping an installation to one agent when a second copy of the server runs.
-  The writing jobs do the reversible work of the group's own
-  account, and three of them are the acts the inventory promises:
-  `draft` drafts a reply to everyone into the group's Drafts, sent by
-  a person and by nobody else; `settle` settles a step of a workorder
-  signed as the agent (ADR 0024); `remember` proposes a page (ADR 0020). A
+  The writing acts do the reversible work of the group's own
+  account, and three of the inventory's promises are among them: `act` with
+  `what: "reply"` drafts a reply to everyone into the group's Drafts, sent by
+  a person and by nobody else; `what: "settle"` settles a step of a workorder
+  signed as the agent (ADR 0024); `what: "page"` proposes a page (ADR 0020). A
   conclusion
   against a person's fact is proposed beside it rather than written over, and
   Administration accepts or dismisses it (ADR 0033). **The conversation is the
   chat** (ADR 0029 as 0038 amends it): `say` reports, `ask` parks the run on a
   person's answer, and an outward message leaves only as a draft a person sends.
-  The destructive acts — `place` with `trash`, `deleteFile`, `deleteFolder` or
-  `overwrite`, and `event` with `update` or `delete` — are each licensed by the
+  The destructive acts — `act` with `trash`, `delete`, `mailFolderDelete` or
+  `overwrite`, and `cancel` — are each licensed by the
   object they name. An installation administrator's override is
   read once the **directory** says the sender is one. The judge on the evidence,
   the injection test against the structural defence and the keyless replay of the
@@ -59,14 +59,17 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   **calibration** on a human sample, the live **embeddings** probe and the
   pruning of closed facts (ADR 0038, *Owed*); a live provider, the
   arrival record a real Stalwart writes and the change log's own paging cap stay
-  owed as their ADRs say.
+  owed as their ADRs say. Two measures are owed beside them: a `pass@k` for the
+  eval, because one retry of a failed task is not the reliability a person
+  experiences, and a read of the memory's index that is not O(facts) per pass up
+  to the cap.
 
 - **Two models in the key: a small one for the cheap turns, a frontier one for the
-  work.** The installation chooses **one** model (ADR 0027) and every turn runs on
+  work.** The installation chooses **one** model (ADR 0038) and every turn runs on
   it, while the decision turn — one short JSON answer per change — costs the same
   model as the run that plans and acts. Splitting them is a **cost and latency**
   decision and not a correctness one: with the catalogue offered as the provider's
-  own tools and a refused answer ending on the budget, one frontier model is
+  own tools, one frontier model is
   enough for the loop. Not designed and not built: it needs a second provider and
   key in the installation document (ADR 0009), the rule for which turn uses
   which, and the administration's surface for the pair.
