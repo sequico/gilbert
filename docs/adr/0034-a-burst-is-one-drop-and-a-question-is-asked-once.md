@@ -71,6 +71,9 @@ last report said and when, and what is still owed. The turn lists the keys alrea
 file, so a run recognises a case it has seen without a lookup. What must outlive the
 case is a fact in the memory (ADR 0033), not a longer note. The note is what makes the
 second message of a delivery cheap and what a later change of the same case finds.
+A run whose case has no name yet keeps its note under its own id, and a run that ends
+without naming one leaves no file behind: a run id is not a case, and a folder of
+them would crowd the list a turn reads.
 
 **Only documents are changes.** A folder that appears is not a delivery, and a
 removal whose path is no longer known is not actionable: neither wakes an agent.

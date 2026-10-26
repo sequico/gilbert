@@ -98,6 +98,21 @@ export async function writeCaseNote(
 }
 
 /**
+ * Drop the note a run kept before its case had a name.
+ *
+ * A run that names no case leaves `cases/<run id>.md`, and nothing will ever read
+ * it again: a later increment of a case reads the case's own name, and a run id is
+ * not one. Left behind, those files crowd the list of cases a turn reads.
+ */
+export async function forgetRunNote(
+  ctx: Ctx,
+  accountId: string,
+  runId: string,
+): Promise<void> {
+  await removeAppFile(ctx, accountId, casePath(runId));
+}
+
+/**
  * The cases already on file, named as their files are.
  *
  * The index a turn needs to recognise a case it has seen before without a lookup —

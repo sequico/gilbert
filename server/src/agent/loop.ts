@@ -125,7 +125,7 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upst
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
-import { listCases, readCaseNote, writeCaseNote } from "./case.js";
+import { forgetRunNote, listCases, readCaseNote, writeCaseNote } from "./case.js";
 import {
   chatWoken,
   mailWoken,
@@ -2754,6 +2754,18 @@ export class AgentLoop {
     // The document was not this process's to end: somebody stopped it first, and
     // an ending that did not land is not one to announce.
     if (!written) return null;
+    /*
+     * A run that ends without having named its case leaves the note it kept under
+     * its own id; nothing reads it again, and a folder of run ids crowds the cases
+     * a turn is told about (ADR 0034). A blocked run keeps its note: it is still
+     * the work in hand.
+     */
+    if (ending !== "blocked" && ended.caseKey === undefined)
+      await forgetRunNote(this.ctx, accountId, ended.id).catch((err) =>
+        this.opts.log?.(
+          `[gilbert] agent: run ${ended.id} could not drop its note under the run id: ${errorMessage(err)}`,
+        ),
+      );
     /*
      * What a reader sees without opening a group's list: the last run this process
      * ended, written into the pass's own document below.

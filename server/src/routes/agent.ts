@@ -32,6 +32,7 @@
 
 import type { Hono } from "hono";
 import { RUNS_ARCHIVE_DIR } from "../agent/archive.js";
+import { forgetRunNote } from "../agent/case.js";
 import { readClaim } from "../agent/claim.js";
 import { InstructionError, readInstruction } from "../agent/instruction.js";
 import {
@@ -179,10 +180,19 @@ async function stopRun(
     });
     try {
       await replaceRun(ctx, accountId, ended, { ifInState: record.state });
-      return { outcome: "closed", run: ended };
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
+      continue;
     }
+    /*
+     * A run stopped before it named its case keeps no note under its own id:
+     * nothing will read it again, and the list of cases is what a turn reads
+     * (ADR 0034). The stop has already landed, so a note that could not be
+     * dropped is not the stop's failure.
+     */
+    if (ended.caseKey === undefined)
+      await forgetRunNote(ctx, accountId, ended.id).catch(() => undefined);
+    return { outcome: "closed", run: ended };
   }
   return { outcome: "moved" };
 }

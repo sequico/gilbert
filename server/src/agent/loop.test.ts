@@ -1490,6 +1490,27 @@ test("a note that names its case leaves the file it was kept under while unnamed
   assert.equal(provisional, null, "the run id is not a case left on file");
   const named = await readAppFileAt(ctx, accountId, "cases/bk-901.md");
   assert.equal(named?.text.trim(), "BK-901: the first words", "the case's note it is");
+
+  /*
+   * And a run that never names a case keeps none: what it wrote is read by the
+   * run itself and by nothing after it, so the file goes with the ending.
+   */
+  answerWith({ facts: {} });
+  answerWith({ calls: [{ name: "note", arguments: { text: "no case named" } }] });
+  answerWith({ done: "the change is answered" });
+  const other = await deliver("a change that names no case at all");
+  await agent.pass();
+
+  const unnamed = (await listRuns(ctx, accountId))
+    .map((record) => record.run)
+    .find((one) => one.startedBy.woke === `mail created: ${other}`);
+  assert.ok(unnamed, "the second run is on the record");
+  assert.equal(unnamed?.caseKey, undefined, "and it named no case");
+  assert.equal(
+    await readAppFileAt(ctx, accountId, casePath(unnamed.id)),
+    null,
+    "so the run id leaves no case behind",
+  );
 });
 
 test("an act the run carries no authority for is refused, and the refusal is on the run", async () => {
