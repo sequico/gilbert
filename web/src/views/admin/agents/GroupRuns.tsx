@@ -364,7 +364,13 @@ function LiveRun({
        * beside an administration page showing the run.
        */
       if (runningOnly) {
-        setRuns(await fetchGroupRuns(group, "running"));
+        /*
+         * The chat's panel draws what will move again without a page being
+         * opened: a run at work and one parked on a person's answer. The state
+         * the server filters on is `live` for exactly that pair, so a question
+         * the panel is waiting on is never missing from it.
+         */
+        setRuns(await fetchGroupRuns(group, "live"));
         setMore(false);
         setError(null);
         return;
