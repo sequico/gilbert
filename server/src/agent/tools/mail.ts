@@ -11,6 +11,7 @@
 
 import { readGroupLabels, writeGroupLabels } from "../../account.js";
 import type { Ctx } from "../../appFolder.js";
+import { APP_FOLDER_NAME } from "../../shared/appFolder.js";
 import { cachedMail } from "../../mailCache.js";
 import { sameAddress } from "../../shared/address.js";
 import { CAPABILITIES } from "../../shared/capabilities.js";
@@ -991,7 +992,7 @@ export const defineLabel = defineTool({
     else labels[at] = { keyword, name, color };
     await writeGroupLabels(ctx, accountId, labels);
     // Its own catalog, so the change reading does not answer it.
-    markOwnWrite(accountId, fileWriteKey(GROUP_LABELS_FILE));
+    markOwnWrite(accountId, fileWriteKey(`${APP_FOLDER_NAME}/${GROUP_LABELS_FILE}`));
     return { keyword, name, color, added: at < 0 };
   },
 });

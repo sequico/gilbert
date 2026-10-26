@@ -15,7 +15,7 @@ import {
   readAppJsonAt,
 } from "../../appFolder.js";
 import { AGENT_SIGNATURE } from "../../shared/agent.js";
-import { FOLDER_PROPS } from "../../shared/appFolder.js";
+import { APP_FOLDER_NAME, FOLDER_PROPS } from "../../shared/appFolder.js";
 import { mapLimit, READ_CONCURRENCY } from "../../shared/concurrency.js";
 import { resolveChecklist } from "../../shared/knowledge.js";
 import {
@@ -263,7 +263,7 @@ export const settleStep = defineTool({
       // Its own settlement, so the change reading does not answer it.
       markOwnWrite(
         accountId,
-        fileWriteKey(`${WORKORDER_FOLDER}/${workorderFileName(uid)}`),
+        fileWriteKey(`${APP_FOLDER_NAME}/${WORKORDER_FOLDER}/${workorderFileName(uid)}`),
       );
       const step = stepOf(doc.checklist, path);
       const steps = doc.checklist.steps;

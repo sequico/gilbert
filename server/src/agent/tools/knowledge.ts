@@ -6,6 +6,7 @@
  */
 
 import { findFolderPath, readAppJsonAt } from "../../appFolder.js";
+import { APP_FOLDER_NAME } from "../../shared/appFolder.js";
 import { asDraft } from "../../knowledge/documents.js";
 import {
   KnowledgeAdminError,
@@ -266,7 +267,9 @@ export const proposePage = defineTool({
       // Its own draft, so the change reading does not answer it.
       markOwnWrite(
         accountId,
-        fileWriteKey(`${KNOWLEDGE_FOLDER}/${summary.folder}/${DRAFT_FILE}`),
+        fileWriteKey(
+          `${APP_FOLDER_NAME}/${KNOWLEDGE_FOLDER}/${summary.folder}/${DRAFT_FILE}`,
+        ),
       );
       return {
         title: summary.title,

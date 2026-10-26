@@ -577,11 +577,26 @@ test("a file the agent writes is not a change it answers", async () => {
     new TextEncoder().encode("a person wrote this"),
     "text/markdown",
   );
+  /*
+   * The catalogue's own documents are under `gilbert/`, and the mark has to
+   * name the path the reading resolves — the bare constant is not it. A label
+   * the agent defines is the case that caught this: marked as `labels.json`, the
+   * change at `gilbert/labels.json` was never consumed.
+   */
+  await writeTool("mail.label", {
+    keyword: "shipping",
+    name: "Shipping",
+    color: "#123456",
+  });
 
   const { events } = await readAccountEvents(ctx, accountId, anchor);
   assert.ok(
     !events.some((event) => event.where === written.path),
     "the file the agent wrote is not a change it answers",
+  );
+  assert.ok(
+    !events.some((event) => event.where.endsWith("labels.json")),
+    "nor is the catalog it defined under gilbert/",
   );
   assert.ok(
     events.some((event) => event.where === person),
