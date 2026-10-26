@@ -149,7 +149,10 @@ open for `DROP_CAP_MS`. One change names the messages and the instant it opened,
 one decision, one run.
 
 For mail the `batch` the turn is shown carries, per message: subject, sender and
-attachment names (R2). Each message is worked as a **step**, so the record keeps one
+attachment names (R2), and the **decision turn** is shown the burst the way a file
+drop is (ADR 0034): the messages' subjects and senders and the instant it opened, so
+the facts it answers are about the delivery, not one message of it. Each message is
+worked as a **step**, so the record keeps one
 outcome per message — the audit is not coarser than seven runs, it is one document
 instead of seven. A reply that answers a message of the drop joins the case through
 its `threadId`; an answer arriving days later opens its own run, which finds the
