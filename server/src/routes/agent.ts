@@ -50,12 +50,16 @@ import {
   readRunAt,
   replaceRun,
 } from "../agent/runs.js";
-import { AGENT_PASS_INTERVAL_MS } from "../agent/supervisor.js";
+import {
+  AGENT_PASS_INTERVAL_MS,
+  AGENT_PASS_INTERVAL_WITH_WAKE_MS,
+} from "../agent/supervisor.js";
 import {
   readAgentSwitch,
   rememberedAgentSwitch,
   writeAgentSwitch,
 } from "../agent/switch.js";
+import { agentWakeStatus } from "../agent/wake.js";
 import {
   appFolderState,
   type Ctx,
@@ -329,7 +333,11 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           stored && isClaimDoc(stored) && Date.parse(stored.expires) > Date.now()
             ? stored
             : null,
-        passSeconds: Math.round(AGENT_PASS_INTERVAL_MS / 1000),
+        passSeconds: Math.round(
+          (agentWakeStatus().state === "connected"
+            ? AGENT_PASS_INTERVAL_WITH_WAKE_MS
+            : AGENT_PASS_INTERVAL_MS) / 1000,
+        ),
         lastPass,
         ...(lastPassProblem ? { lastPassProblem } : {}),
       };
