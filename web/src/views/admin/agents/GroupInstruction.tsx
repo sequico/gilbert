@@ -61,24 +61,31 @@ export function GroupInstructionPanel({ group }: { group: string }) {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const load = useCallback(async (id: string) => {
-    setBusy(true);
-    setError(null);
-    setSaved(false);
-    setProse(null);
-    try {
-      const next = await readGroupInstruction(id);
-      setProse(next);
-      setInstruction(next.instruction);
-      setReport(next.report ?? "");
-      setAreas(withAlwaysOn(next.areas));
-      setSurfaces(next.surfaces);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+  /** The document as it was read, into the form: one place, however it was read. */
+  const apply = useCallback((next: GroupInstruction) => {
+    setProse(next);
+    setInstruction(next.instruction);
+    setReport(next.report ?? "");
+    setAreas(withAlwaysOn(next.areas));
+    setSurfaces(next.surfaces);
   }, []);
+
+  const load = useCallback(
+    async (id: string) => {
+      setBusy(true);
+      setError(null);
+      setSaved(false);
+      setProse(null);
+      try {
+        apply(await readGroupInstruction(id));
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [apply],
+  );
 
   useEffect(() => {
     void load(group);
@@ -96,11 +103,7 @@ export function GroupInstructionPanel({ group }: { group: string }) {
        * before it. Holding the old read would keep claiming it.
        */
       const next = await readGroupInstruction(group);
-      setProse(next);
-      setInstruction(next.instruction);
-      setReport(next.report ?? "");
-      setAreas(withAlwaysOn(next.areas));
-      setSurfaces(next.surfaces);
+      apply(next);
       setSaved(true);
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 409)) {

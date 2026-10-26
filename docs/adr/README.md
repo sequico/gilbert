@@ -388,7 +388,7 @@ is, not what a user sees.
   read by the harness in bounded slices; an outward message as a **draft a person
   sends** — no tool submits, a question is asked in the conversation, and the worst
   a malicious mail obtains is a draft somebody reads; a second cheap call that
-  judges a `done` against the ask and its evidence;
+  judges a report against the ask, its evidence and the shape the group declared;
   an evaluation set taken from the runs that failed; and no credential inside a
   document the agent can read. Replaces 0027 and 0031. **Partly built,
   Proposed.**
