@@ -21,10 +21,12 @@ import { test } from "node:test";
 import {
   answerOverdue,
   appendStep,
+  byRecency,
   compactAt,
   compactRun,
   finishRun,
   isRunDue,
+  pageAfter,
   parseRunDocumentDetailed,
   QUESTION_TTL_MS,
   RUN_VERSION,
@@ -32,6 +34,7 @@ import {
   recordRecall,
   recordStep,
   resumeRun,
+  runCursor,
   sliceRun,
   spendRun,
   startRun,
@@ -917,4 +920,50 @@ test("a run this build cannot read is reported, with what was wrong", () => {
     assert.ok("problem" in parsed, `${text} is refused`);
     assert.match(parsed.problem, expectation);
   }
+});
+
+test("a page continues after the row it names, even when that row is gone", () => {
+  /*
+   * The cursor of every runs list is a **row**, not a position: the archive moves
+   * runs while a person reads, and a page that re-found its offset would repeat the
+   * rows above or skip the ones below. The order is `byRecency`'s, tie and all.
+   */
+  const rows = [
+    { id: "b", startedAt: "2026-10-26T12:00:00.000Z" },
+    { id: "a", startedAt: "2026-10-26T12:00:00.000Z" },
+    { id: "c", startedAt: "2026-10-26T11:00:00.000Z" },
+    { id: "d", startedAt: "2026-10-26T10:00:00.000Z" },
+  ].sort(byRecency);
+
+  const first = pageAfter(rows, "", 2);
+  assert.deepEqual(
+    first.runs.map((one) => one.id),
+    ["a", "b"],
+    "a page is the head of the order, the id breaking the tie",
+  );
+  assert.equal(first.more, true, "and it says another follows");
+  assert.equal(
+    first.after,
+    runCursor(rows[1] as (typeof rows)[number]),
+    "the cursor is the last row drawn",
+  );
+
+  const second = pageAfter(rows, first.after ?? "", 2);
+  assert.deepEqual(
+    second.runs.map((one) => one.id),
+    ["c", "d"],
+    "the page after the cursor is everything below it",
+  );
+  assert.equal(second.more, false, "and nothing follows");
+
+  const gone = pageAfter(
+    rows.filter((one) => one.id !== "b"),
+    first.after ?? "",
+    2,
+  );
+  assert.deepEqual(
+    gone.runs.map((one) => one.id),
+    ["c", "d"],
+    "a cursor row that left the list does not rewind the reader",
+  );
 });
