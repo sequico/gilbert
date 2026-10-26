@@ -139,6 +139,34 @@ export const findMessages = defineTool({
   },
 });
 
+/**
+ * The message one id names, as every reader of a message reads it.
+ *
+ * One fetch shape: the reading tool answers with this record, the print turns it into
+ * a page, and a question path reads the words — so the properties a message is read
+ * with are stated once, and a new property reaches every reader at once.
+ */
+export async function messageDocument(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
+    "Email/get",
+    {
+      accountId,
+      ids: [id],
+      properties: MESSAGE_PROPS,
+      fetchTextBodyValues: true,
+      maxBodyValueBytes: MESSAGE_BODY_MAX,
+    },
+    [CAPABILITIES.mail],
+  );
+  const message = answer.list?.[0];
+  if (!message) throw notFound(`message "${id}" in this account`);
+  return message;
+}
+
 export const readMessage = defineTool({
   name: "mail.read",
   description:
@@ -148,22 +176,9 @@ export const readMessage = defineTool({
   writes: false,
   args: { id: { type: "text", about: "a message id, from mail.find" } },
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
-  run: async ({ ctx, accountId }, { id }) => {
-    const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
-      "Email/get",
-      {
-        accountId,
-        ids: [id],
-        properties: MESSAGE_PROPS,
-        fetchTextBodyValues: true,
-        maxBodyValueBytes: MESSAGE_BODY_MAX,
-      },
-      [CAPABILITIES.mail],
-    );
-    const message = answer.list?.[0];
-    if (!message) throw notFound(`message "${id}" in this account`);
-    return { message };
-  },
+  run: async ({ ctx, accountId }, { id }) => ({
+    message: await messageDocument(ctx, accountId, id),
+  }),
 });
 
 export const readAttachment = defineTool({
@@ -420,7 +435,7 @@ export const setKeyword = defineTool({
 });
 
 /** An address as a message carries it, from a JMAP address list. */
-interface MailAddress {
+export interface MailAddress {
   email: string;
   name?: string;
 }
@@ -433,7 +448,7 @@ interface SendingIdentity extends MailAddress {
 }
 
 /** The addresses a JMAP property carries, in order, skipping what is not one. */
-function addressesIn(value: unknown): MailAddress[] {
+export function addressesIn(value: unknown): MailAddress[] {
   if (!Array.isArray(value)) return [];
   const out: MailAddress[] = [];
   for (const one of value) {
@@ -572,7 +587,7 @@ export async function readMessageForAnswer(
 }
 
 /** The text a message carries: its first non-empty text part, else its preview. */
-function messageTextOf(message: Record<string, unknown>): string {
+export function messageTextOf(message: Record<string, unknown>): string {
   const values = isRecord(message.bodyValues) ? message.bodyValues : {};
   const parts = Array.isArray(message.textBody) ? message.textBody : [];
   for (const part of parts) {

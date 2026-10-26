@@ -92,6 +92,7 @@ import {
 } from "./mail.js";
 import { memoryHistoryTool, rememberFactTool } from "./memory.js";
 import { noteTool } from "./note.js";
+import { printMessage } from "./print.js";
 import { readBrief } from "./reader.js";
 import { readRunTool } from "./runs.js";
 import { listWorkorders, readWorkorder, settleStep } from "./workorders.js";
@@ -361,17 +362,17 @@ export const actJob = job({
   name: "act",
   description:
     "Change what this account holds. `what` is the act: a message is `file`d, " +
-    "`trash`ed, `untrash`ed, given a `keyword` or a `label`, and a mail folder is " +
-    "`mailFolder` (make it one), `mailFolderRename` or `mailFolderDelete`; a file is " +
-    "`save`d, `write` (a document's words are replaced), `overwrite`d, `move`d, " +
-    "`rename`d, `delete`d, or a folder made with `folder`; an outward message is " +
-    "`reply` (a draft in the message's thread) or `edit` (replace a draft you wrote); " +
-    "an event is `schedule`d, `reschedule`d or `cancel`led; a `fact` or a `page` is " +
-    "kept for later runs; a workorder step is `settle`d. Nothing is sent: an outward " +
-    "message leaves as a draft a person sends.",
+    "`trash`ed, `untrash`ed, given a `keyword` or a `label`, `print`ed to a PDF in " +
+    "Files, and a mail folder is `mailFolder` (make it one), `mailFolderRename` or " +
+    "`mailFolderDelete`; a file is `save`d, `write` (a document's words are replaced), " +
+    "`overwrite`d, `move`d, `rename`d, `delete`d, or a folder made with `folder`; an " +
+    "outward message is `reply` (a draft in the message's thread) or `edit` (replace a " +
+    "draft you wrote); an event is `schedule`d, `reschedule`d or `cancel`led; a `fact` " +
+    "or a `page` is kept for later runs; a workorder step is `settle`d. Nothing is " +
+    "sent: an outward message leaves as a draft a person sends.",
   discriminator: "what",
   about:
-    "the act: file, trash, untrash, keyword, label, mailFolder, mailFolderRename, mailFolderDelete, save, write, overwrite, move, rename, delete, folder, reply, edit, schedule, reschedule, cancel, fact, page or settle",
+    "the act: file, trash, untrash, keyword, label, print, mailFolder, mailFolderRename, mailFolderDelete, save, write, overwrite, move, rename, delete, folder, reply, edit, schedule, reschedule, cancel, fact, page or settle",
   writes: true,
   routes: {
     file: { tool: fileMessage, area: "mail" },
@@ -379,6 +380,7 @@ export const actJob = job({
     untrash: { tool: untrashMessage, area: "mail" },
     keyword: { tool: setKeyword, area: "mail" },
     label: { tool: defineLabel, area: "mail" },
+    print: { tool: printMessage, area: "files" },
     mailFolder: { tool: createMailFolder, area: "mail" },
     mailFolderRename: { tool: renameMailFolder, area: "mail" },
     mailFolderDelete: { tool: deleteMailFolder, area: "mail" },

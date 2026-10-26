@@ -326,14 +326,14 @@ agent.
 
 ## The catalogue of tools
 
-**The catalogue of tools is `server/src/agent/tools/jobs.ts`** (ADR 0038): eight
-jobs — `read`, `find`, `place`, `draft`, `event`, `say`, `remember`, `settle` —
-each naming the value it means (`kind` or `action`) and routing that call to the
-endpoint tool of `server/src/agent/tools/*.ts`, where the arguments, the authority
-and the answer stay one definition. A job's provider schema is one branch per
-value, so a mail search cannot be sent a Files path. The reading values — the only
-ones a reading caller is handed
-— finds and reads a message, a folder, a document in Files, a page of the
+**The catalogue of tools is `server/src/agent/tools/jobs.ts`** (ADR 0038): four
+verbs — `open` (what the account holds), `act` (a change to it), `say` (the
+conversation) and `note` (the case's scratchpad) — each naming the value it means
+(`what` or `action`) and routing that call to the endpoint tool of
+`server/src/agent/tools/*.ts`, where the arguments, the authority and the answer stay
+one definition. A verb's provider schema is one branch per value, so a mail search
+cannot be sent a Files path. `open` reads a message — one by id, or several by
+`ids` in one call — a folder, a document in Files, a page of the
 KB **searched by its own words** and **listed** by title and folder before one is
 read, the **workorders the account holds a part of** beside one read by uid, a
 run, the group's own conversation
@@ -345,7 +345,11 @@ attachment of a message is read the same way. An image, or
 a page of a PDF with no text layer — a scan — is transcribed by the installation's
 model, the page rendered to a bitmap and sent as a picture: no OCR engine is
 installed, and a model that cannot see says so instead of guessing. The half that changes the
-group's account files a message, puts a keyword or one of the product's reserved
+group's account files a message, **prints a message as a PDF into Files** — the
+page a printer gives: the subject, who wrote it and to whom, the date and the words
+wrapped onto A4 pages, filed at the path the call names and never replacing what is
+there; a character the standard font cannot carry is refused by code point, never
+replaced by a question mark — puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
 folder in the mailbox or in Files, renames a mailbox folder in place and
 removes one that is empty, writes a text document in Files, **saves a file into

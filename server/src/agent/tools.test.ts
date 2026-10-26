@@ -2624,6 +2624,52 @@ test("a brief with no model to read with says so, rather than hanging", async ()
   );
 });
 
+test("a message is printed as a real PDF in Files, and reads back", async () => {
+  /*
+   * The capability the agent lacked (ADR 0038): a mail as a page, filed where the
+   * call names. The file is read back through `files.read`, which reads a PDF's text
+   * layer — so the assertion is that a reader of the document gets the message, not
+   * that some bytes were written.
+   */
+  const delivered = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
+    "Email/set",
+    {
+      accountId,
+      create: {
+        c: {
+          subject: "Booking 4417",
+          from: [{ email: "ops@shipper.example" }],
+          to: [{ email: "demo@example.com" }],
+          mailboxIds: { inbox: true },
+          bodyStructure: { partId: "text", type: "text/plain" },
+          bodyValues: { text: { value: "Confermato: due container, Anversa." } },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const id = delivered.created?.c?.id;
+  assert.ok(id, "the message to print is in the account");
+  const printed = await writeTool<{ path: string; bytes: number }>("mail.print", {
+    id,
+    path: "Prints/booking-4417",
+  });
+  assert.equal(
+    printed.path,
+    "Prints/booking-4417.pdf",
+    "the extension follows the format the tool prints",
+  );
+  assert.ok(printed.bytes > 0, "and the file carries the page");
+  const read = await callTool<{ text?: string }>("files.read", { path: printed.path });
+  assert.match(read.text ?? "", /Booking 4417/, "the page carries the subject");
+  assert.match(read.text ?? "", /Confermato/, "and the message's words");
+  await assert.rejects(
+    () => writeTool("mail.print", { id, path: printed.path }),
+    /already holds a document/,
+    "a path already taken is refused, like every new document",
+  );
+});
+
 test("the base is paged by offset and searched by the words of its pages", async () => {
   // Its own page, with words no other fixture carries: a search that leans on
   // another test's fixture is a test that reads the file's order.

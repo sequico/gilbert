@@ -51,6 +51,7 @@ export function jobCall(
     "files.rename": "rename",
     "files.delete": "delete",
     "files.folder": "folder",
+    "mail.print": "print",
   };
   if (place[name]) return { name: "act", args: { ...args, what: place[name] } };
   const event: Record<string, string> = {

@@ -222,6 +222,32 @@ function splitDocumentPath(path: string): { folder: string; name: string } {
   return { folder: segments.join("/"), name };
 }
 
+/**
+ * Write bytes as a new document at a path, refusing one that already holds one.
+ *
+ * The one door for a document this build **composes** rather than copies: a text
+ * document written by a tool, a message printed as a PDF. Folders the path names are
+ * made; nothing a person filed is replaced.
+ */
+export async function writeNewFile(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+  bytes: Uint8Array,
+  type: string,
+): Promise<{ path: string; id: string }> {
+  const { folder, name } = splitDocumentPath(path);
+  const held = await findVisibleFile(ctx, accountId, path);
+  if (held)
+    throw new ToolError(
+      "path_taken",
+      `"${path}" already holds a document; nothing filed is replaced by a write.`,
+      409,
+    );
+  const id = await writeBytesIntoVisibleFolder(ctx, accountId, folder, name, bytes, type);
+  return { path: folder ? `${folder}/${name}` : name, id };
+}
+
 export const writeDocument = defineTool({
   name: "files.write",
   description:
@@ -240,24 +266,10 @@ export const writeDocument = defineTool({
     return { path: textArg(args, "path"), text: textArg(args, "text") };
   },
   run: async ({ ctx, accountId }, { path, text }) => {
-    const { folder, name } = splitDocumentPath(path);
-    const held = await findVisibleFile(ctx, accountId, path);
-    if (held)
-      throw new ToolError(
-        "path_taken",
-        `"${path}" already holds a document; files.overwrite replaces it, and files.write never does.`,
-        409,
-      );
+    const name = pathSegments(path).at(-1) ?? path;
     const bytes = new TextEncoder().encode(text);
-    const id = await writeBytesIntoVisibleFolder(
-      ctx,
-      accountId,
-      folder,
-      name,
-      bytes,
-      textType(name),
-    );
-    return { path: folder ? `${folder}/${name}` : name, id, bytes: bytes.byteLength };
+    const written = await writeNewFile(ctx, accountId, path, bytes, textType(name));
+    return { ...written, bytes: bytes.byteLength };
   },
 });
 
