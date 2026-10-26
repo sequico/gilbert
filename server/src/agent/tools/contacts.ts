@@ -28,13 +28,15 @@ export const findContacts = defineTool({
   run: async ({ ctx }, { query }) => {
     const wanted = query.trim().toLowerCase();
     const cards = await readGlobalContacts(ctx, filesAccountId(ctx));
-    const matches = cards
-      .filter((card) =>
-        [card.name, card.organization, card.notes, ...card.emails, ...card.phones].some(
-          (one) => one.toLowerCase().includes(wanted),
-        ),
-      )
-      .slice(0, FIND_MAX);
-    return { contacts: matches };
+    const matches = cards.filter((card) =>
+      [card.name, card.organization, card.notes, ...card.emails, ...card.phones].some(
+        (one) => one.toLowerCase().includes(wanted),
+      ),
+    );
+    return {
+      contacts: matches.slice(0, FIND_MAX),
+      total: matches.length,
+      truncated: matches.length > FIND_MAX,
+    };
   },
 });

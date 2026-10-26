@@ -147,12 +147,16 @@ export const findChat = defineTool({
     };
   },
   run: async ({ ctx, accountId }, { query, limit }) => {
-    const messages = await findChatMessages(ctx, accountId, query, limit);
+    // One more than the page, so a search that found more can say so: a clipped
+    // answer read as the whole result is how a model concludes the tail is not there.
+    const messages = await findChatMessages(ctx, accountId, query, limit + 1);
+    const page = messages.slice(0, limit);
     return {
-      messages: messages.map((one) => ({
+      messages: page.map((one) => ({
         ...one,
         text: shorten(one.text, HIT_TEXT_MAX),
       })),
+      ...(messages.length > limit ? { truncated: true } : {}),
     };
   },
 });

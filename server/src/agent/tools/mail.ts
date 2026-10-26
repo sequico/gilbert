@@ -135,10 +135,20 @@ export const findMessages = defineTool({
         sort: [{ property: "receivedAt", isAscending: false }],
         limit,
         properties: HIT_PROPS,
+        // A query that found more than the page it answered says so: a clipped
+        // answer read as the whole result is how a model concludes the tail does
+        // not exist (`args.ts`, `TOOL_LIST_MAX`).
+        calculateTotal: true,
       }),
       [CAPABILITIES.mail],
     );
-    return { messages: answer.list<Record<string, unknown>>("g") };
+    const messages = answer.list<Record<string, unknown>>("g");
+    const asked = answer.args("q");
+    const total = isRecord(asked) && typeof asked.total === "number" ? asked.total : null;
+    return {
+      messages,
+      ...(total === null ? {} : { total, truncated: total > messages.length }),
+    };
   },
 });
 

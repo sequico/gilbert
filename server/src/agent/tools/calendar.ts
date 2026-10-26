@@ -113,18 +113,25 @@ export const findEvents = defineTool({
   },
   run: async ({ ctx, accountId }, { from, to }) => {
     const client = clientOf(ctx);
-    const queried = await client.call<{ ids?: string[] }>(
+    const queried = await client.call<{ ids?: string[]; total?: number }>(
       "CalendarEvent/query",
       {
         accountId,
         filter: { after: from, before: to },
         expandRecurrences: true,
         limit: FIND_MAX,
+        // A window with more rows than the page says so, rather than reading as
+        // the whole calendar (`args.ts`, `TOOL_LIST_MAX`).
+        calculateTotal: true,
       },
       [CAPABILITIES.calendars],
     );
     const ids = (queried.ids ?? []).slice(0, FIND_MAX);
-    if (!ids.length) return { events: [] };
+    const found =
+      typeof queried.total === "number"
+        ? { total: queried.total, truncated: queried.total > ids.length }
+        : {};
+    if (!ids.length) return { events: [], ...found };
     const read = await client.call<{ list?: unknown[]; notFound?: string[] }>(
       "CalendarEvent/get",
       { accountId, ids },
@@ -134,7 +141,7 @@ export const findEvents = defineTool({
       isRecord(raw) ? [eventRow(raw)] : [],
     );
     const missing = (read.notFound ?? []).map((id) => ({ id }));
-    return missing.length ? { events, missing } : { events };
+    return { events, ...found, ...(missing.length ? { missing } : {}) };
   },
 });
 
