@@ -391,9 +391,13 @@ export function AgentOverview({
                        * deciding whether to stop it.
                        */}
                       {(listed.about ?? listed.woke) && (
-                        <p
+                        <span
                           className="hint"
-                          style={{ margin: "4px 0 0", flexBasis: "100%" }}
+                          style={{
+                            margin: "4px 0 0",
+                            flexBasis: "100%",
+                            display: "block",
+                          }}
                           title={listed.about ?? listed.woke ?? undefined}
                         >
                           {listed.by
@@ -402,7 +406,7 @@ export function AgentOverview({
                                 who: listed.by,
                               })
                             : (listed.about ?? listed.woke)}
-                        </p>
+                        </span>
                       )}
                     </summary>
                     {/*

@@ -29,9 +29,8 @@ const RUNS_PAGE = 10;
 const RUNS_PAGE_SERVER = RUNS_PAGE * 5;
 
 /** The cursor an archive page ended at; a working-set page carries none. */
-function afterOf(page: { runs: RunSummary[]; more: boolean }): string | null {
-  const after = (page as { after?: unknown }).after;
-  return typeof after === "string" ? after : null;
+function afterOf(page: { after?: string | null }): string | null {
+  return page.after ?? null;
 }
 
 /**
