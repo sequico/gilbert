@@ -1790,6 +1790,22 @@ export function boundedText(value: unknown): string {
 }
 
 /**
+ * What a call asked, as an identity the record can hold.
+ *
+ * `boundedText` is what a step's line keeps, and it is **clipped**: two calls
+ * whose arguments share four kilobytes are one line there, so recognising a
+ * repeat by that line would refuse a second write as a copy of the first. The
+ * whole call is hashed instead — the tool and its arguments — and travels on the
+ * step as `ask` beside the readable line.
+ */
+export function askOf(name: string, args: unknown): string {
+  return createHash("sha256")
+    .update(`${name}\u0000${textOf(args)}`)
+    .digest("base64url")
+    .slice(0, 32);
+}
+
+/**
  * One step of a plan: a tool of the catalogue, the arguments it is given, and
  * what it waits on (ADR 0027, 0030).
  *
@@ -2145,6 +2161,33 @@ export function catalogueTools(catalogue: readonly AnyTool[]): ToolDefinition[] 
 }
 
 /**
+ * The share of a run's token budget below which the turn is told to wrap up.
+ *
+ * A run dies at the ceiling having paid for its last look and nothing for the
+ * report: a live one spent its last tokens on a twelfth read of the same message
+ * and never said a word to the group. The turn that still has a fifth of its
+ * budget can turn what it found into the sentence the group reads.
+ */
+export const BUDGET_WARNING_SHARE = 0.2;
+
+/**
+ * What is left of the run's budget, when the end is near.
+ *
+ * Nothing is said while there is room: a line that is always there is a line the
+ * model learns to skip. `left` is the same remainder the answer's own ceiling is
+ * computed from, so what the turn is told and what it may spend cannot disagree.
+ * It is written after the catalogue, so the prefix a caching provider keeps is
+ * unchanged up to the turn that has to use the line.
+ */
+function budgetLine(opts: { left?: number; cap?: number }): string[] {
+  const { left, cap } = opts;
+  if (left === undefined || !cap || left > cap * BUDGET_WARNING_SHARE) return [];
+  return [
+    `About ${Math.max(0, Math.round(left))} of this run's ${cap} tokens are left: say in the conversation what you have found and what still needs doing, and finish with it, rather than opening another line of work.`,
+  ];
+}
+
+/**
  * One choosing turn: given the run so far, the calls to make or the end of the
  * work (ADR 0038).
  *
@@ -2166,7 +2209,7 @@ export async function chooseStep(
   catalogue: readonly AnyTool[],
   access: ModelAccess,
   question: StepQuestion,
-  opts: { timeoutMs?: number; meter?: UsageMeter; left?: number } = {},
+  opts: { timeoutMs?: number; meter?: UsageMeter; left?: number; cap?: number } = {},
 ): Promise<StepChoice> {
   const heads = proseForModel(question.prose);
   const tools = catalogueTools(catalogue);
@@ -2202,6 +2245,7 @@ export async function chooseStep(
     "Each tool's definition in this call says what it is for; the list above says how it is called. An argument name a tool does not state is refused, and so is a value outside the bound written beside it.",
     "When the work needs a person's decision, ask them: `say` with the `ask` action posts the question in the group's conversation and parks the run until they answer.",
     ...surfaceLines(question.surfaces),
+    ...budgetLine(opts),
     ...heads,
   ]
     .filter(Boolean)

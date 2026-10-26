@@ -139,6 +139,7 @@ import { readInstruction } from "./instruction.js";
 import { clearLegacyAgentState } from "./legacy.js";
 import { forgetMemoryStores, listMemory, type MemoryStore, recallFor } from "./memory.js";
 import {
+  askOf,
   boundedText,
   chooseStep,
   embedTexts,
@@ -1729,7 +1730,7 @@ export class AgentLoop {
           catalogueFor(this.catalogue, this.areasOfRun(accountId, current)),
           access,
           question,
-          { meter, left },
+          { meter, left, cap: this.limits.maxRunTokens },
         );
         this.permanentFailures = 0;
       } catch (err) {
@@ -2066,12 +2067,13 @@ export class AgentLoop {
           .filter((one): one is number => typeof one === "number"),
       );
       for (const [at, call] of choice.calls.entries()) {
-        const key = `${call.name}\u0000${JSON.stringify(call.args ?? null)}`;
+        const key = askOf(call.name, call.args);
         const seenAt = firstOf.get(key);
         current = appendStep(
           current,
           `${call.name} ${boundedText(call.args)}`,
           shiftNeeds(call.needs, base),
+          key,
         );
         if (seenAt !== undefined && !waitedOn.has(at))
           current = recordStep(current, current.plan.length - 1, {
@@ -2113,12 +2115,20 @@ export class AgentLoop {
            * submission timed out — would otherwise happen twice, and a person's
            * licence covers one act. The earlier outcome is this step's answer,
            * and nothing is asked of the account.
+           *
+           * Identical is the whole call (`ask`, a digest), never the line the
+           * record keeps: that line is clipped at four kilobytes, and two
+           * different writes with the same opening would be one act — the
+           * second document silently never written. A step of a document
+           * written before the digest existed is compared by its line, which is
+           * the most that document holds.
            */
           const what = `${call.name} ${boundedText(call.args)}`;
+          const ask = askOf(call.name, call.args);
           const earlier = current.plan.findIndex(
             (step, index) =>
               index < at &&
-              step.what === what &&
+              (step.ask === undefined ? step.what === what : step.ask === ask) &&
               (step.state === "done" ||
                 (step.state === "failed" && !this.repeatable(step.what))),
           );

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FactView } from "../shared/memory.js";
-import type { RunStep } from "../shared/run.js";
+import { type RunStep, stepIdentity } from "../shared/run.js";
 import type { DecisionQuestion, ReadMade, StepQuestion } from "./model.js";
 import { redactText } from "./redact.js";
 
@@ -18,13 +18,14 @@ export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
 export const READ_IN_PROMPT_MAX = 16 * 1024;
 
 /**
- * How many of a plan's ended steps the prompt carries whole.
+ * How many of a plan's answers the prompt carries whole.
  *
  * The record keeps every outcome in full, and **every** choosing turn of the
  * run re-sends the whole plan: twenty steps re-read up to forty times is a
- * prompt that grows with the square of the plan. The last few ended steps are
- * carried whole — they are what the next choice is made beside — and an older
- * one is carried as its beginning, because what is done stays done.
+ * prompt that grows with the square of the plan. The last few **distinct** answers
+ * are carried whole — they are what the next choice is made beside, and a call
+ * asked twice is answered at the step that answered it — and an older one is
+ * carried as its beginning, because what is done stays done.
  */
 export const STEP_OUTCOME_FULL_MAX = 3;
 
@@ -173,14 +174,14 @@ export function stepData(question: StepQuestion): string {
   const whole = carriedWhole(question.plan);
   const seen = new Map<string, number>();
   const done = question.plan.map((step, index) => {
-    const first = seen.get(step.what);
+    const first = seen.get(stepIdentity(step));
     if (first !== undefined)
       return dataBlock(token, [
         `step ${index + 1}: ${step.what}`,
         `state: ${step.state}`,
         `same call as step ${first + 1}; its answer is there and is not repeated.`,
       ]);
-    seen.set(step.what, index);
+    seen.set(stepIdentity(step), index);
     return dataBlock(token, [
       `step ${index + 1}: ${step.what}`,
       `state: ${step.state}`,
@@ -236,7 +237,7 @@ export function stepData(question: StepQuestion): string {
       (step, index) => !whole.has(index) && step.outcome.length > STEP_OUTCOME_OLD_MAX,
     )
       ? [
-          "An outcome that ends in … is carried as its beginning; the run's own record holds it whole.",
+          "An outcome that ends in … is carried as its beginning. Asking for the same call again brings it back whole once more, so ask when you need it — and finish with what you have when you can.",
         ]
       : []),
   ].join("\n");
@@ -245,18 +246,36 @@ export function stepData(question: StepQuestion): string {
 /**
  * Which steps of a plan the prompt carries whole.
  *
- * The last few ended steps, and any step a step still to run waits on: what the
- * next choice is made beside. Every other ended step is a line, and the run
- * document is where its outcome is kept.
+ * The last few **answers**, and any step a step still to run waits on: what the
+ * next choice is made beside. A repeat of a call carries no outcome of its own —
+ * it is shown as a pointer to the step that answered — so counting ended steps
+ * would spend the window on the pointers and hide the answers a long run keeps
+ * asking for: a live run re-read one message twelve times, and the body it wanted
+ * was out of the window each time because two of the three places were repeats.
+ * Every other ended step is a line, and the run document is where its outcome is
+ * kept.
  */
 function carriedWhole(plan: readonly RunStep[]): Set<number> {
   const whole = new Set<number>();
-  let ended = 0;
-  for (let index = plan.length - 1; index >= 0; index -= 1) {
+  /** The step that answered each call: where a repeat's answer lives. */
+  const answeredAt = new Map<string, number>();
+  for (const [index, step] of plan.entries())
+    if (!answeredAt.has(stepIdentity(step))) answeredAt.set(stepIdentity(step), index);
+  let carried = 0;
+  for (
+    let index = plan.length - 1;
+    index >= 0 && carried < STEP_OUTCOME_FULL_MAX;
+    index -= 1
+  ) {
     const step = plan[index];
     if (!step || step.state === "open") continue;
-    ended += 1;
-    if (ended <= STEP_OUTCOME_FULL_MAX) whole.add(index);
+    const answered = answeredAt.get(stepIdentity(step));
+    // A step still to run answers nothing yet, and a repeat of one carries no
+    // answer: neither spends a place in the window.
+    if (answered === undefined || whole.has(answered)) continue;
+    if (plan[answered]?.state === "open") continue;
+    whole.add(answered);
+    carried += 1;
   }
   for (const step of plan) {
     if (step.state === "open" && step.needs) whole.add(step.needs.step);

@@ -198,6 +198,16 @@ export interface RunStepNeeds {
 /** One step of the plan: what it is, what it waits on, and how it ended. */
 export interface RunStep {
   what: string;
+  /**
+   * What the step asked, hashed from the tool and its **whole** arguments.
+   *
+   * `what` is a line and stays readable; it is clipped at four kilobytes, so two
+   * different calls with the same opening are the same line there — a second
+   * document written with a first's opening would never be written. The loop
+   * recognises a repeat of a call by this digest, and a document written before
+   * it existed falls back to `what` (`stepIdentity`).
+   */
+  ask?: string;
   state: RunStepState;
   /** What actually happened, "" until the step leaves the plan. */
   outcome: string;
@@ -606,6 +616,7 @@ function isStep(x: unknown): x is RunStep {
     isRecord(x) &&
     typeof x.what === "string" &&
     !!x.what &&
+    (x.ask === undefined || (typeof x.ask === "string" && !!x.ask)) &&
     isStepState(x.state) &&
     typeof x.outcome === "string" &&
     (x.needs === null || isStepNeeds(x.needs)) &&
@@ -930,6 +941,7 @@ export function recordStep(
   const plan = [...run.plan];
   plan[index] = {
     what: step.what,
+    ...(step.ask === undefined ? {} : { ask: step.ask }),
     state: ended.state,
     outcome: ended.outcome,
     needs: step.needs,
@@ -953,6 +965,7 @@ export function appendStep(
   run: RunDoc,
   what: string,
   needs: RunStepNeeds | null = null,
+  ask?: string,
 ): RunDoc {
   mustBeRunning(run);
   if (!what) throw new Error(`a step the run "${run.id}" appends needs what it is`);
@@ -965,8 +978,22 @@ export function appendStep(
   }
   return {
     ...run,
-    plan: [...run.plan, { what, state: "open", outcome: "", needs }],
+    plan: [
+      ...run.plan,
+      { what, ...(ask ? { ask } : {}), state: "open", outcome: "", needs },
+    ],
   };
+}
+
+/**
+ * What a step asked, as exactly as the document holds it.
+ *
+ * The digest when the document carries one, and the readable line for a document
+ * written before it did: one reader for the loop and the prompt, so what counts
+ * as the same call is decided once.
+ */
+export function stepIdentity(step: RunStep): string {
+  return step.ask ?? step.what;
 }
 
 /**

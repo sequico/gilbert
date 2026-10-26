@@ -168,9 +168,11 @@ stays available and is used **when the model judges the work needs it**.
 ### The turn's context is selected, not accumulated
 
 The run document holds everything; the turn is handed the ask, the instruction, the
-retrieved facts, the calls it can make, and the plan's tail — the last steps in
-full, everything earlier as one line each. The threshold fixes that tail; no model
-call writes the summary. The document is complete, the prompt is bounded.
+retrieved facts, the calls it can make, and the plan's tail — the last few
+**distinct answers** in full, everything earlier as one line each, and a call asked
+again answered at the step that answered it rather than repeated. The threshold
+fixes that tail; no model call writes the summary. The document is complete, the
+prompt is bounded.
 
 The **stable prefix** (installation line, catalogue, instruction) is sent first and
 unchanged, so a caching provider pays for it once per run; the facts and the plan's
@@ -289,7 +291,9 @@ spent the provider's default budget before writing anything.
   capabilities and kept with them, with a conservative fallback when it declares
   none — so a reasoning model has room and a run cannot burn without end; reaching
   it ends `out-of-budget` naming the token, and when what is left cannot pay for a
-  call the run ends **before** asking.
+  call the run ends **before** asking. A turn whose run is down to a fifth of the
+  ceiling is told how little is left, so what it found becomes the report instead of
+  one more look: the ceiling is a stop, and a run that meets it has said nothing.
 - **The run has a step ceiling** (`limits.maxRunSteps`, in admin; the shared
   `RUN_STEPS_MAX` as its default): a run whose plan has taken that many steps
   ends `out-of-budget` naming the step count. It is the plan's own count — the

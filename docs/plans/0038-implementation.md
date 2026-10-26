@@ -67,7 +67,7 @@ the run document holds every outcome in full.
 | **F4 — the measure** | `eval.ts`, `agent/eval/tasks/` | eleven tasks **in the repository**, one file each with its message, data and reference; the runner passes the **same**
 provider check as the product, not a relaxed one; at least six drive the model;
 partial credit; retry of failures; `pass@1` and cost printed |
-| **F5 — context** | prompt builder, step projection | the threshold is measured; the last steps in full and earlier ones one line each, no summary call; a long run costs less than with the whole plan |
+| **F5 — context** | prompt builder, step projection | the threshold is measured; the last distinct answers in full and earlier ones one line each, no summary call; a long run costs less than with the whole plan |
 | **F6 — trend** | run and pass documents, admin view | cost and refusals readable over a week, through OTLP when configured and the documents otherwise |
 | **F7 — memory** | `memory.ts`, `shared/memory.ts`, memory tools | a superseded fact is closed and not recalled; an entity is created by its first fact; retrieval is exact then similarity where an embedding exists; the pass applies the TTL; precision and recall measured |
 

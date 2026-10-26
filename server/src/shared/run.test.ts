@@ -31,6 +31,7 @@ import {
   recordStep,
   spendRun,
   startRun,
+  stepIdentity,
   takeAuthorisation,
   touchObject,
   waitDueAt,
@@ -162,9 +163,46 @@ test("the plan grows with the step the model chose after seeing a result", () =>
   );
 });
 
+/**
+ * A step's line is clipped at four kilobytes, so the line cannot be the step's
+ * identity: two writes whose texts share an opening are one line there, and the
+ * second would be answered from the first. The digest of the whole call travels
+ * beside the line, and a document written before it still answers to its line.
+ */
+test("a step keeps the identity of the whole call it made, beside its readable line", () => {
+  const run = startRun({ id: "r15", startedBy: START, plan: ["read the mail"] });
+
+  const asked = appendStep(run, 'probe.write {"text":"…"}', null, "digest-one");
+  assert.equal(asked.plan[1]?.ask, "digest-one", "the digest is written with the step");
+  assert.equal(
+    asked.plan[1]?.what,
+    'probe.write {"text":"…"}',
+    "and the line is what a reader reads",
+  );
+
+  const ended = recordStep(asked, 1, { state: "done", outcome: "saved" });
+  assert.equal(ended.plan[1]?.ask, "digest-one", "ending the step keeps it");
+  assert.equal(
+    stepIdentity(ended.plan[1]!),
+    "digest-one",
+    "and it is what the step answers to",
+  );
+
+  const legacy = recordStep(run, 0, { state: "done", outcome: "read" });
+  assert.equal(
+    stepIdentity(legacy.plan[0]!),
+    "read the mail",
+    "a document written before the digest answers to its line",
+  );
+  const stored = parseRunDocumentDetailed(JSON.stringify(ended));
+  assert.ok(
+    "run" in stored,
+    "and a step that carries one is a document this build reads",
+  );
+});
+
 test("a step may wait on an earlier step, and is left unrun when no branch names its outcome", () => {
   const run = startRun({ id: "r14", startedBy: START, plan: ["file the confirmation"] });
-
   const planned = appendStep(run, "tell the shipper", { step: 0, when: "done" });
   assert.deepEqual(
     planned.plan[1]?.needs,

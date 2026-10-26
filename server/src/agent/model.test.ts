@@ -627,6 +627,40 @@ test("the surfaces a run's areas keep off are said, and nothing off says nothing
   );
 });
 
+/**
+ * The ceiling is a hard stop, and a run that reaches it ends with nothing said: a
+ * live one spent its last tokens on a twelfth read of the same message and never
+ * wrote a word to its group. A turn that still has a fifth of the budget is told
+ * how little is left, so what it found becomes the report; a turn with room is
+ * told nothing, because a line that is always there is a line to skip.
+ */
+test("a turn near the end of the run's budget is told what is left, and one with room is not", async () => {
+  seen = [];
+  answers = [];
+  answerWith({ done: "nothing to do" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(), {
+    left: 30_000,
+    cap: 200_000,
+  });
+  assert.match(
+    SYSTEM(0),
+    /About 30000 of this run's 200000 tokens are left: say in the conversation what you have found/,
+    "the turn that is nearly out of budget is told to report",
+  );
+
+  seen = [];
+  answers = [];
+  answerWith({ done: "nothing to do" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion(), {
+    left: 150_000,
+    cap: 200_000,
+  });
+  assert.ok(
+    !SYSTEM(0).includes("tokens are left"),
+    "a run with three quarters of its budget is told nothing about it",
+  );
+});
+
 test("an installation that has chosen no model has no agent", () => {
   const none = parseInstallationDocumentDetailed(JSON.stringify({ secret: "a-secret" }));
   assert.ok("doc" in none, "an empty document is readable");
@@ -1401,8 +1435,8 @@ test("the choosing turn lists each tool's own argument names", async () => {
 
 test("a long plan reaches the turn in one call, its tail whole and the rest a line each", async () => {
   /*
-   * The context is selected, not accumulated (ADR 0038): the last steps in full,
-   * everything earlier as one line each, and **no model call writes the
+   * The context is selected, not accumulated (ADR 0038): the last distinct answers
+   * in full, everything earlier as one line each, and **no model call writes the
    * summary** — a second call per turn would cost more than the tail it saves.
    * Twenty steps of three kilobytes are what a whole-plan prompt would have
    * carried; one request is made, and its user turn is a fraction of them.

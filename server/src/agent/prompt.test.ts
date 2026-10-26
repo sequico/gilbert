@@ -56,6 +56,10 @@ test("an old step's outcome is carried as its beginning, the last few whole", ()
     prompt.includes("An outcome that ends in … is carried as its beginning"),
     "and the model is told what the cut means",
   );
+  assert.ok(
+    prompt.includes("Asking for the same call again brings it back whole once more"),
+    "and how to get that answer back, since a read of the run's record is clipped to its first four kilobytes",
+  );
   for (const at of plan.slice(-STEP_OUTCOME_FULL_MAX))
     assert.ok(prompt.includes(at.outcome), "the steps just taken are whole");
   assert.ok(prompt.includes(`step ${plan.length}`), "the plan's own shape is untouched");
@@ -84,6 +88,34 @@ test("a repeated call is shown once, and the repeat points at the answer", () =>
     "the answer is carried once, not once per proposal",
   );
   assert.match(prompt, /same call as step 1/, "the repeat names the step that answered");
+});
+
+/**
+ * A repeat is a pointer and carries no answer of its own, so counting it among the
+ * steps carried whole spends the window on pointers. A live run re-read one
+ * message twelve times, and every time the body it wanted had been pushed out by
+ * repeats of itself: two of the three places held a pointer to the same step.
+ */
+test("a repeated call does not take a place in the carried-whole window", () => {
+  const body = `the body:${"m".repeat(STEP_OUTCOME_OLD_MAX * 4)}`;
+  const read: RunStep = {
+    what: 'read {"kind":"message","id":"m-1"}',
+    state: "done",
+    outcome: body,
+    needs: null,
+  };
+  const plan: RunStep[] = [
+    read,
+    ...Array.from({ length: STEP_OUTCOME_FULL_MAX }, (_, at) => ended(at)),
+    { ...read },
+  ];
+  const prompt = stepData({ woke: "mail created: m-1", plan, prose: {} } as StepQuestion);
+
+  assert.ok(
+    prompt.includes(body),
+    "the answer the run asked for again is carried whole, not only as its beginning",
+  );
+  assert.match(prompt, /same call as step 1/, "and the repeat still says where it is");
 });
 
 test("a step a later step waits on is carried whole however old it is", () => {

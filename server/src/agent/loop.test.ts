@@ -2704,6 +2704,55 @@ test("a call the account refuses spends a step of the run's budget", async () =>
   );
 });
 
+test("two calls whose record lines begin alike are two calls, and the second is made", async () => {
+  /*
+   * A step's line is the call as the record keeps it, and that is clipped at four
+   * kilobytes: two different writes whose texts share an opening are the same
+   * line there. Recognising a repeat by that line would make the second document
+   * never exist, with a step on the run saying it was already made — so the repeat
+   * is recognised by the whole call, and the digest is on the step beside the line.
+   */
+  const id = "intake-long-arguments";
+  await putInstruction(["mail", "files"]);
+  const wrote: string[] = [];
+  const write = defineTool<{ text: string }>({
+    name: "probe.write",
+    description: "A write that keeps the whole text it was given.",
+    authority: "reversible",
+    writes: true,
+    surface: "files",
+    spend: { steps: 1 },
+    args: { text: { type: "text" } },
+    parse: (raw: unknown) => raw as { text: string },
+    run: async (_call, args) => {
+      wrote.push(args.text);
+      return { saved: args.text.length };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, write] });
+  await agent.start();
+
+  const opening = "x".repeat(5_000);
+  answerWith({ facts: {} });
+  answerWith({ calls: [{ name: "probe.write", arguments: { text: `${opening}A` } }] });
+  answerWith({ calls: [{ name: "probe.write", arguments: { text: `${opening}B` } }] });
+  answerWith({ done: "both documents are written" });
+  await deliver("a change that brings two documents");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(wrote.length, 2, "the second write was made, not answered from the first");
+  assert.equal(wrote[1]?.at(-1), "B", "and it carried its own text");
+  const steps = run.plan.filter((step) => step.what.startsWith("probe.write"));
+  assert.equal(steps.length, 2, "both are steps of the record");
+  assert.equal(
+    steps[0]?.what,
+    steps[1]?.what,
+    "the readable line cannot tell them apart",
+  );
+  assert.notEqual(steps[0]?.ask, steps[1]?.ask, "the step's identity can");
+});
+
 test("a run left running without a wait is tried again on a minute, not every pass", async () => {
   /*
    * A run with no wait is the crash path: the document says running, nothing
