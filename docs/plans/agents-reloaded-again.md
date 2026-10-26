@@ -128,38 +128,66 @@ under 250 k tokens, with seven recorded outcomes.
 ### R2 — The turn starts with the case
 
 Before the first choosing call, the loop assembles what the case needs and the
-model would otherwise fetch by hand:
+model would otherwise fetch by hand. What the turn gets is what a person would
+have open on the desk — names and text, never a verdict:
 
 - the message the change names — its text and its attachments' names and sizes
   (**the decision turn already has this**: `question.detail`; carry it, do not
   re-read it);
-- the knowledge page(s) the standing instruction names as the convention;
-- the skeleton of the customer's folder (two levels, names only);
+- the thread it belongs to, when it answers one: subjects, senders and dates, one
+  line each, no bodies — the booking reference and the shipper of a delivery live
+  across the thread, not in one message;
+- **the titles of the knowledge pages, not their text**: the standing instruction
+  is prose and names no page (`InstructionDoc` is `instruction`, `areas`,
+  `surfaces`), so the turn is told what the base holds and opens the one it needs —
+  one lookup, and the note (R3) keeps the rule it read;
+- the skeleton of the customer's folder, two levels, names only;
 - the facts the memory recalled (already carried).
 
-For a drop: the list of items (subject, sender, attachment names) and the case
-note (R3), not seven bodies.
+Every part is bounded and says when it was cut, like every other block of the
+prompt. For a drop (R1) the turn gets the list of items — subject, sender,
+attachment names — and the case note (R3), not seven bodies.
 *Where*: `agent/loop.ts` (the question), `agent/prompt.ts` (`stepData`), ADR 0038
 "the turn's context".
 *Why*: the first ten of the 13:35 run's twenty-one steps were exactly this, at
-27 s and ~7.5 k tokens each.
-*Proof*: a run over one message reaches its first act by step 3, with the message
-body present in the prompt of turn 1.
+27 s and ~7.5 k tokens each, and the run then had to page one convention page at
+six offsets because it had nowhere to keep what the page said.
+*Proof*: on the drop's first item the prompt holds the message, the thread's lines,
+the page titles and the folder skeleton, and the run's **first act is the right
+one** on the eval task — not merely an act by step 3.
 
-### R3 — The case note, written by the agent and carried forward
+### R3 — The case keeps a scratchpad, and the turn carries it
 
-A `note` on the run document: free text the model writes and updates (booking
-reference, folder path, naming rule, what is still missing). It travels **whole**
-in every turn, bounded (a few kilobytes), and it is what the second to seventh
-item of a drop start from.
-*Where*: `shared/run.ts` (the field, a contract like `ask`), `agent/prompt.ts`
-(rendered before the plan), the tools: the note is written by the agent through
-the same call that acts (`note` in R4), never invented by the harness.
-*Why*: the 13:35 run re-read the same knowledge page at six offsets because the
-convention it needed had nowhere to live; the 10:41 run read one message twelve
-times.
-*Proof*: an item that follows another in the same drop reaches its act in ≤ 3
-steps, and the note holds the reference, the folder and the rule.
+The run keeps a **note**: a Markdown file under the agent's own bookkeeping
+(`gilbert/cases/`, beside the queue of ADR 0034), written and rewritten by the
+agent, carried **whole** in every turn of the case. It is the working memory of
+the work: the booking reference, the folder the delivery belongs to, the naming
+rule, what the group still owes. It is Claude Code's checklist-and-scratchpad and
+Manus's `todo.md`.
+
+Two stores, and the difference is the life they have:
+
+- **the note** is the case's working memory — it lives and dies with the case,
+  and every item of a drop reads it (R1 is what makes the items one case);
+- **the memory** is the installation's long-term store (ADR 0033): anything that
+  must outlive the case — "the folder of booking 280228874 is …" — is a fact
+  written with `remember` and recalled by the loop on the next case. It is
+  already built, and two of the three runs tried to read it.
+
+No boundary is policed on the note: a note that grows is rewritten by the model
+that owns it, the way a team curates a `CLAUDE.md`, and the harness only tells the
+turn what it is carrying.
+*Where*: `agent/run.ts`/`shared/run.ts` (where the note is stored and read),
+`agent/prompt.ts` (rendered before the plan), `agent/tools/jobs.ts` (the `note`
+verb in R4 — updating it is part of a call the agent is already making, never a
+turn of its own).
+*Why*: the 13:35 run paged the same convention at six offsets because the rule it
+needed had nowhere to live; the 10:41 run read one message twelve times; and the
+memory the installation already has was read as five different subjects because
+nothing wrote the booking's folder down once.
+*Proof*: on a drop, the second item reaches its act with the note holding the
+reference, the folder and the rule, and no knowledge page is opened twice in the
+same drop.
 
 ### R4 — Four verbs instead of eight jobs
 
