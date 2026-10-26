@@ -103,9 +103,14 @@ from that:
 | few, high-level tools that express intentions | Anthropic, *Writing effective tools* | four verbs, not forty endpoints |
 | a session is a shift with handoff artifacts | Anthropic, *Effective harnesses for long-running agents* | the case note is the handoff between runs of a drop |
 | one context, one decision thread | Cognition, *Don't build multi-agents* | no parallel decision-makers over one shipment |
-| keep the prefix stable; the file system is the memory; recite the plan | Manus, *Context engineering* | stable system turn, notes in Files, progress in the chat |
-| own your context and your control flow; small focused agents | *12-factor agents* | the loop prepares and decides the stops; the model works |
-| evals from real failures, read the transcripts | Anthropic, *Demystifying evals* | the three failures become the first three tasks |
+| keep the prefix stable; the file system is the memory; recite the plan | Manus, *Context engineering* | stable system turn, notes under the agent's own bookkeeping, the plan visible |
+| own your context and your control flow; small focused agents | *12-factor agents* | the loop prepares and decides; the model works |
+| a scratchpad and a checklist beat a longer context | Claude Code, *best practices* §4g | the case's note (R3) |
+| a subagent for the investigation keeps the working context clean | Claude Code §3a; Anthropic, *multi-agent research* | the reader for a case bigger than a turn (R2) |
+| a file always in context is how a convention is carried | Claude Code §1a (`CLAUDE.md`) | the case in the turn (R2), the note (R3) |
+| the operator watches and interrupts; the harness does not guess | Claude Code §4e | the run view (R7), a person's stop |
+| evals from real failures, read the transcripts | Anthropic, *Demystifying evals* | the three failures become the first three tasks (R9) |
+| the harness shapes the work; the person and the provider bound it | *Building effective agents*; R5 | no counter on a run is a product decision |
 
 ## 4. Recommendations
 
@@ -345,6 +350,22 @@ claims, not every outcome whole.
 a verdict that reads the states and the sentence.
 *Proof*: the judge's prompt on a forty-step plan stays under the prompt bound.
 
+### R11 — The system turn says less, and shows one worked case
+
+The choosing turn's prose is fifteen imperatives, several of which R2 makes false
+("read that object first" — the case is already in the turn) or self-defeating
+("the plan you are given is the whole of what you have already done" — it is a
+clipped log whose older answers are one line each). It is rewritten at the
+altitude the field recommends: what the run is, what the verbs are, what is never
+the model's to decide, and **one worked example** — a delivery filed end to end —
+because an example carries what a list of rules does not.
+*Where*: `agent/model.ts` (the choosing turn's system prose), ADR 0027/0038.
+*Why*: every turn pays for it, and under it the model still read one message twelve
+times; an instruction that describes a harness the turn no longer has teaches the
+model to work around it.
+*Proof*: the prose is measured against today's in characters, and the eval's three
+tasks move — the number, not the wording, is the argument.
+
 ## 5. Not taken, and why
 
 - **A lookup budget** (six looks, then act): it would have killed the 13:35 run
@@ -375,7 +396,7 @@ a verdict that reads the states and the sentence.
 | 1 | **R9 — the three failures as eval tasks** | `pass@1` of today's tree is recorded, and the three tasks fail |
 | 2 | R5 — no run ceilings | the 13:35 task reaches its act; its duration is recorded, not enforced |
 | 3 | R8 — per-step cost and the limits in force | a failed task's 27 s and 7 500 tokens per turn are attributable to steps |
-| 4 | R2 — the case in the turn, and the reader when it is bigger than a turn | the first act is the right one on the task |
+| 4 | R2 + R11 — the case in the turn, and the prose that describes it | the first act is the right one on the task |
 | 5 | R1 + R3 — one run per drop, with the scratchpad | the seven messages file in one run, at no more than one message costs today |
 | 6 | R4 — four verbs | the schema is a third of today's, and the refusals stay at zero |
 | 7 | R6, R7, R10 | a run is resumed in the next interval; it is watchable and stoppable; the judge stays within the prompt bound |
