@@ -3102,6 +3102,66 @@ test("a group that declares the shape of its report has every report judged", as
   );
 });
 
+test("a report spoken with `say` is judged as well when a shape is declared", async () => {
+  /*
+   * A run normally ends by saying its report, not by answering `done`: the `say`
+   * call posts the words and the run closes on them (ADR 0038). A group that
+   * declared the shape of a report therefore has the spoken one judged too — what
+   * is judged is the claim, wherever it was made.
+   */
+  const id = "intake-spoken-shape";
+  await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
+    ...instructionDoc(["mail"]),
+    report: "The booking, what arrived, what is missing.",
+  });
+  const agent = loop();
+  await agent.start();
+
+  let held = startRun({
+    id,
+    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+  });
+  held = recordStep(appendStep(held, "a step that answered"), 0, {
+    state: "done",
+    outcome: "answered",
+  });
+  await createRun(ctx, accountId, held);
+
+  let judged = false;
+  onCall = (system, user) => {
+    if (isDecision(system)) return { facts: {} };
+    if (system.includes("judge whether a run's report stands")) {
+      judged = true;
+      assert.ok(
+        user.includes("The booking, what arrived, what is missing."),
+        "the judge is handed the shape the group declared",
+      );
+      assert.ok(
+        user.includes("BK-901: the papers are filed"),
+        "and the words the run actually said",
+      );
+      return { stands: true, why: "the report says what the shape asks" };
+    }
+    return {
+      calls: [
+        {
+          name: "say",
+          arguments: { action: "say", text: "BK-901: the papers are filed" },
+        },
+      ],
+    };
+  };
+  await agent.pass();
+
+  const run = (await readRun(ctx, accountId, id))?.run;
+  assert.equal(judged, true, "the judge was asked about the spoken report");
+  assert.equal(run?.state, "done", "and a report that stands ends the run");
+  assert.ok(
+    run?.plan.some((step) => step.what === "the report, judged against the plan"),
+    "with the verdict as a step of the record",
+  );
+});
+
 test("a pass leaves a long run on purpose, and the next pass takes it at once", async () => {
   /*
    * A pass is the clock of every group at once: a run that works for six minutes makes

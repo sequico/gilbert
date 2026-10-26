@@ -2194,58 +2194,21 @@ export class AgentLoop {
         const shape = (await this.instructionOf(accountId))?.report;
         const judge = shape !== undefined || (suspect && judged === 0);
         if (judge) {
-          const judgeStarted = Date.now();
-          const judgeMeter = usageMeter();
-          current = spendRun(current, { calls: 1 });
-          let verdict: { stands: boolean; why: string };
-          try {
-            verdict = await judgeRun(
-              access,
-              {
-                woke: current.startedBy.woke ?? "the run was started by an instruction",
-                ...(prose.group ? { instruction: prose.group } : {}),
-                ...(shape === undefined ? {} : { report: shape }),
-                done: choice.why,
-                plan: current.plan,
-                evidence: current.evidence,
-              },
-              { meter: judgeMeter },
-            );
-          } catch (err) {
-            /*
-             * The judge could not be asked: the call was paid for, so it is on
-             * the tally, and the failure leaves the run where it is rather than
-             * believing a report nobody checked.
-             */
-            current = spendRun(current, {
-              ms: Date.now() - judgeStarted,
-              promptTokens: judgeMeter.promptTokens,
-              completionTokens: judgeMeter.completionTokens,
-              cachedPromptTokens: judgeMeter.cachedTokens,
-            });
-            this.passTokens += judgeMeter.promptTokens + judgeMeter.completionTokens;
-            await this.store(accountId, current, token).catch(() => undefined);
-            throw err;
-          }
-          current = spendRun(current, {
-            ms: Date.now() - judgeStarted,
-            promptTokens: judgeMeter.promptTokens,
-            completionTokens: judgeMeter.completionTokens,
-            cachedPromptTokens: judgeMeter.cachedTokens,
-          });
-          this.passTokens += judgeMeter.promptTokens + judgeMeter.completionTokens;
-          current = this.withStep(
+          const put = await this.judgeReport(
+            accountId,
             current,
-            JUDGE_CHECKED,
-            verdict.stands ? `stands: ${verdict.why}` : `does not stand: ${verdict.why}`,
-            true,
+            token,
+            choice.why,
+            prose,
+            shape,
+            access,
           );
-          const kept = await this.store(accountId, current, token);
-          if (!kept) return null;
-          token = kept;
+          if (put === null) return null;
+          current = put.run;
+          token = put.token;
           // A claim that stands is accepted now; one that does not is put back to
           // the model once, with the verdict in front of it (ADR 0038).
-          if (verdict.stands)
+          if (put.stands)
             return await this.endRun(
               accountId,
               current,
@@ -2625,6 +2588,27 @@ export class AgentLoop {
           token = kept;
           continue;
         }
+        /*
+         * A spoken report is judged like a `done` when the group declared the shape
+         * one takes: `say` is how a report is made, so a run that ends here ends on
+         * a claim, and a claim is checked where it is made (ADR 0038).
+         */
+        const reportShape = (await this.instructionOf(accountId))?.report;
+        if (reportShape !== undefined) {
+          const put = await this.judgeReport(
+            accountId,
+            current,
+            token,
+            spoke,
+            prose,
+            reportShape,
+            access,
+          );
+          if (put === null) return null;
+          current = put.run;
+          token = put.token;
+          if (!put.stands) continue;
+        }
         return await this.endRun(
           accountId,
           current,
@@ -2634,6 +2618,80 @@ export class AgentLoop {
         );
       }
     }
+  }
+
+  /**
+   * Put a report to the judge, and record the verdict as a step (ADR 0038).
+   *
+   * One call, wherever a report is made — the sentence a `done` answer carries and
+   * the message a `say` ends the run with — so a group that declared the shape of
+   * its report has **every** report read, not only the ones a suspect plan sends
+   * back. The verdict is a step of the record either way; whether a report that
+   * does not stand is put back to the model is the caller's, because the two paths
+   * differ in nothing but where the words came from.
+   *
+   * The call is on the run's tally whether it answered or failed: a provider that
+   * billed for a judge which then threw still billed, and a tally that skipped it
+   * would under-count the day.
+   */
+  private async judgeReport(
+    accountId: string,
+    run: RunDoc,
+    token: string | undefined,
+    report: string,
+    prose: Partial<Record<ProseLevel, string>>,
+    shape: string | undefined,
+    access: ModelAccess,
+  ): Promise<{ run: RunDoc; token: string; stands: boolean } | null> {
+    const started = Date.now();
+    const meter = usageMeter();
+    let current = spendRun(run, { calls: 1 });
+    let verdict: { stands: boolean; why: string };
+    try {
+      verdict = await judgeRun(
+        access,
+        {
+          woke: current.startedBy.woke ?? "the run was started by an instruction",
+          ...(prose.group ? { instruction: prose.group } : {}),
+          ...(shape === undefined ? {} : { report: shape }),
+          done: report,
+          plan: current.plan,
+          evidence: current.evidence,
+        },
+        { meter },
+      );
+    } catch (err) {
+      /*
+       * The judge could not be asked: the call was paid for, so it is on the
+       * tally, and the failure leaves the run where it is rather than believing a
+       * report nobody checked.
+       */
+      current = spendRun(current, {
+        ms: Date.now() - started,
+        promptTokens: meter.promptTokens,
+        completionTokens: meter.completionTokens,
+        cachedPromptTokens: meter.cachedTokens,
+      });
+      this.passTokens += meter.promptTokens + meter.completionTokens;
+      await this.store(accountId, current, token).catch(() => undefined);
+      throw err;
+    }
+    current = spendRun(current, {
+      ms: Date.now() - started,
+      promptTokens: meter.promptTokens,
+      completionTokens: meter.completionTokens,
+      cachedPromptTokens: meter.cachedTokens,
+    });
+    this.passTokens += meter.promptTokens + meter.completionTokens;
+    current = this.withStep(
+      current,
+      JUDGE_CHECKED,
+      verdict.stands ? `stands: ${verdict.why}` : `does not stand: ${verdict.why}`,
+      true,
+    );
+    const kept = await this.store(accountId, current, token);
+    if (!kept) return null;
+    return { run: current, token: kept, stands: verdict.stands };
   }
 
   /**
