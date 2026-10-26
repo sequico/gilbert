@@ -85,6 +85,7 @@ const {
   writeBytesIntoVisibleFolder,
 } = await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
+const { casePath } = await import("./case.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const {
   appendStep,
@@ -1454,6 +1455,41 @@ test("a note the model keeps is a file the next turn reads, under the case it na
     later.at(-1)?.user.includes("bk-901"),
     "with the key the note was filed under",
   );
+});
+
+test("a note that names its case leaves the file it was kept under while unnamed", async () => {
+  /*
+   * A run with no case name yet keeps its note under its own id, so the turn has
+   * somewhere to write (ADR 0034). The moment the model names the case, the note
+   * moves to the group's name — and the provisional file goes, because a run id is
+   * not a case and a folder of them would crowd the list a turn reads.
+   */
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ facts: {} });
+  answerWith({ calls: [{ name: "note", arguments: { text: "the first words" } }] });
+  answerWith({
+    calls: [
+      {
+        name: "note",
+        arguments: { text: "BK-901: the first words", key: "BK-901" },
+      },
+    ],
+  });
+  answerWith({ done: "the case is named and kept" });
+  const message = await deliver("a change that names no case yet");
+  await agent.pass();
+
+  const run = (await listRuns(ctx, accountId))
+    .map((record) => record.run)
+    .find((one) => one.startedBy.woke === `mail created: ${message}`);
+  assert.ok(run, "the run of this change is on the record");
+  const provisional = await readAppFileAt(ctx, accountId, casePath(run.id));
+  assert.equal(provisional, null, "the run id is not a case left on file");
+  const named = await readAppFileAt(ctx, accountId, "cases/bk-901.md");
+  assert.equal(named?.text.trim(), "BK-901: the first words", "the case's note it is");
 });
 
 test("an act the run carries no authority for is refused, and the refusal is on the run", async () => {

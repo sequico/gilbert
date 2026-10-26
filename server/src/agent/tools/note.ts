@@ -11,7 +11,7 @@
  * records which case it worked.
  */
 
-import { writeCaseNote } from "../case.js";
+import { casePath, writeCaseNote } from "../case.js";
 import { argsRecord, optionalTextArg, textArg } from "./args.js";
 import { defineTool } from "./define.js";
 
@@ -33,14 +33,22 @@ export const noteTool = defineTool<{ text: string; key?: string }>({
   },
   run: async ({ ctx, accountId, run }, { text, key }) => {
     /*
-     * The case a run works: the one its own document names, or — the first time a
-     * case is named — the change that woke it. Naming it here is how the note moves
-     * from the run's own id to the group's name for the case, and every later turn of
-     * this run reads it back under the new name.
+     * The case a run works: the name the call gives, or the one the run already
+     * holds. A run whose case has no name yet keeps its note under its own id — the
+     * place it is kept, never a case the record claims to work.
      */
-    const held = key?.trim() || run.caseKey || run.id;
+    const named = key?.trim() || run.caseKey;
+    const held = named ?? run.id;
     await writeCaseNote(ctx, accountId, held, text);
-    return { case: held, note: text.trim() };
+    /*
+     * A note filed under the group's name leaves the run id it was provisionally
+     * kept under: a run id is not a case, and a folder of them would crowd the list
+     * a turn reads (ADR 0034). A case renamed to another case keeps its own file —
+     * only the provisional one is dropped.
+     */
+    if (named && run.caseKey === undefined && casePath(named) !== casePath(run.id))
+      await writeCaseNote(ctx, accountId, run.id, "");
+    return { ...(named ? { case: named } : {}), note: text.trim() };
   },
 });
 
