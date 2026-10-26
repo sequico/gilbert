@@ -21,7 +21,7 @@ import type { SurfaceMatrix } from "../shared/surfaces.js";
 
 /**
  * The areas one run may use: what its group's instruction declares and what the
- * run's own surface matrix named, plus the transversal three.
+ * run's own surface matrix named, plus the two every run has.
  *
  * Two declarations while the matrix is still in the tree: the instruction names
  * the areas, and the matrix says where it may act. A run with neither has nothing
@@ -62,7 +62,7 @@ function areasOfSurfaces(surfaces: SurfaceMatrix | undefined): readonly AreaName
  *
  * `open` and `say` are always present — reading is free, and the conversation is
  * the interface — while `act` keeps only the values whose area the instruction
- * declared. The narrowing is each job's own (`AnyTool.narrow`); a tool that does
+ * declared. The narrowing is each verb's own (`AnyTool.narrow`); a tool that does
  * not narrow is a test's fixture and is offered as it is.
  */
 export function catalogueFor<
