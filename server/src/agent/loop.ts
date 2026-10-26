@@ -2109,6 +2109,20 @@ export class AgentLoop {
          * that suspect plan the judge is asked **once**, and its verdict is a
          * step of the record; the run is then asked once more with it in front.
          */
+        /*
+         * The mechanical check sees a plan with nothing finished and a plan
+         * carrying a refusal. It cannot see the case ADR 0038 names: a refused
+         * step, a later step that succeeded, and a report standing on both. On
+         * that suspect plan the judge is asked **once**, and its verdict is a
+         * step of the record; the run is then asked once more with it in front.
+         *
+         * The judge also reads the group's instruction, so the verdict covers the
+         * report the instruction asked for — its shape, and "never restate what an
+         * earlier one said". Asking it on **every** report needs the group to declare
+         * that its instruction asks for a shape, and this build has no such field: the
+         * instruction is prose, and the harness never parses prose. That half is owed
+         * (`docs/plans/agents-reloaded-again.md`, R10).
+         */
         const judged = current.plan.filter((step) => step.what === JUDGE_CHECKED).length;
         const firstFailed = current.plan.findIndex((step) => step.state === "failed");
         const suspect =

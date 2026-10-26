@@ -485,6 +485,20 @@ obeyed — the 2026-10-26 runs never wrote a report at all, and nothing said so.
 *Proof*: the judge's prompt on a forty-step plan stays within the prompt bound, and a
 report missing a field the instruction names fails a task of the eval.
 
+**Built:** the judge reads the plan's **tail** — the last six steps with their answers,
+every earlier one as its call and state — so a forty-step plan of four-kilobyte
+outcomes is a call a fraction of what it was (`JUDGE_STEPS_WHOLE`, `agent/model.ts`).
+And its verdict is about the report the group's instruction asked for: the instruction
+travels in the call, so a shape it declares and a "never restate what an earlier one
+said" are part of what stands.
+
+**Owed:** firing on **every** report rather than only on a suspect plan. It needs the
+group to *declare* that its instruction asks for a shape, and `InstructionDoc` carries
+prose only (`instruction`, `areas`, `surfaces`): a field an operator fills would be the
+signal, and the harness never parses prose. Until it exists, the shape is enforced where
+the judge already fires, and a run whose plan is clean is judged by the mechanical
+check alone.
+
 ### R11 — The system turn says less, and shows one worked case
 
 The choosing turn's prose is fifteen imperatives, several of which R2 makes false

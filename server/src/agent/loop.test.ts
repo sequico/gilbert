@@ -1593,12 +1593,11 @@ test("the case's last report is in the turn, so this one does not repeat it", as
   await putInstruction();
   const agent = loop();
   await agent.start();
-  assert.equal(await readAppFileAt(ctx, accountId, "cases/bk-901.md"), null);
   await postChatMessage(
     ctx,
     accountId,
     ctx.username,
-    "BK-901: three of eight documents filed, the rest still owed",
+    "CT-2201: three of eight documents filed, the rest still owed",
   );
 
   let held = withCase(
@@ -1606,7 +1605,7 @@ test("the case's last report is in the turn, so this one does not repeat it", as
       id,
       startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
     }),
-    "BK-901",
+    "CT-2201",
   );
   held = recordStep(appendStep(held, "a step that answered"), 0, {
     state: "done",

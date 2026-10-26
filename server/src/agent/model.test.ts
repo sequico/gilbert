@@ -1524,6 +1524,49 @@ test("the judge asks for a verdict, and refuses an answer without one", async ()
   );
 });
 
+test("the judge reads the plan's tail and the shape the instruction asked for", async () => {
+  /*
+   * A forty-step run of four-kilobyte outcomes is a call larger than any the loop
+   * makes, for a verdict that reads the states and the sentence: the last few steps
+   * carry their answers, an earlier one is its call and how it ended. And the
+   * verdict is also about the report the instruction asked for — a shape or a
+   * "never restate" is prose, and the judge is the only reader of prose (ADR 0038).
+   */
+  answerWith({ stands: false, why: "the report does not follow the shape asked for" });
+  const plan = Array.from({ length: 40 }, (_, at) => ({
+    what: `step-${at} place`,
+    state: "done" as const,
+    outcome: `${at}:${"x".repeat(4 * 1024)}`,
+    needs: null,
+  }));
+  await judgeRun(
+    { model, allowPrivateProvider: true },
+    {
+      woke: "mail created: m-1",
+      instruction: "One report per change: the booking, what arrived, what is missing.",
+      done: "done",
+      plan,
+      evidence: [],
+    },
+  );
+
+  const user = MESSAGE(0);
+  assert.ok(
+    user.length < plan.reduce((sum, step) => sum + step.outcome.length, 0) / 4,
+    "the call is a fraction of the plan it judges",
+  );
+  assert.ok(user.includes("step-0 place"), "an earlier step is still its call");
+  assert.ok(!user.includes(plan[0]?.outcome ?? ""), "but not its answer");
+  assert.ok(
+    user.includes((plan[39]?.outcome ?? "").slice(0, 200)),
+    "the steps the claim rests on are whole",
+  );
+  assert.ok(
+    SYSTEM(0).includes("the report the group's instruction asked for"),
+    "and the instruction's shape is what the verdict is about",
+  );
+});
+
 test("a provider's leaked tool markup is not prose the agent says", async () => {
   // A reasoning model sometimes emits its tool-call tokens as text; those are
   // not words the group should read in its conversation.

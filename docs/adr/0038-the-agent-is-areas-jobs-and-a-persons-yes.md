@@ -360,9 +360,16 @@ spent the provider's default budget before writing anything.
 - Before a `done` is believed, its plan is read as evidence. A `done` with **no
   finished step**, or with a refused step the run was not told about, is sent back
   once with the gap named; a second one with nothing finished ends `refused`. A
-  `done` standing on a refused step **while a later step succeeded** is not caught:
-  the judge that reads ask and evidence is owed, and when built it fires **only on
-  a suspect plan**, calibrated against a human sample.
+  `done` standing on a refused step **while a later step succeeded** is not caught
+  mechanically: the **judge** is asked once on a suspect plan, in the provider's
+  structured output, and its verdict is a step of the record. It reads the plan's
+  **tail** — the last few steps with their answers, every earlier one as its call and
+  state, because forty outcomes are a call larger than any the loop makes — and the
+  group's **instruction**, so the verdict is also about the report the instruction
+  asked for: its shape, and "never restate what an earlier one said". Asking it on
+  **every** report needs the group to declare that its instruction declares a shape,
+  and the instruction is prose: the harness never parses prose, so that half is owed
+  (`docs/plans/agents-reloaded-again.md`).
 
 ### The agent is measured on tasks it has already failed
 
@@ -401,10 +408,12 @@ wherever an answer could carry it.
 
 ## Owed
 
-- The **judge's calibration** on a human sample: the judge is built and fires only
-  on a suspect plan, and what is owed is the sample it is measured against. It
-  runs on the installation's own model, so its verdict shares that model's blind
-  spots; an installation that has a second model owes the judge one of its own.
+- The **judge's calibration** on a human sample: the judge is built, reads the plan's
+  tail and the group's instruction, and fires only on a suspect plan — what is owed is
+  the sample it is measured against, and the declared report shape that would let it
+  fire on every report. It runs on the installation's own model, so its verdict shares
+  that model's blind spots; an installation that has a second model owes the judge one
+  of its own.
 - The **live embeddings** probe: similarity is built and pinned against a stub,
   and no provider that offers embeddings has answered it yet.
 - **Pruning** the closed facts the memory keeps (`ADR-0033 OWED: memory-pruning`).

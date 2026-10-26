@@ -1470,6 +1470,9 @@ export async function decideEvent(
 /* The judge                                                           */
 /* ------------------------------------------------------------------ */
 
+/** How many of a plan's newest steps the judge reads with their answers. */
+export const JUDGE_STEPS_WHOLE = 6;
+
 /** The shape a judgement takes, as the provider's own structured output. */
 const JUDGE_SCHEMA = {
   name: "judgement",
@@ -1593,12 +1596,20 @@ export async function judgeRun(
   opts: { meter?: UsageMeter } = {},
 ): Promise<{ stands: boolean; why: string }> {
   const token = randomUUID().slice(0, 8);
+  /*
+   * The plan's **tail**, not the whole plan: a forty-step run of four-kilobyte
+   * outcomes is a call larger than any the loop makes, for a verdict that reads the
+   * states and the sentence. The last few steps carry their answers; every earlier one
+   * is its call and how it ended, which is what "a refusal, then a success" looks like.
+   */
   const steps = question.plan.map((step, at) =>
-    dataBlock(token, [
-      `step ${at + 1}: ${step.what}`,
-      `state: ${step.state}`,
-      `outcome: ${boundedText(step.outcome)}`,
-    ]),
+    at < question.plan.length - JUDGE_STEPS_WHOLE
+      ? dataBlock(token, [`step ${at + 1}: ${step.what}`, `state: ${step.state}`])
+      : dataBlock(token, [
+          `step ${at + 1}: ${step.what}`,
+          `state: ${step.state}`,
+          `outcome: ${boundedText(step.outcome)}`,
+        ]),
   );
   const evidence = question.evidence.length
     ? question.evidence.map((one) =>
@@ -1607,10 +1618,10 @@ export async function judgeRun(
     : [dataBlock(token, ["(nothing)"])];
   const system = [
     DATA_NOT_INSTRUCTIONS,
-    "You judge whether a run's report stands on what the run did.",
-    "You are given the change that woke it, the group's instruction, every step with how it ended, the objects the run touched, and the sentence it claims.",
+    "You judge whether a run's report stands on what the run did, and whether it is the report the group's instruction asked for.",
+    "You are given the change that woke it, the group's instruction, the steps it took with how each ended — the last few in full, the earlier ones as their call and state — the objects the run touched, and the sentence it claims.",
     'Answer one JSON object: {"stands": true|false, "why": "<one sentence>"}.',
-    "It stands only when the work the change asked for is finished and the sentence claims no more than the steps show. A claim resting on a refused step, or on a step that never ran, does not stand.",
+    "It stands only when the work the change asked for is finished, the sentence claims no more than the steps show, and the report is the one the instruction asked for: an instruction that declares the shape of a report, or forbids restating an earlier one, is part of what stands. A claim resting on a refused step, or on a step that never ran, does not stand.",
     "You judge the record, never the person: you grant nothing and authorise nothing.",
   ].join("\n");
   const user = [
