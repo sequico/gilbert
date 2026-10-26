@@ -584,7 +584,12 @@ on a person. A run in flight
 listed on the administration page's overview **opens its own record** from the
 row itself — the same document the group's history opens, following the poll —
 so a run that is spending is looked at where it is seen, not found later in a
-history. A group-wide stop
+history. The list itself is **newest first, and paged by a cursor** (`when|id`, the
+last row drawn) rather than by an offset: a run that ends or is archived while a
+person reads takes its own cursor with it, so a page never repeats a row or skips
+one. One comparator serves the working set, the archive, the overview and the
+chat's questions, and it reads `startedAt`, falling back to the ending instant for
+a run written before that field existed. A group-wide stop
 says **whose work it did**: the runs it closed, the ones that moved under it and
 are still in flight, the ones whose stop failed and why, and the run documents it
 could not read — a document that cannot be read is named rather than counted as
