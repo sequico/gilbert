@@ -67,8 +67,12 @@ export interface ChangesDeps {
   noteDrop(accountId: string, path: string, now: Date): Promise<void>;
   /** The drops whose burst is over, one event each. */
   dueDrops(accountId: string, now: Date): Promise<Drop[]>;
-  /** Drop a folder from the queue, once its batch was worked. */
-  forgetDrop(accountId: string, folder: string): Promise<void>;
+  /** Drop the paths an answered drop named from the queue, once its batch was worked. */
+  forgetDrop(
+    accountId: string,
+    folder: string,
+    answered: readonly string[],
+  ): Promise<void>;
   /** Take a destroyed file out of a drop still waiting. */
   forgetDropPath(accountId: string, path: string): Promise<void>;
   /** Read the one document a file change names, for the decision turn. */
@@ -713,12 +717,13 @@ export async function workChanges(
     byStart = null;
   }
   /*
-   * The drops answered here leave the queue once the batch is worked. A crash
-   * before this line leaves them, and the run's own key — the folder and the
-   * instant the drop opened — makes the next attempt the same run, not a second
-   * one.
+   * The drops answered here leave the queue once the batch is worked, and only
+   * the paths they named: a file that landed in the same folder after the drop
+   * was taken is a drop of its own. A crash before this line leaves them, and the
+   * run's own key — the folder and the instant the drop opened — makes the next
+   * attempt the same run, not a second one.
    */
-  for (const drop of due) await deps.forgetDrop(accountId, drop.folder);
+  for (const drop of due) await deps.forgetDrop(accountId, drop.folder, drop.paths);
   // The cursor moves only once the batch is answered: a read that failed
   // half-way is read again rather than lost as silence.
   deps.cursors.set(accountId, read.cursor);

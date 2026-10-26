@@ -216,18 +216,34 @@ export async function dueDrops(ctx: Ctx, accountId: string, now: Date): Promise<
   });
 }
 
-/** Drop one folder's burst from the queue, once its run has been worked. */
+/**
+ * Drop one folder's burst from the queue, once its run has been worked.
+ *
+ * `answered` is what the answered drop named, and only those paths leave: a file
+ * that landed in the same folder after the drop was taken is a new drop of its
+ * own, and removing the folder whole would forget it after the cursor had already
+ * passed it — a file nobody would report.
+ *
+ * Absent, the folder goes whole: that is a caller clearing the queue, not one
+ * answering a drop.
+ */
 export async function forgetDrop(
   ctx: Ctx,
   accountId: string,
   folder: string,
+  answered?: readonly string[],
 ): Promise<void> {
   const doc = await readPending(ctx, accountId);
-  await writePending(
-    ctx,
-    accountId,
-    doc.drops.filter((drop) => drop.folder !== folder),
-  );
+  const drops = doc.drops.flatMap((drop): Drop[] => {
+    if (drop.folder !== folder) return [drop];
+    if (answered === undefined) return [];
+    const left = drop.paths.filter((path) => !answered.includes(path));
+    if (!left.length) return [];
+    // What is left arrived after the drop was taken, so its own clock starts at
+    // the instant the last of them did, not at the first file's.
+    return [{ ...drop, paths: left, firstAt: drop.lastAt }];
+  });
+  await writePending(ctx, accountId, drops);
 }
 
 /**

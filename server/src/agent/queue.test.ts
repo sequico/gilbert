@@ -152,6 +152,36 @@ test("a file removed before its drop is answered is not reported", async () => {
   await forgetDrop(ctx, accountId, FOLDER);
 });
 
+test("a file that lands after its drop was taken is a drop of its own", async () => {
+  /*
+   * The pass takes the due drop and, in the same batch, notes a file that landed
+   * in the same folder. The answered drop's paths leave the queue; removing the
+   * folder whole would forget the later file after the cursor had already passed
+   * it, so nobody would report it.
+   */
+  await noteFile(ctx, accountId, `${FOLDER}/a.pdf`, at(0));
+  const [due] = await dueDrops(ctx, accountId, at(10));
+  assert.ok(due, "the first file's drop is due");
+  await noteFile(ctx, accountId, `${FOLDER}/b.pdf`, at(10));
+  await forgetDrop(ctx, accountId, FOLDER, due.paths);
+
+  const kept = await readAppFileAt(ctx, accountId, "pending.json");
+  const doc = JSON.parse(kept?.text ?? "{}") as { drops?: unknown };
+  assert.deepEqual(
+    doc.drops,
+    [
+      {
+        folder: FOLDER,
+        paths: [`${FOLDER}/b.pdf`],
+        firstAt: at(10).toISOString(),
+        lastAt: at(10).toISOString(),
+      },
+    ],
+    "the later file is still queued, on its own clock",
+  );
+  await forgetDrop(ctx, accountId, FOLDER);
+});
+
 test("a queue that cannot be read stops the pass instead of forgetting the drop", async () => {
   // The files it names were consumed from the change log already: reading the
   // damage as "nothing pending" would forget them in silence.

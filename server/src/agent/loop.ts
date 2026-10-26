@@ -1306,7 +1306,8 @@ export class AgentLoop {
           openRun: (a, e, r, from, about, by) => this.openRun(a, e, r, from, about, by),
           noteDrop: (a, path, at) => noteFile(this.ctx, a, path, at),
           dueDrops: (a, at) => dropsDue(this.ctx, a, at),
-          forgetDrop: (a, folder) => dropForgotten(this.ctx, a, folder),
+          forgetDrop: (a, folder, answered) =>
+            dropForgotten(this.ctx, a, folder, answered),
           forgetDropPath: (a, path) => dropPathForgotten(this.ctx, a, path),
           readEventFile: (a, path) => this.readEventFile(a, path),
           modelAnswered: () => {
