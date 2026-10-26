@@ -86,11 +86,11 @@ export function sliceRun(run: RunDoc, at: string): RunDoc {
   return { ...run, slice: at };
 }
 
-/** Whether a pass left this run on purpose, and clear the mark as it is resumed. */
-export function resumeRun(run: RunDoc): { run: RunDoc; sliced: boolean } {
-  if (run.slice === undefined) return { run, sliced: false };
+/** Clear the mark a pass left, so the next crash is read as a crash again. */
+export function resumeRun(run: RunDoc): RunDoc {
+  if (run.slice === undefined) return run;
   const { slice: _left, ...rest } = run;
-  return { run: rest, sliced: true };
+  return rest;
 }
 
 /**

@@ -1849,7 +1849,7 @@ export class AgentLoop {
      * is cleared here, so a process that dies mid-run is still read as a crash and pays
      * the minute's backoff.
      */
-    current = resumeRun(current).run;
+    current = resumeRun(current);
     /** When this pass began working on this run: the slice is measured from here. */
     const workStarted = Date.now();
     /*

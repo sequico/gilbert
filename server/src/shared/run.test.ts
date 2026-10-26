@@ -282,12 +282,8 @@ test("a pass marks a run it left on purpose, and resuming clears the mark", () =
   const sliced = sliceRun(run, "2026-10-26T12:00:00.000Z");
   assert.equal(sliced.slice, "2026-10-26T12:00:00.000Z", "the mark is the instant");
   assert.equal(sliced.state, "running", "and the run has not ended");
-  assert.deepEqual(resumeRun(sliced), { run, sliced: true }, "resuming clears it");
-  assert.deepEqual(
-    resumeRun(run),
-    { run, sliced: false },
-    "a run never sliced is untouched",
-  );
+  assert.deepEqual(resumeRun(sliced), run, "resuming clears the mark and nothing else");
+  assert.equal(resumeRun(run), run, "a run never sliced is untouched");
 
   const stored = parseRunDocumentDetailed(JSON.stringify(sliced));
   assert.ok("run" in stored, "the document reads back");
