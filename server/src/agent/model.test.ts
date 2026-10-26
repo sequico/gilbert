@@ -1633,6 +1633,28 @@ test("a question about the account is answered in lines, and never in facts", as
     (err: unknown) => err instanceof ModelError && /never in "lines"/.test(err.message),
     "and a change answered in lines is refused",
   );
+
+  /*
+   * A reader that asks for a brief asks for another model call inside its own: each
+   * one is free to do it again, so the depth is the model's to choose and the tool's
+   * to refuse.
+   */
+  answers = [];
+  seen = [];
+  answerWith({
+    read: { tool: "open", arguments: { what: "brief", question: "and this one?" } },
+  });
+  await assert.rejects(
+    () =>
+      decideEvent(
+        { model, allowPrivateProvider: true },
+        { ask: { question: "What does the thread say?" }, prose },
+        toolCall(),
+      ),
+    (err: unknown) =>
+      err instanceof ModelError && /never another brief/.test(err.message),
+    "a reader cannot open another reader",
+  );
 });
 
 test("a provider's leaked tool markup is not prose the agent says", async () => {

@@ -1518,7 +1518,7 @@ export async function decideEvent(
     const parsed = parseAnswerDetailed(answer);
     if ("problem" in parsed)
       throw new ModelError("model_answer_malformed", parsed.problem);
-    if (reader) {
+    if (reader && parsed.answer.kind !== "read") {
       if (parsed.answer.kind === "lines") return parsed.answer;
       throw new ModelError(
         "model_answer_malformed",
@@ -1551,6 +1551,21 @@ export async function decideEvent(
      * a message that is not there -- is `failSoft`: the next turn is told what
      * happened, instead of the pass dying before a run could be opened.
      */
+    /*
+     * A reader does not ask another reader: `open` carries `brief`, and a brief
+     * reached from inside one is a model call that opens a model call, each willing to
+     * do it again — depth the harness would not bound and money nobody approved. The
+     * line names the other door, because the model can use it.
+     */
+    const asked =
+      isRecord(parsed.answer.args) && typeof parsed.answer.args.what === "string"
+        ? parsed.answer.args.what
+        : "";
+    if (reader && parsed.answer.name === "open" && asked === "brief")
+      throw new ModelError(
+        "model_answer_malformed",
+        'A reader looks things up itself: answer {"read": {"tool": "open", "arguments": {"what": "..."}}} with the object you need, and never another brief.',
+      );
     const result = await runTool(
       READING_TOOLS,
       call,
