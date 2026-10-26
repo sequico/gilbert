@@ -36,22 +36,21 @@ read by entity and interval, the embeddings capability probed with the provider'
 others, the run recording `retrieval` beside `recalled`, and precision and recall
 measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
-**Not built:** everything in *Owed*. What the turn opens with is built: the message
-the change carried (`StepQuestion.written`), the **thread's lines**
-(`agent/thread.ts`), the last report a case sent, and the case the account holds — the
-knowledge base's page titles and the group's Files two levels deep, names only
-(`caseOf`, `StepQuestion.case`) — plus, for a case bigger than a turn, the **reader**:
-`open` carries `brief`, one question answered in a few lines by `decideEvent` asked a
-question instead of shown a change (the same write-free catalogue, one lookup, an answer
-of `lines`, and no act), so the investigation stays in its own context
-(`agent/tools/reader.ts`). The run ceilings this record refuses are gone from
-the loop (`overBudget` and the run's step, call, time and token endings), the valve
-is `RUN_TURNS_MAX`, and the turn is the appended transcript above (`prompt.ts`):
-every outcome written once, at the size it arrived, and never rewritten — compacted,
-not re-rendered, past `COMPACT_AFTER_CHARS` by one call that folds the older steps
-into the case's note and a mark (`compactedUpTo`) under which they keep a line each
-(`shared/run.ts`, `agent/model.ts`'s `summarisePlan`). What is still owed is the
-case's place in the turn. The work is
+**The turn's own context is built:** the message the change carried
+(`StepQuestion.written`), the **thread's lines** (`agent/thread.ts`), the last report a
+case sent, and the case the account holds — the knowledge base's page titles and the
+group's Files two levels deep, names only (`caseOf`, `StepQuestion.case`) — plus, for a
+case bigger than a turn, the **reader**: `open` carries `brief`, one question answered
+in a few lines by `decideEvent` asked a question instead of shown a change (the same
+write-free catalogue, one lookup, an answer of `lines`, and no act), so the
+investigation stays in its own context (`agent/tools/reader.ts`). **No ceiling ends a
+run:** the ceilings this record refuses are gone from the loop (`overBudget` and the
+run's step, call, time and token endings), and the valve is `RUN_TURNS_MAX`. The turn
+is the appended transcript above (`prompt.ts`): every outcome written once, at the size
+it arrived, and never rewritten — compacted, not re-rendered, past
+`COMPACT_AFTER_CHARS` by one call that folds the older steps into the case's note and a
+mark (`compactedUpTo`) under which they keep a line each (`shared/run.ts`,
+`agent/model.ts`'s `summarisePlan`). **Not built:** everything in *Owed*. The work is
 `docs/plans/agents-reloaded-again.md`.
 
 ## What this replaces, and what it keeps
