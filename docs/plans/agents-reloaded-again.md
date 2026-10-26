@@ -10,6 +10,9 @@ authorisation.
 This plan supersedes nothing: it is the current shape of the work, written after
 the three failed runs of 2026-10-26 were read step by step. The window, the digest
 and the budget line shipped on 2026-10-26 are what it builds on, not part of it.
+**The records now state these decisions** — ADR 0030, 0034 and 0038 were rewritten
+on the points below — and each one's Implementation line says what the tree still
+contradicts; this document is the work that closes the gap.
 
 ## 1. What the record says
 
@@ -66,10 +69,12 @@ no `say` in any plan). Two ran on the build before the window and identity fixes
   route sorts by date. The surface asks for fifty rows at a time and sorts the page
   it was given, so a group past fifty runs shows a history that ends at the
   fifty-first document ever filed — the owner's "nothing since 21 October" — while
-  today's three runs are in `freight/runs`. The chat does not show a run log at all:
-  it asks the same listing for the runs in flight, with a limit of a thousand, to
-  draw the **questions** a parked run left, so it is safe only while a group holds
-  fewer than a thousand documents.
+  today's three runs are in `freight/runs`. The folder was already far past fifty on
+  21 October: the export of that day holds **171 runs**, 29 of them without a
+  `startedAt` (which is why the recency key needs its `ended.at` fallback). The chat
+  does not show a run log at all: it asks the same listing for the runs in flight,
+  with a limit of a thousand, to draw the **questions** a parked run left, so it is
+  safe only while a group holds fewer than a thousand documents.
 - **No per-step cost exists in the document**: `spent` is a single total, and an
   ending names a ceiling without the value it had. Where a failed run's seconds
   and tokens went cannot be read from it.
