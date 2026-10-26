@@ -440,6 +440,14 @@ own shape is read once before the first turn — the knowledge base's page title
 the group's Files two levels deep, names only, bounded, and absent when the run's
 areas keep that surface away (`server/src/agent/changes.ts`, `agent/loop.ts`).
 
+**The case keeps a note the next increment reads** (ADR 0034): the agent's own
+scratchpad, one file per case at `gilbert/cases/<key>.md` in the group's own account,
+written by the `note` tool and carried whole in every turn of the case. The run records
+which case it worked (`caseKey`), the turn lists the keys already on file, and an
+increment that follows reads what the one before learned — the folder, the rule, what
+was reported, what is owed — instead of looking for it again
+(`server/src/agent/case.ts`).
+
 ## The agent is measured on the tasks it has failed
 
 **The agent is measured on eleven tasks in the repository** (ADR 0038,

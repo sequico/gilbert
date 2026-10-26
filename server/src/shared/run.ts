@@ -56,30 +56,17 @@ export interface RunLimits {
 }
 
 /**
- * The most of a case note the record keeps and every turn carries.
+ * Name the case this run works, once it is known (ADR 0034).
  *
- * A note is carried **whole** on every turn, so it is bounded where it is written
- * rather than clipped where it is read: the model that wrote it sees the cut in its
- * own answer and rewrites it shorter. Four kilobytes is about a thousand tokens, and
- * a note that needs more is a note that has stopped being working memory.
+ * The key is the group's own name for the case — what its report calls it — and it
+ * is what a later increment computes again to read the note. A run that changes its
+ * mind renames the case; the record says which one the work was filed under.
  */
-export const NOTE_MAX = 4 * 1024;
-
-/**
- * Keep the case's note, replacing whatever it held.
- *
- * The working memory of one case (ADR 0034): written by the model, carried by every
- * turn. What must outlive the case is a fact in the memory (ADR 0033), not a longer
- * note.
- */
-export function setNote(run: RunDoc, text: string): RunDoc {
+export function withCase(run: RunDoc, key: string): RunDoc {
   mustBeRunning(run);
-  const kept = text.trim();
-  if (!kept) {
-    const { note: _dropped, ...rest } = run;
-    return rest;
-  }
-  return { ...run, note: kept.length > NOTE_MAX ? `${kept.slice(0, NOTE_MAX)}…` : kept };
+  const kept = key.trim();
+  if (!kept) return run;
+  return run.caseKey === kept ? run : { ...run, caseKey: kept };
 }
 
 /**
@@ -507,16 +494,14 @@ export interface RunDoc {
    */
   limits?: RunLimits;
   /**
-   * The case's scratchpad, as the model wrote it (ADR 0034).
+   * The case this run works, by the key the group's report calls it (ADR 0034).
    *
-   * Working memory, not the record's evidence: the reference the case is known by,
-   * where its work goes, the rule it followed, what was already reported and what
-   * is owed. It travels **whole** in every turn — the instruction asks the agent
-   * to record what it needs and not to re-read a page it has already read, and this
-   * is the place it records it. What must outlive the case is a fact in the memory
-   * (ADR 0033), not a longer note.
+   * A **reference, never the note itself**: the scratchpad is a file in the agent's
+   * own bookkeeping (`agent/case.ts`, `gilbert/cases/<key>.md`), one per case, so the
+   * next increment of the same case reads what this run learned. Until the case has a
+   * name the run works under its own id, and a `note` call that names it moves it.
    */
-  note?: string;
+  caseKey?: string;
   /**
    * How many of the plan's steps the case's note now summarises (ADR 0038).
    *
@@ -997,8 +982,8 @@ export function parseRunDocumentDetailed(
       problem:
         '"limits" must be the three ceilings the installation had in force when the run opened.',
     };
-  if (whole.note !== undefined && typeof whole.note !== "string")
-    return { problem: '"note" must be the text the case kept.' };
+  if (whole.caseKey !== undefined && typeof whole.caseKey !== "string")
+    return { problem: '"caseKey" must be the name of the case this run worked.' };
   const compactedUpTo = whole.compactedUpTo;
   if (
     compactedUpTo !== undefined &&
@@ -1035,7 +1020,7 @@ export function parseRunDocumentDetailed(
       ...(whole.startedAt === undefined ? {} : { startedAt: whole.startedAt }),
       startedBy: whole.startedBy,
       ...(whole.limits === undefined ? {} : { limits: whole.limits }),
-      ...(whole.note === undefined ? {} : { note: whole.note }),
+      ...(whole.caseKey === undefined ? {} : { caseKey: whole.caseKey }),
       ...(compactedUpTo === undefined ? {} : { compactedUpTo }),
       plan: whole.plan,
       touched: whole.touched,

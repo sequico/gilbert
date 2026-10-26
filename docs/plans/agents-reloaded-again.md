@@ -301,6 +301,21 @@ holds was read as five different subjects because nothing wrote one down once.
 the note holding the key, the place, the rule and the last report, and no knowledge
 page is opened twice for one case.
 
+**Built:** the note is the case's file, not the run's field. `agent/case.ts` keeps it
+at `gilbert/cases/<slug>.md` in the group's own app folder (4 KB, written as bytes so
+the Markdown the model writes is the Markdown it reads back); the `note` tool writes it
+and answers the key it filed it under, so a `note` call that names the case moves the
+note and the run records `RunDoc.caseKey` — a reference, never a copy. Each turn reads
+the note and lists the **keys already on file**, names only, so the second increment of
+a case reads what the first learned instead of looking for the folder again. Compaction
+writes its summary through the same path. A request that cannot read or list the note
+leaves that block out and logs it: the case is an advantage, never a reason a run
+cannot start.
+
+**Owed:** folding a burst of mail into one case is still the group's own choice (the
+drop queue folds a folder's files; a delivery that arrives as one mail per item stays
+one run per mail, and the note is what makes the second one cheap).
+
 ### R4 — Four verbs instead of eight jobs
 
 `open` (one object or **several at once**: a message with its attachments, a thread,

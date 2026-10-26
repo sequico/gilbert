@@ -258,6 +258,12 @@ export function stepData(question: StepQuestion): string {
           dataBlock(token, [question.note]),
         ]
       : []),
+    ...(question.cases?.length
+      ? [
+          "The cases already on file here, names only. A case you have worked before keeps its name:",
+          dataBlock(token, [...question.cases]),
+        ]
+      : []),
     ...(question.openQuestions?.length
       ? [
           "Questions this group already has open on a person. Do not ask one of these again:",

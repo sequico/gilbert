@@ -1385,12 +1385,13 @@ test("a run records the limits in force and the time each step took", async () =
   );
 });
 
-test("a note the model keeps travels to the next turn", async () => {
+test("a note the model keeps is a file the next turn reads, under the case it names", async () => {
   /*
    * The instruction asks for it — "record what you need in memory, do not re-read a
-   * page you have already read" — and until now the harness gave the model nowhere
-   * to write it, so it obeyed by re-reading. The note is the run's own document, not
-   * the account's: no step, no authority, and the next turn reads it whole.
+   * page you have already read" — and a run used to obey by re-reading because the
+   * harness gave it nowhere to write. The note is the **case's** file in the agent's
+   * own bookkeeping (ADR 0034), so the next increment of the same case reads it; the
+   * run records the key it was filed under, and keeping it spends no step.
    */
   const id = "intake-note";
   await putInstruction();
@@ -1399,7 +1400,7 @@ test("a note the model keeps travels to the next turn", async () => {
   const note = "BK-901 · folder MS2/BK-901 · naming: <ref> <container>";
 
   answerWith({ facts: {} });
-  answerWith({ calls: [{ name: "note", arguments: { text: note } }] });
+  answerWith({ calls: [{ name: "note", arguments: { text: note, key: "BK-901" } }] });
   answerWith({ done: "the note is kept" });
   const message = await deliver("a change that needs a note");
   await agent.pass();
@@ -1407,16 +1408,35 @@ test("a note the model keeps travels to the next turn", async () => {
   const run = (await listRuns(ctx, accountId))
     .map((record) => record.run)
     .find((one) => one.startedBy.woke === `mail created: ${message}`);
-  assert.equal(run?.note, note, "the run keeps the note the model wrote");
+  assert.equal(run?.caseKey, "BK-901", "the run says which case it worked");
   assert.equal(run?.state, "done", "the run finished after keeping it");
   assert.equal(
     run?.spent.steps,
     0,
-    "and keeping it spent no step: it is the run's memory, not an act",
+    "and keeping it spent no step: it is the case's memory, not an act",
   );
+  const file = await readAppFileAt(ctx, accountId, "cases/bk-901.md");
+  assert.equal(file?.text.trim(), note, "the note is the case's own file");
+
   const turns = seen.filter(({ user }) => user.includes("What this case has kept"));
   assert.ok(turns.length >= 1, "the turn after it is handed the note");
   assert.ok(turns[0]?.user.includes(note), "whole, as it was written");
+  /*
+   * The point of filing it by case rather than by run: the **next** run of the same
+   * case is told the case is on file, so the increment after this one reads what this
+   * one learned instead of looking for the folder again.
+   */
+  answerWith({ facts: {} });
+  answerWith(aLook());
+  answerWith({ done: "the second change is answered" });
+  await deliver("a second change of the same case");
+  await agent.pass();
+  const later = seen.filter(({ user }) => user.includes("The cases already on file"));
+  assert.ok(later.length >= 1, "a later run is told which cases are on file");
+  assert.ok(
+    later.at(-1)?.user.includes("bk-901"),
+    "with the key the note was filed under",
+  );
 });
 
 test("an act the run carries no authority for is refused, and the refusal is on the run", async () => {
@@ -1587,7 +1607,8 @@ test("a transcript past its bound is folded into the note, and the turn keeps a 
 
   const run = (await readRun(ctx, accountId, id))?.run;
   assert.equal(run?.compactedUpTo, 12, "the steps above the last six are folded");
-  assert.equal(run?.note, note, "the summary is the case's note");
+  const file = await readAppFileAt(ctx, accountId, `cases/${id}.md`);
+  assert.equal(file?.text.trim(), note, "the summary is the case's note");
   assert.equal(run?.plan.length, 18, "and no step left the record");
   const folded = seen.filter(({ user }) => user.includes("summarised in the note above"));
   assert.ok(folded.length >= 1, "the turn after it hands the folded steps as lines");

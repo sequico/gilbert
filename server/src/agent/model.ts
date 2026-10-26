@@ -1983,6 +1983,14 @@ export interface StepQuestion {
   /** What a run's first turn is handed of its case, read once (ADR 0038). */
   case?: CaseHeld;
   /**
+   * The keys of the cases already on file, names only (ADR 0034).
+   *
+   * A run recognises a case it has seen before without a lookup — the note of a case
+   * is what the increment before this one kept, and its key is what the group's own
+   * report called it.
+   */
+  cases?: string[];
+  /**
    * The words the change carried, as the pass already read them (ADR 0038).
    *
    * The decision turn was handed them to decide with; the working turn is handed the

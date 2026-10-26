@@ -112,7 +112,7 @@ import {
   recordStep,
   spendRun,
   startRun,
-  setNote,
+  withCase,
   takeAnswer,
   takeAuthorisation,
   waitUntil,
@@ -125,6 +125,7 @@ import { writeSurfacesOf } from "../shared/areas.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
+import { listCases, readCaseNote, writeCaseNote } from "./case.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
 import {
   chatWoken,
@@ -183,7 +184,7 @@ import {
   TOOLS,
   type ToolCall,
 } from "./tools.js";
-import { noteOf } from "./tools/note.js";
+import { caseOf } from "./tools/note.js";
 
 /**
  * The other ceilings a run's budget is measured against (ADR 0027).
@@ -1398,6 +1399,36 @@ export class AgentLoop {
     return held;
   }
 
+  /**
+   * The case's note, read from its own file (ADR 0034).
+   *
+   * The key is the case the run works, or the run itself until the case has a name:
+   * a change that names no case yet still keeps what its turns learned, and the first
+   * `note` call that names the case moves the note with it.
+   */
+  private async noteOfCase(accountId: string, run: RunDoc): Promise<string | null> {
+    try {
+      const held = await readCaseNote(this.ctx, accountId, run.caseKey ?? run.id);
+      return held?.text ?? null;
+    } catch (err) {
+      this.opts.log?.(
+        `[gilbert] agent: run ${run.id} could not read its case note: ${errorMessage(err)}`,
+      );
+      return null;
+    }
+  }
+
+  /** The cases already on file, names only — the index a turn recognises one by. */
+  private async casesOnFile(accountId: string): Promise<string[]> {
+    try {
+      return await listCases(this.ctx, accountId);
+    } catch (err) {
+      this.opts.log?.(
+        `[gilbert] agent: ${accountId} could not list its cases: ${errorMessage(err)}`,
+      );
+      return [];
+    }
+  }
   /** Open the run a change the group's instruction covers is answered by. */
   private async openRun(
     accountId: string,
@@ -1795,6 +1826,8 @@ export class AgentLoop {
      * has both open, and the failing runs spent their first ten steps opening them.
      */
     const held = await this.caseOf(accountId, current);
+    /* The cases already on file: the index a turn recognises one of its own by. */
+    const caseKeys = await this.casesOnFile(accountId);
     let previous: string | null = null;
     /*
      * A refusal is not an ending: an answer the parser cannot read, an answer
@@ -1827,6 +1860,13 @@ export class AgentLoop {
         );
       }
       /*
+       * The case's scratchpad, read from its own file for this turn (ADR 0034): the
+       * increments of one case read what the one before learned, and a run resumed by
+       * a later pass reads what its own earlier turns wrote. It is one document read,
+       * not a step.
+       */
+      let note = await this.noteOfCase(accountId, current);
+      /*
        * The transcript is appended and never rewritten (ADR 0038), so what bounds a
        * turn is a summary: once the steps above the mark carry more than a turn
        * should, the model folds everything older than the last few into the case's
@@ -1839,17 +1879,24 @@ export class AgentLoop {
         const folder = usageMeter();
         current = spendRun(current, { calls: 1 });
         try {
-          const note = await summarisePlan(
+          const summary = await summarisePlan(
             access,
             {
               woke: current.startedBy.woke ?? "the run was started by an instruction",
-              ...(current.note ? { note: current.note } : {}),
+              ...(note ? { note } : {}),
               folding: current.plan.slice(current.compactedUpTo ?? 0, fold),
               kept: current.plan.length - fold,
             },
             { meter: folder },
           );
-          current = spendRun(compactRun(setNote(current, note), fold), {
+          await writeCaseNote(
+            this.ctx,
+            accountId,
+            current.caseKey ?? current.id,
+            summary,
+          );
+          note = summary.trim();
+          current = spendRun(compactRun(current, fold), {
             promptTokens: folder.promptTokens,
             completionTokens: folder.completionTokens,
             cachedPromptTokens: folder.cachedTokens,
@@ -1868,7 +1915,9 @@ export class AgentLoop {
         plan: current.plan,
         prose,
         // The case's working memory: written by the model, carried whole (ADR 0034).
-        ...(current.note ? { note: current.note } : {}),
+        ...(note ? { note } : {}),
+        // The cases already on file, names only, so one of them is recognised.
+        ...(caseKeys?.length ? { cases: caseKeys } : {}),
         // How much of the plan that note already summarises (ADR 0038).
         ...(current.compactedUpTo ? { compactedUpTo: current.compactedUpTo } : {}),
         // The message the run was woken by, as the pass read it (ADR 0038).
@@ -2358,14 +2407,13 @@ export class AgentLoop {
                   : boundedText(clean.value);
             const source = sourceOf(clean.value);
             /*
-             * What the case must not forget: a `note` call changes the **run**, not
-             * the account, so the loop keeps it here rather than a tool writing a
-             * document it does not own. Every later turn of the run carries it
-             * whole, which is what the instruction's "record what you need and do
-             * not re-read" asks for (ADR 0034).
+             * The case a `note` call filed itself under (ADR 0034): the tool writes
+             * the note into the account's own bookkeeping, so what the run records is
+             * which case it worked — the text lives in one place, and every later turn
+             * of this run and of the case reads it there.
              */
-            const noted = noteOf(result.value);
-            if (noted !== undefined) current = setNote(current, noted);
+            const named = caseOf(result.value);
+            if (named !== undefined) current = withCase(current, named);
             current = recordStep(current, at, {
               state: "done",
               outcome: `${boundedText(clean.value)}${clean.withheld.length ? ` (withheld: ${clean.withheld.join(", ")})` : ""}`,

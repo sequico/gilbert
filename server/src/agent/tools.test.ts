@@ -410,9 +410,17 @@ test("the reading half this build ships holds no writer, and spends nothing", ()
   }
 
   // The other half: an act that changes the account takes a step of the run's
-  // budget, which is what makes reading free and acting cost.
-  const writers = TOOLS.filter((tool) => tool.writes);
+  // budget, which is what makes reading free and acting cost. The one writer that
+  // spends nothing is the case's own note: it changes the agent's bookkeeping, not
+  // the group's data (ADR 0034).
+  const writers = TOOLS.filter((tool) => tool.writes && tool.name !== "note");
   assert.ok(writers.length > 0, "the catalogue has acts that change the account");
+  assert.ok(
+    !READING_TOOLS.some((tool) => tool.name === "note"),
+    "and the case's note, which writes, is not handed to a turn that may only read",
+  );
+  const note = TOOLS.find((tool) => tool.name === "note");
+  assert.deepEqual(note?.spend, {}, "the note is the case's memory, not an act");
   for (const tool of writers) {
     assert.deepEqual(
       tool.spend,

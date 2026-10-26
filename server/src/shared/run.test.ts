@@ -25,14 +25,12 @@ import {
   compactRun,
   finishRun,
   isRunDue,
-  NOTE_MAX,
   parseRunDocumentDetailed,
   QUESTION_TTL_MS,
   RUN_VERSION,
   recordEvidence,
   recordRecall,
   recordStep,
-  setNote,
   spendRun,
   startRun,
   stepIdentity,
@@ -40,6 +38,7 @@ import {
   touchObject,
   waitDueAt,
   waitUntil,
+  withCase,
 } from "./run.js";
 
 const START = {
@@ -247,33 +246,28 @@ test("a step keeps the time its call took, and a run the limits in force", () =>
   assert.ok("problem" in bad, "a limits shape that is not three numbers is refused");
 });
 
-test("a case note is kept whole, cut at its bound, and cleared when empty", () => {
+test("a run records the case it works, and a later name moves it", () => {
   /*
-   * The scratchpad the instruction asks for: carried whole on every turn, so it is
-   * bounded where it is written — the model sees the cut in its own answer and
-   * rewrites it — and what must outlive the case is a fact in the memory, not a
-   * longer note (ADR 0033, 0034).
+   * The note itself is a file the agent keeps (`agent/case.ts`), so what the run
+   * carries is the **key** it was filed under — a reference, never a copy, and what a
+   * later increment computes again to read what this one learned (ADR 0034).
    */
   const run = startRun({ id: "r17", startedBy: START });
-  const noted = setNote(
-    run,
-    "  BK-901 · folder MS2/BK-901 · naming: <ref> <container>  ",
-  );
-  assert.equal(
-    noted.note,
-    "BK-901 · folder MS2/BK-901 · naming: <ref> <container>",
-    "trimmed, as the model wrote it",
-  );
-  const stored = parseRunDocumentDetailed(JSON.stringify(noted));
+  assert.equal(run.caseKey, undefined, "a run opens without a case named");
+  const named = withCase(run, "  BK-901  ");
+  assert.equal(named.caseKey, "BK-901", "trimmed, as the group's report calls it");
+  assert.equal(withCase(named, "   ").caseKey, "BK-901", "an empty name changes nothing");
+
+  const stored = parseRunDocumentDetailed(JSON.stringify(named));
   assert.ok("run" in stored, "the document reads back");
-  assert.equal(stored.run.note, noted.note, "with the note it kept");
-
-  const huge = setNote(run, "x".repeat(NOTE_MAX + 100));
-  assert.equal(huge.note?.length, NOTE_MAX + 1, "cut at the bound, with the cut visible");
-  assert.equal(setNote(noted, "   ").note, undefined, "an empty note is no note");
-
-  const bad = parseRunDocumentDetailed(JSON.stringify({ ...noted, note: 7 }));
-  assert.ok("problem" in bad, "a note that is not text is refused");
+  assert.equal(stored.run.caseKey, "BK-901", "with the case it worked");
+  assert.ok(
+    "problem" in parseRunDocumentDetailed(JSON.stringify({ ...named, caseKey: 7 })),
+    "a case that is not a name is refused",
+  );
+  assert.throws(() =>
+    withCase(finishRun(named, { at: new Date().toISOString(), why: "done" }), "x"),
+  );
 });
 
 test("a long transcript is folded up to a mark, and the mark only moves forward", () => {

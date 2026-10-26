@@ -1,39 +1,51 @@
 /**
- * The case's scratchpad: what the run must not have to learn twice (ADR 0034).
+ * The case's scratchpad, kept as a file the agent writes for itself (ADR 0034).
  *
  * The instruction asks the agent to **record what it needs** and not to re-read a
- * page it has already read; a live run obeyed by re-reading instead, because the
- * harness gave it nowhere to write. This is that place. The note is the run's
- * working memory — the reference the case is known by, where its work goes, the rule
- * it followed, what was already reported, what is still owed — and every turn of the
- * run carries it whole.
+ * page it has already read; a live run obeyed by re-reading because the harness gave
+ * it nowhere to write. This is that place, and it belongs to the **case** rather than
+ * to the run: the next increment of the same case reads what this one learned
+ * (`agent/case.ts`, `gilbert/cases/<key>.md`).
  *
- * It changes the **run document**, not the account: the tool answers the text and
- * the loop keeps it (`noteOf`), so a note costs no step and needs no authority over
- * the group's data.
+ * The tool writes the note; what it answers is the key it filed it under, so the run
+ * records which case it worked.
  */
-import { setNote } from "../../shared/run.js";
-import { argsRecord, textArg } from "./args.js";
+import { argsRecord, optionalTextArg, textArg } from "./args.js";
 import { defineTool } from "./define.js";
+import { writeCaseNote } from "../case.js";
 
-export const noteTool = defineTool<{ text: string }>({
+export const noteTool = defineTool<{ text: string; key?: string }>({
   name: "note",
   description:
-    "Keep what this case must not forget: the reference it is known by, where its " +
-    "work goes, the rule it follows, what was already reported, and what is still " +
-    "owed. The next turn reads it whole, so write what you would otherwise look up " +
-    "again. Rewriting it replaces it; an empty text clears it.",
+    "Keep what this case must not forget: the key the group's report calls it by, " +
+    "where its work goes, the rule it follows, what was already reported, and what is " +
+    "still owed. Give `key` the first time you know the case's name — it becomes the " +
+    "case the next increment reads — and the whole note as `text`, which replaces what " +
+    "was there. An empty `text` clears it.",
   authority: "reversible",
-  writes: false,
+  writes: true,
   spend: {},
-  args: { text: { type: "text" } },
-  parse: (raw: unknown) => ({ text: textArg(argsRecord(raw), "text") }),
-  run: async (_call, { text }) => ({ note: text }),
+  args: { text: { type: "text" }, key: { type: "text" } },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { text: textArg(args, "text"), key: optionalTextArg(args, "key") };
+  },
+  run: async ({ ctx, accountId, run }, { text, key }) => {
+    /*
+     * The case a run works: the one its own document names, or — the first time a
+     * case is named — the change that woke it. Naming it here is how the note moves
+     * from the run's own id to the group's name for the case, and every later turn of
+     * this run reads it back under the new name.
+     */
+    const held = key?.trim() || run.caseKey || run.id;
+    await writeCaseNote(ctx, accountId, held, text);
+    return { case: held, note: text.trim() };
+  },
 });
 
-/** The note a tool's answer asked the run to keep, when it asked for one. */
-export function noteOf(outcome: unknown): string | undefined {
+/** The case key a note call answered with, when it answered with one. */
+export function caseOf(outcome: unknown): string | undefined {
   if (!outcome || typeof outcome !== "object") return undefined;
-  const note = (outcome as { note?: unknown }).note;
-  return typeof note === "string" ? note : undefined;
+  const key = (outcome as { case?: unknown }).case;
+  return typeof key === "string" && key.trim() ? key.trim() : undefined;
 }

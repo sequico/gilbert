@@ -23,9 +23,11 @@ content of its bytes, and an identifier a model cannot read is asked for as
 on the run it opens, and a run's end is stamped when it ends
 (`server/src/agent/loop.ts`). The Work panel shows steps taken and failed steps
 as the two tallies they are (`web/src/views/admin/agents/AgentOverview.tsx`).
-**Not built:** the mail drop and the case's scratchpad. A message is still its own
-change and its own run — `changes.ts` folds a folder's files, not a case's mail —
-and a run's working memory is its plan, with no `gilbert/cases/` note. The work is
+**Not built:** the mail drop. A message is still its own change and its own run —
+`changes.ts` folds a folder's files, not a case's mail. The case's scratchpad is built:
+`agent/case.ts` keeps `gilbert/cases/<key>.md`, the `note` tool writes it under the key
+the group's report calls the case, the run records that key (`RunDoc.caseKey`), and the
+turn reads the note and lists the keys already on file. The work that remains is
 `docs/plans/agents-reloaded-again.md`.
 
 ## Context
