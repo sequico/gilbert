@@ -356,7 +356,7 @@ export const openJob = job({
  * fact, propose a page, settle a workorder step. The endpoint behind each value is
  * unchanged, so the class of the act, the surface it writes and the wait it takes are
  * still read from the endpoint itself (`authorityOf`, `surfaceOf`, `waitsOf`), and the
- * areas narrow the values exactly as they did when these were five verbs.
+ * areas narrow the values by the area the instruction declares.
  */
 export const actJob = job({
   name: "act",

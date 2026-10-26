@@ -1,10 +1,10 @@
 /**
- * The job call a former endpoint name is, for the tests that were written
- * against the forty-five endpoint tools (ADR 0038).
+ * The verb call a former endpoint name means, for the tests that were written
+ * against the endpoint tools (ADR 0038).
  *
- * Test support only: the product's catalogue is eight jobs, and a test that
- * says `mail.folders` means `find kind: folders`. Keeping the translation in
- * one place is what stops each test file inventing its own.
+ * Test support only: the product's catalogue is four verbs, and a test that
+ * says `mail.folders` means `open` with `what: "folders"`. Keeping the translation
+ * in one place is what stops each test file inventing its own.
  */
 export function jobCall(
   name: string,

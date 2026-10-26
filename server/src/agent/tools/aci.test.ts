@@ -1,9 +1,9 @@
 /**
- * The interface rules the eight jobs keep, checked (ADR 0038).
+ * The interface rules the four verbs keep, checked (ADR 0038).
  *
  * A live installation measured what a badly shaped interface costs — 260 refused
  * steps across 94 of 171 runs, invented names, a mailbox id where a message id
- * belongs — and the eight jobs answered it. What keeps a ninth job from becoming
+ * belongs — and the verbs answered it. What keeps a fifth verb from becoming
  * the forty-fifth is not the habit of whoever writes it but these five rules,
  * stated in `jobs.ts`'s header and held here: a name the provider accepts, one
  * verb for one meaning, one discriminator with a schema branch per value, a
