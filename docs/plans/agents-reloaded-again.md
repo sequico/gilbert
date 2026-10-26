@@ -259,23 +259,28 @@ same drop.
 
 ### R4 — Four verbs instead of eight jobs
 
-`open` (a message and its attachments, a thread, a folder, a page), `act` (file it,
-draft it, send it, settle the step), `note` (R3), `say` (say it). The endpoints
+`open` (one object or **several at once**: a message with its attachments, a thread,
+a folder, a page — a set answered in one call), `act` (file it, draft it, send it,
+settle the step), `note` (R3), `say` (say it). The endpoints
 stay where they are; the verbs are a façade whose **arguments are intentions** —
-a thread, a booking, a folder — not an endpoint's ids. The façade keeps what the
-guard asks of each endpoint (`authorityOf`, `surfaceOf`, `waitsOf`), so the class
-of an act and the surface it writes are still read from the act itself.
+a thread, a booking, a folder, a set of messages — not an endpoint's ids. The
+façade keeps what the guard asks of each endpoint (`authorityOf`, `surfaceOf`,
+`waitsOf`), so the class of an act and the surface it writes are still read from
+the act itself.
 *Where*: `agent/tools.ts` and `agent/tools/jobs.ts` (the façade over the existing
 endpoint modules), `agent/model.ts` (the catalogue the turn is given, and the
 signature lines beside it), ADR 0038 rewritten on the point.
 *Why*: 12 315 characters of definitions and 1 807 of signature lines per turn — about
 4 000 of a turn's 6 200-7 500 prompt tokens — to choose among some forty endpoints;
 and the model still picked the wrong one (`read {"kind":"run"}` with an invented
-id, three times across the three runs). The signature lines exist because a
+id, three times across the three runs). A run that needs four objects spends four
+turns asking for them one at a time: the 10:41 run asked for one message twelve
+times, one call each. The signature lines exist because a
 model once invented names from a catalogue it had not read; four verbs with intents
 do not need the second list.
 *Proof*: the schema the turn is given is measured — a third of today's characters —
-and the eval's refusals for an unknown name or a wrong argument stay at zero.
+the eval's refusals for an unknown name or a wrong argument stay at zero, and a set
+of four known messages is opened by one call.
 
 ### R5 — No ceiling on a run; the nets are safety, not accounting
 
@@ -446,8 +451,9 @@ a run arrives repeats no row and skips none.
 - **Step or call ceilings as endings**: the same cage in smaller numbers.
 - **A `progress` ending**: with no ceilings (R5) a run has no need to report in
   order to continue.
-- **More tools** (a thread tool, a batch read, a mail-specific tool per case):
-  each is a variant of R2. The case is assembled by the loop, once.
+- **A thread tool or a mail-specific tool per case**: R2's reader answers a question
+  about a thread or a folder, and R4's `open` takes a set of objects in one call; a
+  third shape beside them would be the same work under a new name.
 - **A bigger carried-whole window**: three answers is a heuristic; the case note
   (R3) is the mechanism that replaces it. The window stays as recency.
 - **A different model first**: the 13:35 run followed the right path at 6 s a
