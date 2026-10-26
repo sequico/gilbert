@@ -227,6 +227,7 @@ test("the agent's own documents are not activity, and the cases it keeps are amo
   await writeAppFileAt(ctx, accountId, "cases/bk-901.md", {
     note: "the case's own words",
   });
+  await writeAppFileAt(ctx, accountId, "trash.json", { origins: {} });
   await writeAppFileAt(ctx, accountId, "agent/status.json", { v: 1 });
 
   const { events } = await readAccountEvents(ctx, accountId, anchor);

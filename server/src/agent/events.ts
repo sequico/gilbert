@@ -84,7 +84,7 @@ import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
 import { isRecord } from "../shared/json.js";
 import { mailboxesOf } from "../shared/mailboxes.js";
-import { isTrashPath } from "../shared/trash.js";
+import { isTrashPath, TRASH_DOCUMENT } from "../shared/trash.js";
 import { clientOf } from "../util.js";
 import {
   type AccountEvent,
@@ -270,6 +270,9 @@ function isAgentPath(path: string): boolean {
     rel === PENDING_FILE ||
     rel === CURSOR_FILE ||
     rel === NOTICE_CURSOR_FILE ||
+    // The origins a deletion records, so a restore can put it back (ADR 0013):
+    // both tiers write it, and it is nobody's activity.
+    rel === TRASH_DOCUMENT ||
     rel.startsWith(`${RUNS_DIR}/`) ||
     // The folder the old rules lived in is the agent's bookkeeping while a clear
     // may still remove it (ADR 0038): its documents are not the group's activity.
