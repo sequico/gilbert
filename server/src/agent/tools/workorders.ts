@@ -71,7 +71,7 @@ export const listWorkorders = defineTool({
     "the name, the state, and how many of this account's steps are still open. " +
     `\`limit\` is how many to answer with (at most ${WORKORDER_LIST_MAX}); ` +
     "`total` and `truncated` say whether there are more. Read one with " +
-    "workorder.read, by the uid this answers.",
+    '`open` (`what: "workorder"`), by the uid this answers.',
   authority: "reversible",
   writes: false,
   args: { limit: { type: "number", min: 1, max: WORKORDER_LIST_MAX } },
@@ -223,7 +223,7 @@ export const settleStep = defineTool({
     "Settle a step of one of this account's workorders: mark it done, skipped or " +
     "not-applicable, or open it again, with an optional note saying why. The step " +
     "is signed as the agent, so a reader sees that the agent settled it and not a " +
-    "person. The step is named by its path, as workorder.read answers it.",
+    "person. The step is named by its path, as `open` answers it.",
   authority: "reversible",
   writes: true,
   surface: "workorder",

@@ -180,7 +180,7 @@ export const readKnowledgePage = defineTool({
   description:
     "Read one page of this account's knowledge base, as a reader sees it now: " +
     "the title, the tags, the text, and which revision is in force. Name it by " +
-    "the `folder` knowledge.list answered with; `title` names a page directly " +
+    'the `folder` `open` (`what: "pages"`) answered with; `title` names a page directly ' +
     "under the base. " +
     `The text is at most ${KNOWLEDGE_TEXT_MAX} characters; \`textLength\` and ` +
     "`truncated` say whether the page holds more, and `offset` reads on from where " +
@@ -224,7 +224,7 @@ export const proposePage = defineTool({
   name: "knowledge.propose",
   description:
     "Propose a change to a page of this account's knowledge base. Name it by the " +
-    "`folder` knowledge.list answered with; `title` names a page directly under " +
+    '`folder` `open` (`what: "pages"`) answered with; `title` names a page directly under ' +
     "the base. The words you give become the page's draft: a person reads them " +
     "and approves the change, and nothing is in force until they do. The page's " +
     "title, tags and checklist stay as they are.",

@@ -281,7 +281,7 @@ export const saveFile = defineTool({
   description:
     "Save a file into this account's own Files, at the path it should land at — " +
     "`Containers/2026/BK-42.pdf`. The source is an **attachment of a message** " +
-    "(`message` and `attachment`, exactly as mail.read answered them), or a " +
+    "(`message` and `attachment`, exactly as `open` answered them), or a " +
     "**document already in Files** (`from`, its path). The bytes are copied as " +
     "they are, so a PDF stays a PDF, and a name already taken in the folder gets " +
     "a numbered one beside it: nothing a person filed is replaced.",
@@ -308,7 +308,7 @@ export const saveFile = defineTool({
     if (!from && !(message && attachment))
       throw new ToolError(
         "bad_arguments",
-        'A source is needed: "from" a document in Files, or "message" with the "attachment" mail.read answered.',
+        'A source is needed: "from" a document in Files, or "message" with the "attachment" `open` answered.',
       );
     return { path: textArg(args, "path"), from, message, attachment };
   },
@@ -448,7 +448,7 @@ export const overwriteDocument = defineTool({
     const held = await findVisibleFile(ctx, accountId, path);
     if (!held)
       throw notFound(
-        `document "${path}" in this account's Files (files.write creates one)`,
+        `document "${path}" in this account's Files (\`act\` with \`what: "write"\` creates one)`,
       );
     const bytes = new TextEncoder().encode(text);
     await writeBytesIntoVisibleFolder(
@@ -604,7 +604,7 @@ export const moveFile = defineTool({
     if (isTrashPath(to))
       throw new ToolError(
         "bad_arguments",
-        `"${to}" is the Trash; files.delete moves a node there and records where it came from.`,
+        `"${to}" is the Trash; \`act\` with \`what: "delete"\` moves a node there and records where it came from.`,
       );
     if (held.directory && (to === path || to.startsWith(`${path}/`)))
       throw new ToolError(

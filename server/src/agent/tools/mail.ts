@@ -62,9 +62,9 @@ const MESSAGE_PROPS = [
   "keywords",
   "hasAttachment",
   /*
-   * The attachment metadata, without which `mail.read` says a message has one
-   * and never names it: `mail.readAttachment` takes a name "as mail.read
-   * answered them", so the names have to be in this answer.
+   * The attachment metadata, without which `open` says a message has one and
+   * never names it: `open` over an attachment takes a name "as `open` answered
+   * them", so the names have to be in this answer.
    */
   "attachments",
   "preview",
@@ -109,7 +109,7 @@ export const findMessages = defineTool({
   name: "mail.find",
   description:
     `Find messages in a mailbox of this account by ${SEARCH_GRAMMAR}. ` +
-    "The answer names the messages it found; read the ones you need with mail.read.",
+    'The answer names the messages it found; read the ones you need with `open` (`what: "message"`).',
   authority: "reversible",
   writes: false,
   args: { query: { type: "text" }, limit: { type: "number", min: 1 } },
@@ -187,7 +187,7 @@ export const readAttachment = defineTool({
   name: "mail.readAttachment",
   description:
     "Read one attachment of a message of this account, by the message's id and the " +
-    "attachment's name — both as mail.read answered them. A document is read " +
+    "attachment's name — both as `open` answered them. A document is read " +
     "inside (a PDF, a Word file, a spreadsheet, an OpenDocument, text) and a " +
     "picture is transcribed by the installation's model.",
   authority: "reversible",
@@ -283,7 +283,7 @@ async function moveMessage(
     if (!opts.allowTrash && target.role === "trash")
       throw new ToolError(
         "needs_authority",
-        `Filing into "${target.name}" is a move to Deleted Items: it is mail.trash, which a person authorises by naming the message.`,
+        `Filing into "${target.name}" is a move to Deleted Items: it is \`act\` with \`what: "trash"\`, which a person authorises by naming the message.`,
         403,
       );
     const answer = await clientOf(ctx).call<{ list?: Array<{ mailboxIds?: unknown }> }>(
@@ -324,7 +324,7 @@ export const fileMessage = defineTool({
     "name, its role (inbox, archive, junk), or the id `find folders` answered. " +
     "The message is taken out of the " +
     "folders it was in: it is moved, not copied. Deleted Items is not a filing " +
-    "destination: mail.trash is that act, and a person licenses it.",
+    'destination: `act` with `what: "trash"` is that act, and a person licenses it.',
   authority: "reversible",
   writes: true,
   surface: "mail",
@@ -953,7 +953,7 @@ export const defineLabel = defineTool({
   description:
     "Add a label to this group's own label catalog, or change the name or the " +
     "colour of one it already holds. A label is a keyword with a name and a " +
-    "colour; mail.keyword puts one on a message.",
+    'colour; `act` with `what: "keyword"` puts one on a message.',
   authority: "reversible",
   writes: true,
   surface: "mail",

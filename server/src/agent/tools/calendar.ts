@@ -204,7 +204,7 @@ export const createEvent = defineTool({
   name: "calendar.create",
   description:
     "Create an event in this account's calendar: `calendar` (an id or name from " +
-    "calendar.list), `title` and `start` are required. `start` is a wall-clock " +
+    '`open` (`what: "calendars"`)), `title` and `start` are required. `start` is a wall-clock ' +
     "datetime (2026-10-20T09:00:00) or a date alone (2026-10-20) for an all-day " +
     "event; `duration` is an ISO 8601 duration (PT1H, P1D) and defaults to one " +
     "hour. No invitation is sent.",

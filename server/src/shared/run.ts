@@ -1398,9 +1398,9 @@ export function takeAnswer(
  *
  * A question carries a deadline (ADR 0029, 0030): 72 hours is long enough for a
  * person to come back to a question asked on a Friday and short enough that a run
- * does not wait for ever. The ask tools state it
- * (`agent/tools/chat.ts`, `agent/tools/mail.ts`), and the run's own wait carries
- * it — never a timer in a process, so a restart keeps the deadline.
+ * does not wait for ever. The one ask tool states it (`agent/tools/chat.ts`), and
+ * the run's own wait carries it — never a timer in a process, so a restart keeps
+ * the deadline.
  */
 export const QUESTION_TTL_MS = 72 * 60 * 60_000;
 

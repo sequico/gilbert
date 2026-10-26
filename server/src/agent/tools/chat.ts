@@ -120,7 +120,7 @@ export const findChat = defineTool({
   description:
     "Find messages of this group's recent conversation whose text contains the " +
     "given words — who was asked something, what was answered. The answer names " +
-    "the messages it found, newest first; read one with chat.read.",
+    'the messages it found, newest first; read one with `open` (`what: "chat"`).',
   authority: "reversible",
   writes: false,
   args: {
@@ -270,7 +270,7 @@ export const sayInChat = defineTool({
   description:
     "Say something in this group's own conversation, as yourself: how the group " +
     "is told what the work did. Asking a person something the work needs " +
-    "answered is chat.ask.",
+    'answered is `say` with `action: "ask"`.',
   authority: "reversible",
   writes: true,
   surface: "chat",
@@ -313,7 +313,7 @@ export const askInChat = defineTool({
     "Ask a person a question in this group's own conversation and leave the run " +
     "waiting on their answer: the run stops until somebody replies, and the " +
     "answer is read from the conversation. Use it for what only a person can " +
-    "decide; a report nobody has to answer is chat.say. A question the group " +
+    'decide; a report nobody has to answer is `say` with `action: "say"`. A question the group ' +
     "already has open is not asked again: this run waits on that same answer.",
   authority: "reversible",
   writes: true,
