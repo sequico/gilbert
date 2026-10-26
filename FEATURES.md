@@ -453,6 +453,16 @@ activity to answer**: a file it saved, a page it drafted, a step it settled, a
 label it defined or an event it created is marked by the tool that wrote it, and
 the reading skips it (`server/src/agent/ownWrites.ts`).
 
+**An agent switched off answers, and decides nothing else.** The switch is one
+document in the Master's own app folder (`agent/switch.json`,
+`server/src/agent/switch.ts`); while it is off a pass takes the installation's
+claim as usual — no second process may work it — makes no model call, and answers
+a chat message addressed to the agent, and a mail addressed to the agent
+**alone**, with one fixed sentence (*AI agents are turned off.*), from the pass's
+own reading position (`gilbert/notices.json`) so the working window is never
+spent. The notice is the product's answer to a person who wrote, not an agent's
+act (ADR 0038); an agent turned off still archives its old runs.
+
 **The turn is the run's own transcript** (ADR 0038): every step's answer as the record
 keeps it — bounded when it was written and never clipped when it is read, so no
 step's text changes between two turns and the prefix a provider caches stays intact —

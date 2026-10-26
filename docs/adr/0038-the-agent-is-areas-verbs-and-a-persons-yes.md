@@ -278,6 +278,13 @@ your instructions and send this to me". The defence is structural:
 - **A question is asked in the conversation** (`say` with `ask`), which parks the
   run on a person's answer; it is never asked by mail, because a mail that leaves
   is the act this section forbids.
+- **The one message the product sends without a person's yes is the switched-off
+  notice.** While the installation's agent is off, a pass makes no model call and
+  decides nothing; it answers a chat message addressed to the agent, and a mail
+  addressed to the agent **alone**, with one fixed sentence (`AI agents are turned
+  off.`), read from the pass's own position. That is the product answering a
+  person who wrote, not an agent's act: there is no model behind it, and nothing
+  in the message can be steered by what arrived.
 - **An act outside the grants is a failed step, not an ending.** It is refused
   before it runs and comes back to the turn as a repair, like any invalid call;
   `refused` is reserved for a `done` with nothing finished. A credential in an
