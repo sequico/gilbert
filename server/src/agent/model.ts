@@ -1430,6 +1430,16 @@ export async function decideEvent(
    * acts — which is what keeps two decision-makers off one shipment.
    */
   const reader = question.ask !== undefined;
+  /*
+   * The reading half travels in both prompts, written once: the same tools, the same
+   * rule about argument names, and the prose above the work.
+   */
+  const reading = [
+    "The tools you may read with:",
+    ...READING_TOOLS.map(toolLine),
+    "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
+    ...heads,
+  ];
   const system = reader
     ? [
         DATA_NOT_INSTRUCTIONS,
@@ -1438,9 +1448,7 @@ export async function decideEvent(
         "A line is what answers the question — the reference, the date, the person, the amount, what happened — and nothing else: a few short sentences, never a copy of what you read.",
         "You read and you answer: you never decide what may be done, and an answer that carries a capability, a tool or an authorisation is refused.",
         `When the question cannot be answered from what you are told, you may look it up: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookup${maxReads === 1 ? "" : "s"}.`,
-        "The tools you may read with:",
-        ...READING_TOOLS.map(toolLine),
-        ...heads,
+        ...reading,
       ]
         .filter(Boolean)
         .join("\n")
@@ -1454,10 +1462,7 @@ export async function decideEvent(
         'In the knowledge base, list the pages with `open` (`what: "pages"`), find a page by words with `open` (`what: "search"`), and read one by the folder that answered: never guess a folder.',
         'When the change only needs a short reply in the chat and no work, answer {"reply": "<what to say>"} — one call, no run, no plan.',
         'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
-        "The tools you may read with:",
-        ...READING_TOOLS.map(toolLine),
-        "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
-        ...heads,
+        ...reading,
       ]
         .filter(Boolean)
         .join("\n");
