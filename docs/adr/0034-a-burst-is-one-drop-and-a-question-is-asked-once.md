@@ -1,8 +1,8 @@
-# ADR 0034 — A burst of files is one drop, and a question is asked once
+# ADR 0034 — A burst is one drop, and a question is asked once
 
 Status: Accepted
 
-Implementation: Built.
+Implementation: Partly built.
 The queue is `server/src/agent/queue.ts`, one document
 `gilbert/pending.json` in the group's own app folder, noted by the pass
 (`server/src/agent/changes.ts`) and answered by it when the folder has been
@@ -23,6 +23,10 @@ content of its bytes, and an identifier a model cannot read is asked for as
 on the run it opens, and a run's end is stamped when it ends
 (`server/src/agent/loop.ts`). The Work panel shows steps taken and failed steps
 as the two tallies they are (`web/src/views/admin/agents/AgentOverview.tsx`).
+**Not built:** the mail drop and the case's scratchpad. A message is still its own
+change and its own run — `changes.ts` folds a folder's files, not a sender's mail —
+and a run's working memory is its plan, with no `gilbert/cases/` note. The work is
+`docs/plans/agents-reloaded-again.md`.
 
 ## Context
 
@@ -46,6 +50,23 @@ run, one report. The queue is a document in the group's own app folder, so a
 process that dies between passes resumes the same drop, and the run's key — the
 folder and the instant the drop opened — makes a retry the same run rather than
 a second one.
+
+**A drop of mail is the same change.** A message is noted against its **sender**
+— the mailbox's own "folder" — and answered once, when that sender has been quiet
+for the same five minutes or the burst has been open for twenty: one change names
+the messages and the instant, one decision, one run, one report. A reply that
+answers a message of the drop joins it through its thread. A delivery of seven
+messages from one shipper is otherwise seven runs that each rediscover the same
+booking, folder and convention — and seven reports for one delivery. Where each
+message is filed is still decided per message, from its own attachments, so a
+wrong fold costs a longer run rather than a wrong filing.
+
+**The case keeps a scratchpad.** A run's working memory is a note under the agent's
+own bookkeeping (`gilbert/cases/`), written and rewritten by the model and carried
+whole in every turn of the case: the booking reference, the folder, the naming rule,
+what the group still owes. What must outlive the case is a fact in the memory
+(ADR 0033), not a longer note. The note is what makes the second item of a drop cheap
+and what a later message of the same case finds.
 
 **Only documents are changes.** A folder that appears is not a delivery, and a
 removal whose path is no longer known is not actionable: neither wakes a rule.

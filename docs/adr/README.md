@@ -366,12 +366,14 @@ is, not what a user sees.
   against a person's fact is kept as a **proposal** (`FactProposal`) beside the
   person's sentence, and Administration accepts it — the correction path, whose
   write carries no proposal — or dismisses it.
-- **0034 — A burst of files is one drop, and a question is asked once.** A
+- **0034 — A burst is one drop, and a question is asked once.** A
   `FileNode` change is one file of a drop, not a change of its own: a file
   landing in a folder is queued against that folder in the group's own app
   folder and answered once — one decision, one run, one report — when the folder
   has been quiet for five minutes or the drop is twenty minutes old, with the
-  whole pack in the prompt. A folder that appears is not a document and a
+  whole pack in the prompt. A message is queued against its sender the same way,
+  and a case keeps its scratchpad under the agent's own bookkeeping. A folder
+  that appears is not a document and a
   removal with no known path wakes nothing. The plan turn is shown the questions
   the group already has open, and `chat.ask` does not post a duplicate: a
   question is asked once. A page's transcription is remembered by the content
