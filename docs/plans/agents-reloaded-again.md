@@ -238,7 +238,14 @@ when, what it was about, one line each and never a body (`agent/thread.ts`, reac
 through JMAP's `Thread/get` from the message's own `threadId`, because a thread has no
 filter of its own).
 
-**Owed:** the reader.
+**Owed:** the reader. Its caller is what is missing: the turn already carries the
+thread's **lines** (`agent/thread.ts`), so a thread of twenty messages no longer needs a
+digest of its own — and the two cases where it would (a conversation whose bodies matter
+to the answer, a folder of thirty documents) need a question the model asks, which is a
+place in the catalogue and not a call the harness makes for it. When it is built it is
+`decideEvent` generalised to take the question, never a second module beside it:
+one question, the reading half of the catalogue, at most one lookup, one structured
+answer, and no act.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the
