@@ -3441,10 +3441,6 @@ export const catalog: Catalog = {
     "Not reached": "Non raggiunto",
     "out-of-budget": "Budget esaurito",
     "not-applicable": "Non applicabile",
-    "Started by the rule {rule}, woken by {change}.":
-      "Avviata dalla regola {rule}, svegliata da {change}.",
-    "Started by an instruction in {channel} {id}, woken by {change}.":
-      "Avviata da un'istruzione in {channel} {id}, svegliata da {change}.",
     Surfaces: "Superfici",
     "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
       "Speso: {steps} passi, {calls} chiamate al modello, {ms} ms di lavoro.",

@@ -98,7 +98,7 @@ after(() => {
 function plainRun(): RunDoc {
   return startRun({
     id: "r1",
-    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
 }
 
@@ -264,8 +264,6 @@ test("a write on a surface the run's matrix keeps off is refused, and a read is 
   const off = startRun({
     id: "r-off",
     startedBy: {
-      rule: "intake",
-      instruction: null,
       woke: "mail created: m-1",
       surfaces: {
         chat: "watch",
@@ -632,7 +630,7 @@ test("an outward act asks for a person's word, and a rule's declaration is not o
 
   const quiet = startRun({
     id: "quiet",
-    startedBy: { rule: "shipper", instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
   assert.equal(mayRun(send, quiet, args), false, "a run with no word sends nothing");
   assert.equal(
@@ -662,7 +660,7 @@ test("a message is trashed only with a person's word for that message", async ()
   const id = await deliver("a message somebody wants out of the way");
   const plain = startRun({
     id: "trash-none",
-    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
   await assert.rejects(
     () => runTool(TOOLS, { ctx, accountId, run: plain }, "mail.trash", { id }),
@@ -690,7 +688,7 @@ test("the reading tools answer from the group's account", async () => {
   // A run of this account, read as the document it is.
   const stored = startRun({
     id: "read-me",
-    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
   await createRun(ctx, accountId, stored);
   const read = await tool<{ run: RunDoc }>("run.read", { id: "read-me" });
@@ -1623,7 +1621,7 @@ test("a question already open on a person is not asked again, and the run waits 
     waitUntil(
       startRun({
         id: "r-parked",
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-0" },
+        startedBy: { woke: "mail created: m-0" },
       }),
       {
         what: "@sam is the seal confirmed?",

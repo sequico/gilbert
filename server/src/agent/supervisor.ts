@@ -208,7 +208,7 @@ export function supervise(options: SupervisorOptions): AgentProcess {
   let idle = false;
   /**
    * The gaps the last pass reported, so one is said when it appears and not on
-   * every beat: an unreadable rule sheet or a change log that skipped says the
+   * every beat: an unreadable instruction or a change log that skipped says the
    * same sentence ten seconds later, and a fault that has gone stops being said.
    */
   let saidGaps = new Set<string>();

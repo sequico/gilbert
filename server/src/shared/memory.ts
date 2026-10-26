@@ -881,11 +881,9 @@ export interface RecallQuery {
   similarity?: ReadonlyMap<string, number>;
 }
 
-/** What one turn's retrieval found, and which retrieval it was (ADR 0038). */
+/** What one turn's retrieval found (ADR 0038). */
 export interface Recall {
   facts: FactView[];
-  /** What the run records it used: exact, or exact and similarity. */
-  retrieval: "exact" | "exact+similarity";
 }
 
 /**
@@ -959,7 +957,7 @@ export function recallMemory(index: MemoryIndex, query: RecallQuery): Recall {
   for (const fact of [...picked])
     if ("entity" in fact.value)
       for (const related of live(fact.value.entity)) take(related);
-  return { facts: picked, retrieval: query.similarity ? "exact+similarity" : "exact" };
+  return { facts: picked };
 }
 
 /**

@@ -140,7 +140,6 @@ import { NOTICE_CURSOR_FILE, readCursor, writeCursor } from "./cursors.js";
 import type { AccountEvents, EventCursor } from "./events.js";
 import type { InstructionDoc } from "./instruction.js";
 import { readInstruction } from "./instruction.js";
-import { clearLegacyAgentState } from "./legacy.js";
 import { forgetMemoryStores, listMemory, type MemoryStore, recallFor } from "./memory.js";
 import {
   askOf,
@@ -545,8 +544,6 @@ export class AgentLoop {
    * force at the next pass with no restart.
    */
   private readonly instructions = new Map<string, InstructionDoc | null>();
-  /** The accounts whose old rules were cleared by this process (ADR 0038). */
-  private readonly legacyCleared = new Set<string>();
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
@@ -884,41 +881,6 @@ export class AgentLoop {
       await Promise.all(
         accounts.map(async (accountId) => {
           this.opts.log?.(`[gilbert] agent: working ${accountId}`);
-          /*
-           * The documents the rules left behind go once per account, before
-           * anything reads the account: a group starts from its instruction and
-           * nothing else (ADR 0038). The marker inside the account is what makes
-           * the clear one-off; the set only saves the read on every later pass.
-           */
-          if (!this.legacyCleared.has(accountId)) {
-            try {
-              const removed = await clearLegacyAgentState(this.ctx, accountId);
-              if (removed.length) {
-                this.opts.log?.(
-                  `[gilbert] agent: cleared the old rules of ${accountId}: ${removed.join(", ")}`,
-                );
-                /*
-                 * The rules a group worked from are gone, and its instruction is
-                 * what replaces them. A group that had rules and has written none
-                 * does no work at all, and silence is indistinguishable from an
-                 * agent at rest: the pass says so, once, where the clear happened.
-                 */
-                try {
-                  if (!(await readInstruction(this.ctx, accountId)))
-                    summary.gaps.push(
-                      `${accountId}: its old rules were removed by this build and it has no instruction, so it will do no work until an administrator writes one.`,
-                    );
-                } catch (err) {
-                  summary.gaps.push(
-                    `${accountId}: its old rules were removed by this build and its instruction is not readable: ${errorMessage(err)}`,
-                  );
-                }
-              }
-              this.legacyCleared.add(accountId);
-            } catch (err) {
-              summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
-            }
-          }
           let records: RunRecord[] | null = null;
           /*
            * One account that cannot be read is not the installation failing: a
@@ -1309,7 +1271,7 @@ export class AgentLoop {
           workRun: (a, r, f, oq, written) =>
             this.workRun(a, r, f, undefined, oq, now, written),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
-          openRun: (a, e, r, from, about, by) => this.openRun(a, e, r, from, about, by),
+          openRun: (a, e, r, about, by) => this.openRun(a, e, r, about, by),
           noteDrop: (a, path, at) => noteFile(this.ctx, a, path, at),
           dueDrops: (a, at) => dropsDue(this.ctx, a, at),
           forgetDrop: (a, folder, answered) =>
@@ -1358,11 +1320,7 @@ export class AgentLoop {
       meter,
       run: startRun({
         id: randomUUID(),
-        startedBy: {
-          rule: null,
-          instruction: null,
-          woke: wokeOf(event),
-        },
+        startedBy: { woke: wokeOf(event) },
       }),
     };
   }
@@ -1515,7 +1473,6 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     instruction: InstructionDoc,
-    wakeFrom: string | null,
     /** What the change said, and who set it off (the pass read both). */
     about?: string,
     by?: string,
@@ -1523,14 +1480,11 @@ export class AgentLoop {
     const run = startRun({
       id: randomUUID(),
       startedBy: {
-        rule: null,
-        instruction: null,
         woke: wokeOf(event),
         // What the change said, in its own words, as the pass read it: the run
         // says why it exists without reading the source again.
         ...(about ? { about } : {}),
         ...(by ? { by } : {}),
-        wakeFrom,
         // The whole drop this run answers, so its plan reads the names instead
         // of listing the folder again (ADR 0034).
         ...(event.also?.length ? { batch: [...event.also] } : {}),
@@ -1932,7 +1886,6 @@ export class AgentLoop {
     current = recordRecall(
       current,
       selection.facts.map((fact) => fact.id),
-      selection.retrieval,
     );
     /*
      * The case, read once before the first turn: the knowledge base's titles and the

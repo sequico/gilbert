@@ -97,7 +97,6 @@ const blocked = {
   problem: null,
   state: "blocked",
   ended: null,
-  rule: null,
   woke: null,
   about: null,
   by: null,

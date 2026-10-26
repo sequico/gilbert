@@ -19,7 +19,7 @@ export const noteTool = defineTool<{ text: string; key?: string }>({
   name: "note",
   description:
     "Keep what this case must not forget: the key the group's report calls it by, " +
-    "where its work goes, the rule it follows, what was already reported, and what is " +
+    "where its work goes, the instruction it follows, what was already reported, and what is " +
     "still owed. Give `key` the first time you know the case's name — it becomes the " +
     "case the next increment reads — and the whole note as `text`, which replaces what " +
     "was there. An empty `text` clears it.",

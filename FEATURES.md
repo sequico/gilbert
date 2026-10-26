@@ -212,9 +212,8 @@ interval (`open` with `what: "memory"`), closed facts included.
 
 **Both turns read it** (`server/src/agent/model.ts`), it travels fenced as data
 like every other block of text somebody outside the group decided, and **what was
-recalled — and which retrieval found it — is written into the run's record**
-(`recalled`, `retrieval`), so a wrong conclusion traces to the fact that carried
-it, while a change the memory holds nothing about is worked exactly as it was
+recalled is written into the run's record** (`recalled`), so a wrong conclusion
+traces to the fact that carried it, while a change the memory holds nothing about is worked exactly as it was
 before the memory existed. The agent records a fact with `act` (`what: "fact"`),
 within the authority classes, and **a fact a person wrote is in force**:
 the write refuses to overwrite it, in a code, rather than correcting it in
@@ -292,10 +291,6 @@ is filed, and every write carries the account state the read answered, so a writ
 that lost a race is refused rather than overwriting another administrator's edit.
 The installation's own line is a field beside its model in Administration →
 Installation, and it is read at every pass.
-
-The documents the old shape left behind — `rules/` and `agent/rules.json` — are
-removed once per account by `server/src/agent/legacy.ts`, which leaves a marker
-(`agent/reset-0038.json`) to say it was done.
 
 ## One model, two turns
 

@@ -73,8 +73,8 @@ agent's durable state.
 - **One change of the server is one event.** The agent reads a group's activity
   from the server's own change logs, and a node written twice in one batch —
   created and then written again — reaches them as two changes for one address,
-  which is one event, not two: a rule watching that surface opens one run for one
-  document and the agent cannot answer one message twice. Two changes are of one
+  which is one event, not two: the instruction opens one run for one document and
+  the agent cannot answer one message twice. Two changes are of one
   event when they name the same **address**, the surface and the path (or the id
   a removal has no path left for); the folded event is named **`created`**,
   because the node did not exist before the read and exists now, and a removal is
@@ -95,7 +95,7 @@ agent's durable state.
   acts and the question being one answer, whose wait begins once they are done.
 - **A plan carries order and conditions, and it is the exception.** The common
   path is the role's workflow — read, act, report — and a run takes a plan only
-  when its rule declares that it needs one (ADR 0038). When it does: the model may
+  when the model judges the work needs one (ADR 0038). When it does: the model may
   ask for a step that
   waits on an earlier one, and for a later step to depend on how an earlier one
   ended — if that call filed the message, do this; if it was refused, do that —

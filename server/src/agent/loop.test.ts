@@ -5,13 +5,12 @@
  * What is pinned here is one mechanism per test, and each of them is a mechanism
  * rather than a run of the code:
  *
- * - a change a rule watches opens a run, and the record shows the change, the
- *   rule, the step the model chose and the ending;
- * - **every** rule that fits one change opens its own run, each naming its own
- *   rule and the change it answered;
- * - the same rule and the same change are one run, continued from its document
- *   rather than opened a second time;
- * - a change no rule watches costs no model call and no step at all;
+ * - a change opens a run, and the record shows the change, the step the model
+ *   chose and the ending;
+ * - the same change is one run, continued from its document rather than opened a
+ *   second time;
+ * - a change the instruction does not cover costs no model call and no step at
+ *   all;
  * - the accounts the pass works are asked for on **every** pass, so a group the
  *   Master is added to is worked by the next one;
  * - a claim another process holds stops the pass before it works anything;
@@ -40,14 +39,14 @@
  * - a restart resumes from the cursor the last process left, so a change that
  *   arrived while the agent was down is still worked.
  * - a mention opens one run even when the decision names none, and a mention no
- *   rule covers is answered rather than ignored.
+ *   watch covers is answered rather than ignored.
  * - a pass leaves what it did, and the last run it ended, in a document a person
  *   reads.
  * - a fact one run learned is handed to the next change's call, and the run's
  *   record names what it recalled — while a change the memory holds nothing
  *   about is worked exactly as it was before the memory existed;
  * - every call is told the installation's line and the group's standing
- *   instruction, in the record's order, above the rule's own;
+ *   instruction, in the record's order, above the run's own;
  * - two `memory.remember` calls in one answer leave one sheet for the subject:
  *   the writes of one process are chained, so neither is a refused step.
  */
@@ -312,7 +311,7 @@ let ctx: Ctx;
  * mailbox.
  *
  * The installation's memory lives in the Master's **own** account (ADR 0033)
- * and the runs and rules of a worked change live in the group's, and the two are
+ * and the runs of a worked change live in the group's, and the two are
  * never one account — a group is a shared account (`isPersonal: false`) while
  * the Master's own is personal, which is what the classifier reads. The pass
  * reads the memory once and writes a fact against that reading's token, so a
@@ -442,8 +441,8 @@ type WatchList = Array<keyof SurfaceMatrix>;
  * The document a group writes: one instruction, the areas it works and the
  * matrix that says where it may act (ADR 0038).
  *
- * The matrix watches the surfaces named and leaves the others on demand, which
- * is what a rule was before: an instruction that named an area could write it.
+ * The matrix watches the surfaces named and leaves the others on demand: an
+ * instruction that named an area could write it.
  */
 function instructionDoc(watches: WatchList = ["mail"]): InstructionDoc {
   const surfaces: SurfaceMatrix = {
@@ -545,12 +544,16 @@ function loop(
   });
 }
 
-/** The run this group's change opened, or a failure naming what is missing. */
-async function runOf(_ruleId?: string) {
+/**
+ * The run this group's change opened, or a failure naming what is missing.
+ *
+ * The newest document in `runs/`: a fixture a test parks is written before the
+ * pass, and the run the pass opens for the change is written after it.
+ */
+async function runOf(_named?: string) {
   const records = await listRuns(ctx, accountId);
-  const found = records.filter((record) => record.run.startedBy.rule === null);
-  assert.ok(found.length > 0, "a run should be in the account");
-  return found[found.length - 1]!.run;
+  assert.ok(records.length > 0, "a run should be in the account");
+  return records[records.length - 1]!.run;
 }
 
 /**
@@ -568,7 +571,7 @@ function stepsOf(run: { plan: Array<{ what: string; state: string }> }) {
 
 /* ------------------------------------------------------------------ */
 
-test("a change a rule watches opens a run, and the record shows every step of it", async () => {
+test("a change the instruction covers opens a run, and the record shows every step of it", async () => {
   const id = "intake-mail";
   await putInstruction();
   const agent = loop();
@@ -596,7 +599,7 @@ test("a change a rule watches opens a run, and the record shows every step of it
   assert.equal(
     run.startedBy.woke,
     `mail created: ${message}`,
-    "the run says which change woke the rule",
+    "the run says which change woke it",
   );
   assert.equal(
     run.startedBy.surfaces?.mail,
@@ -630,7 +633,7 @@ test("a change a rule watches opens a run, and the record shows every step of it
  * group's account wakes an agent whose wake row watches it, and the run it opens names the
  * event by the id `calendar.read` takes.
  */
-test("a calendar event written in the group's account wakes a rule that watches it", async () => {
+test("a calendar event written in the group's account wakes an agent that watches it", async () => {
   const id = "intake-calendar";
   await putInstruction(["calendar"]);
   const agent = loop();
@@ -660,7 +663,7 @@ test("a calendar event written in the group's account wakes a rule that watches 
   answerWith({ done: "noted" });
   const summary = await agent.pass();
 
-  assert.equal(summary.runs, 1, "the event is a change the rule answers");
+  assert.equal(summary.runs, 1, "the event is a change the instruction answers");
   const run = await runOf(id);
   assert.equal(
     run.startedBy.woke,
@@ -782,7 +785,7 @@ test("two changes of one address open one run, not two", async () => {
   await agent.start();
 
   // A node written twice in one batch — created and then written again through
-  // the update path — is two changes for one document. The rule answers one
+  // the update path — is two changes for one document. The instruction answers one
   // document with one run: two would let the agent answer it twice.
   onCall = (system) => (isDecision(system) ? { facts: {} } : { done: "noted" });
   await writeAppFileAt(ctx, accountId, "workorders/wo-fused.json", {
@@ -801,13 +804,11 @@ test("two changes of one address open one run, not two", async () => {
     1,
     "one document opened one run, however many changes it made",
   );
-  const runs = (await listRuns(ctx, accountId)).filter(
-    (record) => record.run.startedBy.rule === null,
-  );
+  const runs = await listRuns(ctx, accountId);
   assert.equal(runs.length, 1, "and only one run for it is in the account");
 });
 
-test("no mark on a message is activity a rule answers, its own or a person's", async (t) => {
+test("no mark on a message is activity the agent answers, its own or a person's", async (t) => {
   /*
    * A run files a message and marks it G-processed, and the server reports those
    * writes as changes of that same message. A change of a message is not an
@@ -851,16 +852,12 @@ test("no mark on a message is activity a rule answers, its own or a person's", a
   };
   const first = await agent.pass();
   assert.equal(first.runs, 1, "the arrival opens one run");
-  const run = (await listRuns(ctx, group)).find(
-    (record) => record.run.startedBy.rule === null,
-  );
+  const run = (await listRuns(ctx, group))[0];
   assert.equal(run?.run.plan[0]?.state, "done", "the agent marked the message");
 
   const second = await agent.pass();
-  assert.equal(second.runs, 0, "the agent's own mark wakes no rule");
-  const runs = (await listRuns(ctx, group)).filter(
-    (record) => record.run.startedBy.rule === null,
-  );
+  assert.equal(second.runs, 0, "the agent's own mark wakes nothing");
+  const runs = await listRuns(ctx, group);
   assert.equal(runs.length, 1, "one message, one run");
 
   // A person's later mark on the same message is a change of that message, not
@@ -1047,14 +1044,13 @@ test("a restart resumes from the cursor the last process left", async () => {
   assert.equal(run.state, "done");
 });
 
-test("a mention opens one run even when the decision names no rule", async () => {
+test("a mention opens one run even when the decision names nothing", async () => {
   /*
    * A person addressing the agent in the conversation is answered even when the
-   * decision turn names no rule: the mention is the address, and the rule it
-   * reaches is the first that watches the conversation — **one address is one
-   * answer**, so a group with two chat rules does not answer the same sentence
-   * twice. The live ending it replaces was a mention that opened no run and said
-   * nothing.
+   * decision turn names no surface: the mention is the address, and the
+   * instruction's chat surface is what answers it — **one address is one
+   * answer**. The live ending it replaces was a mention that opened no run and
+   * said nothing.
    */
   const id = "intake-mentioned";
   await putInstruction(["chat"]);
@@ -1174,10 +1170,10 @@ test("a run that already answered in the conversation does not repeat its ending
 test("the same change continues one run rather than open a second", async () => {
   /*
    * A pass re-reads a change whose batch it did not finish — the cursor only
-   * moves once the whole read is answered — and the same rule must not answer
+   * moves once the whole read is answered — and the instruction must not answer
    * the same change twice. What says the change has been answered is the
-   * account's own record: a run whose `startedBy` names this rule and this
-   * change. One still running is continued from its document; one that ended is
+   * account's own record: a run whose `startedBy` names this change. One still
+   * running is continued from its document; one that ended is
    * the answer it already has.
    */
   const id = "intake-once";
@@ -1191,7 +1187,7 @@ test("the same change continues one run rather than open a second", async () => 
     accountId,
     startRun({
       id: "already-open",
-      startedBy: { rule: id, instruction: null, woke: `mail created: ${message}` },
+      startedBy: { woke: `mail created: ${message}` },
       plan: ["chat.say the first half"],
     }),
   );
@@ -1236,8 +1232,8 @@ test("a stopped run is not proposed again for the same change", async () => {
   /*
    * Stopping a run marks it `cancelled` (POST /groups/:name/runs/:id/stop), and
    * the account's record is what says the change has been answered: a run whose
-   * `startedBy` names this rule and this change, **whatever state it ended in**.
-   * A stopped run therefore closes that change for the rule — a later pass that
+   * `startedBy` names this change, **whatever state it ended in**. A stopped run
+   * therefore closes that change — a later pass that
    * re-reads an unfinished batch does not open a fresh one beside it.
    */
   const id = "intake-stopped";
@@ -1252,7 +1248,7 @@ test("a stopped run is not proposed again for the same change", async () => {
     finishRun(
       startRun({
         id: "stopped-by-a-person",
-        startedBy: { rule: id, instruction: null, woke: `mail created: ${message}` },
+        startedBy: { woke: `mail created: ${message}` },
       }),
       "cancelled",
       { at: new Date().toISOString(), why: "a person stopped it" },
@@ -1270,7 +1266,7 @@ test("a stopped run is not proposed again for the same change", async () => {
   assert.equal(runs[0]?.run.state, "cancelled", "and it stays stopped");
 });
 
-test("a change no rule watches costs no model call and no step", async () => {
+test("a change the instruction does not cover costs no model call and no step", async () => {
   const _id = "intake-workorder";
   await putInstruction(["workorder"]);
   const agent = loop();
@@ -1307,11 +1303,7 @@ test("a claim another process holds stops the pass before it works anything", as
   assert.equal(summary.claimed, false, "this process does not hold the claim");
   assert.equal(summary.runs, 0, "so it works nothing");
   assert.equal(seen.length, 0, "and asks the model nothing");
-  assert.equal(
-    (await listRuns(ctx, accountId)).some((record) => record.run.startedBy.rule === id),
-    false,
-    "and opens no run",
-  );
+  assert.equal((await listRuns(ctx, accountId)).length, 0, "and opens no run");
 });
 
 test("a group added between two passes is worked by the pass that follows", async () => {
@@ -1576,7 +1568,7 @@ test("a done with nothing finished is put back once, then refused", async () => 
   await agent.start();
   let held = startRun({
     id,
-    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+    startedBy: { woke: "a test change" },
   });
   held = recordStep(appendStep(held, "a step that was refused"), 0, {
     state: "failed",
@@ -1670,7 +1662,7 @@ test("the case's last report is in the turn, so this one does not repeat it", as
   let held = withCase(
     startRun({
       id,
-      startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+      startedBy: { woke: "a test change" },
     }),
     "CT-2201",
   );
@@ -1705,7 +1697,7 @@ test("a transcript past its bound is folded into the note, and the turn keeps a 
   await agent.start();
   let held = startRun({
     id,
-    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+    startedBy: { woke: "a test change" },
   });
   /*
    * A case with a name: the fold writes the note under the case, which is what a
@@ -1810,11 +1802,7 @@ test("a person's answer continues the run that asked for it", async () => {
       waitUntil(
         startRun({
           id: "parked-on-a-person",
-          startedBy: {
-            rule: id,
-            instruction: null,
-            woke: "chat created: gilbert/chat/q.json",
-          },
+          startedBy: { woke: "chat created: gilbert/chat/q.json" },
         }),
         {
           what: "which booking is this?",
@@ -1909,7 +1897,7 @@ test("one answer continues every run parked on the question it replies to", asyn
       waitUntil(
         startRun({
           id,
-          startedBy: { rule: "intake", instruction: null, woke },
+          startedBy: { woke },
         }),
         {
           what: "which booking is this?",
@@ -2007,9 +1995,9 @@ test("a reader's model call is on the run's tally, like the turn that asked for 
 test("an answer is worked once, whatever the decision names beside it", async () => {
   /*
    * One person's reply continues the run that asked, and it is worked once
-   * (ADR 0029). The decision turn may name more than one rule for the message —
-   * two rules watching chat both fit a reply — and working the same answer once
-   * per rule, from the document as it stood before the first working, rewrites
+   * (ADR 0029). The decision turn may name more than one area for the message —
+   * chat is one — and working the same answer once per area, from the document
+   * as it stood before the first working, rewrites
    * the steps the first one recorded. The record is the product (ADR 0030), so
    * the step the answer wrote is on it exactly once.
    */
@@ -2028,11 +2016,7 @@ test("an answer is worked once, whatever the decision names beside it", async ()
       waitUntil(
         startRun({
           id: "parked-once",
-          startedBy: {
-            rule: id,
-            instruction: null,
-            woke: "chat created: gilbert/chat/q.json",
-          },
+          startedBy: { woke: "chat created: gilbert/chat/q.json" },
         }),
         {
           what: "which booking is this?",
@@ -2066,18 +2050,18 @@ test("an answer is worked once, whatever the decision names beside it", async ()
   assert.equal(
     answered?.plan.filter((step) => step.what === `the answer in chat ${reply}`).length,
     1,
-    "and the answer is on the record once, not once per rule the decision named",
+    "and the answer is on the record once, not once per area the decision named",
   );
 });
 
-test("an answer is worked even when no rule watches the surface it arrives on", async () => {
+test("an answer is worked even when the instruction does not watch its surface", async () => {
   /*
-   * The question and the answer need not be on the same surface a rule watches.
-   * A rule that watches mail can ask in chat, and the person answers where they
-   * were asked. Correlating that answer is the record's job, not a rule's: if the
-   * "no rule watches this" shortcut runs first, the run stays parked for ever.
+   * The question and the answer need not be on the same surface the instruction
+   * watches. An agent that watches mail can ask in chat, and the person answers
+   * where they were asked. Correlating that answer is the record's job: if the
+   * "nothing watches this" shortcut runs first, the run stays parked for ever.
    */
-  const id = "answer-from-mail-rule";
+  const id = "answer-from-mail";
   const asked = await postChatMessage(
     ctx,
     accountId,
@@ -2091,11 +2075,7 @@ test("an answer is worked even when no rule watches the surface it arrives on", 
       waitUntil(
         startRun({
           id: "parked-on-another-surface",
-          startedBy: {
-            rule: id,
-            instruction: null,
-            woke: "mail created: m-9",
-          },
+          startedBy: { woke: "mail created: m-9" },
         }),
         {
           what: "is the booking confirmed?",
@@ -2107,7 +2087,7 @@ test("an answer is worked even when no rule watches the surface it arrives on", 
       { at: new Date().toISOString(), why: "waiting on a person" },
     ),
   );
-  // The rule watches mail only: the chat answer is a surface it does not cover.
+  // The instruction watches mail only: the chat answer is a surface it does not cover.
   await putInstruction(["mail"]);
   const agent = loop();
   await agent.start();
@@ -2238,11 +2218,7 @@ test("a person's answer is the word an outward act asks for, recorded for that a
       waitUntil(
         startRun({
           id: "parked-for-a-word",
-          startedBy: {
-            rule: id,
-            instruction: null,
-            woke: "chat created: gilbert/chat/word.json",
-          },
+          startedBy: { woke: "chat created: gilbert/chat/word.json" },
         }),
         {
           what: "shall I send the reply to the shipper?",
@@ -2345,9 +2321,9 @@ test("a person's answer is the word an outward act asks for, recorded for that a
   );
 });
 
-test("an account whose rules cannot be read is a gap, and the others are still worked", async () => {
+test("an account whose instruction cannot be read is a gap, and the others are still worked", async () => {
   /*
-   * One group's rule sheet is a document this build cannot parse. The pass must
+   * One group's instruction is a document this build cannot parse. The pass must
    * not die on it: that group is left alone for this pass with the reason in the
    * gaps, the account after it is worked as usual, and the timers are armed —
    * a pass that threw here would throw every ten seconds for ever and take every
@@ -2368,7 +2344,7 @@ test("an account whose rules cannot be read is a gap, and the others are still w
     }
   }
   assert.ok(mailAccount, "the mock has an account with mail");
-  const id = "intake-after-a-broken-rule";
+  const id = "intake-after-a-broken-instruction";
   try {
     await putInstruction();
     const agent = loop(HOLDER, { accounts: async () => [mailAccount, accountId] });
@@ -2446,8 +2422,8 @@ test("only the directory can say a sender is an administrator", async () => {
 });
 
 test("a change that answers nothing of ours opens a run of its own", async () => {
-  // The same message, with no question of ours behind it: a change a rule watches
-  // is a change the rule answers, and the answer-continuation is not a way for a
+  // The same message, with no question of ours behind it: a change the instruction
+  // covers is a change it answers, and the answer-continuation is not a way for a
   // chat message to be swallowed.
   const _id = "intake-answer-elsewhere";
   await putInstruction(["chat"]);
@@ -2473,7 +2449,7 @@ test("a run whose wait has come due is picked up again, from its document", asyn
     waitUntil(
       startRun({
         id: "due-run",
-        startedBy: { rule: id, instruction: null, woke: "mail created: m-old" },
+        startedBy: { woke: "mail created: m-old" },
         plan: ["chat.say the first half"],
       }),
       {
@@ -2522,11 +2498,7 @@ test("a question whose deadline has come sends the run on without the answer", a
       waitUntil(
         startRun({
           id: "overdue-question",
-          startedBy: {
-            rule: "overdue",
-            instruction: null,
-            woke: "a question nobody answered",
-          },
+          startedBy: { woke: "a question nobody answered" },
         }),
         {
           what: "shall I delete the duplicate?",
@@ -2923,7 +2895,7 @@ test("a report standing on a refused step is judged, and the verdict is on the r
     appendStep(
       startRun({
         id,
-        startedBy: { rule: null, instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
       }),
       'place {"action":"file"}',
     ),
@@ -3249,7 +3221,7 @@ test("a group that declares the shape of its report has every report judged", as
 
   let held = startRun({
     id,
-    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+    startedBy: { woke: "a test change" },
   });
   held = recordStep(appendStep(held, "a step that answered"), 0, {
     state: "done",
@@ -3295,7 +3267,7 @@ test("a report spoken with `say` is judged as well when a shape is declared", as
 
   let held = startRun({
     id,
-    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+    startedBy: { woke: "a test change" },
   });
   held = recordStep(appendStep(held, "a step that answered"), 0, {
     state: "done",
@@ -3350,7 +3322,7 @@ test("a pass leaves a long run on purpose, and the next pass takes it at once", 
   await putInstruction();
   let held = startRun({
     id,
-    startedBy: { rule: "guarded", instruction: null, woke: "a test change" },
+    startedBy: { woke: "a test change" },
   });
   held = recordStep(appendStep(held, "a step that answered"), 0, {
     state: "done",
@@ -3397,7 +3369,7 @@ test("a run left running without a wait is tried again on a minute, not every pa
     accountId,
     startRun({
       id,
-      startedBy: { rule: "stuck", instruction: null, woke: "a test change" },
+      startedBy: { woke: "a test change" },
     }),
   );
   const at = new Date("2026-10-19T12:00:00.000Z");
@@ -3485,7 +3457,7 @@ test("the groups are worked together, not one after another", async () => {
       account,
       startRun({
         id: ids[index]!,
-        startedBy: { rule: "parallel", instruction: null, woke: "a test change" },
+        startedBy: { woke: "a test change" },
       }),
     );
   }
@@ -3667,9 +3639,7 @@ test("a fact one run learns is handed to the next change's call, and the record 
     "and it is handed over as facts, never as instructions",
   );
 
-  const runs = (await listRuns(ctx, accountId)).filter(
-    (record) => record.run.startedBy.rule === null,
-  );
+  const runs = await listRuns(ctx, accountId);
   const answered = runs.find(
     (record) => record.run.startedBy.woke === `mail created: ${second}`,
   );

@@ -83,7 +83,6 @@ const running = {
   problem: null,
   state: "running",
   ended: null,
-  rule: null,
   woke: "mail created: m-1",
   about: "BK-901 arrives on the 4th",
   by: null,

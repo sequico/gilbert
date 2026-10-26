@@ -237,7 +237,7 @@ function toolCall(): { ctx: Ctx; accountId: string; run: ReturnType<typeof start
     accountId,
     run: startRun({
       id: "r-1",
-      startedBy: { rule: "shipper-answer", instruction: null, woke: "mail created: m-1" },
+      startedBy: { woke: "mail created: m-1" },
     }),
   };
 }
@@ -1070,11 +1070,7 @@ test("the change, the facts and what each step answered are fenced as data", asy
     appendStep(
       startRun({
         id: "w-1",
-        startedBy: {
-          rule: "shipper-answer",
-          instruction: null,
-          woke: "mail created: m-1",
-        },
+        startedBy: { woke: "mail created: m-1" },
       }),
       'mail.find {"query":"from:maersk"}',
     ),
@@ -1106,8 +1102,8 @@ test("the change, the facts and what each step answered are fenced as data", asy
     "and a step that waited on another is told so, with the branch it needed",
   );
   assert.ok(
-    !SYSTEM(0).includes("The rule's own instruction:"),
-    "and no rule's own prose: a group has one instruction, and it is above the run",
+    SYSTEM(0).includes("The group's standing instruction"),
+    "and the group's one instruction is above the run",
   );
 });
 
@@ -1195,11 +1191,7 @@ test("an outcome is carried as the record holds it, and a malformed answer is re
     appendStep(
       startRun({
         id: "w-2",
-        startedBy: {
-          rule: "r",
-          instruction: null,
-          woke: "chat created: gilbert/chat/c-1.json",
-        },
+        startedBy: { woke: "chat created: gilbert/chat/c-1.json" },
       }),
       "x",
     ),
@@ -1452,7 +1444,7 @@ test("a long plan reaches the turn in one call, every answer as the record keeps
    */
   let run = startRun({
     id: "long-run",
-    startedBy: { rule: null, instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
   const outcomes: string[] = [];
   /*

@@ -71,7 +71,7 @@ test("a fresh process re-arms every wait by reading the runs", async () => {
     waitUntil(
       startRun({
         id: "boot",
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
       }),
       {
         what: "the booking window",
@@ -116,7 +116,7 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
       waitUntil(
         startRun({
           id,
-          startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+          startedBy: { woke: "mail created: m-1" },
         }),
         {
           what: "what it waits for",
@@ -144,7 +144,7 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
       waitUntil(
         startRun({
           id: "cancelled",
-          startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+          startedBy: { woke: "mail created: m-1" },
         }),
         {
           what: "the answer",
@@ -197,7 +197,7 @@ test("a wait this process already fired is not handed over again at the same ins
     waitUntil(
       startRun({
         id: "once",
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
       }),
       {
         what: "the answer",
@@ -270,7 +270,7 @@ test("a wait further out than one timer may run is armed in hops, and fires at i
     waitUntil(
       startRun({
         id: "hops",
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
       }),
       {
         what: "something months away",

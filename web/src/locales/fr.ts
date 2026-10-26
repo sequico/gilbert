@@ -2490,10 +2490,6 @@ export const catalog: Catalog = {
     Worked: "Effectué",
     "Not reached": "Non atteint",
     "out-of-budget": "Hors budget",
-    "Started by the rule {rule}, woken by {change}.":
-      "Lancée par la règle {rule}, réveillée par {change}.",
-    "Started by an instruction in {channel} {id}, woken by {change}.":
-      "Lancée par une instruction dans {channel} {id}, réveillée par {change}.",
     Surfaces: "Surfaces",
     "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
       "Dépensé : {steps} étapes, {calls} appels de modèle, {ms} ms de travail.",

@@ -205,7 +205,7 @@ export interface InstallationModel {
    * Whether the provider answers `/embeddings` for this model, read by the same
    * probe (ADR 0038). Absent on a block written before the capability was
    * probed, and false on one that cannot embed: the memory is then retrieved by
-   * exact subject alone, which is a retrieval the run records.
+   * exact subject alone.
    */
   embeddings?: boolean;
 }

@@ -18,9 +18,8 @@ their relations, inside a ceiling of facts and of characters — fenced as data 
 every other block of text somebody outside the group decided
 (`server/src/agent/model.ts`), and the loop makes it and reads the store from the
 Master's account (`server/src/agent/loop.ts`). The run records which facts its
-calls carried and which retrieval found them, as references to the documents
-(`recalled`, `retrieval`, `server/src/shared/run.ts`), so a conclusion is traceable
-to the fact behind it — and the surface that draws a run resolves each of those ids
+calls carried, as references to the documents (`recalled`,
+`server/src/shared/run.ts`), so a conclusion is traceable to the fact behind it — and the surface that draws a run resolves each of those ids
 to its fact. The agent's write is the catalogue's `act` with `what: "fact"`
 (`server/src/agent/tools/memory.ts`), an act of the class the agent decides alone:
 it records a fact, and against one a person holds it writes its conclusion
@@ -88,9 +87,9 @@ those facts from Administration.
   at that moment and one hop of their relations, ranked by subject, then
   similarity, then recency, inside a ceiling of facts and of characters the call
   carries — and only the top few reach the turn. A fact about a subject the memory
-  does not hold creates the entity. What was recalled, and which retrieval found
-  it, is written into the run's record, so a wrong conclusion can be traced to the
-  fact that carried it (ADR 0030).
+  does not hold creates the entity. What was recalled is written into the run's
+  record, so a wrong conclusion can be traced to the fact that carried it
+  (ADR 0030).
 - **A fact is information, never an instruction.** It is read and reasoned over;
   it grants nothing and authorises nothing. The authority classes (ADR 0028) and
   the trust of a sender (ADR 0029) are untouched by anything a fact says, and a

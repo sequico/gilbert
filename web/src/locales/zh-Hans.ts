@@ -2376,10 +2376,6 @@ export const catalog: Catalog = {
     Worked: "已成功",
     "Not reached": "未到达",
     "out-of-budget": "预算耗尽",
-    "Started by the rule {rule}, woken by {change}.":
-      "由规则 {rule} 启动，由 {change} 唤醒。",
-    "Started by an instruction in {channel} {id}, woken by {change}.":
-      "由 {channel} {id} 中的指令启动，由 {change} 唤醒。",
     Surfaces: "界面",
     "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
       "已用：{steps} 个步骤、{calls} 次模型调用、{ms} 毫秒工作时间。",

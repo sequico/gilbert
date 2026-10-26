@@ -256,7 +256,7 @@ test("the runs a group worked are drawn as the record carries them", async () =>
     appendStep(
       startRun({
         id: "surface-run",
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
         plan: ["read the mail"],
       }),
       "file it, if the mail was read",
@@ -273,7 +273,6 @@ test("the runs a group worked are drawn as the record carries them", async () =>
     runs: Array<{
       id: string;
       state: string | null;
-      rule: string | null;
       woke: string | null;
       steps: number;
       spent: { calls: number };
@@ -284,7 +283,6 @@ test("the runs a group worked are drawn as the record carries them", async () =>
   assert.ok(listed, "the run the group worked is in the listing");
   assert.equal(listed.state, "running", "the list says how it stands");
   assert.equal(listed.woke, "mail created: m-1", "with the change that woke it");
-  assert.equal(listed.rule, "intake", "and the rule that answered it");
   assert.equal(listed.steps, 2, "and how many steps it carries");
   assert.equal(listed.spent.calls, 0, "and the tally of what it spent");
   assert.equal(listed.problem, null, "a run this build reads has no problem");
@@ -345,7 +343,7 @@ test("the runs list is newest first, and its page is taken by a cursor", async (
       startRun({
         id: `page-run-${String(at).padStart(2, "0")}`,
         startedAt,
-        startedBy: { rule: null, instruction: null, woke: `mail created: m-${at}` },
+        startedBy: { woke: `mail created: m-${at}` },
       }),
       "done",
       {
@@ -357,7 +355,7 @@ test("the runs list is newest first, and its page is taken by a cursor", async (
   }
   const legacy = startRun({
     id: "page-run-legacy",
-    startedBy: { rule: null, instruction: null, woke: "mail created: m-legacy" },
+    startedBy: { woke: "mail created: m-legacy" },
   });
   const ended = finishRun(legacy, "done", {
     at: "2027-01-01T01:00:00.000Z",
@@ -395,7 +393,7 @@ test("the runs list is newest first, and its page is taken by a cursor", async (
   const arrived = startRun({
     id: "page-run-arrived",
     startedAt: "2027-01-01T00:59:30.000Z",
-    startedBy: { rule: null, instruction: null, woke: "mail created: m-arrived" },
+    startedBy: { woke: "mail created: m-arrived" },
   });
   await writeAppFileAt(master, teamAccount, runPath(arrived.id), arrived);
 
@@ -435,7 +433,7 @@ test("a month of the archive is read by the same gate, and a bad filter is refus
   const run = startRun({
     id: "archived-run",
     startedAt: "2025-09-15T10:00:00Z",
-    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
   await writeAppFileAt(
     master,
@@ -479,7 +477,7 @@ test("a month of the archive is read by the same gate, and a bad filter is refus
 test("a member stops a run of their group, and another group's run is not theirs", async () => {
   const run = startRun({
     id: "stoppable-run",
-    startedBy: { rule: "intake", instruction: null, woke: "chat created: m-9" },
+    startedBy: { woke: "chat created: m-9" },
     plan: ["read the message"],
   });
   await writeAppFileAt(master, teamAccount, runPath(run.id), run);
@@ -672,7 +670,7 @@ test("a group-wide stop says what it closed, what it could not, and what it neve
   for (const id of ["stop-me-1", "stop-me-2"]) {
     const run = startRun({
       id,
-      startedBy: { rule: "intake", instruction: null, woke: "chat created: c-1" },
+      startedBy: { woke: "chat created: c-1" },
       plan: ["say something"],
     });
     await writeAppFileAt(master, teamAccount, runPath(run.id), run);
@@ -804,7 +802,7 @@ test("a live listing asked for headers keeps the wait and leaves the plan behind
   const waiting = waitUntil(
     startRun({
       id: "live-question",
-      startedBy: { rule: "intake", instruction: null, woke: "chat created: m-9" },
+      startedBy: { woke: "chat created: m-9" },
       plan: ["ask somebody which booking"],
     }),
     {

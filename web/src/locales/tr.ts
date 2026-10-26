@@ -2379,10 +2379,6 @@ export const catalog: Catalog = {
     Worked: "Çalıştı",
     "Not reached": "Ulaşılmadı",
     "out-of-budget": "Bütçe tükendi",
-    "Started by the rule {rule}, woken by {change}.":
-      "{rule} kuralıyla başlatıldı, {change} tarafından uyandırıldı.",
-    "Started by an instruction in {channel} {id}, woken by {change}.":
-      "{channel} {id} içindeki bir talimatla başlatıldı, {change} tarafından uyandırıldı.",
     Surfaces: "Yüzeyler",
     "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
       "Harcanan: {steps} adım, {calls} model çağrısı, {ms} ms çalışma.",

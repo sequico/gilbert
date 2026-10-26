@@ -30,7 +30,6 @@
 
 import { errorDetail } from "./errors.js";
 import { isInstant, isRecord } from "./json.js";
-import type { Recall } from "./memory.js";
 import { isSurfaceMatrix, type SurfaceMatrix } from "./surfaces.js";
 
 /**
@@ -153,9 +152,10 @@ export function compactAt(run: RunDoc): number | null {
 /**
  * The versions before this one, which this build reads as well.
  *
- * `recalled` was added by version 5 (ADR 0033), `retrieval` by version 6 (ADR
- * 0038), and this version retires the `touched` list a run never filled. A
- * **known** older version is read with the field it lacks defaulted and the one
+ * `recalled` was added by version 5 (ADR 0033), and version 6 wrote two fields
+ * this build retires because nothing reads them: the `touched` list a run never
+ * filled and the `retrieval` a run never showed. A
+ * **known** older version is read with the field it lacks defaulted and the ones
  * it still carries ignored — an installation that ran an earlier build has runs on
  * its accounts, and refusing them would stop every pass before it worked a
  * change, forever, with no surface to delete them from: the version exists to
@@ -164,10 +164,7 @@ export function compactAt(run: RunDoc): number | null {
  * Gilbert may carry a field whose meaning changed, and reading it as though it
  * had not is worse than saying so.
  */
-const RUN_VERSION_WITHOUT_RETRIEVAL = 5;
 const RUN_VERSION_WITHOUT_RECALLED = 4;
-/** The version before this one, which still wrote the retired `touched` list. */
-const RUN_VERSION_WITH_TOUCHED = 6;
 
 /**
  * A step's state: `open` until it leaves the plan, and the three ways it can.
@@ -230,16 +227,9 @@ export type RunAuthority = "destructive" | "outward" | "override";
  */
 interface RunStart {
   /**
-   * The rule's document name: null in every run this build writes, since a group
-   * has one instruction and no rules. Kept because a run document already in an
-   * account names one, and the record is read as it was written.
-   */
-  rule: string | null;
-  /** The sentence a person wrote; null when a change woke the instruction. */
-  instruction: RunMessageRef | null;
-  /**
    * The change in the group's account that woke the instruction, in the group's
-   * own words; null when a person's own sentence started the run.
+   * own words; null in a document an earlier build wrote, where a person's own
+   * sentence started the run.
    *
    * A change wakes the instruction, and the run has to say which change, or a
    * process that takes the run over cannot tell what it is answering. The words
@@ -257,13 +247,6 @@ interface RunStart {
    * folder again to know what arrived.
    */
   batch?: readonly string[];
-  /**
-   * The address whose message woke an agent that sends, as the change carried it.
-   *
-   * Kept for the record a run already wrote; an outward act is a draft a person
-   * sends (ADR 0038), so nothing licenses a send from it.
-   */
-  wakeFrom?: string | null;
   /**
    * The write matrix the areas gave when the run opened (ADR 0038): what it may
    * write on. What woke it is the instruction's own surface at the change, read
@@ -498,14 +481,6 @@ export interface RunEnd {
 }
 
 /**
- * Which memory retrieval a run used (ADR 0038), in the memory's own words.
- *
- * One definition, two documents: the memory's selection answers it and the run
- * records it, so the two cannot spell the same retrieval differently.
- */
-export type RunRetrieval = Recall["retrieval"];
-
-/**
  * One run, as it is stored.
  *
  * Every field is written when the run starts, so a document that is missing one
@@ -570,13 +545,6 @@ export interface RunDoc {
    * a wrong conclusion traceable to the fact that carried it.
    */
   recalled: string[];
-  /**
-   * Which memory retrieval the run's turns used (ADR 0038): `exact` when the
-   * change's words were matched against the known subjects alone, or
-   * `exact+similarity` when the installation embeds and the comparison was also
-   * made by vector. The record says what a wrong conclusion was recalled by.
-   */
-  retrieval: RunRetrieval;
   authorisations: RunAuthorisation[];
   evidence: RunEvidence[];
   /**
@@ -624,8 +592,6 @@ export interface RunSummary {
   state: RunDoc["state"] | null;
   startedAt?: string;
   ended: RunEnd | null;
-  /** The rule an older run answered; null in a run the group's instruction opened. */
-  rule: string | null;
   /** The change that woke it, in the run's own words. */
   woke: string | null;
   /**
@@ -746,7 +712,6 @@ export function summarizeRun(
     state: run?.state ?? null,
     ...(run?.startedAt === undefined ? {} : { startedAt: run.startedAt }),
     ended: run?.ended ?? null,
-    rule: run?.startedBy.rule ?? null,
     woke: run?.startedBy.woke ?? null,
     about: run?.startedBy.about ?? null,
     by: run?.startedBy.by ?? null,
@@ -787,12 +752,13 @@ function isMessageRef(x: unknown): x is RunMessageRef {
 
 function isStart(x: unknown): x is RunStart {
   if (!isRecord(x)) return false;
-  const { rule, instruction, woke } = x;
-  // A field this build writes is a field it requires: a document missing one is
-  // a document this build did not write.
+  const { woke } = x;
+  // A change wakes every run this build writes, and the field is how the record
+  // says which one. A `rule`, an `instruction` or a `wakeFrom` written by an
+  // earlier build is an unknown key and is ignored, like every retired one; a
+  // document with no change at all is one an earlier build started from a
+  // sentence, and it reads as it was written.
   if (!("woke" in x)) return false;
-  if (rule !== null && (typeof rule !== "string" || !rule)) return false;
-  if (instruction !== null && !isMessageRef(instruction)) return false;
   if (woke !== null && (typeof woke !== "string" || !woke.trim())) return false;
   if ("batch" in x) {
     const batch = (x as { batch?: unknown }).batch;
@@ -802,24 +768,11 @@ function isStart(x: unknown): x is RunStart {
     )
       return false;
   }
-  const wakeFrom = (x as { wakeFrom?: unknown }).wakeFrom;
-  if (wakeFrom !== undefined && wakeFrom !== null && typeof wakeFrom !== "string")
-    return false;
   if ("surfaces" in x && !isSurfaceMatrix((x as { surfaces?: unknown }).surfaces))
     return false;
   if ("about" in x && typeof (x as { about?: unknown }).about !== "string") return false;
   if ("by" in x && typeof (x as { by?: unknown }).by !== "string") return false;
-  // A run is started by one thing: a rule document an older run carries and is
-  // still read as it was written, the sentence a person wrote, or the group's
-  // standing instruction — which names neither and is named by the change it
-  // answered.
-  const named = [rule !== null, instruction !== null].filter(Boolean).length;
-  if (named > 1) return false;
-  // A rule document or the standing instruction is woken by a change in the
-  // group's account; a person's own sentence **is** the change, so it names none
-  // beside it.
-  if (instruction !== null) return woke === null;
-  return woke !== null;
+  return true;
 }
 
 function isStepState(x: unknown): x is RunStepState {
@@ -996,20 +949,18 @@ export function parseRunDocumentDetailed(
   }
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };
   if (
-    whole.v !== RUN_VERSION &&
-    whole.v !== RUN_VERSION_WITH_TOUCHED &&
-    whole.v !== RUN_VERSION_WITHOUT_RETRIEVAL &&
-    whole.v !== RUN_VERSION_WITHOUT_RECALLED
+    !Number.isInteger(whole.v) ||
+    (whole.v as number) < RUN_VERSION_WITHOUT_RECALLED ||
+    (whole.v as number) > RUN_VERSION
   )
     return {
-      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION} and the three before it.`,
+      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION} and the ${RUN_VERSION - RUN_VERSION_WITHOUT_RECALLED} before it.`,
     };
   if (typeof whole.id !== "string" || !whole.id)
     return { problem: '"id" must be the run\'s name.' };
   if (!isStart(whole.startedBy))
     return {
-      problem:
-        '"startedBy" must name the rule, the instruction or the change that started the run.',
+      problem: '"startedBy" must name the change that started the run.',
     };
   /*
    * A run written before the field existed carries no `startedAt`. It reads as
@@ -1040,20 +991,6 @@ export function parseRunDocumentDetailed(
   if (!Array.isArray(recalled) || !recalled.every((id) => typeof id === "string" && !!id))
     return {
       problem: '"recalled" must be the ids of the facts the run recalled.',
-    };
-  /*
-   * A run written before this version carries no `retrieval`, because the field
-   * did not exist when it was written: it reads as the exact retrieval, which is
-   * the only one the build that wrote it had.
-   */
-  const retrieval =
-    whole.retrieval ??
-    (whole.v === RUN_VERSION || whole.v === RUN_VERSION_WITH_TOUCHED
-      ? undefined
-      : "exact");
-  if (retrieval !== "exact" && retrieval !== "exact+similarity")
-    return {
-      problem: '"retrieval" must be "exact" or "exact+similarity".',
     };
   if (
     !Array.isArray(whole.authorisations) ||
@@ -1109,7 +1046,15 @@ export function parseRunDocumentDetailed(
       v: RUN_VERSION,
       id: whole.id,
       ...(whole.startedAt === undefined ? {} : { startedAt: whole.startedAt }),
-      startedBy: whole.startedBy,
+      startedBy: {
+        woke: whole.startedBy.woke,
+        ...(whole.startedBy.batch === undefined ? {} : { batch: whole.startedBy.batch }),
+        ...(whole.startedBy.surfaces === undefined
+          ? {}
+          : { surfaces: whole.startedBy.surfaces }),
+        ...(whole.startedBy.about === undefined ? {} : { about: whole.startedBy.about }),
+        ...(whole.startedBy.by === undefined ? {} : { by: whole.startedBy.by }),
+      },
       ...(whole.limits === undefined ? {} : { limits: whole.limits }),
       ...(whole.caseKey === undefined ? {} : { caseKey: whole.caseKey }),
       ...(whole.slice === undefined ? {} : { slice: whole.slice }),
@@ -1117,7 +1062,6 @@ export function parseRunDocumentDetailed(
       plan: whole.plan,
       waiting: whole.waiting,
       recalled,
-      retrieval,
       authorisations: whole.authorisations,
       evidence: whole.evidence,
       spent: whole.spent,
@@ -1183,7 +1127,6 @@ export function startRun(input: {
     })),
     waiting: null,
     recalled: [],
-    retrieval: "exact",
     authorisations: [],
     evidence: [],
     spent: { steps: 0, calls: 0, ms: 0 },
@@ -1273,22 +1216,16 @@ export function stepIdentity(step: RunStep): string {
 }
 
 /**
- * Record the facts a call carried from the installation's memory (ADR 0033),
- * and which retrieval found them (ADR 0038).
+ * Record the facts a call carried from the installation's memory (ADR 0033).
  *
  * One list and never a second: a fact recalled by a later call of the same run
  * is already on it, so the record says which facts the run reasoned from without
  * repeating the same one for every turn. What is written is the id of each
  * document — a reference, so a correction of a fact lands in the memory and not
  * in every run that read it — and the order is the order the selection carried
- * them in. The retrieval is the one the turn that recalled them used: a later
- * turn that embedded nothing does not make an earlier similarity recall exact.
+ * them in.
  */
-export function recordRecall(
-  run: RunDoc,
-  ids: readonly string[],
-  retrieval: RunRetrieval = "exact",
-): RunDoc {
+export function recordRecall(run: RunDoc, ids: readonly string[]): RunDoc {
   mustBeRunning(run);
   const recalled = [...run.recalled];
   for (const id of ids) {
@@ -1296,11 +1233,7 @@ export function recordRecall(
       throw new Error(`a fact the run "${run.id}" recalled is not one.`);
     if (!recalled.includes(id)) recalled.push(id);
   }
-  return {
-    ...run,
-    recalled,
-    retrieval: run.retrieval === "exact+similarity" ? run.retrieval : retrieval,
-  };
+  return { ...run, recalled };
 }
 
 /**

@@ -2460,10 +2460,6 @@ export const catalog: Catalog = {
     Worked: "実行済み",
     "Not reached": "未到達",
     "out-of-budget": "予算超過",
-    "Started by the rule {rule}, woken by {change}.":
-      "ルール {rule} により開始、{change} により起動。",
-    "Started by an instruction in {channel} {id}, woken by {change}.":
-      "{channel} {id} の指示により開始、{change} により起動。",
     Surfaces: "対象",
     "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
       "消費: {steps} ステップ、{calls} 回のモデル呼び出し、{ms} ミリ秒の作業。",

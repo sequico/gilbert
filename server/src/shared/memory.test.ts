@@ -200,7 +200,6 @@ test("retrieval finds a subject exactly, then by similarity, and never the close
       ["f-ship", 0.7],
     ]),
   });
-  assert.equal(recalled.retrieval, "exact+similarity");
   assert.deepEqual(
     recalled.facts.map((fact) => fact.id),
     ["f-ship", "f-book"],
@@ -211,9 +210,8 @@ test("retrieval finds a subject exactly, then by similarity, and never the close
     ["Maersk Line", "booking 4711"],
   );
 
-  // Without the capability the retrieval is exact, and says so.
+  // Without the capability nothing is matched by similarity.
   const exact = recallMemory(index, { words: "shipment from Maersk Line", now: NOW });
-  assert.equal(exact.retrieval, "exact");
   assert.deepEqual(
     exact.facts.map((fact) => fact.id),
     ["f-ship"],

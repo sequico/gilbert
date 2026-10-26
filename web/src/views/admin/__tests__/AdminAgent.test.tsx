@@ -29,7 +29,7 @@ const GROUP = "team@example.org";
 const RUN = {
   v: 5,
   id: "surface-run",
-  startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+  startedBy: { woke: "mail created: m-1" },
   plan: [
     { what: "read the mail", state: "done", outcome: "read one message", needs: null },
     {
@@ -58,7 +58,6 @@ const SUMMARY = {
   problem: null,
   state: "blocked",
   ended: { at: "2026-10-17T09:00:00.000Z", why: "waiting for the shipper's answer" },
-  rule: "intake",
   woke: "mail created: m-1",
   steps: 2,
   refused: 0,
@@ -232,7 +231,7 @@ describe("the agent's administration surface", () => {
     ).not.toContain("Start");
   });
 
-  it("draws a run as the record carries it: the change, the rule, the dependency and the branch", async () => {
+  it("draws a run as the record carries it: the change, the dependency and the branch", async () => {
     stubServer();
     await render();
     await openTab(GROUP);
@@ -245,7 +244,6 @@ describe("the agent's administration surface", () => {
 
     const shown = text();
     expect(shown).toContain("mail created: m-1");
-    expect(shown).toContain("intake");
     expect(shown).toContain("read the mail");
     // The dependency of the step that waited, and the branch it did not take.
     expect(shown).toContain("After step 1 if it ended Worked");
@@ -266,7 +264,6 @@ describe("the agent's administration surface", () => {
         problem: 'The run at runs/future-run.json is not readable: "v" is 9.',
         state: null,
         ended: null,
-        rule: null,
         woke: null,
         steps: 0,
         refused: 0,

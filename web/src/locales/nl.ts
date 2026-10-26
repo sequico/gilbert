@@ -2463,10 +2463,6 @@ export const catalog: Catalog = {
     Worked: "Uitgevoerd",
     "Not reached": "Niet bereikt",
     "out-of-budget": "Budget uitgeput",
-    "Started by the rule {rule}, woken by {change}.":
-      "Gestart door de regel {rule}, gewekt door {change}.",
-    "Started by an instruction in {channel} {id}, woken by {change}.":
-      "Gestart door een instructie in {channel} {id}, gewekt door {change}.",
     Surfaces: "Oppervlakken",
     "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
       "Besteed: {steps} stappen, {calls} modelaanroepen, {ms} ms werk.",

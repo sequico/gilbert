@@ -2452,10 +2452,6 @@ export const catalog: Catalog = {
     Worked: "Спрацювало",
     "Not reached": "Не досягнуто",
     "out-of-budget": "Бюджет вичерпано",
-    "Started by the rule {rule}, woken by {change}.":
-      "Запущений правилом {rule}, розбуджений зміною {change}.",
-    "Started by an instruction in {channel} {id}, woken by {change}.":
-      "Запущений інструкцією в {channel} {id}, розбуджений зміною {change}.",
     Surfaces: "Поверхні",
     "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
       "Витрачено: {steps} кроків, {calls} викликів моделі, {ms} мс роботи.",

@@ -72,21 +72,10 @@ function recalledFact(id: string, facts: readonly FactView[]): string {
   return fact ? `${fact.entityName} — ${fact.fact}` : id;
 }
 
-/** The run itself: the change, the rule, the plan with its order, the tally. */
+/** The run itself: the change, the plan with its order, the tally. */
 function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }) {
   const { startedBy, plan, spent, waiting, ended, recalled, authorisations } = run;
-  const origin = startedBy.rule
-    ? t("Started by the rule {rule}, woken by {change}.", {
-        rule: startedBy.rule,
-        change: startedBy.woke ?? "",
-      })
-    : startedBy.instruction
-      ? t("Started by an instruction in {channel} {id}, woken by {change}.", {
-          channel: startedBy.instruction.channel,
-          id: startedBy.instruction.id,
-          change: startedBy.woke ?? "",
-        })
-      : `${t("Woke")}: ${startedBy.woke ?? ""}`;
+  const origin = `${t("Woke")}: ${startedBy.woke ?? "—"}`;
   const tokens = (spent.promptTokens ?? 0) + (spent.completionTokens ?? 0);
   return (
     <div className="run-card">

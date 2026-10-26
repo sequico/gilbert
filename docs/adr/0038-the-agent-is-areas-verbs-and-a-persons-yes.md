@@ -7,7 +7,7 @@ Implementation: Partly built. **Built:** areas and their selection
 (`agent/tools/jobs.ts`, and the interface rules the file states held by
 `agent/tools/aci.test.ts`), one instruction per group
 (`agent/instruction.ts`, panel `GroupInstruction.tsx`), the change as trigger with
-the run keyed by it and the one-off clear (`changes.ts`, `loop.ts`, `legacy.ts`),
+the run keyed by it (`changes.ts`, `loop.ts`),
 the `done` read against its plan (nothing finished → `refused`), the repair of an
 invalid call (`model.ts`, `loop.ts`), the credential filter (`redact.ts`), the eval
 runner (`eval.ts`), native function calling as the only action protocol with the
@@ -34,7 +34,7 @@ and the vector it was written with, a contradicting fact closing the one it
 replaces, a duplicate never written, retrieval by exact subject then similarity
 then recency with relations one hop, the pass applying the TTL, the "since when"
 read by entity and interval, the embeddings capability probed with the provider's
-others, the run recording `retrieval` beside `recalled`, and precision and recall
+others, the run recording `recalled`, and precision and recall
 measured on a corpus in the repository (`agent/eval/memory.ts`); a sheet of an
 earlier version is read as an entity and an `is` fact without being rewritten.
 **The turn's own context is built:** the message the change carried
@@ -250,8 +250,8 @@ written again.
 The memory is **measured** — precision and recall, not how much was stored, because
 a wrong fact recalled is worse than a missing one. Limits: a cap per entity, a TTL
 **the pass applies when it reads the memory**, and an embedding only where the
-installation offers one — a **capability checked at connect, like `tools`** — with
-the run recording which retrieval it used.
+installation offers one — a **capability checked at connect, like `tools`**.
+There is no fallback when it does not: the retrieval is then exact only.
 
 ### The boundary: content is data, and a person sends
 

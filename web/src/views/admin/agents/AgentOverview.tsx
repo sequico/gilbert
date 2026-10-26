@@ -415,7 +415,6 @@ function LiveRunCard({
           {listed.state && t(RUN_STATE_LABELS[listed.state])}
         </span>
         <span className="run-row-id">{listed.id}</span>
-        {listed.rule && <span className="run-row-meta">{listed.rule}</span>}
         {listed.startedAt && (
           <span className="run-row-meta">{formatFullDate(listed.startedAt)}</span>
         )}

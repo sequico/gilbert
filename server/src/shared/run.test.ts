@@ -45,11 +45,7 @@ import {
   withCase,
 } from "./run.js";
 
-const START = {
-  rule: "intake",
-  instruction: null,
-  woke: "mail created: m-1",
-} as const;
+const START = { woke: "mail created: m-1" } as const;
 const AT = "2026-10-16T10:00:00.000Z";
 const ASKED = { channel: "mail", id: "m-ask-1" } as const;
 const QUESTION = { what: "the shipper's answer", asked: ASKED, until: null } as const;
@@ -429,19 +425,12 @@ test("a run records which facts of the installation's memory it recalled", () =>
   assert.ok("run" in stored, "and the list is part of the stored contract");
   assert.deepEqual(stored.run.recalled, ["f-1", "f-2"]);
 
-  // This version records which retrieval the run used, and the version before
-  // it carries neither the field nor a `recalled` list: both read rather than
-  // being refused, so an installation that ran an earlier build keeps working
-  // its runs.
+  // The version before the list carries none: it is read with an empty one, so an
+  // installation that ran an earlier build keeps working its runs.
   const { recalled: _none, ...older } = recalled;
   const readOlder = parseRunDocumentDetailed(JSON.stringify({ ...older, v: 4 }));
   assert.ok("run" in readOlder, "the version before this one is a run this build reads");
   assert.deepEqual(readOlder.run.recalled, [], "with nothing recalled");
-  assert.equal(
-    readOlder.run.retrieval,
-    "exact",
-    "and the exact retrieval, the only one it had",
-  );
   assert.equal(
     readOlder.run.v,
     RUN_VERSION,
@@ -449,22 +438,14 @@ test("a run records which facts of the installation's memory it recalled", () =>
   );
   assert.equal(readOlder.run.id, "r15", "with the rest of the document untouched");
 
-  const { retrieval: _unused, ...previous } = recalled;
-  const readPrevious = parseRunDocumentDetailed(JSON.stringify({ ...previous, v: 5 }));
+  // Version 6 recorded a `retrieval` this build retired with `touched`: the key
+  // is ignored, the run reads, and the next write leaves it out.
+  const readPrevious = parseRunDocumentDetailed(
+    JSON.stringify({ ...recalled, v: 5, retrieval: "exact+similarity" }),
+  );
   assert.ok("run" in readPrevious, "the immediately previous version too");
-  assert.equal(readPrevious.run.retrieval, "exact", "which recorded no retrieval");
+  assert.equal("retrieval" in readPrevious.run, false, "which recorded no retrieval");
   assert.deepEqual(readPrevious.run.recalled, ["f-1", "f-2"]);
-
-  assert.equal(
-    recordRecall(recalled, [], "exact+similarity").retrieval,
-    "exact+similarity",
-    "a similarity pass is recorded as what the run used",
-  );
-  assert.equal(
-    recordRecall(recordRecall(run, ["f-1"], "exact+similarity"), [], "exact").retrieval,
-    "exact+similarity",
-    "and a later exact turn does not retract it",
-  );
 });
 
 test("the budget is a tally the run carries, and it only grows", () => {
@@ -652,7 +633,7 @@ test("a run a guardrail stopped ends refused, and the record says which check", 
    */
   const running = startRun({
     id: "guardrail",
-    startedBy: { rule: null, instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
   const stopped = finishRun(running, "refused", {
     at: AT,
@@ -765,11 +746,7 @@ test("a person stops a run that is waiting on them, and no other ending takes it
 test("a stored run tolerates a field this build does not know, and keeps the rest", () => {
   const run = startRun({
     id: "r5",
-    startedBy: {
-      rule: null,
-      instruction: { channel: "chat", id: "node-7" },
-      woke: null,
-    },
+    startedBy: { woke: "mail created: m-1" },
     plan: ["look"],
   });
   const stored = JSON.stringify({ ...run, budget: { steps: 12 }, retiredThing: true });
@@ -780,7 +757,7 @@ test("a stored run tolerates a field this build does not know, and keeps the res
     "the extra keys do not refuse a run that is otherwise whole",
   );
   assert.equal(parsed.run.id, "r5");
-  assert.equal(parsed.run.startedBy.instruction?.id, "node-7");
+  assert.equal(parsed.run.startedBy.woke, "mail created: m-1");
   assert.equal(
     (parsed.run as unknown as Record<string, unknown>).budget,
     undefined,
@@ -797,12 +774,9 @@ test("a run this build cannot read is reported, with what was wrong", () => {
     // The three versions before this are read (with the fields they lack
     // defaulted); anything older is a document this build did not write.
     ['{"v":3,"id":"r3"}', /this build reads version 7/],
+    ['{"v":5,"id":"","startedBy":{"woke":"mail created: m-1"}}', /"id" must be/],
     [
-      '{"v":5,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
-      /"id" must be/,
-    ],
-    [
-      '{"v":5,"id":"r6","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
+      '{"v":5,"id":"r6","startedBy":{"woke":"mail created: m-1"}}',
       /"plan" must be a list of steps/,
     ],
     // A step this build writes carries what it waits on; one without it is a
@@ -848,20 +822,10 @@ test("a run this build cannot read is reported, with what was wrong", () => {
       /"plan" must be a list of steps/,
     ],
     [
-      JSON.stringify({
-        ...whole,
-        startedBy: { rule: "a", instruction: null },
-      }),
+      // A run this build writes says what woke it; one with no `woke` at all is
+      // a document this build did not write.
+      JSON.stringify({ ...whole, startedBy: { rule: "a", instruction: null } }),
       /"startedBy" must name/,
-    ],
-    [
-      JSON.stringify({
-        ...whole,
-        startedBy: { rule: "a", instruction: null, woke: null },
-      }),
-      /"startedBy" must name/,
-      // A rule is woken by a change, so a rule-started run that names no change
-      // is a document this build did not write.
     ],
     [
       JSON.stringify({ ...whole, recalled: ["f-1", ""] }),
@@ -914,10 +878,7 @@ test("a run this build cannot read is reported, with what was wrong", () => {
       }),
       /"waiting" must name the question a run blocked on a person left/,
     ],
-    [
-      JSON.stringify({ ...whole, startedBy: { rule: null, instruction: null } }),
-      /"startedBy" must name/,
-    ],
+    [JSON.stringify({ ...whole, startedBy: {} }), /"startedBy" must name/],
   ] as const;
 
   for (const [text, expectation] of bad) {

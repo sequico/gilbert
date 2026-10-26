@@ -97,8 +97,6 @@ export interface ChangesDeps {
     accountId: string,
     event: AccountEvent,
     instruction: InstructionDoc,
-    /** The sender the waking message named, or null when the change names none. */
-    from: string | null,
     /** What the change said, in its own words, as this pass read it. */
     about?: string,
     /** Who set it off, when the change names a person. */
@@ -702,14 +700,7 @@ export async function workChanges(
      * change answers is opened here; one the account already held was continued
      * above, before the decision turn was paid for.
      */
-    const run = await deps.openRun(
-      accountId,
-      event,
-      instruction,
-      message?.from ?? null,
-      said.about,
-      said.by,
-    );
+    const run = await deps.openRun(accountId, event, instruction, said.about, said.by);
     summary.runs += 1;
     const worked = await deps.workRun(
       accountId,

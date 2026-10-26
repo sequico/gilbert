@@ -70,7 +70,7 @@ test("a run read by a process that never wrote it carries its wait and its tally
     waitUntil(
       startRun({
         id: "restart-1",
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
         plan: ["read the mail"],
       }),
       { what: "the shipper's answer", asked, until },
@@ -99,14 +99,14 @@ test("only the runs whose wait has come due are ready to be re-armed", async () 
   const past = waitUntil(
     startRun({
       id: "due-1",
-      startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+      startedBy: { woke: "mail created: m-1" },
     }),
     { what: "the answer", asked, until: new Date(Date.now() - 60_000).toISOString() },
   );
   const future = waitUntil(
     startRun({
       id: "due-2",
-      startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+      startedBy: { woke: "mail created: m-1" },
     }),
     { what: "the answer", asked, until: new Date(Date.now() + 60_000).toISOString() },
   );
@@ -140,7 +140,7 @@ test("a closed run older than a year moves to its month's drawer, and nothing el
     finishRun(
       startRun({
         id,
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
       }),
       "done",
       { at, why: "the work is done" },
@@ -149,7 +149,7 @@ test("a closed run older than a year moves to its month's drawer, and nothing el
   const recent = closed("recent-run", new Date().toISOString());
   const running = startRun({
     id: "still-running",
-    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-2" },
+    startedBy: { woke: "mail created: m-2" },
   });
   /*
    * A blocked run has an ending, but nobody is done with it: the answer that
@@ -160,7 +160,7 @@ test("a closed run older than a year moves to its month's drawer, and nothing el
     waitUntil(
       startRun({
         id: "blocked-run",
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-3" },
+        startedBy: { woke: "mail created: m-3" },
       }),
       {
         what: "the shipper's answer",
@@ -216,10 +216,10 @@ test("two accounts with a document at the same path do not read each other's", a
       ),
   );
   assert.ok(other, "the session holds a second account to read");
-  const document = (rule: string) =>
+  const document = (about: string) =>
     startRun({
       id: "same-path-run",
-      startedBy: { rule, instruction: null, woke: "mail created: m-1" },
+      startedBy: { woke: "mail created: m-1", about },
     });
   await createRun(ctx, accountId, document("mine"));
   await createRun(ctx, other, document("theirs"));
@@ -227,11 +227,11 @@ test("two accounts with a document at the same path do not read each other's", a
   const mine = await listRunsForReading(ctx, accountId);
   const theirs = await listRunsForReading(ctx, other);
   assert.equal(
-    mine.find((row) => row.id === "same-path-run")?.run?.startedBy.rule,
+    mine.find((row) => row.id === "same-path-run")?.run?.startedBy.about,
     "mine",
   );
   assert.equal(
-    theirs.find((row) => row.id === "same-path-run")?.run?.startedBy.rule,
+    theirs.find((row) => row.id === "same-path-run")?.run?.startedBy.about,
     "theirs",
     "the other account's document is its own",
   );
@@ -240,7 +240,7 @@ test("two accounts with a document at the same path do not read each other's", a
 test("a run is created once and replaced under the state it was read at", async () => {
   const run = startRun({
     id: "cas-1",
-    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+    startedBy: { woke: "mail created: m-1" },
   });
   await createRun(ctx, accountId, run);
   await assert.rejects(
@@ -316,7 +316,7 @@ test("a run whose stamp has not moved is not downloaded a second time", async ()
     finishRun(
       startRun({
         id,
-        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        startedBy: { woke: "mail created: m-1" },
       }),
       "done",
       { at: new Date().toISOString(), why },

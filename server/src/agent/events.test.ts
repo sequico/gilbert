@@ -601,7 +601,7 @@ test("the agent's own calendar write leaves a mark the reading takes once", asyn
   const { startRun } = await import("../shared/run.js");
   const run = startRun({
     id: "r-calendar",
-    startedBy: { rule: "cal", instruction: null, woke: "test" },
+    startedBy: { woke: "test" },
   });
   const listed = (await runTool(TOOLS, { ctx, accountId, run }, "open", {
     what: "calendars",
