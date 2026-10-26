@@ -1264,7 +1264,8 @@ export class AgentLoop {
           memory: () => this.memory(),
           readingCall: (a, e) => this.readingCall(a, e),
           runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
-          workRun: (a, r, f, oq) => this.workRun(a, r, f, undefined, oq, now),
+          workRun: (a, r, f, oq, written) =>
+            this.workRun(a, r, f, undefined, oq, now, written),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
           openRun: (a, e, r, from, about, by) => this.openRun(a, e, r, from, about, by),
           noteDrop: (a, path, at) => noteFile(this.ctx, a, path, at),
@@ -1652,6 +1653,13 @@ export class AgentLoop {
      * deadline taken from the wall clock would be judged by the other one.
      */
     now = new Date(),
+    /**
+     * The words the change carried, already read by the pass that decided it: the
+     * turn is handed the message rather than spending its first step fetching it
+     * (ADR 0038). A run resumed by a later pass has none, and its note carries what
+     * the earlier turns kept.
+     */
+    written?: { from?: string; text: string; quoted?: string },
   ): Promise<RunDoc | null> {
     const access = this.access;
     if (!access) return null;
@@ -1776,6 +1784,8 @@ export class AgentLoop {
         ...(current.note ? { note: current.note } : {}),
         // How much of the plan that note already summarises (ADR 0038).
         ...(current.compactedUpTo ? { compactedUpTo: current.compactedUpTo } : {}),
+        // The message the run was woken by, as the pass read it (ADR 0038).
+        ...(written ? { written } : {}),
         ...(facts ? { facts } : {}),
         memory: selection.facts,
         ...(openQuestions?.length ? { openQuestions } : {}),

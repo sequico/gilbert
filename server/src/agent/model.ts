@@ -1967,6 +1967,14 @@ export interface StepQuestion {
   /** What the decision found the change to be about, when this turn follows one. */
   facts?: Record<string, string>;
   /**
+   * The words the change carried, as the pass already read them (ADR 0038).
+   *
+   * The decision turn was handed them to decide with; the working turn is handed the
+   * same text rather than spending its first step reading the message it was woken by.
+   * Absent on a run resumed by a later pass, whose note says what it kept.
+   */
+  written?: { from?: string; text: string; quoted?: string };
+  /**
    * What a person has already authorised for this run (ADR 0028): the class, the
    * act and the words it was read from. The guard compares an act exactly, so a
    * turn that must take one is shown the act it may take — without it the model

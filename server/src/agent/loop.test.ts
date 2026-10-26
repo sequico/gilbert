@@ -1504,6 +1504,30 @@ test("a done with nothing finished is put back once, then refused", async () => 
   assert.match(run?.ended?.why ?? "", /no step of the plan finished/);
 });
 
+test("the message a run was woken by is handed to it, not fetched by a read", async () => {
+  /*
+   * The decision turn already has the message — it read it to decide — so the
+   * working turn is handed the same words instead of spending its first step on
+   * `read`: on the failing runs the first ten of twenty-one steps were exactly that
+   * (ADR 0038).
+   */
+  await putInstruction();
+  const agent = loop();
+  await agent.start();
+  const body = "BK-901 leaves Antwerp on the 4th, two containers of brackets";
+
+  answerWith({ facts: {} });
+  answerWith(aLook());
+  answerWith({ done: "the message was already in hand" });
+  await deliver("BK-901 shipping notice", accountId, body);
+  await agent.pass();
+
+  assert.ok(
+    seen.some(({ user }) => user.includes(body)),
+    "the turn carries the sender's words",
+  );
+});
+
 test("a transcript past its bound is folded into the note, and the turn keeps a line a step", async () => {
   /*
    * The turn is a transcript (ADR 0038), so a run that reads a great deal would

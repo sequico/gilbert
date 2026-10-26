@@ -210,8 +210,9 @@ have open on the desk — names and text, never a verdict:
 Every part is bounded and says when it was cut, like every other block of the
 prompt. For a case that has several changes (R1) the turn gets the standing note and
 the change in hand — subject, sender, attachment names — not seven bodies.
-*Where*: `agent/loop.ts` (the question), `agent/prompt.ts` (`stepData`), ADR 0038
-"the turn's context".
+*Where*: `agent/loop.ts` (the question), `agent/prompt.ts` (`stepData`),
+`agent/changes.ts` (the pass that already read the message), ADR 0038 "the turn's
+context".
 *Why*: the first ten of the 13:35 run's twenty-one steps were exactly this, at
 27 s and ~7.5 k tokens each, and the run then had to page one convention page at
 six offsets because it had nowhere to keep what the page said.
@@ -220,6 +221,14 @@ the page titles and the folder skeleton, and the run's **first act is the right
 one** on the eval task — not merely an act by step 3. What falls is the number of
 **turns**, not the size of one prompt: the table at the end of this section says by
 how much.
+
+**Built:** the message the change carried is in the working turn — its text, who
+wrote it, and the quoted message a reply answers — handed over by the pass that
+already read it to decide the change, so the first step is not a `read` of what the
+process had (`StepQuestion.written`, `agent/changes.ts`, `agent/prompt.ts`).
+
+**Owed:** the thread's lines, the knowledge base's titles, the skeleton of the case's
+place, the last report the case sent, and the reader.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the

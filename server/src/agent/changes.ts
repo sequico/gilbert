@@ -59,6 +59,8 @@ export interface ChangesDeps {
     facts?: Record<string, string>,
     /** The questions the group already has open, so this run does not re-ask. */
     openQuestions?: readonly string[],
+    /** The words the change carried, so the first turn is handed the message. */
+    written?: { from?: string; text: string; quoted?: string },
   ): Promise<RunDoc | null>;
   authoriseAnswer(answer: AnsweredRun): Promise<RunDoc>;
   /** Hold a file event until its folder's burst is over (`queue.ts`). */
@@ -674,6 +676,15 @@ export async function workChanges(
       withUsage(run, meter),
       facts,
       openQuestionLines(held ?? [], run.id),
+      // The words the change carried: the decision turn already read them, and the
+      // working turn is handed the same message rather than fetching it (ADR 0038).
+      detail
+        ? {
+            ...(detail.from ? { from: detail.from } : {}),
+            text: detail.text,
+            ...(detail.quoted ? { quoted: detail.quoted } : {}),
+          }
+        : undefined,
     );
     remember(held, worked ?? run);
     byStart = null;
