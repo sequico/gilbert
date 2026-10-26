@@ -13,9 +13,9 @@
  * steps, each naming what it waits on, the loop **writes that plan on the run
  * before it acts on any of it**, runs the steps whose dependencies have ended
  * **together**, reads each outcome and takes the branch that outcome names,
- * writes each outcome and its own spend on the run, spends the budget, and asks
- * again, until the model says done, a step parks the run on a person, or the
- * budget ends it. A step no branch of the plan reaches is left unrun, and the
+ * writes each outcome and its own spend on the run, and asks again, until the
+ * model says done, a step parks the run on a person, or the liveness valve stops
+ * it. A step no branch of the plan reaches is left unrun, and the
  * record says which step and which outcome left it — the loop invents no
  * ordering of its own.
  *
@@ -25,8 +25,7 @@
  * name, their facts valid at that moment and one hop of their relations, inside a
  * ceiling, by exact subject first and by similarity where the installation
  * embeds — hands it to both turns fenced as data, and records on the run which
- * facts it carried and which retrieval found them, so a wrong conclusion traces
- * to the fact that carried it. A change with nothing to recall is worked exactly
+ * facts it carried, so a wrong conclusion traces to the fact that carried it. A change with nothing to recall is worked exactly
  * as it was before the memory existed.
  *
  * **Every call is told the two levels of prose the record names** (ADR 0038),
@@ -40,8 +39,9 @@
  * (ADR 0028): the reading is one call (`readAnswerAuthority`), what it reports is
  * recorded on the run with the person's own words and the message they wrote it
  * in, and the guard is what bounds it — an authorisation licenses the act it
- * names and no other. An override is refused by the reading, because class 4 is
- * an installation administrator's and a chat does not prove it.
+ * names and no other. An override is reported only where the answering person is
+ * an installation administrator, proved by the directory before the answer is read
+ * (`isAdministrator`), so the sentence alone can never claim class 4.
  *
  * **The loop never decides what may be done.** A chosen call is run through
  * `runTool`, the only door to a writing tool: the authority guard (`mayRun`, ADR
@@ -728,8 +728,8 @@ export class AgentLoop {
     } = await this.readInstallationForPass();
     /*
      * A pass that could not read the installation runs on the defaults, and that
-     * is said instead of being left for somebody to notice: a budget that fell
-     * back to 120 000 tokens is a run the group paid for without being told.
+     * is said instead of being left for somebody to notice: a limit that fell
+     * back to its default is a run the group paid for without being told.
      */
     if (fellBack) summary.gaps.push(fellBack);
     if (!model) {
@@ -745,7 +745,7 @@ export class AgentLoop {
      * The day's ceiling is read before any account's changes are read
      * (ADR 0038): a spent day opens no run, so the changes are not even read —
      * nothing is consumed without a run behind it — while a run already open is
-     * still worked, because its own budget is what bounds it.
+     * still worked: the ceiling refuses new work and never cuts one in flight.
      */
     const spentToday = this.dailySpent(limits.maxDailyTokens, now);
     if (spentToday) {
@@ -1153,7 +1153,7 @@ export class AgentLoop {
           const overdue = answerOverdue(due, now.toISOString());
           /*
            * The transition is **written before the run is worked**: the step it
-           * adds and the budget it spends are then what the record holds, and a
+           * adds and the step it spends are then what the record holds, and a
            * model call whose spend never landed would make the declared ceiling a
            * number the loop can pass — which is what an overdue run paid for on
            * every pass that failed. A write that does not land leaves the run
@@ -1786,7 +1786,8 @@ export class AgentLoop {
    * choose again.
    *
    * Every stop leaves the record saying which one it was — the model's `done`,
-   * the budget spent, a stall, or a call that parked the run on a person. Every
+   * the liveness valve reached, a stall, or a call that parked the run on a
+   * person. Every
    * call is its own step with its own outcome and its own spend, and a refusal —
    * an act beyond what the run carries, or a call that failed — is a failed step
    * on the run, never a silent skip. The model is shown every call's outcome
@@ -1853,9 +1854,9 @@ export class AgentLoop {
      * and its facts name, their facts valid at that moment and one hop of their
      * relations, against the store the pass read — the same one reading the
      * decision turn was handed. Retrieved by the change's own words, and by
-     * vector too where the installation embeds; the run records which retrieval
-     * it used. The selection is recorded on the run, so a wrong conclusion traces
-     * to the fact that carried it, and every turn of this working is handed it.
+     * vector too where the installation embeds. The selection is recorded on the
+     * run, so a wrong conclusion traces to the fact that carried it, and every
+     * turn of this working is handed it.
      */
     const above = await this.proseAbove(accountId);
     /*
@@ -1900,7 +1901,7 @@ export class AgentLoop {
      * A refusal is not an ending: an answer the parser cannot read and a call the
      * account refuses are each a step that ended, and the next turn reads what
      * happened. Nothing a run spends ends it (ADR 0038); the one valve is the
-     * liveness bound below, and it is not a budget.
+     * liveness bound below.
      */
     for (;;) {
       /*
@@ -2060,7 +2061,7 @@ export class AgentLoop {
           /*
            * The call was counted before it was made: a provider that times out
            * was paid for, and a tally that skipped it would retry the same run
-           * for ever without ever reaching the budget. The document is written
+           * for ever without the tally ever showing it. The document is written
            * before the failure leaves, and a store that cannot be written leaves
            * the run to the next pass.
            */
@@ -2092,10 +2093,10 @@ export class AgentLoop {
         });
         this.passTokens += meter.promptTokens + meter.completionTokens;
         /*
-         * A refusal is a step that ended, and it spends a step of the budget: the
-         * run stops on the budget it declares, never on a count of refusals the
-         * record cannot show (ADR 0030). The refusal itself is written below,
-         * before the next turn is asked.
+         * A refusal is a step that ended, and it spends a step of the tally: the
+         * run stops on the liveness valve, never on a count of refusals the record
+         * cannot show (ADR 0030). The refusal itself is written below, before the
+         * next turn is asked.
          */
         current = this.withStep(
           current,
@@ -2389,8 +2390,8 @@ export class AgentLoop {
             /*
              * A repeat the loop refuses to make is still a step that ended, and
              * it spends a step: a model that keeps proposing the same listings
-             * stops on the budget with a sentence, instead of growing the plan
-             * forever and dying on a counter.
+             * stops on the liveness valve with a sentence, instead of growing the
+             * plan forever and dying on a counter.
              */
             if (held?.state !== "done") current = spendRun(current, { steps: 1 });
             continue;
@@ -2588,11 +2589,11 @@ export class AgentLoop {
       if (!settledWrite) return null;
       token = settledWrite;
       /*
-       * The report ends the run, whatever budget remains (ADR 0038). A `say`
+       * The report ends the run, whatever it has spent (ADR 0038). A `say`
        * that landed is the group's answer, and asking the model for a `done`
        * afterwards is the turn that kept exploring on the live eval of
        * 2026-10-22: the work was filed and said, and the run went on reading
-       * the same two messages until its budget ended.
+       * the same two messages until the valve stopped it.
        */
       if (spoke) {
         /*
@@ -3238,8 +3239,8 @@ export class AgentLoop {
       state: done ? "done" : "failed",
       outcome,
     });
-    // A step that ended refused spends a step: the budget is the ceiling a run
-    // stops on, and an answer the loop could not use is one of its steps.
+    // A step that ended refused spends a step: the liveness valve is the ceiling
+    // a run stops on, and an answer the loop could not use is one of its steps.
     return done ? ended : spendRun(ended, { steps: 1 });
   }
 

@@ -2,10 +2,10 @@
  * The agent's reading positions, as documents in the group's own account.
  *
  * A pass reads each account's change log from where the last one ended, and the
- * cursor is the state the server answered for that read. Held only in memory —
- * the shape before this module — a restart began by anchoring at the state the
- * server held **then** (`events.ts`'s `anchorEvents`), so every change that
- * arrived while the process was down was never read and never named: one group's
+ * cursor is the state the server answered for that read. Held only in memory, a
+ * restart would anchor at the state the server held **then** (`events.ts`'s
+ * `anchorEvents`), so every change that arrived while the process was down would
+ * never be read and never named: one group's
  * chat message mentioned the agent, produced no run, and nothing in the
  * installation could say why. The process is disposable by law (ADR 0032), so
  * the cursor is a document beside the runs and the instruction, in the group's own app

@@ -374,17 +374,6 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     }
   });
 
-  /**
-   * The runs a group has worked, each as the record carries it.
-   *
-   * The run document is the product (ADR 0030): this answers the documents as
-   * they are stored, and the surface draws them — what woke the run, the rule or
-   * the instruction that answered, every step with what it waited on and how it
-   * left, the tally, and where it parked and why. A document this build cannot
-   * read is **said** in the listing rather than dropped: one run written by
-   * another build must not take the rest off the screen, and must never be drawn
-   * as an empty run.
-   */
   /** Whether the installation's agent is on, as the switch document says. */
   api.get("/admin/agent/switch", requireSession, requireAdmin, async (c) => {
     try {
@@ -581,6 +570,16 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     }
   });
 
+  /**
+   * The runs a group has worked, each as the record carries it.
+   *
+   * The run document is the product (ADR 0030): this answers the documents as
+   * they are stored, and the surface draws them — what woke the run, every step
+   * with what it waited on and how it left, the tally, and where it parked and
+   * why. A document this build cannot read is **said** in the listing rather than
+   * dropped: one run written by another build must not take the rest off the
+   * screen, and must never be drawn as an empty run.
+   */
   api.get("/groups/:name/runs", requireSession, async (c) => {
     const name = c.req.param("name") ?? "";
     const state = c.req.query("state");

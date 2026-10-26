@@ -17,6 +17,7 @@ import { addressedToAgent, addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
+import { sameAddress } from "../shared/address.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import {
@@ -272,7 +273,7 @@ export async function offPath(
     try {
       if (event.source === "chat") {
         const message = await readChatMessageAt(deps.ctx, accountId, event.where);
-        if (!message || message.from === deps.self) continue;
+        if (!message || sameAddress(message.from, deps.self)) continue;
         /*
          * A chat message is for the agent unless it names somebody else (owner
          * decision 2026-10-22): no mention, or a mention of the agent, gets the
@@ -284,7 +285,7 @@ export async function offPath(
         });
       } else if (event.source === "mail") {
         const message = await readMessageForPass(deps.ctx, accountId, event.where);
-        if (!message.from || message.from === deps.self) continue;
+        if (!message.from || sameAddress(message.from, deps.self)) continue;
         /*
          * Only mail the agent was addressed in **alone**: if the message also
          * went to anybody else — the group's own address, a colleague, a Cc —
@@ -299,9 +300,8 @@ export async function offPath(
         }>("Email/get", { accountId, ids: [event.where], properties: ["to", "cc"] }, [
           CAPABILITIES.mail,
         ]);
-        const mine = deps.self.toLowerCase();
         const isMine = (one: { email?: string | null }): boolean =>
-          (one.email ?? "").toLowerCase() === mine;
+          sameAddress(one.email, deps.self);
         const addressees = (addressed.list ?? []).flatMap((one) => [
           ...(one.to ?? []),
           ...(one.cc ?? []),
@@ -482,8 +482,7 @@ export async function workChanges(
      * would otherwise wake the instruction and pay a model call to read itself,
      * each reply opening the next round.
      */
-    if (message && message.from.toLowerCase() === deps.ctx.username.toLowerCase())
-      continue;
+    if (message && sameAddress(message.from, deps.ctx.username)) continue;
     /*
      * A message that answers a run's question continues that run and opens no
      * run of its own (ADR 0029). The correlation is the record's — a reply to
@@ -585,7 +584,6 @@ export async function workChanges(
      * (ADR 0038), so a pass that stopped mid-batch re-reads the batch, and every
      * change it already answered is skipped here instead of being decided again.
      */
-    const key = woke;
     if (!held) {
       /*
        * The working listing says a document it cannot read and hands the
@@ -599,7 +597,7 @@ export async function workChanges(
       byStart = null;
     }
     byStart ??= runsByStart(held);
-    const open = byStart.get(key);
+    const open = byStart.get(woke);
     if (open) {
       /*
        * The change is answered. A run still running is the **due work's** — the
