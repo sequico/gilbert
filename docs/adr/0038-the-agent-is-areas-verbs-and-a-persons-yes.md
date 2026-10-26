@@ -333,9 +333,11 @@ spent the provider's default budget before writing anything.
   running away is the daily ceiling below, which refuses new runs and never cuts one
   in flight; and the stall guard — the same answer twice — names a loop as a loop.
   The one valve is **liveness, not money**: a run that has asked the model a hundred
-  times is stopped (`RUN_TURNS_MAX`), because an agent stuck in a loop is a machine
+  times ends `stopped` (`RUN_TURNS_MAX`), because an agent stuck in a loop is a machine
   fault and no report about it is worth the process. The number is far above any run
   the work has shown — the worst live run of 2026-10-26 spent twenty-three turns.
+  `stopped` is the ending a guardrail writes — the valve and the stall guard — and
+  `refused` is the one a `done` with nothing finished writes.
 - **A run says what it spent and what it was held to**: milliseconds and tokens per
   step, and the limits in force when it opened, on its own document
   (`shared/run.ts`, `agent/loop.ts`), so limits that fell back to a default are

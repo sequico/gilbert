@@ -178,16 +178,24 @@ export type RunStepState = "open" | RunStepOutcome | "skipped";
 type RunStepOutcome = "done" | "failed";
 
 /**
- * The five ways a run is finished (ADR 0030, 0038): it did the work, a person is
- * needed, it stopped without finishing, a person stopped it, or a guardrail did.
+ * The ways a run is finished (ADR 0030, 0038): it did the work, a person is
+ * needed, a guardrail stopped it, a person stopped it, a `done` claimed what the
+ * plan did not show — or, in a document an older build wrote, it spent the budget
+ * that build had.
  */
 export type RunEnding =
   | "done"
   | "blocked"
-  | "out-of-budget"
+  /** A guardrail fired and the run stopped itself; the record says which check. */
+  | "stopped"
   | "cancelled"
-  /** A guardrail fired: the run stopped itself, and the record says which check. */
-  | "refused";
+  /**
+   * A `done` was believed twice with nothing finished: the record says the run
+   * claimed what its plan did not show.
+   */
+  | "refused"
+  /** A build that had a budget spent it. Read from a document, never written. */
+  | "out-of-budget";
 
 /** A run's state: in flight, or one of the endings above. */
 export type RunState = "running" | RunEnding;
@@ -939,14 +947,15 @@ function isEnd(x: unknown): x is RunEnd {
   );
 }
 
-/** Whether a value is one of the four endings. */
+/** Whether a value is one of the endings. */
 export function isRunEnding(x: unknown): x is RunEnding {
   return (
     x === "done" ||
     x === "blocked" ||
-    x === "out-of-budget" ||
+    x === "stopped" ||
     x === "cancelled" ||
-    x === "refused"
+    x === "refused" ||
+    x === "out-of-budget"
   );
 }
 
@@ -1076,7 +1085,7 @@ export function parseRunDocumentDetailed(
   if (!isRunState(whole.state))
     return {
       problem:
-        '"state" must be "running", "done", "blocked", "out-of-budget", "cancelled" or "refused".',
+        '"state" must be "running", "done", "blocked", "stopped", "cancelled", "refused" or "out-of-budget".',
     };
   if (whole.ended !== null && !isEnd(whole.ended))
     return { problem: '"ended" must be null or how the run ended.' };

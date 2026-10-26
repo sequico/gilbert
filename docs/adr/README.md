@@ -287,8 +287,8 @@ is, not what a user sees.
   **A
   wait is a date in the run**, re-armed on boot, so a restart or a dead container
   costs nothing — and a run blocked on a person keeps the question it left. A run
-  ends done, blocked on a person, stopped by a person, refused, or stopped by the
-  liveness valve — written down. There is no
+  ends done, blocked on a person, stopped by a guardrail (`stopped`), stopped by a
+  person (`cancelled`), or `refused` — written down. There is no
   separate audit ledger, and a person can read a run and undo by hand what can be
   undone. **Built** — the run document is `server/src/shared/run.ts`, addressed by
   `server/src/agent/runs.ts`, the plan's order and conditions are worked out by

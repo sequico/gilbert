@@ -1922,7 +1922,7 @@ export class AgentLoop {
         return await this.endRun(
           accountId,
           current,
-          "out-of-budget",
+          "stopped",
           {
             at: new Date().toISOString(),
             why: `the run was still asking after ${RUN_TURNS_MAX} turns, so it was stopped: it had not finished.`,
@@ -2282,7 +2282,7 @@ export class AgentLoop {
         return await this.endRun(
           accountId,
           current,
-          "out-of-budget",
+          "stopped",
           {
             at: new Date().toISOString(),
             why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
@@ -2698,8 +2698,8 @@ export class AgentLoop {
    * End the run, write it, and say it where a person is listening.
    *
    * A run that stops without a word is the defect this closes (ADR 0030): a
-   * person's request was worked, its files landed, and the run ended
-   * `out-of-budget` before it wrote a line — so the request looked unanswered
+   * person's request was worked, its files landed, and the run ended before it
+   * wrote a line — so the request looked unanswered
    * and the queue looked stuck. The ending's own sentence is what is said, so
    * the record and the conversation cannot tell two stories.
    *
@@ -2746,7 +2746,7 @@ export class AgentLoop {
      */
     const spoke = run.plan.some((step) => step.spoke === true);
     const owed =
-      ending === "out-of-budget" ||
+      ending === "stopped" ||
       ending === "refused" ||
       (ending === "done" && woke !== null && !spoke);
     const ended = finishRun(current, ending, owed ? { ...end, said: false } : end);

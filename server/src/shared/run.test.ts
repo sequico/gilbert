@@ -80,7 +80,7 @@ test("a run starts running, its plan open, having touched and spent nothing", ()
     "every step the plan names is open, waits on nothing and has not ended",
   );
 
-  for (const ending of ["done", "blocked", "out-of-budget"] as const) {
+  for (const ending of ["done", "blocked", "stopped", "out-of-budget"] as const) {
     // A blocked run left a question, which is the one ending that carries one.
     const ended = finishRun(waitUntil(run, QUESTION), ending, {
       at: AT,
@@ -751,7 +751,7 @@ test("a person stops a run that is waiting on them, and no other ending takes it
   const stopped = finishRun(blocked, "cancelled", { at: AT, why: "stopped by a member" });
   assert.equal(stopped.state, "cancelled", "the stop is the run's ending");
   assert.equal(stopped.waiting, null, "and the question it left is dropped with it");
-  for (const ending of ["done", "out-of-budget", "blocked"] as const)
+  for (const ending of ["done", "out-of-budget", "stopped", "blocked"] as const)
     assert.throws(
       () => finishRun(blocked, ending, { at: AT, why: "not a stop" }),
       /has ended \(blocked\)/,

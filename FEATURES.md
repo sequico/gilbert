@@ -163,7 +163,8 @@ run that paid for it. **No amount ends a run**: no step, call,
 token or clock ceiling, so a run is never stopped for what it cost, and a refused
 answer or a call the account refuses is a step that ended rather than an ending.
 The one valve is **liveness** — a run that has asked the model a hundred times has
-not finished, and it ends as *did not finish* (`RUN_TURNS_MAX`). **An ending is
+not finished, and it ends `stopped`, drawn as *Did not finish* (`RUN_TURNS_MAX`), as
+does one that answered the same calls twice. **An ending is
 said, not only recorded**: a run that
 could not finish says so in the group's own conversation with the sentence its
 ending carries, a run that finished says so when a person woke it there, and a
@@ -569,9 +570,9 @@ the run, the instruction that answered, every step with what it answered, what
 the run spent, what it recalled — each fact resolved to its subject and sentence
 — and where it parked and why. A run written by
 another build is **said** where it would be drawn, never drawn as an empty one.
-A run ends as done, blocked on a person, **refused** (a guardrail fired), stopped
-without finishing — the liveness valve, drawn as *Did not finish* because no budget
-ends a run — or **cancelled**, and
+A run ends as done, blocked on a person, **stopped** (a guardrail fired — the
+liveness valve or a repeated answer, drawn as *Did not finish*), **refused** (a
+`done` claimed what the plan did not show) or **cancelled**, and
 **any member of the group whose account holds it** reads its runs and stops one
 that is in flight — the one being worked and the one waiting on a person's
 answer, which nothing else moves — from the group's chat, where the runs tab is

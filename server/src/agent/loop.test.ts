@@ -964,7 +964,7 @@ test("a quote reply reaches the decision turn with the message it answers", asyn
 test("a run says how it ended, unless the ending is already words between them", async () => {
   /*
    * The live run that closed this: a person's chat message was worked, its files
-   * landed, and the run ended `out-of-budget` before it wrote a line — the
+   * landed, and the run ended before it wrote a line — the
    * person saw nothing and the queue looked stuck (ADR 0030). Every ending
    * speaks; a question and a stop are already words, and a background run that
    * finished keeps its record.
@@ -1369,7 +1369,7 @@ test("a run that never finishes stops on the turn valve, and the record says so"
   assert.equal(summary.runs, 1);
 
   const run = await runOf(id);
-  assert.equal(run.state, "out-of-budget", "the valve ended it, not the model");
+  assert.equal(run.state, "stopped", "the valve ended it, not the model");
   assert.equal(run.spent.calls, 100, "after a hundred turns and no more");
   assert.match(
     run.ended?.why ?? "",
@@ -1694,7 +1694,7 @@ test("the model choosing the same step twice is a stall the record shows", async
   assert.equal(run.plan[0]?.state, "done");
   assert.equal(run.plan[1]?.state, "failed", "the repeat is on the run as a failure");
   assert.match(run.plan[1]?.outcome ?? "", /same calls were chosen twice/);
-  assert.equal(run.state, "out-of-budget", "and the run stopped rather than turning");
+  assert.equal(run.state, "stopped", "and the run stopped rather than turning");
   assert.match(run.ended?.why ?? "", /same calls twice/);
 });
 
@@ -2911,7 +2911,7 @@ test("a call the account refuses is on the record, and the turn valve ends the l
   await agent.pass();
 
   const run = await runOf(id);
-  assert.equal(run.state, "out-of-budget", "the valve ends it, not a budget");
+  assert.equal(run.state, "stopped", "the valve ends it, not a budget");
   assert.equal(run.spent.calls, 100, "at a hundred turns");
   assert.match(run.ended?.why ?? "", /still asking after 100 turns/);
   assert.ok(

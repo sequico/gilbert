@@ -24,9 +24,10 @@ export const RUN_STATE_LABELS: Record<RunState, string> = {
   running: "Running",
   done: "Finished",
   blocked: "Blocked on a person",
-  // `out-of-budget` is the state the record has always written for a run that
-  // stopped before finishing; it is the liveness valve now, not a budget, and the
-  // surface says what happened rather than naming a counter that no longer exists.
+  // A guardrail stopped the run — the liveness valve or a repeated answer — and
+  // the record says which check. `out-of-budget` is what a build that had a
+  // budget wrote, and reads the same way here.
+  stopped: "Did not finish",
   "out-of-budget": "Did not finish",
   cancelled: "Stopped",
   refused: "Refused",
