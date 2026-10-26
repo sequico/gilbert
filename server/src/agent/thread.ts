@@ -92,5 +92,11 @@ export async function threadLines(
       },
     ];
   });
+  /*
+   * JMAP answers a `get` by ids without promising an order, and the window is the
+   * newest lines of the conversation: sort by the moment each was received so the
+   * slice drops the oldest, whatever order the server answered in.
+   */
+  lines.sort((a, b) => a.at.localeCompare(b.at));
   return lines.slice(-limit);
 }

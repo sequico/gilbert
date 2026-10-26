@@ -45,6 +45,10 @@ export const RUN_VERSION = 6;
  * Not a ceiling any more: a run has no budget of its own (ADR 0038), and no step
  * count ends one. The field stays in the installation's document so a value an
  * administrator set is kept, and a run records what was in force when it opened.
+ *
+ * The number still bounds **one answer**: a plan may carry at most this many calls,
+ * because an answer that asks for more is a plan nobody can read at once. That is a
+ * bound on a turn's shape, not on a run's length.
  */
 export const RUN_STEPS_MAX = 20;
 
@@ -173,8 +177,10 @@ export type RunStepState = "open" | RunStepOutcome | "skipped";
 /** How a step ended: it worked, or it did not. A branch names one of these two. */
 type RunStepOutcome = "done" | "failed";
 
-/** The three ways a run ends (ADR 0030): done, a person is needed, or the budget is spent. */
-/** The three ways a run is finished, and the two that are not an ending. */
+/**
+ * The five ways a run is finished (ADR 0030, 0038): it did the work, a person is
+ * needed, it stopped without finishing, a person stopped it, or a guardrail did.
+ */
 export type RunEnding =
   | "done"
   | "blocked"

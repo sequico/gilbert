@@ -1216,14 +1216,15 @@ export function parseAnswerDetailed(
         problem: 'An answer that answers a question carries nothing beside "lines".',
       };
     const lines = raw.lines;
-    if (!Array.isArray(lines) || !lines.every((one) => typeof one === "string"))
-      return { problem: '"lines" must be a list of sentences.' };
-    return {
-      answer: {
-        kind: "lines",
-        lines: lines.map((one) => (one as string).trim()).filter(Boolean),
-      },
-    };
+    if (
+      !Array.isArray(lines) ||
+      !lines.length ||
+      !lines.every((one) => typeof one === "string")
+    )
+      return { problem: '"lines" must be one or more sentences.' };
+    const said = lines.map((one) => (one as string).trim()).filter(Boolean);
+    if (!said.length) return { problem: '"lines" must say something.' };
+    return { answer: { kind: "lines", lines: said } };
   }
   if (hasReply) {
     if (keys.length !== 1)
@@ -1276,12 +1277,33 @@ export function parseAnswerDetailed(
 const DECISION_READS_MAX = 1;
 
 /**
+ * The one lookup a decision and a reading both may take (ADR 0038): one tool and
+ * its arguments, nothing beside them.
+ */
+const READ_ANSWER = {
+  type: "object",
+  properties: {
+    read: {
+      type: "object",
+      properties: {
+        tool: { type: "string" },
+        arguments: { type: "object" },
+      },
+      required: ["tool"],
+      additionalProperties: false,
+    },
+  },
+  required: ["read"],
+  additionalProperties: false,
+};
+
+/**
  * The shape a decision takes, as the provider's own structured output.
  *
- * One of the three answers a decision can be (ADR 0038): the facts, one lookup,
- * or the reply a chat needs. Written as a union so a provider that enforces a
- * strict schema has exactly one shape to accept, and the parser below still
- * reads the object it gets.
+ * One of the three answers a change can be (ADR 0038): the facts, one lookup, or
+ * the reply a chat needs. Written as a union so a provider that enforces a strict
+ * schema has exactly one shape to accept, and the parser below still reads the
+ * object it gets.
  */
 const DECISION_SCHEMA = {
   name: "decision",
@@ -1298,28 +1320,38 @@ const DECISION_SCHEMA = {
         required: ["facts"],
         additionalProperties: false,
       },
-      {
-        type: "object",
-        properties: {
-          read: {
-            type: "object",
-            properties: {
-              tool: { type: "string" },
-              arguments: { type: "object" },
-            },
-            required: ["tool"],
-            additionalProperties: false,
-          },
-        },
-        required: ["read"],
-        additionalProperties: false,
-      },
+      READ_ANSWER,
       {
         type: "object",
         properties: { reply: { type: "string" } },
         required: ["reply"],
         additionalProperties: false,
       },
+    ],
+  },
+};
+
+/**
+ * The shape a **reader's** answer takes: the few lines it was asked for, or the one
+ * lookup that finds them (R2).
+ *
+ * A shape of its own, and not the decision's three: a strict provider must be told
+ * that `lines` is an answer at all, or the model spends the call producing facts
+ * this turn refuses.
+ */
+const READER_SCHEMA = {
+  name: "reader",
+  schema: {
+    anyOf: [
+      {
+        type: "object",
+        properties: {
+          lines: { type: "array", items: { type: "string" }, minItems: 1 },
+        },
+        required: ["lines"],
+        additionalProperties: false,
+      },
+      READ_ANSWER,
     ],
   },
 };
@@ -1437,7 +1469,7 @@ export async function decideEvent(
       {
         system,
         user: turnData(question, reads),
-        schema: DECISION_SCHEMA,
+        schema: reader ? READER_SCHEMA : DECISION_SCHEMA,
         ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
       },
       opts.meter,
@@ -2511,12 +2543,12 @@ export async function chooseStep(
   const parsed = parseStepAnswerDetailed(answer);
   if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
   if (parsed.choice.kind === "plan") {
-    // A plan larger than the whole budget could never be finished; it is
-    // refused here, before any of it is appended to the run.
+    // One answer carries at most this many calls: a plan nobody could read at
+    // once is refused here, before any of it is appended to the run.
     if (parsed.choice.calls.length > RUN_STEPS_MAX)
       throw new ModelError(
         "model_answer_malformed",
-        `An answer may take at most ${RUN_STEPS_MAX} steps, and this one asks for ${parsed.choice.calls.length}.`,
+        `An answer may carry at most ${RUN_STEPS_MAX} calls, and this one asks for ${parsed.choice.calls.length}: split the work across answers.`,
       );
     /*
      * Every call is put to the catalogue's own door before any of them runs, and

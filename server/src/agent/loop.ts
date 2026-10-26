@@ -1905,13 +1905,10 @@ export class AgentLoop {
     const caseKeys = await this.casesOnFile(accountId);
     let previous: string | null = null;
     /*
-     * A refusal is not an ending: an answer the parser cannot read, an answer
-     * that asks for more steps than the run has left, and a call the account
-     * refuses are each a step that ended, and each spends a step of the budget
-     * (`loop.ts`'s wave below). The run therefore stops on the budget it
-     * declares — the installation's step ceiling, forty calls, five minutes —
-     * and not on a counter nobody reading the record can see: a live run died after three all-refused
-     * rounds with its budget untouched, which is the ending this replaces.
+     * A refusal is not an ending: an answer the parser cannot read and a call the
+     * account refuses are each a step that ended, and the next turn reads what
+     * happened. Nothing a run spends ends it (ADR 0038); the one valve is the
+     * liveness bound below, and it is not a budget.
      */
     for (;;) {
       /*
@@ -2608,11 +2605,7 @@ export class AgentLoop {
         const checked = current.plan.filter(
           (step) => step.what === DONE_CHECKED || step.what === JUDGE_CHECKED,
         ).length;
-        if (
-          refused > 0 &&
-          checked === 0 &&
-          current.plan.length + 1 < this.limits.maxRunSteps
-        ) {
+        if (refused > 0 && checked === 0) {
           current = this.withStep(
             current,
             DONE_CHECKED,
