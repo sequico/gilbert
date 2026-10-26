@@ -36,12 +36,8 @@ export const readBrief = defineTool<{
   args: { question: { type: "text" }, about: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
-    return {
-      question: textArg(args, "question"),
-      ...(optionalTextArg(args, "about")
-        ? { about: optionalTextArg(args, "about") }
-        : {}),
-    };
+    const about = optionalTextArg(args, "about");
+    return { question: textArg(args, "question"), ...(about ? { about } : {}) };
   },
   run: async (call, { question, about }) => {
     const access = runningModelAccess();

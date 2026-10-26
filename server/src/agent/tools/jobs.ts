@@ -224,7 +224,7 @@ function job(spec: JobSpec): AnyTool {
       writes: spec.writes,
       surfaceOf: (parsed) => parsed.endpoint.surfaceOf(parsed.args),
       waitsOf: (parsed) => parsed.endpoint.waitsOf(parsed.args),
-      // Reading is free; an act takes the step (ADR 0027, 0038).
+      // Reading is free; an act takes the step (ADR 0038).
       spend: spec.writes ? { steps: 1 } : {},
       args,
       /*
@@ -322,7 +322,7 @@ export const openJob = job({
     "itself. The answer carries the ids the next call takes.",
   discriminator: "what",
   about:
-    "what to open: a message, an attachment, a file, an event, a page, a chat, a workorder, a run, the memory or a brief — or the plural, to search or list",
+    "what to open: one object by `id`, several at once by `ids`, or the plural to search or list",
   writes: false,
   routes: {
     message: { tool: readMessage, set: true },
@@ -371,8 +371,7 @@ export const actJob = job({
     "or a `page` is kept for later runs; a workorder step is `settle`d. Nothing is " +
     "sent: an outward message leaves as a draft a person sends.",
   discriminator: "what",
-  about:
-    "the act: file, trash, untrash, keyword, label, print, mailFolder, mailFolderRename, mailFolderDelete, save, write, overwrite, move, rename, delete, folder, reply, edit, schedule, reschedule, cancel, fact, page or settle",
+  about: "the act to take on this account",
   writes: true,
   routes: {
     file: { tool: fileMessage, area: "mail" },

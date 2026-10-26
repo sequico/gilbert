@@ -23,9 +23,9 @@ export const printMessage = defineTool({
     "Print one message of this account as a PDF in its own Files, at `path` — " +
     "`Mail/2026/BK-42.pdf`. The page carries the subject, who wrote it and to whom, " +
     "the date, and the message's text, wrapped onto A4 pages. The file is a document " +
-    "like any other in Files: `files.read` reads it, a draft can attach it. A path " +
-    "that already holds a document is refused, and text the PDF's standard font " +
-    "cannot carry is refused by character rather than printed as a question mark.",
+    'like any other in Files: `open` with `what: "file"` reads it, a draft can attach ' +
+    "it. A path that already holds a document is refused, and text the PDF's standard " +
+    "font cannot carry is refused by character rather than printed as a question mark.",
   authority: "reversible",
   writes: true,
   surface: "files",
