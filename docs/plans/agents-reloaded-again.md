@@ -227,18 +227,23 @@ same drop.
 
 ### R4 — Four verbs instead of eight jobs
 
-`open` (a message and its attachments, a thread, a folder, a page), `act` (file
-it, draft it, send it, settle the step), `note` (R3), `say` (say it). The
-endpoints stay where they are; the verbs are a façade whose arguments are
-intentions, not endpoints.
+`open` (a message and its attachments, a thread, a folder, a page), `act` (file it,
+draft it, send it, settle the step), `note` (R3), `say` (say it). The endpoints
+stay where they are; the verbs are a façade whose **arguments are intentions** —
+a thread, a booking, a folder — not an endpoint's ids. The façade keeps what the
+guard asks of each endpoint (`authorityOf`, `surfaceOf`, `waitsOf`), so the class
+of an act and the surface it writes are still read from the act itself.
 *Where*: `agent/tools.ts` and `agent/tools/jobs.ts` (the façade over the existing
-endpoint modules), `agent/model.ts` (the catalogue the turn is given), ADR 0027
-rewritten on the point.
-*Why*: 12 315 characters of definitions and 1 807 of signatures per turn, ~4 000
-of 6 200-7 500 prompt tokens, to choose among forty endpoints; and the model
-still picks the wrong one (`read {"kind":"run"}` with an invented id, twice).
-*Proof*: the schema the turn is given is under 4 000 characters; the eval's
-refusals for an unknown name or a wrong argument stay at zero.
+endpoint modules), `agent/model.ts` (the catalogue the turn is given, and the
+signature lines beside it), ADR 0027 rewritten on the point.
+*Why*: 12 315 characters of definitions and 1 807 of signature lines per turn — about
+4 000 of a turn's 6 200-7 500 prompt tokens — to choose among some forty endpoints;
+and the model still picked the wrong one (`read {"kind":"run"}` with an invented
+id, three times across the three runs). The signature lines exist because a
+model once invented names from a catalogue it had not read; four verbs with intents
+do not need the second list.
+*Proof*: the schema the turn is given is measured — a third of today's characters —
+and the eval's refusals for an unknown name or a wrong argument stay at zero.
 
 ### R5 — No ceiling on a run; the nets are safety, not accounting
 
@@ -360,7 +365,7 @@ a verdict that reads the states and the sentence.
 | 2 | R8 — per-step cost in the document | one failed run explains its own 27 s and 7 500 tokens |
 | 3 | R2 — the case in the turn | the first act by step 3 on a one-message case |
 | 4 | R1 + R3 — one run per drop, with the case note | the seven-message drop files seven, under 250 k tokens |
-| 5 | R4 — four verbs | the turn's schema under 4 000 characters, zero refusals in the eval |
+| 5 | R4 — four verbs | the schema is a third of today's, and zero refusals in the eval |
 | 6 | R9 — the three failures as eval tasks | they fail before, pass after; `pass@1` recorded |
 | 7 | R6, R7, R10 | a long run blocks no group; a run narrates; the judge stays bounded |
 
