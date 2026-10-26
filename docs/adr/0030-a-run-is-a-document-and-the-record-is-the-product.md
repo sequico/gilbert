@@ -114,8 +114,9 @@ agent's durable state.
   waiting for ever. On boot the agent re-arms the waits it
   finds, so a restart in the middle of a run loses nothing and a container that
   dies is not an incident.
-- **A run ends in one of four ways** — the work is done, it is blocked on a
-  person, it failed, or a member of the group stopped it — and its ending is
+- **A run ends in one of five ways** — the work is done, it is blocked on a
+  person, a guardrail stopped it, a member of the group stopped it, or a `done`
+  claimed what its plan did not show — and its ending is
   written down, so a run that stops says why. **No budget ends a run** (ADR 0038):
   an answer the parser cannot read, an answer asking for more steps than the plan
   can hold, and a call the account refuses are each a step that ended, and the loop
@@ -125,9 +126,11 @@ agent's durable state.
   in, so the answer that comes back can be recognised as addressed to it. The
   one a person stopped is `cancelled` with the words it was stopped with, and the
   pass that was working it leaves that ending alone rather than writing its step
-  over it. A guardrail that fires ends the run as `refused`, with the check that
-  fired and what it found (ADR 0038): it is not a budget that ended it, which would
-  blame a counter for a decision.
+  over it. A guardrail that fires — the liveness valve, the stall guard — ends the
+  run as `stopped`, with the check that fired and what it found (ADR 0038): it is
+  not a budget that ended it, which would blame a counter for a decision; a `done`
+  the plan does not stand on is the `refused` one. A document an older build wrote
+  may say `out-of-budget`, and is read like any ending.
 - **An ending is said, not only recorded.** A run that could not finish says so
   in the group's own conversation, with the sentence its ending carries; a run
   that finished says so when a person woke it there **and it has not spoken
