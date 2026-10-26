@@ -87,8 +87,8 @@ an agent; the run is the one place where two areas meet.
   (`file` is mail, `save` files, `schedule` calendar), and the guard reads the act's
   own value when one verb reaches more than one area: a tool-level filter cannot say
   which half of a verb is allowed.
-- **The schema follows the areas.** A job shows only the `kind`/`action` the run's
-  areas allow; the guard that reads them is the second door, not the first.
+- **The schema follows the areas.** A verb shows only the values the run's areas
+  allow; the guard that reads them is the second door, not the first.
 - **An instruction declares the areas its group works**, with no ceiling: the
   conversation and memory are always on, and the catalogue a run sees is the
   selection, not the declaration. A group naming five areas accepts a larger
@@ -115,16 +115,15 @@ rule makes impossible — a question is asked in the conversation (`say`), and a
 mail leaves only when a person sends it. Contacts carry no write; `open` is their
 whole surface.
 
-`place` carries an **`action`** (`file`, `trash`, `untrash`, `keyword`, `label`,
-`save`, `write`, `overwrite`, `moveFile`, `renameFile`, `deleteFile`, `folder`,
-`mailFolder`, `renameFolder`, `deleteFolder`) and `draft` a `kind` (`reply`,
-`edit`); the authority class is read from that value, not from the tool, because
-one job spans reversible and destructive acts.
+`act` carries a **`what`** — the act, not the endpoint — and `say` an **`action`**
+(`say` or `ask`); the authority class is read from that value, not from the verb,
+because one verb spans reversible and destructive acts. `open` names its object in
+`what` too, singular for one thing and plural to search or list.
 
-- **A sequence the job implies lives inside the tool** that names the job: filing a
+- **A sequence a verb implies lives inside the tool** that names it: filing a
   booking's documents is part of reading that mail, not a second tool to chain.
 - **Every call says what kind of thing it is about** — the verb's `what`, or the
-  `kind`/`action` — and its arguments say what they hold (`id`, the id `open`
+  `action` — and its arguments say what they hold (`id`, the id `open`
   answered; `path`, a
   document's; `folder`, a folder's name, role or id), so a mailbox id cannot
   stand where a message id belongs. A refusal quotes the real names and a valid
@@ -293,7 +292,11 @@ spent the provider's default budget before writing anything.
   travels in `tools`, the answer is read from `tool_calls`. The names are bare
   words (`open`, `say`, …) because a provider accepts only
   `^[a-zA-Z0-9_-]+$` — the live provider refused `mail.find` as an invalid
-  function name. The administration's form **accepts a provider only if it takes
+  function name. The catalogue travels **once**: the definitions are the whole of
+  it, and there is no list of signatures beside them. A line per tool existed because a
+  model invented `mail.search` from a catalogue it had not read; with four verbs the
+  value a call names is in the schema's own `enum` and the arguments are the branch's,
+  so a second list is only a thing to drift from the first (R4). The administration's form **accepts a provider only if it takes
   both** what the turns need — `tools` for the action, a native JSON mode for the
   decision — and refuses one that fails the probe when the block is written; the
   probe checks both then (one request when they travel together, one per

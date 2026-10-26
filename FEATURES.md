@@ -315,8 +315,11 @@ call, token or time counter ends it — it ends done, waiting on a person, stopp
 a person, or failed — and what it spent is a fact on its record. The one valve is
 liveness: a run that has asked the model a hundred turns is stopped, because an agent
 stuck in a loop is a machine fault. A provider that takes the tools checks the
-kind and the bound of every argument itself — a job publishes one schema branch
-per value, so a mail search cannot be sent a `path` — and the decision turn's
+kind and the bound of every argument itself — a verb publishes one schema branch
+per value, so `open` of messages cannot be sent a `path` — and there is **no second
+list of signatures** beside the definitions: with four verbs the value a call names is
+in the schema's own `enum`, and a second list was a thing to drift from it. The
+decision turn's
 answer is facts and nothing else: one that carries an authorisation, or names a
 tool that writes, is refused. An installation that has chosen no model has no
 agent.

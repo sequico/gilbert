@@ -249,16 +249,6 @@ function job(spec: JobSpec): AnyTool {
           additionalProperties: false,
         })),
       }),
-      argLine: () =>
-        [
-          `${spec.discriminator}: one of ${values.join(", ")}`,
-          ...values.map((value) => {
-            const one = routes[value];
-            if (!one) return "";
-            const keys = one.tool.keys.join(", ");
-            return `; ${value} takes ${keys || "no other argument"}`;
-          }),
-        ].join(""),
       parse: (raw) => routeOf(spec, routes, raw),
       act: (parsed) => parsed.endpoint.act(parsed.args),
       run: async (call, parsed) => {

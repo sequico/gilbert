@@ -127,6 +127,8 @@ const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("ba
 interface Seen {
   system: string;
   user: string;
+  /** The catalogue the call carried, as the provider takes it. */
+  tools: unknown[];
 }
 
 let seen: Seen[] = [];
@@ -149,10 +151,13 @@ let failingCalls = 0;
 const PROVIDER_PORT = await freePort();
 const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const raw = await readBody(req);
-  const body = JSON.parse(raw) as { messages?: Array<{ content?: string }> };
+  const body = JSON.parse(raw) as {
+    messages?: Array<{ content?: string }>;
+    tools?: unknown[];
+  };
   const system = body.messages?.[0]?.content ?? "";
   const user = body.messages?.[1]?.content ?? "";
-  seen.push({ system, user });
+  seen.push({ system, user, tools: body.tools ?? [] });
   if (failingCalls > 0) {
     failingCalls -= 1;
     res.writeHead(500, { "content-type": "application/json" });
@@ -2641,16 +2646,10 @@ test("a run is handed the areas its group works, not the whole catalogue", async
     user.includes("The change that woke this run"),
   );
   assert.ok(choosing.length > 0, "the run was handed a turn of its own");
-  const offered = choosing.map(({ system }) => system).join("\n");
-  assert.ok(
-    /- open\(what: one of message, attachment/.test(offered),
-    "the group's own area is offered",
-  );
-  assert.ok(/- act\(what: one of [^)]*trash/.test(offered), "and so is a write of it");
-  assert.ok(
-    !/- act\(what: [^)]*delete/.test(offered),
-    "while a write in an area turned off is not",
-  );
+  const offered = JSON.stringify(choosing[0]?.tools ?? []);
+  assert.ok(offered.includes('"messages"'), "the group's own area is offered");
+  assert.ok(offered.includes('"trash"'), "and so is a write of it");
+  assert.ok(!offered.includes('"delete"'), "while a write in an area turned off is not");
 });
 
 test("a document that asks for an act outside the grants is data, and the act is refused", async () => {
@@ -2830,7 +2829,7 @@ test("an area the group's instruction declares is offered, even when the matrix 
   );
   assert.ok(choosing.length > 0, "the run was handed a turn of its own");
   assert.ok(
-    choosing.some(({ system }) => /- act\(what: one of [^)]*schedule/.test(system)),
+    JSON.stringify(choosing[0]?.tools ?? []).includes('"schedule"'),
     "the area the instruction declares is in the catalogue the turn reads",
   );
 

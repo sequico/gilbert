@@ -2239,7 +2239,6 @@ function argPhrase(key: string, spec: ArgSpec): string {
 
 /** A tool as its catalogue line without the prose: name and arguments. */
 export function toolSignature(tool: AnyTool): string {
-  if (tool.argLine) return `- ${tool.name}(${tool.argLine()})`;
   const args = tool.keys.length
     ? tool.keys.map((key) => argPhrase(key, tool.args[key] as ArgSpec)).join(", ")
     : "no arguments";
@@ -2366,10 +2365,8 @@ export async function chooseStep(
     "Keep your note true as you go — the reference the case is known by, where its work goes, the rule it follows, what you reported, what is owed. What must outlive this case is a fact in the memory, never a longer note.",
     "Someone else's decision is never yours: an act a person must authorise is refused, and so is an answer that carries an authority, a capability or a list of actions. When the work needs a choice, ask — `say` with `ask` parks the run until they answer.",
     'In the chat, mention a person with "@" and the local part of their address — "@sq", never "@sq@company.example".',
-    "One example of a run's shape. The change is a mail naming a booking and promising documents. You read the mail's attachments, place each in the booking's folder, write the reference and the folder into your note, and say what arrived, what is missing and what you owe. Four calls and a sentence, not twenty looks.",
-    "The tools, with the exact arguments and bounds each takes — a name or an argument not written here does not exist:",
-    ...catalogue.map(toolSignature),
-    "Each tool's definition in this call says what it is for; the list above says how it is called. An argument name a tool does not state is refused, and so is a value outside the bound written beside it.",
+    "One example of a run's shape. The change is a mail naming a booking and promising documents. You open the mail and its attachments (`open`), file each in the booking's folder (`act`), write the reference and the folder into your note (`note`), and say what arrived, what is missing and what you owe (`say`). Four calls and a sentence, not twenty looks.",
+    "The catalogue is in this call's `tools`, and its definitions are the whole of it: `open` reads what the account holds, `act` changes it, `say` speaks in the conversation, `note` keeps what the case must not forget. An argument a definition does not carry is refused, and so is a value outside the bound beside it.",
     ...surfaceLines(question.surfaces),
     ...heads,
   ]

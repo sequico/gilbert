@@ -476,14 +476,14 @@ test("the standing prose reaches the system turn unfenced, and the change is fen
  * from a refusal: the reported failures were a value one character too long and
  * a field named `text` where the tool takes `fact`.
  */
-test("the catalogue reaches the turn twice: the definitions, and the signatures beside them", async () => {
+test("the catalogue travels as the definitions alone, and the turn says what the verbs are", async () => {
   /*
-   * It used to travel once — the provider's own `tools` only — to save the
-   * repetition on every step of every run. A live installation paid for the
-   * saving: the turn answered from memory and invented `mail.search` and
-   * `mail.threads`, and 260 steps over 94 runs were refused (55%). So the
-   * signatures travel beside the definitions, and only the signatures: the
-   * description a definition already carries is not paid for twice.
+   * It once travelled twice — the provider's own `tools`, and a line per tool
+   * spelling out its arguments — because a model had invented `mail.search` and
+   * `mail.threads` from a catalogue it had not read (260 refused steps over 94 runs,
+   * 55%). Four verbs with intent-shaped values carry what those lines carried: a
+   * value is in the schema's own `enum`, and there is no second list to keep in step
+   * (R4). What the turn says instead is what the verbs are.
    */
   seen = [];
   answers = [];
@@ -493,15 +493,20 @@ test("the catalogue reaches the turn twice: the definitions, and the signatures 
 
   const act = TOOLS.find((tool) => tool.name === "act");
   assert.ok(act, "the catalogue holds the tool this test reads");
-  assert.match(
-    system,
-    /- act\(/,
-    "the signatures are written beside the definitions this call carries",
+  assert.ok(
+    !system.includes(`- ${act.name}(`),
+    "the arguments are not paid for twice: the definitions carry them",
   );
   assert.ok(
-    !system.includes(act.description),
-    "and the description is not paid for twice",
+    system.includes("`open` reads what the account holds, `act` changes it"),
+    "and the turn names the four verbs it may choose among",
   );
+  const values = act.args.what?.values ?? [];
+  for (const value of values)
+    assert.ok(
+      JSON.stringify(seen[0]?.body.tools ?? []).includes(`"${value}"`),
+      `the schema itself names "${value}", with no second list to drift from it`,
+    );
 });
 
 test("the choosing turn offers the catalogue as tools, from the same argument specs", async () => {
@@ -1029,12 +1034,12 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
 
   const system = SYSTEM(0);
   /*
-   * The catalogue reaches the turn **twice, and on purpose**: as the provider's
-   * own `tools`, and as one signature line per tool in the system turn. The
-   * duplicate is the answer to a measured failure — a turn handed only the
-   * definitions invented names it had never been given — so what this test holds
-   * is that the definition the provider sees is the catalogue's own words, and
-   * that the signatures are there beside them.
+   * The catalogue reaches the turn **once**: as the provider's own `tools`. A list of
+   * signature lines travelled beside it while a turn handed only the definitions had
+   * invented names it was never given; with four verbs the value a call names is the
+   * schema's own `enum`, so the second list was only a thing to drift from the first
+   * (R4). What this test holds is that the definition the provider sees is the
+   * catalogue's own words, and that the guard's rule is still said in prose.
    */
   const first = seen[0] as { body?: { tools?: unknown } } | undefined;
   const carried = first?.body?.tools;
@@ -1051,8 +1056,8 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
     );
   }
   assert.ok(
-    system.includes("- say("),
-    "and the signatures are beside the definitions, since the definitions alone were not read",
+    !system.includes("- say("),
+    "and no second list of signatures is paid for beside them",
   );
   assert.ok(
     system.includes("an act a person must authorise is refused"),

@@ -124,11 +124,6 @@ export interface AnyTool {
    * can refuse `path` on a mail search before the endpoint does.
    */
   readonly parameters?: () => Record<string, unknown>;
-  /**
-   * The call's arguments as one line, when the generic rendering is not enough:
-   * a job says which arguments belong to which value.
-   */
-  readonly argLine?: () => string;
   /** Validate the arguments; throw `ToolError` on anything the tool cannot use. */
   readonly parse: (raw: unknown) => unknown;
   /** The task itself, with arguments already validated. */
@@ -248,8 +243,6 @@ interface ToolSpec<Args> {
   args: Readonly<Record<string, ArgSpec>>;
   /** The whole argument schema, when it is a union of per-value shapes. */
   parameters?: () => Record<string, unknown>;
-  /** The arguments as one line, when the generic rendering is not enough. */
-  argLine?: () => string;
   parse: (raw: unknown) => Args;
   run: (call: ToolCall, args: Args) => Promise<unknown>;
 }
@@ -279,7 +272,6 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     keys,
     args: spec.args,
     ...(spec.parameters ? { parameters: spec.parameters } : {}),
-    ...(spec.argLine ? { argLine: spec.argLine } : {}),
     parse: (raw) => {
       /*
        * A key this tool does not take is refused whole, before the run: the

@@ -360,10 +360,14 @@ endpoint that carried it), `say` and `note` — over the endpoint tools untouche
 class of an act, the surface it writes and the wait it takes are read from the endpoint
 the value names, and the areas narrow the values exactly as they narrowed five verbs.
 
-**Owed:** the third unit — the turn's prose and the signature lines, which four verbs
-with intent-shaped values no longer need. The measured claim is *their* removal: the
-schema keeps one branch per endpoint, because a value names one endpoint, and this
-build does not pretend otherwise.
+**Built:** the third unit too — the turn's prose names the four verbs (`open` reads,
+`act` changes, `say` speaks, `note` keeps) and shows one worked example in their words,
+and the **list of signatures beside the definitions is gone** (`toolSignature` is the
+decision turn's alone now, and `argLine` with it): with four verbs the value a call
+names is the schema's own `enum`, so a second list was only a thing to drift from the
+first. The example and the guard rule stay.
+
+**Owed:** nothing. R4 is complete: `open`, `act`, `say`, `note`.
 
 ### R5 — No ceiling on a run; the nets are safety, not accounting
 
