@@ -827,6 +827,14 @@ export class AgentLoop {
               problems.push(errorMessage(err));
             }
           }
+          /*
+           * The age is the read's, not the write's: a save that failed after a
+           * reading that succeeded still leaves this process holding a current
+           * position, and discarding it an hour later would skip the mentions
+           * that arrived in between. Across a restart the document's own `at` is
+           * what the hour is measured from, which is the boot this guards.
+           */
+          this.noticeAt.set(accountId, now.getTime());
           for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
           /*
            * The archive is housekeeping, not a decision: a switched-off agent
@@ -1647,7 +1655,6 @@ export class AgentLoop {
       this.notices.set(accountId, cursor);
     }
     this.noticeSaved.set(accountId, JSON.stringify(cursor));
-    this.noticeAt.set(accountId, Date.now());
   }
 
   /**

@@ -13,6 +13,7 @@
  * `crypto.randomUUID`, which both Node and the browser provide.
  */
 
+import { sameAddress } from "./address.js";
 import { isRecord } from "./json.js";
 
 export const CHAT_FOLDER = "chat";
@@ -462,7 +463,7 @@ export function repliesToAuthor(
   parent: Pick<ChatMessageDoc, "from"> | null | undefined,
   address: string,
 ): boolean {
-  return Boolean(message.replyTo && parent && parent.from === address);
+  return Boolean(message.replyTo && parent && sameAddress(parent.from, address));
 }
 
 /**

@@ -296,15 +296,21 @@ export async function offPath(
           list?: Array<{
             to?: Array<{ email?: string | null }>;
             cc?: Array<{ email?: string | null }>;
+            bcc?: Array<{ email?: string | null }>;
           }>;
-        }>("Email/get", { accountId, ids: [event.where], properties: ["to", "cc"] }, [
-          CAPABILITIES.mail,
-        ]);
+        }>(
+          "Email/get",
+          { accountId, ids: [event.where], properties: ["to", "cc", "bcc"] },
+          [CAPABILITIES.mail],
+        );
         const isMine = (one: { email?: string | null }): boolean =>
           sameAddress(one.email, deps.self);
+        // `bcc` counts: a message the agent shared with somebody it cannot see
+        // was not addressed to the agent alone, and the notice stays silent.
         const addressees = (addressed.list ?? []).flatMap((one) => [
           ...(one.to ?? []),
           ...(one.cc ?? []),
+          ...(one.bcc ?? []),
         ]);
         if (addressees.length !== 1 || !isMine(addressees[0] ?? {})) continue;
         /*
