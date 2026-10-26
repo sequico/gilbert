@@ -55,6 +55,7 @@ const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const {
   filesAccountId,
+  findFolderPath,
   readAppFileAt,
   destroyAppNode,
   readVisibleFileBytes,
@@ -75,6 +76,8 @@ const { AgentLoop } = await import("./loop.js");
 const { AGENT_SWITCH_FILE, writeAgentSwitch } = await import("./switch.js");
 const { INSTRUCTION_FILE, INSTRUCTION_VERSION } = await import("./instruction.js");
 const { CURSOR_FILE, NOTICE_CURSOR_FILE } = await import("./cursors.js");
+const { PENDING_FILE } = await import("./queue.js");
+const { CASES_FOLDER } = await import("./case.js");
 const { listRuns, runPath } = await import("./runs.js");
 const { TASKS } = await import("./eval/tasks/index.js");
 
@@ -350,20 +353,27 @@ const heldEvents = new Set((await eventRows()).map((event) => event.id));
 
 /**
  * A clean account between tasks: the cursor, the runs, the instruction, the
- * switch, the conversation, the mail this measure delivered, the drafts an
- * attempt wrote, and any event the account did not hold when the measure
- * started.
+ * switch, the drop queue, the case notes, the conversation, the mail this
+ * measure delivered, the drafts an attempt wrote, and any event the account did
+ * not hold when the measure started.
  *
  * Everything a task reads back is emptied, or the retry of a failed task would
- * be graded on the first attempt's leavings. What the account held before the
- * measure is left alone.
+ * be graded on the first attempt's leavings. A drop the previous task left in the
+ * queue would wake the next pass on its own, and a case note left in `cases/`
+ * would be a case the next task's turn already recognises. What the account held
+ * before the measure is left alone, and so is the installation's memory: it is
+ * what the installation knows, not a task's leavings.
  */
 async function clean(): Promise<void> {
-  for (const id of [CURSOR_FILE, NOTICE_CURSOR_FILE, INSTRUCTION_FILE]) {
+  for (const id of [CURSOR_FILE, NOTICE_CURSOR_FILE, INSTRUCTION_FILE, PENDING_FILE]) {
     const found = await readAppFileAt(ctx, accountId, id);
     if (typeof found?.file.id === "string")
       await destroyAppNode(ctx, accountId, found.file.id);
   }
+  // The notes one case keeps, and the folder they sit in: a case the next task
+  // was never given must not already be on file.
+  const cases = await findFolderPath(ctx, accountId, CASES_FOLDER);
+  if (cases) await destroyAppNode(ctx, accountId, cases, { removeChildren: true });
   // The switch lives in the Master's own Files, where the loop reads it.
   const held = await readAppFileAt(ctx, memoryAccountId, AGENT_SWITCH_FILE);
   if (typeof held?.file.id === "string")
