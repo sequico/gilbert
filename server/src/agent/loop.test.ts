@@ -1388,7 +1388,7 @@ test("a run records the limits in force and the time each step took", async () =
     .find((one) => one.startedBy.woke === `mail created: ${message}`);
   assert.equal(run?.state, "done", "the run of this change is the one read");
   const looked = run?.plan.find((step) =>
-    step.what.startsWith('find {"kind":"folders"}'),
+    step.what.startsWith('open {"what":"folders"}'),
   );
   assert.equal(typeof looked?.ms, "number", "the step says how long its call took");
   assert.ok((looked?.ms ?? -1) >= 0, "and the number is a duration, not a guess");
@@ -2642,7 +2642,10 @@ test("a run is handed the areas its group works, not the whole catalogue", async
   );
   assert.ok(choosing.length > 0, "the run was handed a turn of its own");
   const offered = choosing.map(({ system }) => system).join("\n");
-  assert.ok(/- find\(kind: one of mail/.test(offered), "the group's own area is offered");
+  assert.ok(
+    /- open\(what: one of message, attachment/.test(offered),
+    "the group's own area is offered",
+  );
   assert.ok(
     /- place\(action: one of [^)]*trash/.test(offered),
     "and so is a write of it",
@@ -3130,7 +3133,7 @@ test("a pass leaves a long run on purpose, and the next pass takes it at once", 
   // The first pass works no turn: the slice is spent before the first one.
   const first = loop(HOLDER, { sliceMs: -1 });
   await first.start();
-  answerWith({ calls: [{ name: "find", arguments: { kind: "folders" } }] });
+  answerWith({ calls: [{ name: "open", arguments: { what: "folders" } }] });
   await first.pass();
 
   const left = (await readRun(ctx, accountId, id))?.run;

@@ -578,8 +578,8 @@ test("the agent's own calendar write leaves a mark the reading takes once", asyn
     id: "r-calendar",
     startedBy: { rule: "cal", instruction: null, woke: "test" },
   });
-  const listed = (await runTool(TOOLS, { ctx, accountId, run }, "find", {
-    kind: "calendars",
+  const listed = (await runTool(TOOLS, { ctx, accountId, run }, "open", {
+    what: "calendars",
   })) as {
     calendars: Array<{ id: string; mayWrite: boolean }>;
   };

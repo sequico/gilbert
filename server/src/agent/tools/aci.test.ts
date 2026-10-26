@@ -134,11 +134,11 @@ test("a refusal names what it accepts", () => {
    * "bad arguments" is a step paid for nothing. The refusal is the only thing
    * the model reads before its next call, so it carries the list.
    */
-  const find = TOOLS.find((tool) => tool.name === "find");
-  assert.ok(find, "the catalogue holds `find`");
-  const values = valuesOf(find, "kind");
+  const open = TOOLS.find((tool) => tool.name === "open");
+  assert.ok(open, "the catalogue holds `open`");
+  const values = valuesOf(open, "what");
   assert.throws(
-    () => find.parse({ kind: "mail-box", query: "from:x" }),
+    () => open.parse({ what: "mail-box", query: "from:x" }),
     (error: unknown) => {
       assert.ok(error instanceof ToolError);
       for (const value of values)
@@ -150,7 +150,7 @@ test("a refusal names what it accepts", () => {
     },
   );
   assert.throws(
-    () => find.parse({ query: "from:x" }),
+    () => open.parse({ query: "from:x" }),
     (error: unknown) => {
       assert.ok(error instanceof ToolError);
       for (const value of values)

@@ -438,20 +438,16 @@ test("the reading half this build ships holds no writer, and spends nothing", ()
 test("every surface the agent works on has a reading value that reaches it", () => {
   const doors: Record<string, readonly string[]> = {
     chat: ["chat"],
-    mail: ["mail", "folders"],
-    kb: ["knowledge", "pages"],
+    mail: ["messages", "folders"],
+    kb: ["page", "pages", "search"],
     workorder: ["workorders"],
     runs: ["run"],
     files: ["files"],
-    calendar: ["calendar", "calendars"],
+    calendar: ["events", "calendars"],
   };
-  const read = TOOLS.find((tool) => tool.name === "read");
-  const find = TOOLS.find((tool) => tool.name === "find");
-  assert.ok(read && find);
-  const values = new Set([
-    ...(read.args.kind?.values ?? []),
-    ...(find.args.kind?.values ?? []),
-  ]);
+  const open = TOOLS.find((tool) => tool.name === "open");
+  assert.ok(open);
+  const values = new Set([...(open.args.what?.values ?? [])]);
   for (const [surface, names] of Object.entries(doors))
     assert.ok(
       names.some((name) => values.has(name)),
@@ -1790,7 +1786,7 @@ test("a run reads when a fact stopped being true, closed facts and all", async (
   const history = await writeTool<{
     subject: string;
     facts: Array<{ fact: string; from: string; until?: string; inForce: boolean }>;
-  }>("read", { kind: "memory", subject: "Cargo 77" });
+  }>("open", { what: "memory", subject: "Cargo 77" });
   assert.equal(history.subject, "Cargo 77");
   assert.deepEqual(
     history.facts.map((fact) => fact.fact),
@@ -2576,7 +2572,39 @@ test("a workorder's steps carry the template's words beside their paths", async 
  * The base can be paged and searched: a listing that answered `truncated` has an
  * `offset` that reaches the rest, and a subject is found by the words of the
  * pages rather than by listing them and reading them one at a time.
- */
+ */ test("several objects are opened by one call, and the answer says when it was cut", async () => {
+  /*
+   * R4's proof: a set of four known objects is opened by **one** call. The reading
+   * values take `ids`, the job runs the endpoint once per id, and the answer is a list
+   * with the count — bounded, and saying so when the call named more than it carries.
+   */
+  const ids: string[] = [];
+  for (const text of ["first of the set", "second of the set", "third", "fourth"]) {
+    const said = await writeTool<{ id: string }>("chat.say", { text });
+    ids.push(said.id);
+  }
+
+  const opened = await callTool<{
+    items: Array<{ message: { text: string } }>;
+    total: number;
+    truncated: boolean;
+  }>("chat.read", { ids });
+
+  assert.equal(opened.total, 4, "four objects, one call");
+  assert.deepEqual(
+    opened.items.map((one) => one.message.text),
+    ["first of the set", "second of the set", "third", "fourth"],
+    "each answer is the endpoint's own",
+  );
+  assert.equal(opened.truncated, false, "and nothing was left out");
+
+  await assert.rejects(
+    () => callTool("chat.read", { ids: [] }),
+    /needs at least one id/,
+    "a set that names nothing is refused, rather than answered empty",
+  );
+});
+
 test("the base is paged by offset and searched by the words of its pages", async () => {
   // Its own page, with words no other fixture carries: a search that leans on
   // another test's fixture is a test that reads the file's order.

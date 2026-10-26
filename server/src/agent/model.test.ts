@@ -369,7 +369,7 @@ test("the turn may look the group's own state up with the reading tools, and not
 
   seen = [];
   answers = [];
-  answerWith({ read: { tool: "find", arguments: { kind: "files" } } });
+  answerWith({ read: { tool: "open", arguments: { what: "files" } } });
   answerWith({ facts: { shipper: "Maersk" } });
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
@@ -384,7 +384,7 @@ test("the turn may look the group's own state up with the reading tools, and not
   assert.equal(seen.length, 2, "the read is a second call");
   assert.match(
     MESSAGE(1),
-    /find/,
+    /open/,
     "and the second call carries what the reading tool answered",
   );
   assert.match(MESSAGE(1), /"nodes"/, "with the account's own Files in it");
@@ -400,7 +400,7 @@ test("the change, a reading and a lookup's answer are all fenced as data", async
   // instructions, so every block of text somebody else wrote is marked where it
   // sits: the change, and what a lookup came back with. The fence's token is
   // drawn per call, so a body cannot spell the end marker and step out.
-  answerWith({ read: { tool: "find", arguments: { kind: "files" } } });
+  answerWith({ read: { tool: "open", arguments: { what: "files" } } });
   answerWith({ facts: { shipper: "Maersk" } });
   await decideEvent(
     { model, allowPrivateProvider: true },
@@ -418,7 +418,7 @@ test("the change, a reading and a lookup's answer are all fenced as data", async
     block("\\{"),
     "what the reading tool answered is data, not instructions",
   );
-  assert.match(MESSAGE(1), /What find answered:\n--- BEGIN DATA/);
+  assert.match(MESSAGE(1), /What open answered:\n--- BEGIN DATA/);
   assert.notEqual(
     /\[(\w+)\] ---/.exec(MESSAGE(0))?.[1],
     /\[(\w+)\] ---/.exec(MESSAGE(1))?.[1],
@@ -723,8 +723,8 @@ test("an answer past the ceiling a call reads is refused, and the read is abando
 });
 
 test("a turn that has spent all its lookups and asks for another is refused", async () => {
-  answerWith({ read: { tool: "find", arguments: { kind: "files" } } });
-  answerWith({ read: { tool: "find", arguments: { kind: "files" } } });
+  answerWith({ read: { tool: "open", arguments: { what: "files" } } });
+  answerWith({ read: { tool: "open", arguments: { what: "files" } } });
   await assert.rejects(
     () =>
       decideEvent(
@@ -944,7 +944,7 @@ test("a call the catalogue does not hold is refused alone, and the rest of the p
    */
   answerWith({
     calls: [
-      { name: "find", arguments: { kind: "mail", query: "from:x" } },
+      { name: "open", arguments: { what: "messages", query: "from:x" } },
       { name: "mail.search", arguments: { query: "from:x" } },
     ],
   });
@@ -956,7 +956,7 @@ test("a call the catalogue does not hold is refused alone, and the rest of the p
   assert.equal(choice.kind, "plan");
   assert.deepEqual(
     choice.kind === "plan" ? choice.calls.map((call) => call.name) : [],
-    ["find"],
+    ["open"],
     "the call that named a real tool still runs",
   );
   const refused = choice.kind === "plan" ? (choice.refused ?? []) : [];
@@ -969,13 +969,13 @@ test("a call the catalogue does not hold is refused alone, and the rest of the p
   );
   assert.match(
     refused[0]?.problem ?? "",
-    /\bfind\b.*\bread\b|\bread\b.*\bfind\b/s,
+    /\bopen\b.*\bnote\b|\bnote\b.*\bopen\b/s,
     "and it names the bare words this run may call, so the next turn need not guess",
   );
 
   // Nothing of the answer could be made: that is the answer refused, and the model
   // is told what the catalogue holds.
-  answerWith({ calls: [{ name: "find", arguments: {} }] });
+  answerWith({ calls: [{ name: "open", arguments: {} }] });
   await assert.rejects(
     () => chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion()),
     (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
@@ -990,8 +990,8 @@ test("a call the catalogue does not hold is refused alone, and the rest of the p
   answerWith({
     calls: [
       {
-        name: "find",
-        arguments: { kind: "mail", query: "from:x" },
+        name: "open",
+        arguments: { what: "messages", query: "from:x" },
         needs: { step: "nowhere", when: "done" },
       },
     ],
@@ -1061,7 +1061,7 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
 });
 
 test("the change, the facts and what each step answered are fenced as data", async () => {
-  answerWith({ calls: [{ name: "find", arguments: { kind: "files" } }] });
+  answerWith({ calls: [{ name: "open", arguments: { what: "files" } }] });
   const first = recordStep(
     appendStep(
       startRun({
@@ -1416,16 +1416,16 @@ test("the choosing turn lists each tool's own argument names", async () => {
    * branch carries the message's own `id`, and the remember job's `fact` branch
    * the bound the parser checks.
    */
-  const read = request.tools?.find((one) => one.function.name === "read");
-  const readBranches = read?.function.parameters.oneOf ?? [];
+  const open = request.tools?.find((one) => one.function.name === "open");
+  const readBranches = open?.function.parameters.oneOf ?? [];
   const message = readBranches.find(
     (one) =>
-      (one.properties.kind as { enum?: string[] } | undefined)?.enum?.[0] === "message",
+      (one.properties.what as { enum?: string[] } | undefined)?.enum?.[0] === "message",
   );
   assert.deepEqual(
     Object.keys(message?.properties ?? {}).sort(),
-    ["id", "kind"],
-    "the arguments are the value's own, so a name is not guessed",
+    ["id", "ids", "what"],
+    "the arguments are the value's own, plus the set a reading value takes",
   );
   const remember = request.tools?.find((one) => one.function.name === "remember");
   const fact = (remember?.function.parameters.oneOf ?? []).find(
@@ -1437,7 +1437,6 @@ test("the choosing turn lists each tool's own argument names", async () => {
     MEMORY_FACT_MAX,
   );
 });
-
 test("a long plan reaches the turn in one call, every answer as the record keeps it", async () => {
   /*
    * The context is a transcript (ADR 0038): every step's answer is carried as the
@@ -1592,7 +1591,7 @@ test("a provider's native tool call is the step the turn meant", async () => {
    * "answered without a message" — the call it meant sat in the other field.
    */
   nativeCalls = [
-    { function: { name: "find", arguments: '{"kind":"files","path":"MS2"}' } },
+    { function: { name: "open", arguments: '{"what":"files","path":"MS2"}' } },
   ];
   const choice = await chooseStep(
     TOOLS,
@@ -1601,12 +1600,12 @@ test("a provider's native tool call is the step the turn meant", async () => {
   );
   assert.deepEqual(choice, {
     kind: "plan",
-    calls: [{ name: "find", args: { kind: "files", path: "MS2" }, needs: null }],
+    calls: [{ name: "open", args: { what: "files", path: "MS2" }, needs: null }],
   });
 });
 
 test("a provider's native tool call is the lookup the decision meant", async () => {
-  nativeCalls = [{ function: { name: "find", arguments: '{"kind":"files"}' } }];
+  nativeCalls = [{ function: { name: "open", arguments: '{"what":"files"}' } }];
   answerWith({ facts: { shipper: "Maersk" } });
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },

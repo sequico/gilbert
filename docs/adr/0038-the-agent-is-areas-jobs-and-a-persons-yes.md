@@ -3,7 +3,7 @@
 Status: Proposed
 
 Implementation: Partly built. **Built:** areas and their selection
-(`server/src/agent/areas.ts`), the eight jobs and their narrowing
+(`server/src/agent/areas.ts`), the verbs and their narrowing
 (`agent/tools/jobs.ts`, and the interface rules the file states held by
 `agent/tools/aci.test.ts`), one instruction per group
 (`agent/instruction.ts`, panel `GroupInstruction.tsx`), the change as trigger with
@@ -82,10 +82,10 @@ is a **module**: one definition of its actions, no import of another area's, and
 what crosses between them is **an identifier inside the account**. An area is not
 an agent; the run is the one place where two areas meet.
 
-- **Reading and the shared library are always present**: `read`, `find`, `say` and
-  `remember`; the instruction filters only the four area writes (`place`, `draft`,
-  `event`, `settle`), and the guard reads the job's `kind`/`action` when one job
-  reaches more than one area (`place` writes mail or files, `remember` memory or
+- **Reading and the shared library are always present**: `open`, `say` and
+  `remember`; the instruction filters only the area writes (`place`, `draft`,
+  `event`, `settle`), and the guard reads the verb's `what`/`kind`/`action` when one
+  verb reaches more than one area (`place` writes mail or files, `remember` memory or
   knowledge): a tool-level filter cannot say which half of a job is allowed.
 - **The schema follows the areas.** A job shows only the `kind`/`action` the run's
   areas allow; the guard that reads them is the second door, not the first.
@@ -96,15 +96,16 @@ an agent; the run is the one place where two areas meet.
 - *Correspondence* and *agenda* are the two common selections (mail + files,
   calendar + workorders), not a taxonomy.
 
-### The catalogue is eight jobs
+### The catalogue is verbs over the endpoint tools
 
-Forty-five endpoint tools become eight; every capability is a field of a job or
-**consciously dropped**:
+Forty-five endpoint tools become four verbs and a scratchpad; every capability is a
+value of a verb or **consciously dropped**. `open` is what the account holds — the
+singular opens one object by `id` or several by `ids` in one call, the plural searches
+or lists:
 
-| job | what it is | absorbs |
+| verb | what it is | absorbs |
 |---|---|---|
-| `read` | one known object, by id | `mail.read`, `mail.readAttachment`, `files.read`, `calendar.read`, `knowledge.read`, `chat.read`, `workorder.read`, `run.read` |
-| `find` | ask the account what is there | `mail.find`, `mail.folders`, `files.list`, `calendar.list`, `calendar.find`, `chat.find`, `contacts.find`, `knowledge.list`, `knowledge.search`, `workorder.list` |
+| `open` | what the account holds: a message, an attachment, a file, an event, a page, a chat, a workorder, a run or the memory — or several at once; and the plural to search or list | `mail.read`, `mail.readAttachment`, `files.read`, `calendar.read`, `knowledge.read`, `chat.read`, `workorder.read`, `run.read`, `mail.find`, `mail.folders`, `files.list`, `calendar.list`, `calendar.find`, `chat.find`, `contacts.find`, `knowledge.list`, `knowledge.search`, `workorder.list` |
 | `place` | put something where it belongs | `mail.file`, `mail.trash`, `mail.untrash`, `mail.keyword`, `mail.label`, `files.save`, `files.write`, `files.overwrite`, `files.move`, `files.rename`, `files.delete`, `files.folder`, `mail.folder`, `mail.renameFolder`, `mail.deleteFolder` |
 | `draft` | write an outward message, never send it | `mail.draft`, `mail.editDraft` |
 | `event` | create, change or cancel an event or a series | `calendar.create`, `calendar.update`, `calendar.delete` |
@@ -115,7 +116,7 @@ Forty-five endpoint tools become eight; every capability is a field of a job or
 sends, as the boundary below states; `mail.ask` sent a question and parked the
 run, which the draft
 rule makes impossible — a question is asked in the conversation (`say`), and a
-mail leaves only when a person sends it. Contacts carry no write; `find` is their
+mail leaves only when a person sends it. Contacts carry no write; `open` is their
 whole surface.
 
 `place` carries an **`action`** (`file`, `trash`, `untrash`, `keyword`, `label`,
@@ -126,8 +127,9 @@ one job spans reversible and destructive acts.
 
 - **A sequence the job implies lives inside the tool** that names the job: filing a
   booking's documents is part of reading that mail, not a second tool to chain.
-- **Every call says what kind of thing it is about** — the job's `kind`/`action`
-  — and its arguments say what they hold (`id`, the id `find` answered; `path`, a
+- **Every call says what kind of thing it is about** — the verb's `what`, or the
+  `kind`/`action` — and its arguments say what they hold (`id`, the id `open`
+  answered; `path`, a
   document's; `folder`, a folder's name, role or id), so a mailbox id cannot
   stand where a message id belongs. A refusal quotes the real names and a valid
   example.
@@ -293,7 +295,7 @@ spent the provider's default budget before writing anything.
 
 - **Native function calling is the protocol, and the only one.** The catalogue
   travels in `tools`, the answer is read from `tool_calls`. The names are bare
-  words (`read`, `find`, …) because a provider accepts only
+  words (`open`, `say`, …) because a provider accepts only
   `^[a-zA-Z0-9_-]+$` — the live provider refused `mail.find` as an invalid
   function name. The administration's form **accepts a provider only if it takes
   both** what the turns need — `tools` for the action, a native JSON mode for the

@@ -1379,7 +1379,7 @@ export class AgentLoop {
     };
     const look = async (raw: Record<string, unknown>): Promise<unknown> => {
       try {
-        return await runTool(catalogue, call, "find", raw);
+        return await runTool(catalogue, call, "open", raw);
       } catch (err) {
         this.opts.log?.(
           `[gilbert] agent: run ${run.id} could not read part of its case: ${errorMessage(err)}`,
@@ -1398,14 +1398,14 @@ export class AgentLoop {
      * prose and names no page, so the turn is told what the base holds and opens the
      * one it needs — and the note keeps the rule it read.
      */
-    const pages = strings(await look({ kind: "pages" }), "pages", "title");
+    const pages = strings(await look({ what: "pages" }), "pages", "title");
     /*
      * The case's place: the group's own Files, two levels, names only — the level a
      * person browsing it sees. A folder is marked with a trailing slash so the model
      * knows what it can ask for, and a level is bounded rather than paged: what the
      * turn needs is the shape of the place, not its inventory.
      */
-    const top = await look({ kind: "files", limit: CASE_PLACE_MAX });
+    const top = await look({ what: "files", limit: CASE_PLACE_MAX });
     const place = strings(top, "nodes", "path");
     const folders = (isRecord(top) && Array.isArray(top.nodes) ? top.nodes : []).flatMap(
       (one) =>
@@ -1416,7 +1416,7 @@ export class AgentLoop {
     for (const folder of folders.slice(0, CASE_PLACE_FOLDERS_MAX))
       place.push(
         ...strings(
-          await look({ kind: "files", path: folder, limit: CASE_PLACE_MAX }),
+          await look({ what: "files", path: folder, limit: CASE_PLACE_MAX }),
           "nodes",
           "path",
         ),
@@ -1431,7 +1431,7 @@ export class AgentLoop {
      * sentence has no way to obey.
      */
     if (run.caseKey) {
-      const said = await look({ kind: "chat", query: run.caseKey, limit: 10 });
+      const said = await look({ what: "chats", query: run.caseKey, limit: 10 });
       const messages =
         isRecord(said) && Array.isArray(said.messages) ? said.messages : [];
       const mine = messages.find(

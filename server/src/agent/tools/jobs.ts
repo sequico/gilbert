@@ -101,14 +101,23 @@ interface Route {
   tool: AnyTool;
   /** The area whose selection keeps this value, or null when every run has it. */
   area: AreaName | null;
+  /**
+   * Whether the value may name **several** objects at once, with `ids`: the job is
+   * then run once per id and answers a list (R4's "a set answered in one call"). Only
+   * reading values carry it — a set of acts is a plan, not one call.
+   */
+  set?: boolean;
 }
+
+/** The most objects one call opens at once. */
+export const OPEN_SET_MAX = 10;
 
 /** What every job has, and what a narrowed copy keeps. */
 interface JobSpec {
   name: string;
   description: string;
-  /** The argument that names the endpoint: `kind` or `action`. */
-  discriminator: "kind" | "action";
+  /** The argument that names the endpoint: `kind`, `action` or `what`. */
+  discriminator: "kind" | "action" | "what";
   /** What the discriminator means, in the turn's words. */
   about: string;
   routes: Record<string, Route>;
@@ -130,6 +139,12 @@ function unionArgs(routes: Record<string, Route>): Record<string, ArgSpec> {
 interface Routed {
   endpoint: AnyTool;
   args: unknown;
+  /** The ids a set names; absent for a call that names one object. */
+  ids?: string[];
+  /** How many ids the call named, before the bound cut them. */
+  named?: number;
+  /** The raw arguments without the discriminator, for a set to parse per id. */
+  rest?: Record<string, unknown>;
 }
 
 /** The endpoint one call names, with its arguments validated by the endpoint itself. */
@@ -150,6 +165,24 @@ function routeOf(spec: JobSpec, routes: Record<string, Route>, raw: unknown): Ro
     );
   const rest = { ...held };
   delete rest[spec.discriminator];
+  /*
+   * Several objects at once (R4): a reading value may name `ids`, and the job runs the
+   * endpoint once for each. The endpoint's own parser is asked per id at run time, so a
+   * set is never validated against one object's arguments.
+   */
+  if (route.set && Array.isArray(rest.ids)) {
+    const named = rest.ids.filter(
+      (id): id is string => typeof id === "string" && id.trim() !== "",
+    );
+    const ids = named.slice(0, OPEN_SET_MAX);
+    if (!ids.length)
+      throw new ToolError(
+        "bad_arguments",
+        `"${value.trim()}" with "ids" needs at least one id.`,
+      );
+    delete rest.ids;
+    return { endpoint: route.tool, args: {}, ids, named: named.length, rest };
+  }
   return { endpoint: route.tool, args: route.tool.parse(rest) };
 }
 
@@ -173,6 +206,11 @@ function job(spec: JobSpec): AnyTool {
       },
       ...unionArgs(routes),
     };
+    if (values.some((value) => routes[value]?.set))
+      args.ids = {
+        type: "list",
+        about: `several at once, when the value takes them (at most ${OPEN_SET_MAX})`,
+      };
     const tool = defineTool<Routed>({
       name: spec.name,
       description: spec.description,
@@ -196,6 +234,7 @@ function job(spec: JobSpec): AnyTool {
         oneOf: values.map((value) => ({
           properties: {
             [spec.discriminator]: { type: "string", enum: [value] },
+            ...(routes[value]?.set ? { ids: argSchema({ type: "list" }) } : {}),
             ...Object.fromEntries(
               Object.entries(routes[value]?.tool.args ?? {}).map(([key, one]) => [
                 key,
@@ -222,7 +261,28 @@ function job(spec: JobSpec): AnyTool {
         ].join(""),
       parse: (raw) => routeOf(spec, routes, raw),
       act: (parsed) => parsed.endpoint.act(parsed.args),
-      run: async (call, parsed) => await parsed.endpoint.run(call, parsed.args),
+      run: async (call, parsed) => {
+        /*
+         * Several objects at once: one call, one row per id, and the endpoint's own
+         * parser and answer for each. A set is bounded, and says so when it is cut.
+         */
+        if (parsed.ids && parsed.rest) {
+          const items: unknown[] = [];
+          for (const id of parsed.ids)
+            items.push(
+              await parsed.endpoint.run(
+                call,
+                parsed.endpoint.parse({ ...parsed.rest, id }),
+              ),
+            );
+          return {
+            items,
+            total: items.length,
+            truncated: (parsed.named ?? items.length) > items.length,
+          };
+        }
+        return await parsed.endpoint.run(call, parsed.args);
+      },
     });
     return {
       ...tool,
@@ -240,59 +300,50 @@ function job(spec: JobSpec): AnyTool {
   return built;
 }
 
-/** Reading is free: every area's objects are `read`-able, whoever the run is. */
-export const readJob = job({
-  name: "read",
+/**
+ * Reading is free: one verb opens what the account holds (R4).
+ *
+ * `what` names the object — a message, a file, a page, a folder, a thread's messages —
+ * and the **singular** values open one object by `id`, or several of them by `ids` in
+ * one call, while the **plural** ones search or list. That grammar is the whole of what
+ * a run has to learn: `message`/`messages`, `page`/`pages`, `file`/`files`, and so on.
+ * The endpoint behind each value is unchanged, so the validation, the authority and the
+ * answer remain the endpoint's.
+ */
+export const openJob = job({
+  name: "open",
   description:
-    "Read one known object by its id or path: a message, one of a message's " +
-    "attachments, a file, a calendar event, a knowledge page, a chat message, " +
-    "a workorder, one of this account's runs, or what the installation's " +
-    "memory has held about one entity over time (`kind: memory` — the entity's " +
-    "`subject`, and optionally `from`/`to`). Choose what it is in `kind`, and " +
-    "give the id that `find` answered for that kind.",
-  discriminator: "kind",
+    "Open what this account holds. `what` is the object: `message`, `attachment`, " +
+    "`file`, `event`, `page`, `chat`, `workorder`, `run` or `memory` opens one by " +
+    "`id` — or several at once by `ids`, answered as a list — and `messages`, " +
+    "`folders`, `events`, `calendars`, `chats`, `contacts`, `files`, `pages` or " +
+    "`workorders` searches or lists, by a `query`, a `path` or a range, and " +
+    "`search` looks for a knowledge page by words. The answer " +
+    "carries the ids the next call takes.",
+  discriminator: "what",
   about:
-    "what the object is: message, attachment, file, event, knowledge, chat, workorder, run or memory",
+    "what to open: a message, an attachment, a file, an event, a page, a chat, a workorder, a run or the memory — or the plural, to search or list",
   writes: false,
   always: true,
   routes: {
-    message: { tool: readMessage, area: "mail" },
-    attachment: { tool: readAttachment, area: "mail" },
-    file: { tool: readNode, area: "files" },
-    event: { tool: readEvent, area: "calendar" },
-    knowledge: { tool: readKnowledgePage, area: "knowledge" },
-    chat: { tool: readChat, area: "chat" },
-    workorder: { tool: readWorkorder, area: "workorders" },
+    message: { tool: readMessage, area: "mail", set: true },
+    attachment: { tool: readAttachment, area: "mail", set: true },
+    file: { tool: readNode, area: "files", set: true },
+    event: { tool: readEvent, area: "calendar", set: true },
+    page: { tool: readKnowledgePage, area: "knowledge", set: true },
+    chat: { tool: readChat, area: "chat", set: true },
+    workorder: { tool: readWorkorder, area: "workorders", set: true },
     run: { tool: readRunTool, area: null },
     memory: { tool: memoryHistoryTool, area: "memory" },
-  },
-});
-
-/** Finding is free too, and one job answers every surface the account holds. */
-export const findJob = job({
-  name: "find",
-  description:
-    "Ask this account what it holds. `kind` is what to look among: mail " +
-    "messages by the mail client's own search words, the mail folders, the " +
-    "calendar events in a range, the calendars, the conversation's messages, " +
-    "the address book, the files of a folder, the knowledge pages (by a query, " +
-    "or all of them), or the workorders. Answers ids and the few fields that " +
-    "let you choose what to read next.",
-  discriminator: "kind",
-  about:
-    "what to search: mail, folders, calendar, calendars, chat, contacts, files, knowledge, pages or workorders",
-  writes: false,
-  always: true,
-  routes: {
-    mail: { tool: findMessages, area: "mail" },
+    messages: { tool: findMessages, area: "mail" },
     folders: { tool: listMailboxes, area: "mail" },
-    calendar: { tool: findEvents, area: "calendar" },
+    events: { tool: findEvents, area: "calendar" },
     calendars: { tool: listCalendars, area: "calendar" },
-    chat: { tool: findChat, area: "chat" },
+    chats: { tool: findChat, area: "chat" },
     contacts: { tool: findContacts, area: "contacts" },
     files: { tool: listFiles, area: "files" },
-    knowledge: { tool: searchKnowledge, area: "knowledge" },
     pages: { tool: listKnowledge, area: "knowledge" },
+    search: { tool: searchKnowledge, area: "knowledge" },
     workorders: { tool: listWorkorders, area: "workorders" },
   },
 });
@@ -420,10 +471,9 @@ export const settleJob = job({
   },
 });
 
-/** The eight jobs, plus the case's scratchpad, in the order a turn reads them. */
+/** The verbs, and the case's scratchpad, in the order a turn reads them. */
 export const JOBS: readonly AnyTool[] = [
-  readJob,
-  findJob,
+  openJob,
   noteTool,
   placeJob,
   draftJob,

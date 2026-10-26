@@ -229,9 +229,9 @@ account, `instruction.json`, that says **in prose** how the group wants its agen
 to work and **which areas** that work is in. The areas are the agent's own
 modules — **mail**, **files**, **calendar**, **contacts**, **knowledge**,
 **workorders**, **chat**, **memory** — and they are the whole of what a run may
-**change**: a run's catalogue is the **eight jobs** (`read`, `find`, `place`,
-`draft`, `event`, `say`, `remember`, `settle`) and the case's `note`, narrowed to
-the values whose area
+**change**: a run's catalogue is the **verbs** — `open` (what the account holds),
+`place`, `draft`, `event`, `say`, `remember`, `settle` — and the case's `note`,
+narrowed to the values whose area
 its instruction declares, with reading, the note, the conversation and memory always
 there. **Reading is free**; a write
 needs its area, and the conversation and memory are always writable. An
@@ -301,7 +301,7 @@ model may sit inside the deployment's own network
 group's own account, what the change is about, with **one** lookup of the group's
 own state when the change does not say enough — asked in the provider's native
 JSON mode (a schema where the provider enforces one); and the **choosing turn**,
-handed the catalogue of eight jobs and the case's note as the provider's own `tools`,
+handed the catalogue of verbs and the case's note as the provider's own `tools`,
 which answers
 with **calls** — one, several, or the same one twice — or with the sentence that
 ends the run. There is no JSON-in-the-text plan and no second request without the

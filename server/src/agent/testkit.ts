@@ -16,25 +16,25 @@ export function jobCall(
     "mail.readAttachment": "attachment",
     "files.read": "file",
     "calendar.read": "event",
-    "knowledge.read": "knowledge",
+    "knowledge.read": "page",
     "chat.read": "chat",
     "workorder.read": "workorder",
     "run.read": "run",
   };
-  if (read[name]) return { name: "read", args: { ...args, kind: read[name] } };
+  if (read[name]) return { name: "open", args: { ...args, what: read[name] } };
   const find: Record<string, string> = {
-    "mail.find": "mail",
+    "mail.find": "messages",
     "mail.folders": "folders",
     "files.list": "files",
     "calendar.list": "calendars",
-    "calendar.find": "calendar",
-    "chat.find": "chat",
+    "calendar.find": "events",
+    "chat.find": "chats",
     "contacts.find": "contacts",
     "knowledge.list": "pages",
-    "knowledge.search": "knowledge",
+    "knowledge.search": "search",
     "workorder.list": "workorders",
   };
-  if (find[name]) return { name: "find", args: { ...args, kind: find[name] } };
+  if (find[name]) return { name: "open", args: { ...args, what: find[name] } };
   const place: Record<string, string> = {
     "mail.file": "file",
     "mail.trash": "trash",
