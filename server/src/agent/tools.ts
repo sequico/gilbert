@@ -106,6 +106,33 @@ export function validatedTool(
 }
 
 /**
+ * Whether a failed call of this catalogue may be made again.
+ *
+ * Only a reversible act may: its failure is the account's answer, and asking
+ * again asks the same question. A destructive or outward act that failed may
+ * have landed — a submission that timed out is the case this exists for — and a
+ * person's authority covers one act, so it is not repeated silently.
+ *
+ * The class is the **endpoint's**, read through the verb's own `authorityOf`:
+ * the four verbs are one tool each, so a verb's declared class is its default
+ * and says nothing about the value a call names. `act` files a message and
+ * trashes one; only the second is an act a retry may take twice. A call this
+ * build cannot read is not one to repeat.
+ */
+export function repeatable(
+  catalogue: readonly AnyTool[],
+  name: string,
+  args: unknown,
+): boolean {
+  try {
+    const { tool, args: parsed } = validatedTool(catalogue, name, args);
+    return tool.authorityOf(parsed) === "reversible";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Call one tool: find it, validate its arguments, ask the guard, and run it.
  *
  * The catalogue is the caller's — the reading half for a reading call — and

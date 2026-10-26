@@ -69,6 +69,7 @@ const {
   mayRun,
   READING_TOOLS,
   readingTools,
+  repeatable,
   runTool: rawRunTool,
   TOOLS,
 } = await import("./tools.js");
@@ -433,6 +434,37 @@ test("the reading half this build ships holds no writer, and spends nothing", ()
       `and spending it moves the tally by the one step`,
     );
   }
+});
+
+test("a failed call is repeated only when the act it names is reversible", () => {
+  /*
+   * The four verbs are one tool each, so a verb's declared class is its default:
+   * `act` files a message (reversible) and trashes one (destructive). Reading the
+   * verb's class would call every act reversible and run a destructive one a
+   * second time after a failure that may already have landed — so the class is
+   * the endpoint's, through the verb's own `authorityOf`, and a call this build
+   * cannot read is not one to repeat.
+   */
+  assert.equal(
+    repeatable(TOOLS, "act", { what: "folder", path: "Containers/2026" }),
+    true,
+    "a folder made is the agent's own to retry",
+  );
+  assert.equal(
+    repeatable(TOOLS, "act", { what: "trash", id: "m-1" }),
+    false,
+    "a message trashed may already be trashed",
+  );
+  assert.equal(
+    repeatable(TOOLS, "open", { what: "messages", query: "from:x" }),
+    true,
+    "a reading spends nothing to repeat",
+  );
+  assert.equal(
+    repeatable(TOOLS, "act", { what: "nonsense" }),
+    false,
+    "and a call the catalogue cannot read is not made again",
+  );
 });
 
 test("every surface the agent works on has a reading value that reaches it", () => {

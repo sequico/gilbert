@@ -182,6 +182,7 @@ import { caseOf } from "./tools/note.js";
 import {
   type AnyTool,
   type ImageReader,
+  repeatable,
   runTool,
   TOOLS,
   type ToolCall,
@@ -2381,7 +2382,8 @@ export class AgentLoop {
               index < at &&
               (step.ask === undefined ? step.what === what : step.ask === ask) &&
               (step.state === "done" ||
-                (step.state === "failed" && !this.repeatable(step.what))),
+                (step.state === "failed" &&
+                  !repeatable(this.catalogue, call.name, call.args))),
           );
           if (earlier >= 0) {
             const held = current.plan[earlier];
@@ -3172,19 +3174,6 @@ export class AgentLoop {
     const access = this.access;
     if (!access?.model.embeddings) return undefined;
     return async (text: string) => (await embedTexts(access, [text]))?.[0] ?? null;
-  }
-
-  /**
-   * Whether a failed step may be attempted again.
-   *
-   * Only a reversible act may: its failure is the account's answer, and asking
-   * again asks the same question. A destructive or outward act that failed may
-   * have landed — a submission that timed out is the case this exists for — and
-   * a person's authority covers one act, so it is not repeated silently.
-   */
-  private repeatable(what: string): boolean {
-    const name = what.split(" ")[0] ?? "";
-    return this.catalogue.find((tool) => tool.name === name)?.authority === "reversible";
   }
 
   /** Append a step and record how it ended, in one place for every step. */
