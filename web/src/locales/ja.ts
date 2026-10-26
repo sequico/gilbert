@@ -642,7 +642,6 @@ export const catalog: Catalog = {
     "Steps per run": "実行あたりのステップ",
     "Every limit must be a whole number of at least one.":
       "各制限は1以上の整数である必要があります。",
-    "Touched: {touched}.": "変更対象: {touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} が承認: {target} に対する {authority} — 「{what}」",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":

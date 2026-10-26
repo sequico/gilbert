@@ -74,8 +74,7 @@ function recalledFact(id: string, facts: readonly FactView[]): string {
 
 /** The run itself: the change, the rule, the plan with its order, the tally. */
 function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }) {
-  const { startedBy, plan, spent, waiting, ended, recalled, touched, authorisations } =
-    run;
+  const { startedBy, plan, spent, waiting, ended, recalled, authorisations } = run;
   const origin = startedBy.rule
     ? t("Started by the rule {rule}, woken by {change}.", {
         rule: startedBy.rule,
@@ -135,13 +134,6 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
             {t("Tokens per run")}: {run.limits.maxRunTokens} · {t("Steps per run")}:{" "}
             {run.limits.maxRunSteps} · {t("Tokens per day")}: {run.limits.maxDailyTokens}{" "}
             — {t("recorded, never a budget")}
-          </div>
-        )}
-        {touched.length > 0 && (
-          <div>
-            {t("Touched: {touched}.", {
-              touched: touched.map((ref) => `${ref.kind} ${ref.id}`).join(", "),
-            })}
           </div>
         )}
         {authorisations.map((one, at) => (

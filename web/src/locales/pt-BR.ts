@@ -648,7 +648,6 @@ export const catalog: Catalog = {
     "Steps per run": "Passos por execução",
     "Every limit must be a whole number of at least one.":
       "Cada limite deve ser um número inteiro de pelo menos um.",
-    "Touched: {touched}.": "Tocado: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizado por {by}: {authority} para {target} — “{what}”",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":

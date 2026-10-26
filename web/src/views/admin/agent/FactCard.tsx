@@ -95,8 +95,12 @@ export function FactCard({
           <button className="btn" disabled={busy} onClick={() => setEditing(true)}>
             {t("Edit")}
           </button>
+          {/* Destructive, so it is set apart from the neutral action and carries
+              the danger weight rather than the same grey one (the admin's own
+              delete-confirmation style). */}
           <button
-            className="btn btn-ghost"
+            className="btn btn-danger"
+            style={{ marginLeft: "auto" }}
             disabled={busy}
             onClick={() =>
               void (async () => {

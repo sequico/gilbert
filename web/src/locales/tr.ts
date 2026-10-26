@@ -1299,7 +1299,6 @@ export const catalog: Catalog = {
     "Steps per run": "Çalıştırma başına adım",
     "Every limit must be a whole number of at least one.":
       "Her sınır en az bir olan bir tam sayı olmalıdır.",
-    "Touched: {touched}.": "Dokunulan: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} tarafından yetkilendirildi: {target} için {authority} — “{what}”",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":

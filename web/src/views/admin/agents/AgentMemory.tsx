@@ -1,4 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import { Brain } from "lucide-react";
 import { useState } from "react";
 import {
   correctFact,
@@ -7,6 +8,7 @@ import {
   forgetFact,
 } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
+import { Empty } from "@/ui/misc";
 import { FactCard } from "@/views/admin/agent/FactCard";
 
 /** The installation's memory: one fact per sheet, corrected or removed here. */
@@ -60,7 +62,9 @@ export function AgentMemory({
           ))}
         </div>
       )}
-      {facts.length === 0 && !error && <p className="hint">{t("Nothing here yet.")}</p>}
+      {facts.length === 0 && !error && (
+        <Empty icon={<Brain size={40} />} title={t("Nothing here yet.")} />
+      )}
       <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
         {facts.map((fact) => (
           <FactCard

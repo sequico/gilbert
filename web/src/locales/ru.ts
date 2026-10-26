@@ -645,7 +645,6 @@ export const catalog: Catalog = {
     "Steps per run": "Шагов на запуск",
     "Every limit must be a whole number of at least one.":
       "Каждый лимит должен быть целым числом не меньше единицы.",
-    "Touched: {touched}.": "Затронуто: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Разрешил {by}: {authority} для {target} — «{what}»",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
