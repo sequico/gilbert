@@ -218,9 +218,9 @@ attachment names — and the case note (R3), not seven bodies.
 six offsets because it had nowhere to keep what the page said.
 *Proof*: on the drop's first item the prompt holds the message, the thread's lines,
 the page titles and the folder skeleton, and the run's **first act is the right
-one** on the eval task — not merely an act by step 3. The turn after this work is
-the target the rest is measured against: the case, the note and four verbs, about a
-third of today's prompt, and the act by the first or second turn.
+one** on the eval task — not merely an act by step 3. What falls is the number of
+**turns**, not the size of one prompt: the table at the end of this section says by
+how much.
 
 **When the case is bigger than a turn, a reader digests it.** A thread of twenty
 messages, or a folder of thirty documents, is not handed in and is not read by the
@@ -516,6 +516,19 @@ the window's answer was to re-render the past rather than to stop changing it.
 *Proof*: on a run of twenty steps the cached share of the prompt rises against today's,
 measured per turn; no step's text changes between two turns; and a repeat of a call
 adds a line, not a body.
+
+### The numbers this plan moves
+
+| | 2026-10-26, measured | after this work (target) |
+|---|---|---|
+| prompt per turn | 6 200-7 500 tokens | 3 000-4 000 at a case's first turn, then ~300 per step |
+| share served from cache | 61-71 % | the system, the case and the history are one stable prefix; only the last step is new |
+| turns per increment | 11-39 | 3-7 |
+| tokens per case | 105-192 k per message | tens of thousands for the case's first increment, a few for each later one |
+| acts | 0 of 3 runs | the act is on the path, not after it |
+
+The first two rows are properties of the shape; the last three are what R9 counts. A
+plan that optimises without counting is a preference.
 
 ## 5. Not taken, and why
 
