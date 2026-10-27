@@ -648,6 +648,29 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     () => new Set(questions.map((one) => one.messageId)),
     [questions],
   );
+  /*
+   * A question is the **group's**, not one run's: two runs that needed the same
+   * answer are parked on the same sentence (ADR 0029), and the panel draws that
+   * sentence once with every run waiting on it, so disregarding it stops them
+   * all instead of showing the same question twice.
+   */
+  const questionGroups = useMemo(() => {
+    const held = new Map<
+      string,
+      { messageId: string; question: string; runs: string[] }
+    >();
+    for (const one of questions) {
+      const row = held.get(one.messageId);
+      if (row) row.runs.push(one.runId);
+      else
+        held.set(one.messageId, {
+          messageId: one.messageId,
+          question: one.question,
+          runs: [one.runId],
+        });
+    }
+    return [...held.values()];
+  }, [questions]);
 
   /** Open the thread on the message a question was asked in, paging back to it. */
   const showQuestion = useCallback(
@@ -750,8 +773,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                 type="button"
                 className={`icon-btn xs ${questionsOpen ? "active" : ""}`}
                 aria-label={
-                  questions.length
-                    ? t("Open questions ({n})", { n: questions.length })
+                  questionGroups.length
+                    ? t("Open questions ({n})", { n: questionGroups.length })
                     : t("Open questions")
                 }
                 title={t("Questions waiting for an answer")}
@@ -764,9 +787,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               >
                 <CircleHelp size={15} />
               </button>
-              {questions.length > 0 && (
+              {questionGroups.length > 0 && (
                 <span className="chat-badge" aria-hidden="true">
-                  {questions.length}
+                  {questionGroups.length}
                 </span>
               )}
             </span>
@@ -878,17 +901,17 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           <div className="chat-empty">{t("To be implemented")}</div>
         ) : questionsOpen && open ? (
           <div className="chat-questions">
-            {questions.length > 0 && (
+            {questionGroups.length > 0 && (
               <div className="chat-questions-head">
-                {plural(questions.length, {
+                {plural(questionGroups.length, {
                   one: "{n} question waiting for an answer",
                   other: "{n} questions waiting for an answer",
                 })}
               </div>
             )}
-            {questions.length ? (
-              questions.map((one) => (
-                <div key={one.runId} className="chat-question-row">
+            {questionGroups.length ? (
+              questionGroups.map((one) => (
+                <div key={one.messageId} className="chat-question-row">
                   {/* The words page back to where the question was asked; the
                       two actions are what a person came to this list for. */}
                   <button
@@ -915,11 +938,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                     >
                       {t("Answer")}
                     </button>
-                    {/* Disregarding is stopping: the run closes cancelled, and
-                        the question is no longer waiting on anybody. */}
+                    {/* Disregarding is stopping every run waiting on this
+                        question — it is the question's, not one run's. */}
                     <StopRun
                       group={open.name}
-                      id={one.runId}
+                      ids={one.runs}
                       label={t("Disregard")}
                       onStopped={() => void questionsNow()}
                     />

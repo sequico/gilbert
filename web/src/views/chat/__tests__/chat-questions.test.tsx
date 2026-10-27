@@ -191,6 +191,25 @@ describe("the agent's open questions", () => {
     expect(admin.stopRun).toHaveBeenCalledWith("Team", "run-1");
   });
 
+  it("draws one row per question, and disregards every run waiting on it", async () => {
+    // Two runs that needed the same answer are parked on the same sentence: the
+    // group has one question, and disregarding it closes both runs.
+    admin.fetchGroupRuns.mockResolvedValue([blocked, { ...blocked, id: "run-2" }]);
+    await push("g1");
+    await act(async () => {
+      openQuestions()?.click();
+    });
+
+    expect(host.querySelectorAll(".chat-question-row")).toHaveLength(1);
+    expect(host.textContent).toContain("1 question waiting for an answer");
+
+    await act(async () => {
+      button("Disregard")?.click();
+    });
+    expect(admin.stopRun).toHaveBeenCalledWith("Team", "run-1");
+    expect(admin.stopRun).toHaveBeenCalledWith("Team", "run-2");
+  });
+
   it("names a switched-off agent in the header", async () => {
     admin.fetchGroupAgent.mockResolvedValue({ enabled: false });
     act(() => root.unmount());

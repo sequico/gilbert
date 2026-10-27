@@ -868,9 +868,10 @@ the session holds group mailboxes.
   blocked on a person's answer (the live runs' `waiting.asked`) are drawn with the
   warning colour, and a **?** control beside the runs lists those questions with a
   count bubble, refreshed by the group's push stream — a run is a file there —
-  with a slow beat only as the net: a row jumps to its message, **Answer**
-  returns to the composer with a reply already quoting the question, and
-  **Disregard** closes the run as `cancelled`. The panel's title is fixed
+  with a slow beat only as the net: each question is **one row** however many
+  runs are parked on it, a row jumps to its message, **Answer** returns to the
+  composer with a reply already quoting the question, and **Disregard** closes
+  every run waiting on it as `cancelled`. The panel's title is fixed
   **Gilbert AI interface** — beside it, in red, **Gilbert AI off** while the
   installation's agent is switched off, dropped at once when the switch is
   written from this client or when the installation account's event arrives,

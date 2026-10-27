@@ -38,29 +38,38 @@ const RUNS_PAGE_SERVER = RUNS_PAGE * 5;
 export function StopRun({
   group,
   id,
+  ids,
   onStopped,
   label,
 }: {
   group: string;
-  id: string;
+  id?: string;
+  /**
+   * Several runs one action closes: a question every run waits on is the group's,
+   * and disregarding it stops each of them, not one by one.
+   */
+  ids?: readonly string[];
   onStopped?: () => void;
   /** What the button says, where the press means something more specific. */
   label?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const targets = ids ?? (id ? [id] : []);
   return (
     <>
       <button
         type="button"
         className="btn btn-ghost run-stop"
-        disabled={busy}
+        disabled={busy || !targets.length}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
           setBusy(true);
           setError(null);
-          void stopRun(group, id)
+          void (async () => {
+            for (const target of targets) await stopRun(group, target);
+          })()
             .then(() => onStopped?.())
             .catch((err) => setError(errorMessage(err)))
             .finally(() => setBusy(false));
