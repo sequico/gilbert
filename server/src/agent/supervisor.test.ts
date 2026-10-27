@@ -58,3 +58,36 @@ test("a pass that does not return is abandoned, said, and replaced", async (t) =
 
   await agent.stop();
 });
+
+test("a pass that returns leaves no watchdog behind", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const lines: string[] = [];
+  let started = 0;
+  const loop = {
+    pass: async () => {
+      started += 1;
+      return {
+        claimed: true,
+        accounts: 1,
+        changes: 0,
+        runs: 0,
+        due: 0,
+        tokens: 0,
+        ms: 1,
+        gaps: [],
+      };
+    },
+    stop: () => {},
+  };
+  const agent = supervise({
+    loop,
+    intervalMs: 24 * 60 * 60_000,
+    log: (line) => lines.push(line),
+  });
+  await settle();
+  t.mock.timers.tick(PASS_WATCHDOG_MS);
+  await settle();
+  assert.equal(started, 1, "a pass that returned is never abandoned");
+  assert.doesNotMatch(lines.join("\n"), /abandoned/);
+  await agent.stop();
+});

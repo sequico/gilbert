@@ -286,6 +286,9 @@ export function supervise(options: SupervisorOptions): AgentProcess {
           );
         }
       } catch (err) {
+        // An abandoned pass's failure is not this installation's news: the pass
+        // that replaced it is the one whose outcome is read.
+        if (abandoned) return;
         if (err instanceof UpstreamError && err.status === 429) {
           pausedUntil = now().getTime() + QUOTA_PAUSE_MS;
           log(
