@@ -8,6 +8,12 @@ import { ensureGlobalContacts } from "./globalContactsAdmin.js";
 import { ensureKnowledge } from "./knowledgeAdmin.js";
 import { releaseOnShutdown } from "./push.js";
 import { errorMessage } from "./shared/errors.js";
+import {
+  armDeadline,
+  type DrainableServer,
+  SHUTDOWN_DEADLINE_MS,
+  shutDown,
+} from "./shutdown.js";
 import { ensureWorkorders } from "./workorderAdmin.js";
 
 async function main() {
@@ -170,39 +176,26 @@ async function main() {
   /*
    * The server's shutdown stops what it started: the agent's schedule, the
    * sessions, and the push subscriptions a live credential is needed to release.
+   * Its order and its ceilings are `shutdown.ts`: the agent is stopped before
+   * anything is awaited, so no run starts after the signal.
    */
   const shutdown = async (signal: string) => {
-    console.log(`[gilbert] ${signal} received, shutting down`);
-    /*
-     * Stop accepting, then let the requests already in flight finish: a deploy
-     * is a shutdown, and a response cut off mid-write is a client left guessing.
-     * A connection that never ends is closed after five seconds rather than
-     * holding the deploy open for ever.
-     */
-    /*
-     * The drain helpers are the HTTP/1 server's; a deployment on HTTP/2 has no
-     * equivalent, so they are asked for where they exist and the close alone
-     * bounds the wait there.
-     */
-    const drainable = server as unknown as {
-      close: (callback?: () => void) => void;
-      closeIdleConnections?: () => void;
-      closeAllConnections?: () => void;
-    };
-    const closed = new Promise<void>((resolve) => drainable.close(() => resolve()));
-    drainable.closeIdleConnections?.();
-    const force = setTimeout(() => drainable.closeAllConnections?.(), 5_000);
-    force.unref();
-    await closed;
-    clearTimeout(force);
-    stopWake();
-    await agent?.stop();
-    /* Before the sessions go: releasing a subscription needs a live credential,
-       and what is left behind otherwise holds one of the account's fifteen
-       slots for as long as it lives. A deploy is a shutdown. */
-    await releaseOnShutdown();
-    await sessions.close();
-    process.exit(0);
+    armDeadline(
+      SHUTDOWN_DEADLINE_MS,
+      (code) => process.exit(code),
+      (line) => console.log(line),
+    );
+    await shutDown(signal, {
+      server: server as unknown as DrainableServer,
+      stopAgent: async () => {
+        stopWake();
+        await agent?.stop();
+      },
+      releaseSubscriptions: releaseOnShutdown,
+      closeSessions: () => sessions.close(),
+      exit: (code) => process.exit(code),
+      log: (line) => console.log(line),
+    });
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
