@@ -213,7 +213,10 @@ release it was measured against. For what is not built yet, see
   version, so the shape of a node is the only honest question, and the older
   answer is refused by name. Inside the tree the words stay `nodeType` and
   `type` in lower case, and `server/src/shared/filenode.ts` is the one boundary
-  that translates. Rights are four flags, not one `mayWrite`. Two fallbacks:
+  that translates. A write's answer carries no node — `id`, timestamps and, for
+  a file, `size` — so the kind is read back with a `FileNode/get` when it is
+  needed; `mediaType` is absent on a directory rather than `null`. Rights are
+  four flags, not one `mayWrite`. Two fallbacks:
   `ensureFolder` and `findInFolder` filter on `parentId`/`isTopLevel` alone and
   match names client-side (`name` is not a filter Stalwart is known to
   implement, and an unknown one fails the whole query); a refused filter or sort

@@ -116,6 +116,16 @@ Where the integration lives:
   `invalidProperties`, which is the fail this tree hit live on 1.0.
 - `FileNode/set` returns **no `blobId` on create** — ask with a follow-up get
   (`nodeBlobId`).
+- `FileNode/set` returns **no node**: a `created` entry carries `id`, the four
+  timestamps and, for a file, `size`/`executable` — no `@type`, no `mediaType`
+  (live-verified on 1.0, 2026-10-27). Read the kind back with a `FileNode/get`
+  if it is needed; nothing in this tree reads it from a write's answer.
+- `mediaType` is **absent** on a `Directory` answer rather than `null`; the
+  boundary leaves the absent key absent, and readers take a default.
+- The three live-verified pieces of 1.0's FileNode write path (2026-10-27, on a
+  dedicated 1.0 instance): a create with `@type` (`Directory`/`File`) is
+  accepted, `mediaType` on a create and on an update is accepted, and a kind
+  written that way reads back as `@type` with the capitalised value.
 - A create whose name a sibling already carries is **refused**, not accepted:
   `onExists` defaults to `Reject` and the answer is `alreadyExists` with the
   existing node's id in `existingId` (`FileNodeSetArguments` /
