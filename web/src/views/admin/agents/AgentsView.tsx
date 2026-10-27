@@ -15,7 +15,7 @@ import { AgentOverview } from "./AgentOverview";
  *
  * The installation's document is its own administration section; what is here
  * is the agent's part of it — the model, the installation's instruction, the memory — and one
- * tab per group it works, with that group's rules and runs.
+ * tab per group it works, with that group's instruction and runs.
  *
  * Tabs are mounted the first time they are opened and kept mounted afterwards,
  * so an edit in progress survives a look at another tab; the hidden panels cost
@@ -42,8 +42,8 @@ export function AgentsView() {
   /*
    * The groups are the session's, read live: one the Master is taken out of
    * stops being a tab, and a page still pointing at it would show nothing at
-   * all. The selection falls back to General, and the panel of a group that is
-   * gone is unmounted with it.
+   * all. The selection falls back to the overview, and the panel of a group that
+   * is gone is unmounted with it.
    */
   const active = entries.some((entry) => entry.id === tab) ? tab : OVERVIEW;
   const groupNames = groups.map((group) => group.name).join("\n");
