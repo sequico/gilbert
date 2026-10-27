@@ -307,7 +307,7 @@ completion with the zero-retention opt-out on every request, refuses a provider
 whose address is not public unless the **operator** has said the installation's
 model may sit inside the deployment's own network
 (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries both turns (ADR 0038): the **decision turn** — given one change in a
-group's own account, what the change is about, with **one** lookup of the group's
+group's own account, what the change is about, with up to **three** lookups of the group's
 own state when the change does not say enough — asked in the provider's native
 JSON mode (a schema where the provider enforces one); and the **choosing turn**,
 handed the catalogue of verbs and the case's note as the provider's own `tools`,
@@ -329,8 +329,9 @@ per value, so `open` of messages cannot be sent a `path` — and there is **no s
 list of signatures** beside the definitions: with four verbs the value a call names is
 in the schema's own `enum`, and a second list was a thing to drift from it. The
 decision turn's
-answer is facts and nothing else: one that carries an authorisation, or names a
-tool that writes, is refused. An installation that has chosen no model has no
+answer is facts — or, when the change only wants words, the sentence to say in the
+conversation, posted without opening a run — and one that carries an authorisation,
+or names a tool that writes, is refused. An installation that has chosen no model has no
 agent.
 
 ## The catalogue of tools
@@ -495,8 +496,8 @@ reference a case is known by and the people it involves live across the conversa
 not in one message (`server/src/agent/thread.ts`). When the case is **bigger than a
 turn** — a long thread, a folder of documents — the run asks one question and gets a few
 lines back: `open` with `brief`, answered by a **reader** that is the decision turn
-asked a question instead of shown a change, with the same write-free catalogue, one
-lookup and no act at all (`server/src/agent/tools/reader.ts`).
+asked a question instead of shown a change, with the same write-free catalogue, the
+same lookups and no act at all (`server/src/agent/tools/reader.ts`).
 
 **The case keeps a note the next increment reads** (ADR 0034): the agent's own
 scratchpad, one file per case at `gilbert/cases/<key>.md` in the group's own account,
@@ -571,7 +572,7 @@ holds it and until when it is believed — with the ten-second pass beside it, t
 **the last run it ended**, whose own sentence is on hover, so the agent's last act
 is answered without opening a group's list. The last pass is
 `gilbert/agent/status.json`, written after a pass that worked something and at
-most once a minute otherwise, and a document that is there and cannot be read is
+most once every five minutes otherwise, and a document that is there and cannot be read is
 **said** on that line rather than drawn as an installation whose agent never ran.
 **The numbers are read over a period, not only the run** (ADR 0038): the
 Administration page tallies the group's runs over a day, a week — the default —
