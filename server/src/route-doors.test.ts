@@ -26,11 +26,32 @@ function registrations(source: string): Array<{ path: string; body: string }> {
   const starts = [...source.matchAll(/^\s*api\.(?:get|post|put|delete)\(/gm)];
   return starts.map((match, at) => {
     const from = match.index ?? 0;
-    const to = starts[at + 1]?.index ?? source.length;
+    /*
+     * A registration ends where its handler ends, not where the next one begins: a
+     * helper written between two routes is nobody's handler, and reading it as one
+     * made the member route above it look as though it reached the installation.
+     */
+    const to = endOfRegistration(source, from) ?? starts[at + 1]?.index ?? source.length;
     const block = source.slice(from, to);
     const path = /\(\s*"([^"]+)"/.exec(block)?.[1] ?? "";
     return { path, body: block };
   });
+}
+
+/** Where the registration that starts at `from` closes, by counting its braces. */
+function endOfRegistration(source: string, from: number): number | null {
+  const open = source.indexOf("{", from);
+  if (open < 0) return null;
+  let depth = 0;
+  for (let at = open; at < source.length; at += 1) {
+    const character = source[at];
+    if (character === "{") depth += 1;
+    else if (character === "}") {
+      depth -= 1;
+      if (depth === 0) return at + 1;
+    }
+  }
+  return null;
 }
 
 /** The route files that register a group or admin-group route. */
