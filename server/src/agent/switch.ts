@@ -13,6 +13,18 @@ import { type Ctx, readAppFileAt, writeAppFileAt } from "../appFolder.js";
 import { errorMessage } from "../shared/errors.js";
 import { isRecord } from "../shared/json.js";
 
+/**
+ * The agent's switch lives here, and there is **one** of it.
+ *
+ * It is the installation's own document, in the Master's app folder, written by
+ * Administration and read by the pass that keeps the installation's one agent.
+ * A file of the same name found in a group's account — a leftover of a build that
+ * kept one switch per group — is **not read by anything**: a switch nobody reads
+ * is worse than no switch, because an operator turns it off and watches the agent
+ * carry on (seen live on 2026-10-27). If a per-group switch is ever wanted, it is
+ * a decision and a record of its own, not a second spelling of this one.
+ */
+
 /** Where the switch lives, under the app folder. */
 export const AGENT_SWITCH_FILE = "agent/switch.json";
 
