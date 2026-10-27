@@ -34,13 +34,11 @@ test("a FileNode request goes out with @type, mediaType and capitalised values",
       operator: "AND",
       conditions: [{ nodeType: "directory" }, { isTopLevel: true }],
     },
-    sort: [{ property: "type", isAscending: true }],
   });
   assert.deepEqual(queried.filter, {
     operator: "AND",
     conditions: [{ nodeType: "Directory" }, { isTopLevel: true }],
   });
-  assert.deepEqual(queried.sort, [{ property: "mediaType", isAscending: true }]);
 });
 
 test("a FileNode answer comes back in the tree's own names", () => {

@@ -83,8 +83,6 @@ function wireFilter(filter: unknown): unknown {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(filter)) {
     if (key === "nodeType") out.nodeType = fileNodeWireKind(value);
-    else if (key === "type") out.mediaType = value;
-    else if (key === "typeMatch") out.mediaTypeMatch = value;
     else if (key === "conditions") out.conditions = wireFilter(value);
     else if (key === "filter" || key === "not") out[key] = wireFilter(value);
     else out[key] = value;
@@ -101,10 +99,6 @@ export function fileNodeRequestArguments(
   const out: Record<string, unknown> = { ...args };
   if ("properties" in out) out.properties = wireProperties(out.properties);
   if ("filter" in out) out.filter = wireFilter(out.filter);
-  if (Array.isArray(out.sort))
-    out.sort = out.sort.map((one) =>
-      isRecord(one) && one.property === "type" ? { ...one, property: "mediaType" } : one,
-    );
   if (isRecord(out.create)) out.create = mapNodes(out.create as Record<string, unknown>);
   if (isRecord(out.update)) out.update = mapNodes(out.update as Record<string, unknown>);
   return out;
