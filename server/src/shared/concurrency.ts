@@ -11,8 +11,16 @@
  * sort or pair them by index.
  */
 
-/** How many reads run at once when a caller does not say. */
-export const READ_CONCURRENCY = 8;
+/**
+ * How many reads run at once when a caller does not say.
+ *
+ * Two, not eight: Stalwart refuses an account past its own
+ * `maxConcurrentRequests`, and that limit is **per account** — the agent's reads
+ * and a person's webmail share it. Eight parallel reads bought a walk some
+ * wall-clock time and cost the whole pass a `400` when the ceiling was reached,
+ * which is a pass that works nothing (live, 2026-10-27, three times in an hour).
+ */
+export const READ_CONCURRENCY = 2;
 
 /**
  * `fn` over every item, at most `limit` of them at a time, in input order.

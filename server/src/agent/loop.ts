@@ -213,7 +213,7 @@ const RUN_MODEL_CALLS_MAX = 100;
  * makes it a burst the server can take; four keeps every one of them under
  * that ceiling and still turns a round trip each into a handful.
  */
-const TOOL_WAVE_MAX = 4;
+const TOOL_WAVE_MAX = 2;
 
 /** How many entries of a knowledge base or a folder one case block carries. */
 const CASE_PLACE_MAX = 40;
@@ -561,6 +561,8 @@ export class AgentLoop {
   private readonly allowPrivate: boolean;
   /** When an account's change batch may be tried again after it failed. */
   private readonly retryAfter = new Map<string, number>();
+  /** How many passes of an account have failed in a row, for the wait between them. */
+  private readonly retryCount = new Map<string, number>();
   /** When each account's archive last ran, so the scan is hourly, not per pass. */
   private readonly archivedAt = new Map<string, number>();
 
@@ -1315,9 +1317,22 @@ export class AgentLoop {
         read,
       );
       this.retryAfter.delete(accountId);
+      this.retryCount.delete(accountId);
       return after;
     } catch (err) {
-      this.retryAfter.set(accountId, now.getTime() + 60_000);
+      /*
+       * A failed pass waits a little, and a little longer each time: the failures
+       * that cost a group its work were Stalwart's own ceiling —
+       * `maxConcurrentRequests` — and a flat minute of silence answered a limit
+       * that clears in a second. The schedule doubles from two seconds to a
+       * half-minute, with a quarter of jitter so two accounts refused together do
+       * not come back together.
+       */
+      const attempt = (this.retryCount.get(accountId) ?? 0) + 1;
+      this.retryCount.set(accountId, attempt);
+      const base = Math.min(2_000 * 2 ** (attempt - 1), 30_000);
+      const wait = Math.round(base * (0.75 + Math.random() * 0.5));
+      this.retryAfter.set(accountId, now.getTime() + wait);
       await this.sayThePassFailed(accountId, err);
       throw err;
     }

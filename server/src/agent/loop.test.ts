@@ -22,7 +22,7 @@
  * - a turn's plan is executed together — three independent calls are three steps,
  *   a refused call leaves its siblings' steps beside it, the ready calls run at
  *   once, and a wait is honoured after them;
- * - a wave asks the server for at most four calls at once;
+ * - a wave asks the server for at most two calls at once;
  * - a refused answer or a refused call spends a step, so the budget is what
  *   stops a run — never a counter the record cannot show;
  * - a run says how it ended in the conversation, and a question or a stop does
@@ -869,7 +869,7 @@ test("no mark on a message is activity the agent answers, its own or a person's"
   assert.equal(third.runs, 0, "a person's mark on it wakes nothing either");
 });
 
-test("a wave asks the server for at most four calls at once", async () => {
+test("a wave asks the server for at most two calls at once", async () => {
   /*
    * A live answer listed the same folder thirteen times and the thirteen calls
    * went to Stalwart together; it answered `400` — "The request exceeds the
@@ -908,11 +908,11 @@ test("a wave asks the server for at most four calls at once", async () => {
       arguments: { path: `MS2/${at}` },
     })),
   });
-  answerWith({ done: "nine listings, and never more than four at once" });
+  answerWith({ done: "nine listings, and never more than two at once" });
   await deliver("nine folders to list");
   await agent.pass();
 
-  assert.equal(peak, 4, "the wave is bounded, and the bound is the server's ceiling");
+  assert.equal(peak, 2, "the wave is bounded, and the bound is the server's ceiling");
   const run = await runOf(id);
   assert.equal(run.state, "done");
   assert.equal(
