@@ -637,14 +637,18 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           after,
           limit,
         );
+        /*
+         * One cut, not two: `pageRunsForReading` chose this page from the folder's
+         * own order and answered the cursor that continues it. Re-cutting here on
+         * recency dropped every document whose two orders disagree.
+         */
         const runs = paged.rows.map((one) => summarizeRun(one, { steps: true }));
-        const page = pageAfter(runs, after, limit);
-        const headers = c.req.query("plan") === "0" ? page.runs.map(headerOf) : page.runs;
+        const headers = c.req.query("plan") === "0" ? runs.map(headerOf) : runs;
         return c.json({
           group: name,
           runs: headers,
-          more: page.more || paged.more,
-          after: page.after,
+          more: paged.more,
+          after: paged.after,
         });
       }
       const token = await appFolderState(access.ctx, access.accountId);

@@ -185,9 +185,9 @@ export async function pageRunsForReading(
   after: string,
   limit: number,
   dir: string = RUNS_DIR,
-): Promise<{ rows: RunListing[]; more: boolean }> {
+): Promise<{ rows: RunListing[]; more: boolean; after: string | null }> {
   const folderId = await findFolderPath(ctx, accountId, dir);
-  if (!folderId) return { rows: [], more: false };
+  if (!folderId) return { rows: [], more: false, after: null };
   const nodes = (
     await fileChildren(ctx, accountId, folderId, [...FILE_PROPS, ...STAMP_PROPS])
   )
@@ -233,7 +233,22 @@ export async function pageRunsForReading(
       rows.push({ id: runId, run: null, problem: errorMessage(err) });
     }
   }
-  return { rows, more: chosen.length > limit };
+  return {
+    rows,
+    more: chosen.length > limit,
+    /*
+     * The cursor is the **folder's**, because the folder is what chose the page.
+     * Cutting a second time on recency (`startedAt ?? ended.at`) gave a cursor
+     * that named a different node than the cut did, and a document whose two
+     * orders disagree — a legacy run with no `startedAt` — fell between the two
+     * (184 of 186 drawn, live on 2026-10-27). One order, one cut, one cursor.
+     */
+    after: page.length
+      ? `${String(page[page.length - 1]!.created ?? "")}|${String(
+          page[page.length - 1]!.name,
+        ).slice(0, -".json".length)}`
+      : null,
+  };
 }
 
 /**

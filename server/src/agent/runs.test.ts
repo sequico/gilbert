@@ -31,8 +31,15 @@ const { isStateMismatch } = await import("../jmap.js");
 const { finishRun, isRunDue, RUN_VERSION, spendRun, startRun, waitUntil } = await import(
   "../shared/run.js"
 );
-const { createRun, listRuns, listRunsForReading, readRun, replaceRun, RunError } =
-  await import("./runs.js");
+const {
+  createRun,
+  listRuns,
+  listRunsForReading,
+  pageRunsForReading,
+  readRun,
+  replaceRun,
+  RunError,
+} = await import("./runs.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { archiveMonth, archiveOldRuns } = await import("./archive.js");
 
@@ -235,6 +242,42 @@ test("two accounts with a document at the same path do not read each other's", a
     "theirs",
     "the other account's document is its own",
   );
+});
+
+test("paging the folder loses no run, whatever its own order says", async () => {
+  /*
+   * The page is chosen from the folder's order (`created`) and the cursor is that
+   * order's. Cutting a second time on recency (`startedAt ?? ended.at`) gave a
+   * cursor naming a different node than the cut did, and a legacy document with no
+   * `startedAt` fell between the two: 184 of 186 runs drawn, silently (live,
+   * 2026-10-27). Every document here must appear exactly once.
+   */
+  const ids = ["page-a", "page-b", "page-c", "page-d"];
+  for (const id of ids) {
+    const run = startRun({ id, startedBy: { woke: "mail created: paging" } });
+    await createRun(ctx, accountId, run);
+  }
+  // One of them is a document written before `startedAt` existed: the recency
+  // order cannot place it, which is exactly the case that vanished.
+  const legacy = (await readRun(ctx, accountId, "page-c"))!.run as Record<
+    string,
+    unknown
+  >;
+  delete legacy.startedAt;
+  await writeAppFileAt(ctx, accountId, `runs/page-c.json`, legacy as never);
+
+  const seen: string[] = [];
+  let after = "";
+  let more = true;
+  for (let guard = 0; more && guard < 10; guard++) {
+    const page = await pageRunsForReading(ctx, accountId, after, 2);
+    seen.push(...page.rows.map((row) => row.id));
+    after = page.after ?? "";
+    more = page.more;
+  }
+  const wanted = seen.filter((id) => ids.includes(id));
+  assert.equal(wanted.length, ids.length, "every run is drawn");
+  assert.equal(new Set(wanted).size, ids.length, "and none of them twice");
 });
 
 test("a run is created once and replaced under the state it was read at", async () => {
