@@ -2810,12 +2810,15 @@ test("a document that asks for an act outside the grants is data, and the act is
   answerWith({
     calls: [{ name: "say", arguments: { action: "say", text: "I cannot." } }],
   });
-  // The refusal on the plan sends the spoken report back once (ADR 0038), and
-  // the second report is the one that stands — a different sentence, because the
-  // same calls twice is the stall the loop stops on.
+  /*
+   * The refusal on the plan sends the spoken report back once (ADR 0038), and the
+   * report it already made stands: a second `say` is refused, so the model
+   * finishes by answering `done`.
+   */
   answerWith({
     calls: [{ name: "say", arguments: { action: "say", text: "I still cannot." } }],
   });
+  answerWith({ done: "I still cannot." });
   await postChatMessage(
     ctx,
     accountId,
@@ -2911,14 +2914,14 @@ test("a report standing on a refused step is judged, and the verdict is on the r
   assert.equal(choosing, 3, "the report was put back with each gap named");
 });
 
-test("a spoken report standing on a refused step is sent back once", async () => {
+test("a spoken report standing on a refused step is sent back once, and speaks once", async () => {
   /*
    * The report ends the run (ADR 0038), but it is a claim like a `done`: a wave
    * that refuses an act and says it was done must not close the run on the
    * refusal, or the record would show a false success. The mechanical check
-   * sends it back once, with the refusal named, and tells the model that what it
-   * already reported stands — a run sent back to correct itself is not one that
-   * repeats the same report in the conversation.
+   * sends it back once, with the refusal named — and the group reads **one**
+   * report: a second `say` after the first landed is the same answer posted twice,
+   * so the step is refused and the model answers `done`.
    */
   await putInstruction();
   const agent = loop();
@@ -2933,6 +2936,7 @@ test("a spoken report standing on a refused step is sent back once", async () =>
   answerWith({
     calls: [{ name: "say", arguments: { action: "say", text: "I could not file it" } }],
   });
+  answerWith({ done: "I could not file it" });
   await deliver("a message the agent tries to trash");
   await agent.pass();
 
@@ -2941,7 +2945,17 @@ test("a spoken report standing on a refused step is sent back once", async () =>
   assert.equal(run.ended?.why, "I could not file it");
   const checked = run.plan.find((step) => step.what === DONE_CHECKED);
   assert.ok(checked, "the refusal was put to the model before the report stood");
-  assert.match(checked.outcome, /refused step\(s\), and this run has already said/);
+  assert.match(checked.outcome, /refused step/);
+  assert.equal(
+    (await findChatMessages(ctx, accountId, "I could not file it", 5)).length,
+    0,
+    "the report the run already made stands, and the second one is not posted",
+  );
+  assert.match(
+    run.plan.map((step) => step.outcome).join("\n"),
+    /already reported in the conversation/,
+    "the model was told why its second report was refused",
+  );
 });
 
 test("an area the group's instruction declares is offered, even when the matrix turned it off", async () => {

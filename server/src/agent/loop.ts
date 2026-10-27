@@ -2482,6 +2482,20 @@ export class AgentLoop {
           const call = choice.calls[at - base];
           if (!call) continue;
           /*
+           * One report per run (ADR 0038). A run that has already told the group
+           * what it did is heard: a second `say` posts the same answer again, and a
+           * person reads that as the agent repeating itself. The step is refused
+           * with the reason, so the next turn answers `done`.
+           */
+          if (reportsInChat(call) && current.plan.some((step) => step.spoke === true)) {
+            current = recordStep(current, at, {
+              state: "failed",
+              outcome:
+                "refused: this run has already reported in the conversation; answer `done` instead of saying it again",
+            });
+            continue;
+          }
+          /*
            * A call identical to one this run already made and finished is the
            * same act: a retry after a failure whose effect landed — a send whose
            * submission timed out — would otherwise happen twice, and a person's

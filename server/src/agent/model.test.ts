@@ -357,9 +357,8 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
 test("a prompt names no tool this build does not have", async () => {
   /*
    * One action, one name (ADR 0038): the endpoints a verb routes to are internal.
-   * A dotted name in a prompt is one the model can write and no catalogue holds —
-   * a turn told to spell `read.brief` answered `read.open` for `open`, and the
-   * refusal ended the pass before its run was opened.
+   * A dotted name in a prompt is one the model can write and no catalogue holds,
+   * so a prompt states the verbs' names and nothing behind them.
    */
   seen = [];
   answers = [];
