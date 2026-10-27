@@ -2397,6 +2397,9 @@ export const catalog: Catalog = {
     "One fact per sheet. A person's correction is in force; the agent proposes against it.":
       "Eén feit per blad. De correctie van een persoon is van kracht; de agent stelt wijzigingen voor maar overschrijft die nooit.",
     "Load more": "Meer laden",
+    Pages: "Pagina's",
+    "Previous page": "Vorige pagina",
+    "Next page": "Volgende pagina",
     "A key needs a provider: name one above, then save the key.":
       "Een sleutel heeft een aanbieder nodig: noem er hierboven een en sla de sleutel dan op.",
     "Saved; applies at the next pass.": "Opgeslagen; geldt vanaf de volgende doorgang.",

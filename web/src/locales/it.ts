@@ -3398,6 +3398,9 @@ export const catalog: Catalog = {
     "One fact per sheet. A person's correction is in force; the agent proposes against it.":
       "Un fatto per scheda. La correzione di una persona è in vigore; l'agente propone senza sovrascriverla.",
     "Load more": "Carica altro",
+    Pages: "Pagine",
+    "Previous page": "Pagina precedente",
+    "Next page": "Pagina successiva",
     "A key needs a provider: name one above, then save the key.":
       "Una chiave richiede un provider: indicalo qui sopra, poi salva la chiave.",
     "Saved; applies at the next pass.": "Salvato; si applica alla prossima passata.",

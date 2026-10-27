@@ -2390,6 +2390,9 @@ export const catalog: Catalog = {
     "One fact per sheet. A person's correction is in force; the agent proposes against it.":
       "Один факт на лист. Исправление человека действует; агент предлагает поправку к нему, не затирая его.",
     "Load more": "Загрузить ещё",
+    Pages: "Страницы",
+    "Previous page": "Предыдущая страница",
+    "Next page": "Следующая страница",
     "A key needs a provider: name one above, then save the key.":
       "Ключу нужен провайдер: укажите его выше, затем сохраните ключ.",
     "Saved; applies at the next pass.": "Сохранено; применится при следующем проходе.",

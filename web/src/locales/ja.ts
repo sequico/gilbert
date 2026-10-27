@@ -2393,6 +2393,9 @@ export const catalog: Catalog = {
     "One fact per sheet. A person's correction is in force; the agent proposes against it.":
       "1 枚に 1 つの事実です。人による修正は有効で、エージェントはそれに対して提案します。",
     "Load more": "さらに読み込む",
+    Pages: "ページ",
+    "Previous page": "前のページ",
+    "Next page": "次のページ",
     "A key needs a provider: name one above, then save the key.":
       "キーにはプロバイダーが必要です。上で指定してからキーを保存してください。",
     "Saved; applies at the next pass.": "保存しました。次回のパスから適用されます。",

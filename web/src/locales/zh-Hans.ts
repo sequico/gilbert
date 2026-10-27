@@ -2315,6 +2315,9 @@ export const catalog: Catalog = {
     "One fact per sheet. A person's correction is in force; the agent proposes against it.":
       "每条事实单独记录。人工更正即刻生效；代理会针对其提出建议。",
     "Load more": "加载更多",
+    Pages: "页面",
+    "Previous page": "上一页",
+    "Next page": "下一页",
     "A key needs a provider: name one above, then save the key.":
       "密钥需要提供商：请先在上方指定一个，然后保存密钥。",
     "Saved; applies at the next pass.": "已保存；将在下一轮运行中生效。",

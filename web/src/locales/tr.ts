@@ -2312,6 +2312,9 @@ export const catalog: Catalog = {
     "One fact per sheet. A person's correction is in force; the agent proposes against it.":
       "Her sayfada bir olgu. Bir kişinin düzeltmesi yürürlüktedir; ajan buna karşı öneri sunar.",
     "Load more": "Daha fazla yükle",
+    Pages: "Sayfalar",
+    "Previous page": "Önceki sayfa",
+    "Next page": "Sonraki sayfa",
     "A key needs a provider: name one above, then save the key.":
       "Bir anahtar sağlayıcı gerektirir: yukarıda bir tane belirtin, sonra anahtarı kaydedin.",
     "Saved; applies at the next pass.": "Kaydedildi; bir sonraki geçişte geçerli olur.",
