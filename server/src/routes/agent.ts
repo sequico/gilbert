@@ -45,6 +45,7 @@ import {
 import { probeReachable, runningModelAccess } from "../agent/model.js";
 import {
   listRunsForReading,
+  pageRunsForReading,
   RUNS_DIR,
   readRun,
   readRunAt,
@@ -65,7 +66,6 @@ import {
   appFolderState,
   type Ctx,
   destroyAppNode,
-  ensureAppFolder,
   filesAccountId,
   findAppFileAt,
   findAppFolder,
@@ -619,6 +619,34 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
+      /*
+       * The history is **paged from the folder**, not from a listing of every
+       * document: `pageRunsForReading` chooses the page from the nodes' own stamps
+       * and reads only those. Asking for `state=running` or `live` is the other
+       * question — the state lives inside each document, so that answer still
+       * reads them all, and it is the one a watching surface polls (and the one
+       * the thirty-second cache exists for).
+       */
+      const after = c.req.query("after") ?? "";
+      const asked = Number.parseInt(c.req.query("limit") ?? "", 10);
+      const limit = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 1000) : 100;
+      if (state === undefined) {
+        const paged = await pageRunsForReading(
+          access.ctx,
+          access.accountId,
+          after,
+          limit,
+        );
+        const runs = paged.rows.map((one) => summarizeRun(one, { steps: true }));
+        const page = pageAfter(runs, after, limit);
+        const headers = c.req.query("plan") === "0" ? page.runs.map(headerOf) : page.runs;
+        return c.json({
+          group: name,
+          runs: headers,
+          more: page.more || paged.more,
+          after: page.after,
+        });
+      }
       const token = await appFolderState(access.ctx, access.accountId);
       const held = runsReadings.get(access.accountId);
       const fresh =
@@ -651,9 +679,6 @@ export function registerAgentRoutes(api: Hono<Env>): void {
        * and an offset over a mutating list repeats or skips a row at the boundary.
        * `after` is the last row the reader was given, as `when|id`.
        */
-      const after = c.req.query("after") ?? "";
-      const asked = Number.parseInt(c.req.query("limit") ?? "", 10);
-      const limit = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 1000) : 100;
       const filtered =
         state === "running"
           ? rows.filter((one) => one.state === "running")
@@ -672,10 +697,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
        * watches the runs but not their steps — the chat's questions read only
        * what a run waits for — and it is answered with headers too.
        */
-      const runs =
-        state === undefined || c.req.query("plan") === "0"
-          ? page.runs.map(headerOf)
-          : page.runs;
+      const runs = c.req.query("plan") === "0" ? page.runs.map(headerOf) : page.runs;
       return c.json({
         group: name,
         runs,
@@ -773,12 +795,36 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * has one caller for both, and the account is resolved from the group's name
    * the way the runs above are.
    */
+  /**
+   * A group's prose, read and written by **whoever can**: the installation's own
+   * grant first, then the administrator's own membership.
+   *
+   * The standing instruction is a document in the group's account, and an
+   * administrator may need to write it in a group the installation does not hold
+   * — the case the red warning names ("the agent cannot work this group"). A
+   * group whose prose nobody can write is a group nobody can prepare, so the
+   * write falls back to the person's own session, which is a member with the
+   * rights to write there. The warning stays: what the fallback does is let the
+   * prose be authored, not let the agent act.
+   */
+  async function proseAccess(
+    session: Parameters<typeof resolveGroupAccess>[0],
+    name: string,
+  ) {
+    const installation = await resolveGroupAccess(session, name, {
+      need: "agent documents",
+    });
+    if (installation.ok) return installation;
+    const member = await memberGroupAccess(session, name, { need: "agent documents" });
+    // The installation's refusal is the sentence: it is the one that says why the
+    // agent cannot work here, which is the fact worth showing.
+    return member.ok ? member : installation;
+  }
+
   api.get("/admin/groups/:name/prose", requireSession, requireAdmin, async (c) => {
     const name = c.req.param("name") ?? "";
     try {
-      const access = await resolveGroupAccess(c.get("session"), name, {
-        need: "agent documents",
-      });
+      const access = await proseAccess(c.get("session"), name);
       if (!access.ok) return groupDenial(c, access);
       const state = await appFolderState(access.ctx, access.accountId);
       try {
@@ -820,9 +866,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     async (c) => {
       const name = c.req.param("name") ?? "";
       try {
-        const access = await resolveGroupAccess(c.get("session"), name, {
-          need: "agent documents",
-        });
+        const access = await proseAccess(c.get("session"), name);
         if (!access.ok) return groupDenial(c, access);
         const body = await readJson<{
           instruction?: unknown;
@@ -846,44 +890,63 @@ export function registerAgentRoutes(api: Hono<Env>): void {
          * token is read fresh; otherwise the client's own read is what the write
          * is conditioned on.
          */
-        const hadFolder = await findAppFolder(access.ctx, access.accountId);
-        await ensureAppFolder(access.ctx, access.accountId);
-        const state =
-          hadFolder && typeof body?.ifInState === "string"
-            ? body.ifInState
-            : await appFolderState(access.ctx, access.accountId);
-        if (!instruction) {
-          const found = await findAppFileAt(
-            access.ctx,
-            access.accountId,
-            INSTRUCTION_FILE,
-          );
-          if (found?.file && typeof found.file.id === "string")
-            await destroyAppNode(access.ctx, access.accountId, found.file.id, {
-              ifInState: state,
-            });
-          return c.json({ ok: true, instruction: "" });
+        const parsed = instruction
+          ? parseInstructionDocumentDetailed(
+              JSON.stringify({
+                v: INSTRUCTION_VERSION,
+                instruction,
+                areas,
+                ...(report ? { report } : {}),
+                ...(body?.surfaces === undefined ? {} : { surfaces: body.surfaces }),
+              }),
+            )
+          : null;
+        if (parsed && "problem" in parsed) return c.json({ error: parsed.problem }, 400);
+        /*
+         * A conditional write here is conditioned on the **account's** FileNode
+         * state, and that account is written by others: the pass stamps its
+         * status every half minute, a run writes a step, a chat message lands. So
+         * a person's save lost the compare-and-set to work that had nothing to do
+         * with the instruction, and was told "somebody else changed this group's
+         * prose" when nobody had (live, 2026-10-27).
+         *
+         * The write is retried on a fresh state, bounded. The refusal survives
+         * only when the writes keep losing — real contention between two saves,
+         * where last-write-wins would silently drop one.
+         */
+        for (let attempt = 0; ; attempt++) {
+          const state =
+            attempt === 0 &&
+            (await findAppFolder(access.ctx, access.accountId)) &&
+            typeof body?.ifInState === "string"
+              ? body.ifInState
+              : await appFolderState(access.ctx, access.accountId);
+          try {
+            if (!parsed) {
+              const found = await findAppFileAt(
+                access.ctx,
+                access.accountId,
+                INSTRUCTION_FILE,
+              );
+              if (found?.file && typeof found.file.id === "string")
+                await destroyAppNode(access.ctx, access.accountId, found.file.id, {
+                  ifInState: state,
+                });
+              return c.json({ ok: true, instruction: "" });
+            }
+            await writeAppFileAt(
+              access.ctx,
+              access.accountId,
+              INSTRUCTION_FILE,
+              parsed.instruction,
+              { ifInState: state },
+            );
+            return c.json({ ok: true, instruction: parsed.instruction.instruction });
+          } catch (err) {
+            if (attempt + 1 < WRITE_ATTEMPTS && isStateMismatch(err)) continue;
+            throw err;
+          }
         }
-        const parsed = parseInstructionDocumentDetailed(
-          JSON.stringify({
-            v: INSTRUCTION_VERSION,
-            instruction,
-            areas,
-            ...(report ? { report } : {}),
-            ...(body?.surfaces === undefined ? {} : { surfaces: body.surfaces }),
-          }),
-        );
-        if ("problem" in parsed) return c.json({ error: parsed.problem }, 400);
-        await writeAppFileAt(
-          access.ctx,
-          access.accountId,
-          INSTRUCTION_FILE,
-          parsed.instruction,
-          {
-            ifInState: state,
-          },
-        );
-        return c.json({ ok: true, instruction: parsed.instruction.instruction });
       } catch (err) {
         return proseFailure(c, err);
       }

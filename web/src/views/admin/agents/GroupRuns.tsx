@@ -1,6 +1,6 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { byRecency, isInFlight, runRecency } from "@gilbert/shared/run";
-import { Bot } from "lucide-react";
+import { Bot, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { push } from "@/jmap/push";
 import {
@@ -617,21 +617,23 @@ function LiveRun({
         )}
       </div>
       {pages > 1 && !runningOnly && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+        <nav className="pager" aria-label={t("Pages")}>
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn btn-ghost pager-step"
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
+            aria-label={t("Previous page")}
           >
+            <ChevronLeft size={15} aria-hidden="true" />
             {t("Previous")}
           </button>
-          <span className="hint">
-            {page + 1} / {pages}
+          <span className="pager-count" aria-live="polite">
+            {page + 1} <span aria-hidden="true">/</span> {pages}
           </span>
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn btn-ghost pager-step"
             disabled={(page >= pages - 1 && !more) || loadingMore}
             onClick={() => {
               if (page >= pages - 1 && more) {
@@ -642,10 +644,16 @@ function LiveRun({
               }
               setPage((p) => Math.min(pages - 1, p + 1));
             }}
+            aria-label={page >= pages - 1 && more ? t("Load more") : t("Next page")}
           >
-            {t("Next")}
+            {loadingMore
+              ? t("Loading…")
+              : page >= pages - 1 && more
+                ? t("Load more")
+                : t("Next")}
+            <ChevronRight size={15} aria-hidden="true" />
           </button>
-        </div>
+        </nav>
       )}
     </section>
   );

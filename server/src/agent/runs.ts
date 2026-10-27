@@ -23,10 +23,15 @@
 import {
   appFolderState,
   type Ctx,
+  documentType,
+  downloadBlobText,
+  fileChildren,
+  findFolderPath,
   listAppSheets,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
+import { FILE_PROPS, STAMP_PROPS } from "./../shared/appFolder.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
 import { parseRunDocumentDetailed, type RunDoc, type RunListing } from "../shared/run.js";
 
@@ -158,6 +163,77 @@ export async function replaceRun(
   opts: { ifInState?: string; onState?: (state: string) => void } = {},
 ): Promise<void> {
   await writeAppFileAt(ctx, accountId, runPath(run.id), run, opts);
+}
+
+/**
+ * One page of the history, without reading the history.
+ *
+ * The listing used to download every run document and then cut a page out of the
+ * result: a group with a thousand runs paid a thousand downloads to draw thirty,
+ * on every ask that was not inside the thirty-second cache — the slowness a person
+ * felt as "it loads everything and then pages".
+ *
+ * The folder already answers with each node's name, size stamp and blob id, so the
+ * page is **chosen** from that and only its own documents are read. The order is
+ * the document's own creation — a run starts when its document is made — and the
+ * cursor is the last row's `startedAt|id`, so a page boundary is the same one the
+ * unpaged list drew.
+ */
+export async function pageRunsForReading(
+  ctx: Ctx,
+  accountId: string,
+  after: string,
+  limit: number,
+  dir: string = RUNS_DIR,
+): Promise<{ rows: RunListing[]; more: boolean }> {
+  const folderId = await findFolderPath(ctx, accountId, dir);
+  if (!folderId) return { rows: [], more: false };
+  const nodes = (
+    await fileChildren(ctx, accountId, folderId, [...FILE_PROPS, ...STAMP_PROPS])
+  )
+    .filter(
+      (node) =>
+        node.nodeType === "file" &&
+        typeof node.name === "string" &&
+        node.name.endsWith(".json") &&
+        typeof node.blobId === "string",
+    )
+    .sort((a, b) => {
+      const left = String(a.created ?? "");
+      const right = String(b.created ?? "");
+      if (left !== right) return left < right ? 1 : -1;
+      return String(a.name) < String(b.name) ? 1 : -1;
+    });
+  const [when = "", id = ""] = after.split("|");
+  /* A cursor naming a node still in the folder resumes after it; one whose node is
+     gone (archived between two pages) falls back to the stamp, which is why both
+     are carried. */
+  const at = after && id ? nodes.findIndex((node) => node.name === `${id}.json`) : -1;
+  const candidates =
+    at >= 0
+      ? nodes.slice(at + 1)
+      : after && id
+        ? nodes.filter((node) => String(node.created ?? "") < when)
+        : nodes;
+  const chosen = candidates.slice(0, limit + 1);
+  const page = chosen.slice(0, limit);
+  const rows: RunListing[] = [];
+  for (const node of page) {
+    const runId = String(node.name).slice(0, -".json".length);
+    try {
+      const text = await downloadBlobText(
+        ctx,
+        accountId,
+        String(node.blobId),
+        documentType(node),
+        String(node.name),
+      );
+      rows.push({ id: runId, run: parseRun(runId, text), problem: null });
+    } catch (err) {
+      rows.push({ id: runId, run: null, problem: errorMessage(err) });
+    }
+  }
+  return { rows, more: chosen.length > limit };
 }
 
 /**
