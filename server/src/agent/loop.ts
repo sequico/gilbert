@@ -131,6 +131,7 @@ import {
   chatWoken,
   mailWoken,
   offPath,
+  openWaits,
   readChangesForPass,
   wokeOf,
   workChanges,
@@ -1191,7 +1192,8 @@ export class AgentLoop {
           due,
           undefined,
           record.state,
-          undefined,
+          // The questions the pass already read, so this run does not re-ask one.
+          openWaits(records, due.id),
           now,
         );
         const stillStuck = worked?.state === "running" && worked.waiting === null;
@@ -1806,7 +1808,7 @@ export class AgentLoop {
     facts?: Record<string, string>,
     state?: string,
     /** The questions the group already has open, so this run does not re-ask. */
-    openQuestions?: readonly string[],
+    openQuestions?: readonly RunWait[],
     /**
      * The pass's own clock, which every date this working sets is measured on:
      * a run left `running` is due again a minute later **by the pass**, and a
@@ -2020,7 +2022,13 @@ export class AgentLoop {
         ...(Object.keys(held).length ? { case: held } : {}),
         ...(facts ? { facts } : {}),
         memory: selection.facts,
-        ...(openQuestions?.length ? { openQuestions } : {}),
+        ...(openQuestions?.length
+          ? {
+              openQuestions: openQuestions.map(
+                (wait) => `${wait.asked?.channel ?? "chat"}: ${wait.what}`,
+              ),
+            }
+          : {}),
         ...(current.startedBy.batch?.length ? { batch: current.startedBy.batch } : {}),
         ...(current.startedBy.surfaces ? { surfaces: current.startedBy.surfaces } : {}),
         authorisations: current.authorisations,
@@ -2439,6 +2447,7 @@ export class AgentLoop {
                 accountId,
                 run: current,
                 memory: store,
+                ...(openQuestions?.length ? { openWaits: openQuestions } : {}),
                 readImage: (image) => this.eyes(image, meter),
                 ...(embed ? { embed } : {}),
                 meter,

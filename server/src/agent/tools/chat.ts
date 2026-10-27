@@ -326,23 +326,32 @@ export const askInChat = defineTool({
   spend: { steps: 1 },
   args: { text: { type: "text", max: ASK_TEXT_MAX } },
   parse: (raw: unknown) => ({ text: chatText(argsRecord(raw), ASK_TEXT_MAX) }),
-  run: async ({ ctx, accountId, run }, { text }) => {
+  run: async ({ ctx, accountId, run, openWaits }, { text }) => {
     /*
      * A question already open on a person is not asked twice: a second run that
      * asks the same thing parks beside the first, the group reads two copies of
      * one question, and the first answer moves only one run. The earlier run's
      * message is the answer, and this run continues instead of waiting.
+     *
+     * The pass has just read the account's runs and hands their waits over, so
+     * the lookup is that list; only a caller that has none (a run resumed by
+     * another path that did not read them) walks the folder.
      */
-    const open = await listRunsForWorking(ctx, accountId);
-    const held = open.records.find(
-      ({ run: other }) =>
-        other.id !== run.id &&
-        other.state === "blocked" &&
-        other.waiting?.asked?.channel === "chat" &&
-        typeof other.waiting.what === "string" &&
-        sameQuestion(other.waiting.what, text),
-    );
-    if (held?.run.waiting?.asked)
+    const waiting =
+      openWaits !== undefined
+        ? openWaits.find(
+            (one) =>
+              (one.asked?.channel ?? "chat") === "chat" && sameQuestion(one.what, text),
+          )
+        : (await listRunsForWorking(ctx, accountId)).records.find(
+            ({ run: other }) =>
+              other.id !== run.id &&
+              other.state === "blocked" &&
+              other.waiting?.asked?.channel === "chat" &&
+              typeof other.waiting.what === "string" &&
+              sameQuestion(other.waiting.what, text),
+          )?.run.waiting;
+    if (waiting?.asked)
       /*
        * The group already has this question open: the words are not posted twice,
        * and this run waits on the same sentence and the same deadline — the one
@@ -350,12 +359,12 @@ export const askInChat = defineTool({
        * `runsAwaiting`).
        */
       return {
-        id: held.run.waiting.asked.id,
+        id: waiting.asked.id,
         alreadyAsked: true,
         wait: {
-          what: held.run.waiting.what,
-          asked: held.run.waiting.asked,
-          until: held.run.waiting.until,
+          what: waiting.what,
+          asked: waiting.asked,
+          until: waiting.until,
         },
       };
     const id = await postChatMessage(

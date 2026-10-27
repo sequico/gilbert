@@ -15,7 +15,7 @@ import { areaOfSource } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { addressedToAgent, addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
-import type { RunDoc } from "../shared/run.js";
+import type { RunDoc, RunWait } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
 import { sameAddress } from "../shared/address.js";
 import { clientOf } from "../util.js";
@@ -64,7 +64,7 @@ export interface ChangesDeps {
     run: RunDoc,
     facts?: Record<string, string>,
     /** The questions the group already has open, so this run does not re-ask. */
-    openQuestions?: readonly string[],
+    openQuestions?: readonly RunWait[],
     /** The words the change carried, so the first turn is handed the message. */
     written?: { from?: string; text: string; quoted?: string },
   ): Promise<RunDoc | null>;
@@ -353,12 +353,18 @@ function withUsage(
   });
 }
 
-/** The questions a group already has open, as the parked runs that wait on them. */
-function openQuestionLines(
+/**
+ * The questions a group already has open, as the waits the parked runs left.
+ *
+ * The turn is told them as lines, and the ask tool is handed the same list: a
+ * question the group already has open is not asked twice, and finding it costs
+ * no walk of the account's runs — the pass has just read them.
+ */
+export function openWaits(
   records: readonly RunRecord[],
   /** The run being worked: its own question is not an "already open" one. */
   except?: string,
-): string[] {
+): RunWait[] {
   return records
     .filter(
       ({ run }) =>
@@ -367,9 +373,7 @@ function openQuestionLines(
         typeof run.waiting?.what === "string" &&
         Boolean(run.waiting.what.trim()),
     )
-    .map(
-      ({ run }) => `${run.waiting?.asked?.channel ?? "chat"}: ${run.waiting?.what ?? ""}`,
-    )
+    .map(({ run }) => run.waiting as RunWait)
     .slice(0, 8);
 }
 
@@ -526,7 +530,7 @@ export async function workChanges(
             // The answer's own words are what the next call recalls facts by,
             // as the decision turn's facts were for a change it opened.
             { answer: answer.said },
-            openQuestionLines(held ?? [], licensed.id),
+            openWaits(held ?? [], licensed.id),
           );
           held ??= [];
           if (worked) remember(held, worked);
@@ -710,7 +714,7 @@ export async function workChanges(
       accountId,
       withUsage(run, meter),
       facts,
-      openQuestionLines(held ?? [], run.id),
+      openWaits(held ?? [], run.id),
       // The words the change carried: the decision turn already read them, and the
       // working turn is handed the same message rather than fetching it (ADR 0038).
       detail

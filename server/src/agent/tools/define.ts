@@ -17,6 +17,7 @@ import type {
   RunDoc,
   RunSpent,
 } from "../../shared/run.js";
+import type { RunWait } from "../../shared/run.js";
 import type { SurfaceMode, SurfaceName } from "../../shared/surfaces.js";
 import type { MemoryStore } from "../memory.js";
 import type { UsageMeter } from "../model.js";
@@ -328,6 +329,12 @@ export interface ToolCall {
    * makes none leaves it unused, and the call a tool did not make adds nothing.
    */
   meter?: UsageMeter;
+  /**
+   * The questions the group already has open, as the waits the pass just read
+   * (ADR 0029): `chat.ask` finds a question it must not ask twice here, instead
+   * of walking the account's runs for every question.
+   */
+  openWaits?: readonly RunWait[];
   /**
    * The installation's memory as the caller's pass read it (ADR 0033).
    *
