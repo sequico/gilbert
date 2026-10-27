@@ -710,6 +710,24 @@ test("the reading tools answer from the group's account", async () => {
   assert.equal(read.run.id, "read-me");
   assert.deepEqual(read.run.startedBy, stored.startedBy);
 
+  // A run past the retention year sits in its month's drawer, and the id alone
+  // still reads it: the archive is part of the record, not out of reach.
+  const archived = startRun({
+    id: "archived-run",
+    startedBy: { woke: "mail created: m-2" },
+  });
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    "runs/archive/2026-09/archived-run.json",
+    archived,
+  );
+  const foundArchived = await tool<{ run: RunDoc; month?: string }>("run.read", {
+    id: "archived-run",
+  });
+  assert.equal(foundArchived.run.id, "archived-run");
+  assert.equal(foundArchived.month, "2026-09", "and names the drawer it came from");
+
   // A message found by the search grammar, then read by the id it answered.
   const delivered = await deliver("a booking confirmation");
   const other = await deliver("an unrelated note");
