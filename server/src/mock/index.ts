@@ -15,6 +15,7 @@ import {
   FILENODE_SET,
 } from "../shared/appFolder.js";
 import { CAPABILITIES, STALWART_REGISTRY } from "../shared/capabilities.js";
+import { fileNodeLocalKind, fileNodeWireKind } from "../shared/filenode.js";
 import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/globalContacts.js";
 import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
@@ -2657,12 +2658,7 @@ function hideShareWithUnlessAsked(a: Obj, res: { list: Obj[] }): { list: Obj[] }
 function wireFileNode(node: Obj): Obj {
   const out: Obj = { ...node };
   if ("nodeType" in out) {
-    out["@type"] =
-      out.nodeType === "directory"
-        ? "Directory"
-        : out.nodeType === "symlink"
-          ? "SymLink"
-          : "File";
+    out["@type"] = fileNodeWireKind(out.nodeType);
     delete out.nodeType;
   }
   if ("type" in out) {
@@ -2676,12 +2672,7 @@ function wireFileNode(node: Obj): Obj {
 function localFileNode(node: Obj): Obj {
   const out: Obj = { ...node };
   if ("@type" in out) {
-    out.nodeType =
-      out["@type"] === "Directory"
-        ? "directory"
-        : out["@type"] === "SymLink"
-          ? "symlink"
-          : "file";
+    out.nodeType = fileNodeLocalKind(out["@type"]);
     delete out["@type"];
   }
   if ("mediaType" in out) {
