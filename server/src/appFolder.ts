@@ -38,7 +38,6 @@ import {
   type FileNodeLike,
   FOLDER_PROPS,
   findAppFolderId,
-  nodeCacheStamp,
   nodeStamp,
   STAMP_PROPS,
 } from "./shared/appFolder.js";
@@ -956,6 +955,14 @@ async function documentTextAt(
   path: string,
 ): Promise<string> {
   const key = `${accountId}|${path}`;
+  /*
+   * The cache key is `nodeStamp`, which reads `changed` first: Stalwart 1.0
+   * advances `changed` on an update and leaves `modified` where it was, so a stamp
+   * of `modified ?? created` served the text read the first time for the life of
+   * the process. A save that stored new areas was read back as the old document,
+   * which a person sees as "it reverts" — the instruction and the switch both
+   * showed it (2026-10-27).
+   */
   const stamp = nodeStamp(file);
   const remembered = documentTexts.get(key);
   if (remembered?.stamp === stamp) return remembered.text;
@@ -1152,7 +1159,7 @@ export async function listAppSheets<T>(
      * other's rule.
      */
     const key = `${accountId}\u0000${path}`;
-    const stamp = nodeCacheStamp(node);
+    const stamp = nodeStamp(node);
     const remembered = held.get(key);
     if (remembered?.stamp === stamp) {
       rows.push({ id, doc: remembered.doc as T, problem: null });

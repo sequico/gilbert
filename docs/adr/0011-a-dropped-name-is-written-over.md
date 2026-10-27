@@ -144,11 +144,9 @@ unbounded, and nothing in the account says which one is the current file.
 - **A reader who wants the old name kept cannot have it here**: no confirmation
   is asked before a replacement, because a drop is one gesture and a dialog per
   colliding file is not a gesture. What they can see afterwards is the file
-  holding the content just dropped, whose `modified` moved. That a live server
-  moves it on an **update** and not only on a create is a read fact rather than a
-  running server's testimony, and the reader's `modified ?? created` holds either
-  answer.
-<!-- owed: modified-on-update -->
+  holding the content just dropped, whose `changed` moved: 1.0 advances `changed`
+  on an update and leaves `modified` where it was (live-verified 2026-10-27), and
+  the reader takes `nodeStamp`, which reads `changed` first.
 - **The wire's names are translated, not spoken.** Stalwart 1.0 names a node's
   kind `@type` (`File`, `Directory`, `SymLink`) and its MIME `mediaType`;
   everything this tree names them `nodeType` and `type` in lower case, and

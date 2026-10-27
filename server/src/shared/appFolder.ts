@@ -125,38 +125,29 @@ export interface FileNodeLike {
 }
 
 /**
- * A node's own last-write stamp: `modified`, falling back to `created`.
+ * A node's own last-change stamp: `changed`, then `modified`, then `created`.
+ *
+ * `changed` first is not a preference. Stalwart 1.0 advances `changed` on an
+ * update and leaves `modified` where it was — measured 2026-10-27: a switch
+ * document written at 13:36 still carried yesterday's `modified` — so anything
+ * keyed on `modified` alone read a document as unchanged for the life of the
+ * process. That one field cost the agent its switch (no effect until a restart),
+ * an instruction its save (it reverted on the read-back) and every listing its
+ * order (an edited workorder stayed where it was created).
  *
  * The pair the Files view sorts a node by, and the pair every registry cuts its
  * newest-first page on — the workorder roots, the knowledge articles and their
  * revisions. Both tiers read it here, so a document remembered at its stamp and
  * the listing that compares it cannot disagree about when it moved.
  *
- * A node carrying neither stamp is a node the server has not stamped; it sorts
+ * A node carrying no stamp at all is a node the server has not stamped; it sorts
  * as the empty string, last, rather than throwing the page away.
  */
 export function nodeStamp(node: FileNodeLike): string {
+  if (typeof node.changed === "string") return node.changed;
   if (typeof node.modified === "string") return node.modified;
   if (typeof node.created === "string") return node.created;
   return "";
-}
-
-/**
- * The stamp a **remembered document** is keyed on: `changed` first.
- *
- * Stalwart 1.0 advances `changed` on an update and leaves `modified` where it
- * was — measured 2026-10-27: a switch document written at 13:36 still carried
- * the `modified` of the day before. A read cache keyed on `modified` therefore
- * served the text it first downloaded for the life of the process: turning the
- * agent off from Administration had no effect until `gilbert.service` was
- * restarted, and neither did a person's stop on a run document.
- *
- * Ordering is a different question and keeps `nodeStamp`: a Files listing sorts
- * by when the content was written, which is what `modified` means.
- */
-export function nodeCacheStamp(node: FileNodeLike): string {
-  if (typeof node.changed === "string") return node.changed;
-  return nodeStamp(node);
 }
 
 /**

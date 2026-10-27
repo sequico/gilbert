@@ -4990,6 +4990,7 @@ const handlers: Record<string, Handler> = {
         Object.assign(o, {
           created: stamp,
           modified: stamp,
+          changed: stamp,
           myRights: fr(),
           shareWith: {},
           size: o.blobId ? (blobOf(accountOf(a), o.blobId)?.data.length ?? 0) : null,
@@ -5103,21 +5104,25 @@ const handlers: Record<string, Handler> = {
        * runs on the node the patch would leave behind, before it is applied, so
        * the name and parent the update asks for are what is compared.
        *
-       * The write also moves the node's own `modified`: the web tier orders a
-       * listing by it, and a mock that stamped that field only on a create made
-       * every update look as old as the node it changed (`nodeStamp` in
-       * `workorderAdmin.ts` reads `modified ?? created`).
-       *
-       * ADR-0011 OWED: modified-on-update -- that a live 0.16 advances `modified`
-       * on an update, and not only on a create, is unverified. The read side's
-       * `?? created` is what keeps either answer harmless.
+       * The write advances the node's own `changed` and **not** `modified`:
+       * that is what 1.0 does, measured live on 2026-10-27, and it is why every
+       * reader which orders or remembers by `modified` moved to `changed`
+       * (`nodeStamp`, `@gilbert/shared/appFolder`).
        */
       (o, patch) => {
         refuseLocalNodeNames(patch);
         Object.assign(patch, localFileNode(patch));
         refuseSiblingClash({ ...o, ...patch });
         if (typeof patch.blobId === "string") patch.blobId = wholeBlobId(patch.blobId);
-        o.modified = new Date(now()).toISOString();
+        /*
+         * 1.0 advances `changed` on an update and leaves `modified` where it was —
+         * live-verified 2026-10-27, where a switch written at 13:36 still carried
+         * the previous day's `modified`. The mock moved `modified` instead, so
+         * every cache keyed on it looked correct here and served a stale document
+         * on the real server: an instruction whose save reverted, a switch that
+         * needed a restart. Reproducing the split is what lets a test catch it.
+         */
+        o.changed = new Date(now()).toISOString();
       },
     )(a);
     /* A real server pushes a FileNode StateChange after a set, and the chat

@@ -1,3 +1,4 @@
+import { nodeStamp } from "@gilbert/shared/appFolder";
 import { useState } from "react";
 import type { FileNode } from "@/jmap/types";
 import { folderKey } from "@/lib/folderView";
@@ -49,8 +50,11 @@ export function sortFiles(
   const byName = (a: FileNode, b: FileNode) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
   /* `UTCDate` is an ISO-8601 instant in UTC (`jmap/types.ts`), so the strings
-     compare in time order and no parsing is needed to order two of them. */
-  const stamp = (n: FileNode) => n.modified ?? n.created;
+     compare in time order and no parsing is needed to order two of them. The
+     stamp is the shared rule, `changed` first: Stalwart 1.0 leaves `modified`
+     where it was on an update, so ordering by it put an edited file where it was
+     created. */
+  const stamp = (n: FileNode) => nodeStamp(n);
   const size = (n: FileNode): number | null =>
     n.nodeType === "directory" ? (folderCounts?.[n.id] ?? null) : (n.size ?? 0);
   return [...nodes].sort((a, b) => {

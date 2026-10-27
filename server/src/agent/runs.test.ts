@@ -259,7 +259,7 @@ test("paging the folder loses no run, whatever its own order says", async () => 
   }
   // One of them is a document written before `startedAt` existed: the recency
   // order cannot place it, which is exactly the case that vanished.
-  const legacy = (await readRun(ctx, accountId, "page-c"))!.run as Record<
+  const legacy = (await readRun(ctx, accountId, "page-c"))!.run as unknown as Record<
     string,
     unknown
   >;
