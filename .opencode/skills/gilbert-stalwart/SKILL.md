@@ -111,14 +111,13 @@ Where the integration lives:
   fails the whole query.
 - `FileNode/query` masks directories out of its own results before 0.16, so the
   client asks for them explicitly: on 1.0 the filter keeps the key `nodeType`
-  and takes `File`/`Directory`/`SymLink`, **matched case-sensitively** — the
-  values are parsed by `FileNodeNodeType::parse` in the v1.0.0 source, so a
-  lower-case `directory` matches nothing rather than everything — and the shared
-  boundary is what writes the value. A create or update carrying the old
-  `nodeType` is refused with `invalidProperties`, which is the fail this tree hit
-  live on 1.0. A property a `get` asks for and 1.0 does not know is **dropped in
-  silence**, not refused (measured live on 1.0, 2026-10-27), which is why the
-  version probe reads a missing kind instead of waiting for an error.
+  and takes `File`/`Directory`/`SymLink`, **matched case-sensitively** — a
+  lower-case `directory` silently matches nothing, live-verified on 1.0
+  (2026-10-27) — and the shared boundary is what writes the value. A create or
+  update carrying the old `nodeType` is refused with `invalidProperties`, which
+  is the fail this tree hit live on 1.0. A property a `get` asks for and 1.0
+  does not know is **dropped in silence**, not refused, which is why the version
+  probe reads a missing kind instead of waiting for an error.
 - `FileNode/set` returns **no `blobId` on create** — ask with a follow-up get
   (`nodeBlobId`).
 - `FileNode/set` returns **no node**: a `created` entry carries `id`, the four
@@ -136,8 +135,7 @@ Where the integration lives:
   existing node's id in `existingId` (`FileNodeSetArguments` /
   `find_sibling_collision`, `crates/jmap-proto/src/object/file_node.rs` /
   `crates/jmap/src/file/set.rs`, v0.16.21; `tests/src/jmap/files/node.rs`
-  asserts the id; `crates/jmap/src/file/set.rs` on the v1.0.0 tag carries the same
-  branch). `replace` / `rename` / `newest` exist but are opt-in. The
+  asserts the id; live-verified on 1.0, 2026-10-27). `replace` / `rename` / `newest` exist but are opt-in. The
   comparison is name-within-parent and case-sensitive unless the request sends
   `compareCaseInsensitively`. What the code does with it: every
   read-then-create of a folder treats it as "somebody made it" and adopts the
@@ -151,7 +149,8 @@ Where the integration lives:
   call carries `onDestroyRemoveChildren: true`, with `nodeHasChildren`
   ("Cannot delete non-empty folder."); with the flag the folder goes **with**
   its descendants, and an emptied folder goes either way. **Confirmed live on
-  0.16.23 (2026-09-24).** What rests on it is the file manager's delete (which
+  0.16.23 (2026-09-24) and on 1.0 (2026-10-27)**, where the answer destroyed
+  the file and the folder together. What rests on it is the file manager's delete (which
   sends the flag, and has always sent it) and a **merge**'s last step, which
   deliberately does not: it destroys a folder it emptied, so a folder it did not
   empty stops the merge instead of disappearing with whatever landed in it
