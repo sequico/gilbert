@@ -419,9 +419,12 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * same member grant the group's runs use.
    *
    * The pass reads this document on every run and the admin write updates it, so
-   * the value this process already holds answers the surface for free. `fresh=1`
-   * is the reader saying an event named the file: then the document is read
-   * again, which is the one case where a member's request opens a session.
+   * the value this process already holds answers the surface without opening the
+   * **installation's** session. The membership gate is still a live read: it is
+   * what keeps a non-member from reading the installation's state at all.
+   * `fresh=1` is the reader saying an event named the file: then the document is
+   * read again, and that is the one case where the request opens the
+   * installation's session.
    */
   api.get("/groups/:name/agent", requireSession, async (c) => {
     const name = c.req.param("name") ?? "";
