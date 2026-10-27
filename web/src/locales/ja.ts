@@ -2463,8 +2463,8 @@ export const catalog: Catalog = {
     "Not reached": "未到達",
     "out-of-budget": "予算超過",
     Surfaces: "対象",
-    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
-      "消費: {steps} ステップ、{calls} 回のモデル呼び出し、{ms} ミリ秒の作業。",
+    "Steps: {steps} · {calls} model calls · {ms} ms of work.":
+      "ステップ: {steps} · モデル呼び出し {calls} · 作業 {ms} ms",
     "Recalled: {facts}.": "読み出した事実: {facts}。",
     "Ended {when}: {why}": "{when} に終了: {why}",
     "After step {n} if it ended {outcome}":

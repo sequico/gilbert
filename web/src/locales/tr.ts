@@ -2381,8 +2381,8 @@ export const catalog: Catalog = {
     "Not reached": "Ulaşılmadı",
     "out-of-budget": "Bütçe tükendi",
     Surfaces: "Yüzeyler",
-    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
-      "Harcanan: {steps} adım, {calls} model çağrısı, {ms} ms çalışma.",
+    "Steps: {steps} · {calls} model calls · {ms} ms of work.":
+      "Adımlar: {steps} · {calls} model çağrısı · {ms} ms çalışma",
     "Recalled: {facts}.": "Anımsanan: {facts}.",
     "Ended {when}: {why}": "{when} tarihinde bitti: {why}",
     "After step {n} if it ended {outcome}": "{n}. adımdan sonra, {outcome} ile bittiyse",

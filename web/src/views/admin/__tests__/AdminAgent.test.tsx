@@ -249,7 +249,7 @@ describe("the agent's administration surface", () => {
     expect(shown).toContain("After step 1 if it ended Worked");
     expect(shown).toContain("left unrun: step 0 ended failed");
     // The tally, and where it parked and why.
-    expect(shown).toContain("2 steps, 2 model calls");
+    expect(shown).toContain("Steps: 2 · 2 model calls");
     expect(shown).toContain("the shipper's answer");
     expect(shown).toContain("waiting for the shipper's answer");
     // What the run recalled, each id resolved to the fact that carried it:

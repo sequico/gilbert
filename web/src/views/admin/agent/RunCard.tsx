@@ -102,7 +102,13 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactView[] }
       <div className="run-foot">
         <div className="run-foot-chips">
           <span>
-            {t("Spent: {steps} steps, {calls} model calls, {ms} ms of work.", {
+            {/*
+              The count is the plan's steps, which is what the plan below draws
+              (the same number the overview's "steps taken" adds up); what the
+              run was charged is the tally's own `spent.steps`, a smaller figure
+              and a different fact. The label says steps, not "spent".
+            */}
+            {t("Steps: {steps} · {calls} model calls · {ms} ms of work.", {
               steps: plan.length,
               calls: spent.calls,
               ms: spent.ms,

@@ -2466,8 +2466,8 @@ export const catalog: Catalog = {
     "Not reached": "Niet bereikt",
     "out-of-budget": "Budget uitgeput",
     Surfaces: "Oppervlakken",
-    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
-      "Besteed: {steps} stappen, {calls} modelaanroepen, {ms} ms werk.",
+    "Steps: {steps} · {calls} model calls · {ms} ms of work.":
+      "Stappen: {steps} · {calls} modelaanroepen · {ms} ms werk.",
     "Recalled: {facts}.": "Opgehaald: {facts}.",
     "Ended {when}: {why}": "Beëindigd {when}: {why}",
     "After step {n} if it ended {outcome}": "Na stap {n} als de uitkomst {outcome} is",

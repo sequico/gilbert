@@ -2378,8 +2378,8 @@ export const catalog: Catalog = {
     "Not reached": "未到达",
     "out-of-budget": "预算耗尽",
     Surfaces: "界面",
-    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
-      "已用：{steps} 个步骤、{calls} 次模型调用、{ms} 毫秒工作时间。",
+    "Steps: {steps} · {calls} model calls · {ms} ms of work.":
+      "步骤：{steps} · 模型调用 {calls} 次 · 工作 {ms} 毫秒",
     "Recalled: {facts}.": "已召回：{facts}。",
     "Ended {when}: {why}": "结束于 {when}：{why}",
     "After step {n} if it ended {outcome}": "第 {n} 步以 {outcome} 结束后",

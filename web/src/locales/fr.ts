@@ -2493,8 +2493,8 @@ export const catalog: Catalog = {
     "Not reached": "Non atteint",
     "out-of-budget": "Hors budget",
     Surfaces: "Surfaces",
-    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
-      "Dépensé : {steps} étapes, {calls} appels de modèle, {ms} ms de travail.",
+    "Steps: {steps} · {calls} model calls · {ms} ms of work.":
+      "Étapes : {steps} · {calls} appels au modèle · {ms} ms de travail.",
     "Recalled: {facts}.": "Rappelé : {facts}.",
     "Ended {when}: {why}": "Terminée le {when} : {why}",
     "After step {n} if it ended {outcome}":

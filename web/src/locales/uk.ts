@@ -2455,8 +2455,8 @@ export const catalog: Catalog = {
     "Not reached": "Не досягнуто",
     "out-of-budget": "Бюджет вичерпано",
     Surfaces: "Поверхні",
-    "Spent: {steps} steps, {calls} model calls, {ms} ms of work.":
-      "Витрачено: {steps} кроків, {calls} викликів моделі, {ms} мс роботи.",
+    "Steps: {steps} · {calls} model calls · {ms} ms of work.":
+      "Кроки: {steps} · викликів моделі: {calls} · роботи: {ms} мс",
     "Recalled: {facts}.": "Пригадано: {facts}.",
     "Ended {when}: {why}": "Завершився {when}: {why}",
     "After step {n} if it ended {outcome}":
