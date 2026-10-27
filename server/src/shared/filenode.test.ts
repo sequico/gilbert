@@ -41,7 +41,7 @@ test("a FileNode request goes out with @type, mediaType and capitalised values",
   });
 });
 
-test("a FileNode answer comes back in the tree's own names", () => {
+test("a get answer comes back in the tree's own names", () => {
   const answer = fileNodeResponseArguments("FileNode/get", {
     list: [
       {
@@ -58,12 +58,13 @@ test("a FileNode answer comes back in the tree's own names", () => {
     { id: "d", nodeType: "file", type: "application/json", name: "config.json" },
     { id: "e", nodeType: "directory", name: "Documents" },
   ]);
+});
 
-  const set = fileNodeResponseArguments("FileNode/set", {
-    created: { d: { id: "d", "@type": "Directory" } },
-    notFound: [],
-  });
-  assert.deepEqual(set.created, { d: { id: "d", nodeType: "directory" } });
+test("a set answer carries no node, so it is left exactly as the server sent it", () => {
+  // Live-verified on 1.0: `FileNode/set` returns `id`, the timestamps and, for
+  // a file, `size`/`executable` — no kind, no MIME. Nothing to translate.
+  const args = { created: { d: { id: "d" } }, updated: { e: { changed: "x" } } };
+  assert.equal(fileNodeResponseArguments("FileNode/set", args), args);
 });
 
 test("a method that is not a FileNode one is left exactly as it came", () => {

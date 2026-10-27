@@ -126,22 +126,17 @@ function localNode(node: unknown): unknown {
   return out;
 }
 
-/** One response's arguments, translated back when the method is a FileNode one. */
+/**
+ * One response's arguments, translated back when the method is a FileNode one.
+ *
+ * `/get`'s `list` is the only answer that carries a node: a `/set` answer gives
+ * `id`, the timestamps and (for a file) `size`/`executable`, with no kind and no
+ * MIME at all — live-verified on 1.0, so there is nothing there to translate.
+ */
 export function fileNodeResponseArguments(
   method: string,
   args: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (!isFileNodeMethod(method)) return args;
-  const out: Record<string, unknown> = { ...args };
-  if (Array.isArray(out.list)) out.list = out.list.map(localNode);
-  if (isRecord(out.created)) out.created = mapResponses(out.created);
-  if (isRecord(out.updated)) out.updated = mapResponses(out.updated);
-  return out;
-}
-
-/** A set's `created`/`updated` map, whose values are the objects the server wrote. */
-function mapResponses(nodes: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [id, node] of Object.entries(nodes)) out[id] = localNode(node);
-  return out;
+  if (!isFileNodeMethod(method) || !Array.isArray(args.list)) return args;
+  return { ...args, list: args.list.map(localNode) };
 }
