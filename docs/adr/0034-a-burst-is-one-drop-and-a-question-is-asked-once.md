@@ -66,8 +66,8 @@ a message joins the case through its thread.
 **The case keeps a scratchpad.** A run's working memory is a note under the agent's
 own bookkeeping (`gilbert/cases/<key>.md`), written and rewritten by the model and
 carried whole in every turn of the case, in the order a turn reads it: the key the
-report calls the case, the place the work goes, the rule the change needed, what the
-last report said and when, and what is still owed. The turn lists the keys already on
+report calls the case, the place the work goes, the instruction the change answers,
+what the last report said and when, and what is still owed. The turn lists the keys already on
 file, so a run recognises a case it has seen without a lookup. What must outlive the
 case is a fact in the memory (ADR 0033), not a longer note. The note is what makes the
 second message of a delivery cheap and what a later change of the same case finds.
