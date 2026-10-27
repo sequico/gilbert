@@ -1279,7 +1279,7 @@ export function parseAnswerDetailed(
 /* ------------------------------------------------------------------ */
 
 /** How many lookups one decision turn may make before it must answer (ADR 0038, one `read`). */
-const DECISION_READS_MAX = 1;
+const DECISION_READS_MAX = 3;
 
 /**
  * The one lookup a decision and a reading both may take (ADR 0038): one tool and
@@ -1443,6 +1443,7 @@ export async function decideEvent(
     "The tools you may read with:",
     ...READING_TOOLS.map(toolLine),
     "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
+    "A tool's name is used exactly as printed above, prefix and all: `read.brief`, never `brief`.",
     ...heads,
   ];
   const system = reader

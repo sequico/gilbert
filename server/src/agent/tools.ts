@@ -101,7 +101,24 @@ export function validatedTool(
   raw: unknown,
 ): { tool: AnyTool; args: unknown } {
   const tool = catalogue.find((one) => one.name === name);
-  if (!tool) throw new ToolError("unknown_tool", `There is no tool named "${name}".`);
+  if (!tool) {
+    /*
+     * A name that is the tail of one this catalogue holds is named back: the model
+     * wrote `brief` for `read.brief` (live, 2026-10-27), and a refusal that only
+     * says "there is no tool named brief" leaves it nothing to correct. Naming the
+     * candidate turns the round into a fix instead of a dead end; the call is still
+     * refused, so nothing runs on a guess.
+     */
+    const near = catalogue
+      .map((one) => one.name)
+      .filter((one) => one.endsWith(`.${name}`));
+    throw new ToolError(
+      "unknown_tool",
+      near.length
+        ? `There is no tool named "${name}". The tool is ${near.map((one) => `"${one}"`).join(" or ")}: a name is used as it is written, prefix included.`
+        : `There is no tool named "${name}".`,
+    );
+  }
   return { tool, args: tool.parse(raw) };
 }
 

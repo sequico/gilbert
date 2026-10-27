@@ -73,7 +73,7 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { postChatMessage, readChatMessage, readChatMessageAt } from "../groupChat.js";
-import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
+import { JmapError, retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
 import { sameAddress } from "../shared/address.js";
@@ -122,7 +122,12 @@ import {
   waitUntil,
   withCase,
 } from "../shared/run.js";
-import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
+import {
+  fetchAccountIntrospection,
+  isStalwartAdmin,
+  UpstreamError,
+  upstreamFor,
+} from "../upstream.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
 import { catalogueFor, selectedAreas } from "./areas.js";
@@ -1352,11 +1357,20 @@ export class AgentLoop {
    * message per minute is a second fault on top of the first.
    */
   private async sayThePassFailed(accountId: string, err: unknown): Promise<void> {
+    /*
+     * Only a failure to **read** is the group's business. A run's own refused step
+     * — a model that used a bad argument or named a tool that turn does not offer —
+     * is on that run's record, and saying it here told a group "I could not read
+     * this group's changes" three times in one minute about work it could read
+     * perfectly well (live, 2026-10-27).
+     */
+    if (!(err instanceof JmapError) && !(err instanceof UpstreamError)) return;
     const reason = errorMessage(err).slice(0, 200);
-    const key = `${accountId}\u0000${reason}`;
-    const said = Date.now() - (this.failureSaid.get(key) ?? 0) < 30 * 60_000;
-    if (said) return;
-    this.failureSaid.set(key, Date.now());
+    /* One line an hour, whatever the reason: a failing pass repeats every minute,
+       and a message per minute is a second fault on top of the first. */
+    const last = this.failureSaid.get(accountId) ?? 0;
+    if (Date.now() - last < 60 * 60_000) return;
+    this.failureSaid.set(accountId, Date.now());
     try {
       await postChatMessage(
         this.ctx,
