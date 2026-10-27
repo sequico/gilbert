@@ -1,4 +1,4 @@
-import { FILENODE_GET } from "@gilbert/shared/appFolder";
+import { FILENODE_GET, nodeStamp } from "@gilbert/shared/appFolder";
 import { errorMessage } from "@gilbert/shared/errors";
 import { isTrashFolder } from "@gilbert/shared/trash";
 import {
@@ -276,6 +276,33 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     folderCounts,
     setFolderCount,
   ]);
+
+  /*
+   * A link may name a **file**, not a folder. `/files/<id>` is what a chat
+   * reference composes, and a file opened as a folder lists nothing — which a
+   * person reads as the view looping on the same screen and never finding it
+   * (live, 2026-10-27). A file opens in the folder it sits in, with its preview
+   * up; only a directory is browsed. The piece is written here rather than
+   * through `openPreview`, because that helper is declared below the early
+   * return and a hook may not sit after one.
+   */
+  const openedAsFile = useRef<string | null>(null);
+  useEffect(() => {
+    if (!parentId || !files.initialized || !files.treeLoaded) return;
+    const held = files.nodes[parentId];
+    if (!held || held.nodeType === "directory" || openedAsFile.current === parentId)
+      return;
+    openedAsFile.current = parentId;
+    if (held.blobId && previewKind(held.type, held.name) !== null)
+      setPreview({
+        name: held.name,
+        type: held.type ?? "application/octet-stream",
+        size: held.size,
+        url: blobUrl(held, false),
+        inlineUrl: blobUrl(held, true),
+      });
+    navigate(`/files/${held.parentId ?? ""}`);
+  }, [parentId, files.initialized, files.treeLoaded, files.nodes, navigate]);
 
   if (!files.available)
     return (
@@ -1035,7 +1062,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                       : formatSize(n.size)}
                   </td>
                   <td className="hide-mobile muted">
-                    {formatListDate(n.modified ?? n.created)}
+                    {formatListDate(nodeStamp(n) || n.created)}
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <button

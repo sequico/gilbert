@@ -11,6 +11,7 @@
  */
 import type { ChatRef } from "@gilbert/shared/chat";
 import { cardPath } from "@/lib/contactAddress";
+import { MAIL_ACCOUNT_PARAM } from "@/lib/mailLink";
 
 /** The surface a reference opens, as the word the rest of the app uses. */
 export const REF_LABEL: Record<ChatRef["kind"], string> = {
@@ -23,19 +24,26 @@ export const REF_LABEL: Record<ChatRef["kind"], string> = {
 /**
  * The route a reference opens, inside the mount prefix the router adds.
  *
- * `account` is the conversation's own, and only the surfaces whose route names
- * one use it: a card is addressed by account and id because Stalwart's ids are
- * per-account, and the same id in two books is two cards.
+ * A Stalwart id is **per account**, and the agent names objects of the group's
+ * account: a thread, a file and a card in that account are different objects from
+ * the reader's own with the same letters. So every kind carries the account it
+ * belongs to — the same hint a mail notification already uses (`?a=`) — and a
+ * surface that opened the reader's account looked for something that is not there
+ * ("this conversation no longer exists", a Files list that never finds the file).
  */
 export function refHref(ref: ChatRef): string {
   const id = encodeURIComponent(ref.id);
+  const account = ref.account
+    ? `${MAIL_ACCOUNT_PARAM}=${encodeURIComponent(ref.account)}`
+    : "";
+  const under = (path: string) => (account ? `${path}?${account}` : path);
   switch (ref.kind) {
     case "thread":
       // The conversation route: the one address that opens a thread without
       // naming a folder, which a chat answer cannot know.
-      return `/search/${id}`;
+      return under(`/search/${id}`);
     case "file":
-      return `/files/${id}`;
+      return under(`/files/${id}`);
     case "contact":
       // A card is the installation's, not the group's, and `ref.account` is
       // where the tool found it — the route names it for the same reason.
