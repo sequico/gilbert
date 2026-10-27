@@ -1,6 +1,6 @@
 ---
 name: gilbert-stalwart
-description: Working directly with Stalwart in the Gilbert repository — the mail/collaboration server that holds every durable byte. Covers the 0.16 requirement and its live-verified behaviours and quirks, where the JMAP integration lives, what the mock server does and does not reproduce, administration and access-control facts (admin group, impersonation), and how to check Stalwart's own docs and source. Load before touching any Stalwart-facing surface (JMAP calls, mock handlers, version gates, server auth, account/principal logic, FileNode storage).
+description: Working directly with Stalwart in the Gilbert repository — the mail/collaboration server that holds every durable byte. Covers the 1.0 requirement and its live-verified behaviours and quirks, where the JMAP integration lives, what the mock server does and does not reproduce, administration and access-control facts (admin group, impersonation), and how to check Stalwart's own docs and source. Load before touching any Stalwart-facing surface (JMAP calls, mock handlers, version gates, server auth, account/principal logic, FileNode storage).
 metadata:
   short-description: Stalwart architecture, quirks & integration map
 ---
@@ -17,30 +17,35 @@ the web client speaks JMAP directly through it. There is no other store: no
 Postgres behind Gilbert, no volume that matters, no server-side files for
 account data.
 
-- **Version floor: Stalwart 0.16.** Sign-in refuses anything older, once, with
-  a clear message (`server/src/app.ts` ~line 359). **Read the source at the
-  newest release tag, never at a remembered one**: what the deployment runs is
-  the newest release and `README.md`'s badge names it, while a version in a
-  dated comment below is the version *that check* ran against. Assume 0.16
-  semantics, and when the server moves, re-read the dated comments before
-  trusting them.
-- **0.16.22 is the release the tree follows** (13 September 2026): the README's
-  badge names it, `server/src/mock/recurrence.ts`'s `eventGetView` reproduces
-  its four client-visible `CalendarEvent/get` and `ContactCard/get` changes, and
-  the dated comments elsewhere still name whatever release *they* ran against.
-  Those four: `baseEventId` is the master's id on a synthetic id and `null`
-  otherwise (it used to report the event's own id); `recurrenceRule` and
-  `recurrenceOverrides` named on a synthetic id answer `null` rather than being
-  absent; `useDefaultAlerts` is the reader's own and reads `false` until set;
-  and an empty `properties` list returns `id` alone, where it used to mean
-  "everything".
-- **The mock server** (`server/src/mock/index.ts`) emulates a 0.16 server
+- **Version floor: Stalwart 1.0.** Sign-in refuses anything older, once, with
+  a clear message (`server/src/routes/account.ts`). The server publishes no
+  usable version — it answers `1.0.0` wherever it answers at all — so the gate
+  reads the **FileNode shape** instead: `fileNodeWireIsV1` (`server/src/appFolder.ts`)
+  asks for one node with `properties: ["@type"]` and refuses an answer that
+  carries no kind, which is 0.16. **Read the source at the newest release tag,
+  never at a remembered one**: what the deployment runs is the newest release
+  and `README.md`'s badge names it, while a version in a dated comment below is
+  the version *that check* ran against. Assume 1.0 semantics, and when the
+  server moves, re-read the dated comments before trusting them.
+- **1.0.0 is the release the tree follows**: the README's badge names it. The
+  four client-visible `CalendarEvent/get` and `ContactCard/get` behaviours the
+  client rests on are reproduced by the mock's `eventGetView`
+  (`server/src/mock/recurrence.ts`): `baseEventId` is the master's id on a
+  synthetic id and `null` otherwise; `recurrenceRule` and `recurrenceOverrides`
+  named on a synthetic id answer `null` rather than being absent;
+  `useDefaultAlerts` is the reader's own and reads `false` until set; and an
+  empty `properties` list returns `id` alone, where it used to mean
+  "everything". The dated comments elsewhere still name whatever release *they*
+  ran against.
+- **The mock server** (`server/src/mock/index.ts`) emulates a 1.0 server
   in memory for `npm run dev:mock` (demo@example.com / demo) and for tests. It
   is deliberately faithful on the behaviours that bit us (see quirks) and
   generic elsewhere — when a refusal or field matters, the mock reproduces it
-  and says so in a comment. Keep mock parity when you change JMAP behaviour,
-  and remember the mock proves nothing about a server nobody has asked: the two
-  questions below are the ones only a live instance can answer.
+  and says so in a comment. `MOCK_FILENODE_V0=1` makes its FileNode reads answer
+  as 0.16 did, which is what the sign-in probe's test needs. Keep mock parity
+  when you change JMAP behaviour, and remember the mock proves nothing about a
+  server nobody has asked: the two questions below are the ones only a live
+  instance can answer.
 
 ## The JMAP surface Gilbert uses
 
@@ -61,9 +66,11 @@ Where the integration lives:
 
 - `web/src/jmap/client.ts` — request chain, upload/download of blobs, auth
   handling (a 401 signs the client out by design).
-- `web/src/jmap/types.ts` + `web/src/lib/filenode.ts` — wire shapes; FileNode
-  is the JMAP Files object (0.16: `nodeType` required, rights are four
-  separate `myRights` fields).
+- `web/src/jmap/types.ts` + `web/src/lib/filenode.ts` — the tree's own FileNode
+  vocabulary; the wire's is 1.0's (`@type` with `File`/`Directory`/`SymLink`,
+  `mediaType`), and `server/src/shared/filenode.ts` is the one boundary that
+  translates between the two on both JMAP transports. Rights are four separate
+  `myRights` fields.
 - `server/src/app.ts`, `sessions.ts`, `crypto.ts` — proxy, in-memory sealed
   sessions, sign-in. The server never holds a plaintext credential longer
   than the exchange; `IMMUTABLE=1` means no writable filesystem at all.
@@ -97,13 +104,16 @@ Where the integration lives:
   system documents) or a real JMAP object. If it must be readable before
   authentication, it is configuration, not account data.
 
-## Quirks confirmed live (0.16.x) — read before assuming
+## Quirks confirmed live — read before assuming
 
 - `FileNode/query` **cannot filter by `name`**; name filters are matched
   client-side (`web/src/lib/appFolder.ts`). A filter the server does not know
   fails the whole query.
-- `FileNode/query` masks directories out of its own results before 0.16; with
-  0.16 the mock and client send/respect `nodeType`.
+- `FileNode/query` masks directories out of its own results before 0.16, so the
+  client asks for them explicitly: on 1.0 the filter keeps the key `nodeType`
+  and takes `File`/`Directory`/`SymLink`, and the shared boundary is what writes
+  it. A create or update carrying the old `nodeType` is refused with
+  `invalidProperties`, which is the fail this tree hit live on 1.0.
 - `FileNode/set` returns **no `blobId` on create** — ask with a follow-up get
   (`nodeBlobId`).
 - A create whose name a sibling already carries is **refused**, not accepted:
@@ -145,7 +155,7 @@ Where the integration lives:
   see the mock's `checkAuth`). In-product 2FA *switch-on* is not built;
   Stalwart's own flows are OAuth-based.
 - The server does not publish its version to clients; Gilbert reports the
-  edition and gates sign-in on >= 0.16.
+  edition and gates sign-in on >= 1.0 by reading the FileNode shape.
 
 ## Administration and access control (Stalwart side)
 
@@ -479,7 +489,7 @@ citizen, and its changes ride the same push rail as Email:
    object); never introduce a Gilbert-side database or volume.
 2. When changing JMAP behaviour, keep `server/src/mock/index.ts` in step and
    say in a comment what the mock reproduces and what it does not.
-3. Confirm server-version-sensitive behaviour against a real 0.16.x server or
+3. Confirm server-version-sensitive behaviour against a real 1.0 server or
    the dated comments; note the check (version + date) in the code. Where only a
    real server can answer, the question is written down as owed (see *The live
    questions the mock cannot answer*) and asked by a `scripts/probe-*.mjs`

@@ -10,8 +10,8 @@ the mail core derives from after it.
 [ROADMAP.md](ROADMAP.md) is what Gilbert deliberately does **not** do and why;
 [KNOWN-ISSUES.md](KNOWN-ISSUES.md) is where Stalwart departs from a spec, the
 settings a feature needs, and what Gilbert deliberately does not do. Gilbert
-targets Stalwart **0.16** or newer and refuses older servers at sign-in, by
-name; the tree is followed against **0.16.23**.
+targets Stalwart **1.0** or newer and refuses older servers at sign-in, by
+name; the tree is followed against **1.0.0**.
 
 ## The shape of it
 
@@ -48,7 +48,7 @@ capability removes its feature rather than breaking the app.
 | `urn:ietf:params:jmap:filenode` | Files, attach-from-Files, **synced settings** | Files hides; settings fall back to this browser |
 | `urn:ietf:params:jmap:webpush-vapid` | Notifications with Gilbert closed | Only in-tab notifications |
 | `urn:ietf:params:jmap:emailpush` | Sender and subject inside a push payload | Push says "new mail" and nothing more |
-| `urn:stalwart:jmap` (per-account) | Password change, app passwords, 2FA state | **Sign-in is refused** — this is the 0.16 check |
+| `urn:stalwart:jmap` (per-account) | Password change, app passwords, 2FA state | **Sign-in is refused** — with the FileNode shape, this is the 1.0 check |
 | EventSource push | Live updates | Falls back to polling |
 | Push subscription fan-out | Live updates without one upstream stream per tab; the callback origin is derived from the request behind a trusted https proxy; a change re-reads what is on screen, not every listing opened | Falls back to the EventSource relay |
 
@@ -1808,7 +1808,8 @@ JMAP Contacts and JSContact.
 
 # Files
 
-JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
+JMAP `FileNode`, in the shape 1.0 defines (`@type`, `mediaType`, four separate
+rights), translated at the transport so the tree keeps `nodeType` and `type`.
 
 - **Folder tree** in the left pane, read up to a thousand folders in pages of what
   the server resolves, so opening a folder never waits on a round trip. **Collapsed by default, and remembered per reader**,

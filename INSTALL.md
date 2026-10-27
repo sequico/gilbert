@@ -12,7 +12,7 @@ each, is [.env.example](.env.example); the host installer's own story is in
 
 ## Before you start
 
-- **A Stalwart 0.16 server or newer**, and an account for the installation — the
+- **A Stalwart 1.0 server or newer**, and an account for the installation — the
   **Master** (`gilbert@…`) — with its own password, added to the groups it
   should work in. Creating it is *The Master account* below.
 - **A TLS reverse proxy** in front of the app:

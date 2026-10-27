@@ -13,9 +13,9 @@
 > in [ROADMAP.md](ROADMAP.md).
 
 Where Stalwart departs from a spec, the settings a feature needs, and what
-Gilbert deliberately does not do. The supported server is the **0.16** line —
-Stalwart **0.15 is not supported** — and each entry states how it behaves there.
-For what is not built yet, see [ROADMAP.md](ROADMAP.md).
+Gilbert deliberately does not do. The supported server is the **1.0** line —
+Stalwart **0.16 and older is not supported** — and each entry states how it
+behaves there. For what is not built yet, see [ROADMAP.md](ROADMAP.md).
 
 - **`npm run i18n:coverage` counts only what it can see; an unseen string renders
   English however many catalogues ship.** It reads JSX text, missing a
@@ -201,15 +201,22 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
   permission); the split is a list of exceptions, so later settings sync by
   default. Writes are debounced three seconds; tab close and sign-out flush. The
   `gilbert` folder is hidden from Files with its contents (hiding the folder alone
-  would reattach its nodes to the root). Requires 0.16 (`FileNode/query` cannot
+  would reattach its nodes to the root). Requires 1.0 (`FileNode/query` cannot
   see directories before it; sign-in refuses older). Two limits: conflicts are
   last-write-wins, and another open device sees a change only on its next sign-in.
 
-- **Files on 0.16** — every node carries a `nodeType` and rights are four flags,
-  not one `mayWrite`. Two fallbacks: `ensureFolder` and `findInFolder` filter on
-  `parentId`/`isTopLevel` alone and match names client-side (`name` is not a filter
-  Stalwart is known to implement, and an unknown one fails the whole query); a
-  refused filter or sort does not fall back to fetching every node.
+- **Files on 1.0** — the wire names a node's kind `@type` (`File`, `Directory`,
+  `SymLink`) and its MIME `mediaType`, while a create or an update that carries
+  the older `nodeType` is refused outright with `invalidProperties`. That is the
+  version Gilbert's sign-in probe reads: 0.16 and 1.0 publish the same server
+  version, so the shape of a node is the only honest question, and the older
+  answer is refused by name. Inside the tree the words stay `nodeType` and
+  `type` in lower case, and `server/src/shared/filenode.ts` is the one boundary
+  that translates. Rights are four flags, not one `mayWrite`. Two fallbacks:
+  `ensureFolder` and `findInFolder` filter on `parentId`/`isTopLevel` alone and
+  match names client-side (`name` is not a filter Stalwart is known to
+  implement, and an unknown one fails the whole query); a refused filter or sort
+  does not fall back to fetching every node.
 
 - **Destroying a non-empty folder without the cascade flag is refused with
   `nodeHasChildren`.** `FileNode/set { destroy: [aFolder] }` without

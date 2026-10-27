@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-2dd4bf?style=flat-square"></a>
-  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; followed against 0.16.23" src="https://img.shields.io/badge/Stalwart-0.16.23-6366f1?style=flat-square"></a>
+  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 1.0 or newer; followed against 1.0.0" src="https://img.shields.io/badge/Stalwart-1.0.0-6366f1?style=flat-square"></a>
   <a href="CONTRIBUTING.md"><img alt="Node 24 on the latest LTS line" src="https://img.shields.io/badge/Node-24-5fa04e?style=flat-square"></a>
   <a href="INSTALL.md"><img alt="Ships as a container image and a docker compose stack" src="https://img.shields.io/badge/Docker-image_%2B_compose-2496ed?style=flat-square"></a>
   <br>
@@ -214,16 +214,27 @@ JMAP only, to Stalwart; no own database; every durable byte lives in Stalwart.
 Features degrade gracefully by JMAP capability. The architecture decisions are
 one file each in [docs/adr](docs/adr/README.md).
 
+**The FileNode transport.** Stalwart 1.0 names a node's kind `@type` (`File`,
+`Directory`, `SymLink`) and its MIME `mediaType`; everything inside Gilbert —
+the stores, the run documents, the tests — calls them `nodeType` and `type` in
+lower case. The translation lives in one boundary both tiers share
+(`server/src/shared/filenode.ts`), applied by the two JMAP clients on every
+request and response, so no surface carries a second spelling of a FileNode.
+Speaking the wire's names throughout is the native form and is owed
+([ROADMAP.md](ROADMAP.md) and `ADR-0011 OWED: native-filenode-wire`): the
+boundary stays until that port lands.
+
 ## Requirements
 
-A [Stalwart](https://stalw.art) **0.16 or newer** server. Sign-in refuses older
-versions by name. Node 24 (the LTS line) for a host install; the container
-carries its own. Upgrading from 0.15 is a one-way migration — see
-[KNOWN-ISSUES.md](KNOWN-ISSUES.md) for the version notes.
+A [Stalwart](https://stalw.art) **1.0 or newer** server. Sign-in refuses an older
+one by name: the check reads the FileNode shape 1.0 introduced, so a 0.16 server
+is turned away before anything writes. Node 24 (the LTS line) for a host
+install; the container carries its own. Upgrading from 0.16 is a one-way
+migration — see [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for the version notes.
 
 ## Quick start
 
-**With Docker** — the published image, against a Stalwart 0.16+ you already run.
+**With Docker** — the published image, against a Stalwart 1.0+ you already run.
 Gilbert expects a TLS reverse proxy in front of it (see [INSTALL.md](INSTALL.md)):
 
 ```bash

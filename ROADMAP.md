@@ -210,3 +210,14 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   The agent needs no new capability: the chat message it is sent is the one the
   chat rule already watches.
 
+- **The FileNode wire is translated, not spoken.** Stalwart 1.0 names a node's
+  kind `@type` (`File`, `Directory`, `SymLink`) and its MIME `mediaType`;
+  everything inside Gilbert names them `nodeType` and `type` in lower case, and
+  `server/src/shared/filenode.ts` translates on both JMAP transports. That
+  boundary is correct and pinned by tests, and it is a translation rather than
+  the native form: one extra map per FileNode call, and two vocabularies a
+  reader has to know to follow a FileNode from a view to the server. The native
+  port — the wire's names throughout, the adapter deleted — is owed
+  (`ADR-0011 OWED: native-filenode-wire`) and touches every store, view and
+  document that names a node today, which is why it is not a drive-by rename.
+
