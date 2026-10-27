@@ -354,6 +354,27 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
   );
 });
 
+test("a prompt names no tool this build does not have", async () => {
+  /*
+   * One action, one name (ADR 0038): the endpoints a verb routes to are internal.
+   * A dotted name in a prompt is one the model can write and no catalogue holds —
+   * a turn told to spell `read.brief` answered `read.open` for `open`, and the
+   * refusal ended the pass before its run was opened.
+   */
+  seen = [];
+  answers = [];
+  answerWith({ facts: {} });
+  await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, prose },
+    toolCall(),
+  );
+  const named = [...MESSAGE(0).matchAll(/`([a-z][a-z0-9-]*\.[a-z][a-z0-9-]*)`/g)].map(
+    (one) => one[1],
+  );
+  assert.deepEqual(named, [], "every name a prompt states is one the catalogue holds");
+});
+
 test("the turn may look the group's own state up with the reading tools, and not with anything else", async () => {
   /*
    * A name the reading catalogue does not hold is refused **and told back**: the turn
