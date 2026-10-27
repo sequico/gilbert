@@ -23,6 +23,14 @@ const NODE = (id: string, parentId: string | null = null) =>
 const queriesOf = (srv: JmapFake): Array<Record<string, unknown>> =>
   srv.callsTo("FileNode/query").map((call) => call.args);
 
+/**
+ * Whether a query was the sidebar tree's — it is the only one that filters on a
+ * node's kind. The value is the wire's (`Directory`, translated on its way out
+ * by `shared/filenode.ts`), so the assertion is on the key, not the spelling.
+ */
+const isTreeQuery = (args: Record<string, unknown>): boolean =>
+  "nodeType" in ((args.filter as Record<string, unknown>) ?? {});
+
 beforeEach(() => {
   client.session = {
     capabilities: {
@@ -58,14 +66,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
       draggingIds: [],
     });
     useFiles.getState().applyChanges(new Set(["FileNode"]));
-    await vi.waitFor(() =>
-      expect(
-        queriesOf(srv).some(
-          (q) =>
-            (q.filter as { nodeType?: string } | undefined)?.nodeType === "Directory",
-        ),
-      ).toBe(true),
-    );
+    await vi.waitFor(() => expect(queriesOf(srv).some(isTreeQuery)).toBe(true));
   });
 
   it("leaves a tree that is not on screen alone", async () => {
@@ -88,11 +89,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
     // Nothing is open to reload and no tree is drawn; give any stray call a
     // chance to appear before asserting none did.
     await new Promise((r) => setTimeout(r, 0));
-    expect(
-      queriesOf(srv).some(
-        (q) => (q.filter as { nodeType?: string } | undefined)?.nodeType === "directory",
-      ),
-    ).toBe(false);
+    expect(queriesOf(srv).some(isTreeQuery)).toBe(false);
   });
 
   it("re-reads the listing on screen, and only that one", async () => {
