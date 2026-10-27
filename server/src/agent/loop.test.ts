@@ -2149,6 +2149,34 @@ test("a chat message that answers nothing can be answered by the fast path", asy
   );
 });
 
+test("a pass given up on starts no new work, and says nothing", async () => {
+  /*
+   * The supervisor gives a pass up by aborting the context it was handed
+   * (`PASS_WATCHDOG_MS`). A pass already given up on must not open a run, ask the
+   * model or post an answer: what it does from here is the next pass's.
+   */
+  await putInstruction(["chat"]);
+  const agent = loop();
+  await agent.start();
+  answerWith({ reply: "this must never be said" });
+  await postChatMessage(ctx, accountId, "sam@example.org", "please answer this");
+  const control = new AbortController();
+  control.abort();
+  const summary = await agent.pass(new Date(), control.signal);
+
+  assert.equal(summary.runs, 0, "no run opens");
+  assert.equal(
+    seen.filter((call) => isDecision(call.system)).length,
+    0,
+    "and the model is not asked",
+  );
+  assert.equal(
+    (await findChatMessages(ctx, accountId, "this must never be said", 5)).length,
+    0,
+    "so nothing is said either",
+  );
+});
+
 test("a run stopped while the agent works it is not overwritten, and no step follows", async () => {
   /*
    * The fourth ending is the person's (ADR 0030): the document they stopped is

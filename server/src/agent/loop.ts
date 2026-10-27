@@ -715,8 +715,6 @@ export class AgentLoop {
    * moment, so a grant added or withdrawn needs no restart.
    */
   private async workPass(now: Date): Promise<PassSummary> {
-    this.reading = null;
-    this.instructions.clear();
     const summary: PassSummary = {
       claimed: false,
       accounts: 0,
@@ -727,11 +725,29 @@ export class AgentLoop {
       ms: 0,
       gaps: [],
     };
+    try {
+      await this.workClaimed(now, summary);
+    } catch (err) {
+      /*
+       * A pass given up on stops where it is: the abort the supervisor took is its
+       * own doing, not a failure of the installation, and the summary says what it
+       * managed before it went. Anything else is thrown, as before.
+       */
+      if (!this.givenUp) throw err;
+      summary.gaps.push("the pass was given up on, and stopped where it was");
+    }
+    return summary;
+  }
+
+  /** The body of a pass, from the claim on: what `workPass` wraps. */
+  private async workClaimed(now: Date, summary: PassSummary): Promise<void> {
+    this.reading = null;
+    this.instructions.clear();
     const claim = await takeClaim(this.ctx, this.opts.holder, now);
-    if (!claim) return summary;
+    if (!claim) return;
     this.claimExpires = claim.expires;
     if (Date.parse(claim.expires) - now.getTime() <= CLAIM_RENEW_WITHIN_MS) {
-      if (!(await renewClaim(this.ctx, this.opts.holder, now))) return summary;
+      if (!(await renewClaim(this.ctx, this.opts.holder, now))) return;
       this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     }
     summary.claimed = true;
@@ -794,7 +810,7 @@ export class AgentLoop {
     if (!model) {
       setRunningModelAccess(null);
       summary.gaps.push("the installation names no model, so this pass worked nothing");
-      return summary;
+      return;
     }
     this.access = model;
     this.limits = limits;
@@ -927,7 +943,7 @@ export class AgentLoop {
         }),
       );
       summary.gaps.push("the agent is turned off for this installation");
-      return summary;
+      return;
     }
     /*
      * A group the Master no longer works keeps no queued alarm: the queue is
@@ -1117,7 +1133,7 @@ export class AgentLoop {
       if (!(err instanceof PassStopped)) throw err;
       summary.gaps.push(err.reason);
       this.opts.log?.(`[gilbert] agent: the pass stopped: ${err.reason}`);
-      return summary;
+      return;
     }
     /*
      * The memory is read on the first change that needs it, not at the top of
@@ -1126,7 +1142,7 @@ export class AgentLoop {
      */
     for (const problem of await this.memoryProblems())
       summary.gaps.push(`memory: ${problem}`);
-    return summary;
+    return;
   }
 
   /**
@@ -1213,6 +1229,9 @@ export class AgentLoop {
         runs.add(run.id);
     }
     for (const id of runs) {
+      // A pass given up on starts no further run: what it already worked is on the
+      // record, and the pass after it picks the rest up.
+      if (this.givenUp) break;
       const index = at.get(id);
       const record = index === undefined ? null : records[index];
       if (!record) continue;
