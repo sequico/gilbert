@@ -33,7 +33,12 @@ import {
 } from "../appFolder.js";
 import { FILE_PROPS, STAMP_PROPS } from "./../shared/appFolder.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
-import { parseRunDocumentDetailed, type RunDoc, type RunListing } from "../shared/run.js";
+import {
+  byRecency,
+  parseRunDocumentDetailed,
+  type RunDoc,
+  type RunListing,
+} from "../shared/run.js";
 
 /** Where a group's runs live under its app folder: the one path constant. */
 export const RUNS_DIR = "runs";
@@ -233,6 +238,20 @@ export async function pageRunsForReading(
       rows.push({ id: runId, run: null, problem: errorMessage(err) });
     }
   }
+  /*
+   * The page is **cut** by the folder and **read** newest first. The cut must be
+   * the folder's, or a document whose two orders disagree (a run written before
+   * `startedAt` existed counts from its ending) falls between two cursors and is
+   * never drawn; the order is recency's, because a list is read for what is
+   * happening now. Ordering after the cut keeps both: nothing is dropped, and the
+   * rows a person sees are the newest of them, whatever order the folder filed
+   * them in.
+   */
+  rows.sort((a, b) =>
+    a.run && b.run
+      ? byRecency(a.run, b.run)
+      : (a.run ? 0 : 1) - (b.run ? 0 : 1) || a.id.localeCompare(b.id),
+  );
   return {
     rows,
     more: chosen.length > limit,
