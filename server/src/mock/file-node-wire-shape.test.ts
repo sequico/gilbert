@@ -85,3 +85,14 @@ test("a create in 1.0's words is written, and the read answers in them", async (
     "the wire carries 1.0's names only",
   );
 });
+
+test("the filter's value is case-sensitive, as 1.0 matches it", async () => {
+  const asked = async (value: string) => {
+    const responses = await jmap([
+      ["FileNode/query", { accountId: ACCOUNT, filter: { nodeType: value } }, "q"],
+    ]);
+    return (responseOf(responses, "q")[1].ids as string[]).length;
+  };
+  assert.ok((await asked("Directory")) > 0, "the wire's value finds the folders");
+  assert.equal(await asked("directory"), 0, "the old lower-case value finds nothing");
+});

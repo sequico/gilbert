@@ -4805,10 +4805,11 @@ const handlers: Record<string, Handler> = {
         f.isTopLevel ? n.parentId != null : f.parentId ? n.parentId !== f.parentId : false
       )
         return false;
-      // 1.0 keeps the filter's key and changes its values: `Directory` on the
-      // wire is `directory` in this store.
-      const kind = typeof f.nodeType === "string" ? f.nodeType.toLowerCase() : undefined;
-      if (kind && n.nodeType !== kind) return false;
+      // 1.0 keeps the filter's key and changes its values, and matches them
+      // case-sensitively: `Directory` on the wire is `directory` in this store,
+      // and a lower-case `directory` matches nothing at all.
+      if (f.nodeType != null && n.nodeType !== fileNodeLocalKind(f.nodeType))
+        return false;
       return true;
     });
     // Position/limit paging, the way a real JMAP server answers it: the ids
