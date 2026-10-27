@@ -43,7 +43,7 @@ case sent, and the case the account holds — the knowledge base's page titles a
 group's Files two levels deep, names only (`caseOf`, `StepQuestion.case`) — plus, for a
 case bigger than a turn, the **reader**: `open` carries `brief`, one question answered
 in a few lines by `decideEvent` asked a question instead of shown a change (the same
-write-free catalogue, one lookup, an answer of `lines`, and no act), so the
+write-free catalogue, the same lookups, an answer of `lines`, and no act), so the
 investigation stays in its own context (`agent/tools/reader.ts`). **No ceiling ends a
 run:** the ceilings this record refuses are gone from the loop (`overBudget` and the
 run's step, call, time and token endings), and the valve is `RUN_MODEL_CALLS_MAX`. The turn

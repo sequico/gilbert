@@ -480,12 +480,7 @@ export async function workChanges(
     for (const problem of listed.problems) summary.gaps.push(`${accountId}: ${problem}`);
     held = listed.records;
   }
-  for (const swept of await unansweredChat(
-    deps.ctx,
-    accountId,
-    held,
-    deps.cursors.get(accountId)?.seen ?? {},
-  ))
+  for (const swept of await unansweredChat(deps.ctx, accountId, held))
     if (!events.some((event) => event.source === "chat" && event.where === swept.where))
       events.push(swept);
   if (!events.length) {
@@ -743,19 +738,9 @@ export async function workChanges(
           decision.text,
           message?.id ? { replyTo: message.id } : {},
         );
-        /*
-         * A reply leaves no run behind, and the folder sweep reads "no run names
-         * this message" as work still to do: the same sentence was answered again on
-         * the next pass, and again (live, 2026-10-27, twice in a minute). The
-         * message is marked answered in the cursor instead, which is where the sweep
-         * asks.
-         */
-        const cursor = deps.cursors.get(accountId);
-        if (cursor && event.where)
-          deps.cursors.set(accountId, {
-            ...cursor,
-            seen: { ...cursor.seen, [`chat:${event.where}`]: new Date().toISOString() },
-          });
+        // The reply is the newest message in the folder from now on, and the sweep
+        // skips the agent's own words by their author: nothing else is needed to
+        // keep it from being answered twice.
         continue;
       }
     }
@@ -824,8 +809,6 @@ async function unansweredChat(
   ctx: Ctx,
   accountId: string,
   held: readonly RunRecord[],
-  /** Messages already answered without a run — a fast reply marks one here. */
-  seen: Readonly<Record<string, string>> = {},
 ): Promise<AccountEvent[]> {
   const folderId = await findFolderPath(
     ctx,
@@ -847,10 +830,7 @@ async function unansweredChat(
   const newest = nodes.find((node) => answered.has(`chat created: ${pathOf(node)}`));
   const after = newest ? nodeStamp(newest) : "";
   const unworked = nodes.filter(
-    (node) =>
-      !answered.has(`chat created: ${pathOf(node)}`) &&
-      !(`chat:${pathOf(node)}` in seen) &&
-      nodeStamp(node) > after,
+    (node) => !answered.has(`chat created: ${pathOf(node)}`) && nodeStamp(node) > after,
   );
   return (newest ? unworked : unworked.slice(0, 1))
     .slice(0, CHAT_SWEEP_MAX)

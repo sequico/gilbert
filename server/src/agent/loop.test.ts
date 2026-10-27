@@ -2128,6 +2128,25 @@ test("a chat message that answers nothing can be answered by the fast path", asy
   const said = await findChatMessages(ctx, accountId, "Acknowledged", 5);
   assert.equal(said[0]?.text, "Acknowledged, @sam — no harm done.");
   assert.equal(seen.filter((call) => isDecision(call.system)).length, 1);
+
+  /*
+   * The reply leaves no run behind, and the folder sweep reads "no run names this
+   * message" as work still to do: without the mark the reply leaves in the cursor,
+   * the next pass asks the model again and answers the same sentence — which is what
+   * one installation did twice in a minute.
+   */
+  const again = await agent.pass();
+  assert.equal(again.runs, 0);
+  assert.equal(
+    (await findChatMessages(ctx, accountId, "Acknowledged", 5)).length,
+    1,
+    "the same message is answered once, however many passes follow",
+  );
+  assert.equal(
+    seen.filter((call) => isDecision(call.system)).length,
+    1,
+    "and it is not put to the decision turn again",
+  );
 });
 
 test("a run stopped while the agent works it is not overwritten, and no step follows", async () => {
