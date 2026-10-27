@@ -550,6 +550,18 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    * What a list gets is only what it can be asked: a folder is not
    * downloadable, so a selection holding none offers no Download.
    */
+  /**
+   * Whether these nodes may be deleted, by the one rule both places ask.
+   *
+   * Two entries carried two answers: the selection's was enabled outside the
+   * Trash whatever the node said, and a single row's asked `mayDelete`. One action,
+   * one gate — and the gate is what the **server** will allow, so an entry is never
+   * offered for a write that is going to be refused. Inside the Trash the entry
+   * ends the nodes for good, which is the rule `mayEndFiles` states.
+   */
+  const mayDeleteNodes = (list: FileNode[]) =>
+    inTrash ? mayEnd : list.every((node) => node.myRights?.mayDelete !== false);
+
   const groupActions = (list: FileNode[]) => {
     const withBytes = downloadable(list);
     /*
@@ -620,8 +632,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                   })
             }
             /* Inside the Trash the entry ends the nodes, so it is offered only
-               where the rule allows that. */
-            disabled={inTrash && !mayEnd}
+               where the rule allows that; outside it, only where the node's own
+               rights allow a delete. */
+            disabled={!mayDeleteNodes(actionable)}
             onClick={() => void removeNodes(actionable)}
           />
         )}
@@ -1208,7 +1221,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
               danger
               icon={<Trash2 size={16} />}
               label={inTrash ? t("Delete permanently") : t("Delete")}
-              disabled={inTrash ? !mayEnd : !menuNode.myRights?.mayDelete}
+              disabled={inTrash ? !mayEnd : !mayDeleteNodes([menuNode])}
               onClick={() => void removeNodes([menuNode])}
             />
           </>
