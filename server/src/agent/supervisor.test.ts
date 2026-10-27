@@ -1,101 +1,767 @@
 /**
- * The supervisor's own behaviour, pinned without a model or a mail server (ADR 0038).
+ * The agent the server's boot starts (ADR 0038, 0030, 0032).
  *
- * What is tested here is the one thing that goes wrong without a line: a pass that
- * never returns. Every call inside a pass has its own timeout, so a pass still
- * running after `PASS_WATCHDOG_MS` is the loop stuck where no timeout reaches — and
- * left alone it holds the schedule for ever, which reads as an idle agent.
+ * What is pinned here is the supervisor's own contract, one mechanism per test,
+ * and each of them is a mechanism rather than a run of the code:
+ *
+ * - an installation that has chosen no model starts the agent all the same, with
+ *   one line, so a model published later is picked up by the next pass;
+ * - a Master that works no group has an agent all the same, because the groups
+ *   are read on every pass and not decided at the start;
+ * - the accounts one pass works are read from the mail server each time, so a
+ *   group added in Stalwart's directory is picked up without a restart;
+ * - anything else the agent cannot resolve is a line too, never a failed boot;
+ * - a pass is asked every ten seconds, and one at a time;
+ * - a pass that worked and found nothing to do writes nothing at all;
+ * - the Master working no group is said once, and once again when it holds one;
+ * - a pass that throws is logged and the next one still runs, except a full
+ *   upload allowance, which pauses the schedule until the window drains;
+ * - a claim a peer holds is waited out, not fought for, and not reported as a
+ *   failure;
+ * - `stop()` gives up the schedule.
+ *
+ * The loop is a stand-in: what the supervisor owes a caller is when it asks and
+ * what it does with the answer, and the loop's own work is pinned in
+ * `loop.test.ts`. The two reads the accounts are resolved with are asked of a
+ * mail server that is deliberately tiny — a session and a mail store, and no
+ * more (`mailServer` below) — because what is pinned is that the answer is read
+ * afresh, not what Stalwart answers.
  */
+
 import assert from "node:assert/strict";
-import test from "node:test";
-import { setImmediate as settle } from "node:timers/promises";
-import { PASS_WATCHDOG_MS, supervise } from "./supervisor.js";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { after, test } from "node:test";
+import type { Ctx } from "../appFolder.js";
+import type { BootConfiguration } from "../bootstrap.js";
+import { freePort } from "../testkit.js";
+import type { UpstreamSession } from "../upstream.js";
+import type { PassSummary } from "./loop.js";
+import type { PassableLoop } from "./supervisor.js";
 
-test("a pass that does not return is given up on, and the next one waits for it", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const lines: string[] = [];
-  let started = 0;
-  const loop = {
-    pass: async (_now?: Date, signal?: AbortSignal) => {
-      started += 1;
-      if (started === 1) {
-        // The pass obeys the abort the supervisor hands it, like every request it
-        // makes: nothing else can stop one that is stuck.
-        await new Promise<void>((resolve) =>
-          signal?.addEventListener("abort", () => resolve(), { once: true }),
-        );
-        assert.equal(started, 1, "no second pass runs beside the one given up on");
-        throw new DOMException("aborted", "AbortError");
-      }
-      return {
-        claimed: true,
-        accounts: 1,
-        changes: 0,
-        runs: 0,
-        due: 0,
-        tokens: 0,
-        ms: 1,
-        gaps: [],
-      };
+/*
+ * The environment is staged before anything that reads it is imported, because
+ * the configuration is resolved when `config.ts` first loads: a test process has
+ * no deployment's secret, and stating one here is what keeps it from minting an
+ * ephemeral one and warning about it. `STALWART_URL` is the tiny mail server
+ * below, which is where `resolveGroupAccounts` re-reads the Master's session.
+ */
+process.env.APP_SECRET = "test-secret-for-the-agent-supervisor";
+const SESSION_PORT = await freePort();
+process.env.STALWART_URL = `http://127.0.0.1:${SESSION_PORT}`;
+
+const { environmentConfiguration } = await import("../configuration.js");
+const { installationDefaults } = await import("../shared/installation.js");
+const {
+  resolveGroupAccounts,
+  startAgent,
+  supervise,
+  AGENT_PASS_INTERVAL_MS,
+  QUOTA_PAUSE_MS,
+} = await import("./supervisor.js");
+// Imported after the environment is staged: `upstream.ts` reads `config.ts`,
+// which resolves `STALWART_URL` when it first loads.
+const { UpstreamError } = await import("../upstream.js");
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Wait until `done` answers true, or give up after a generous bound.
+ *
+ * The supervisor's own schedule is what a test here is standing on, and the
+ * passes it asks are the caller's to observe. A test that needs a pass to have
+ * happened therefore waits on the state that pass produced, never on a duration:
+ * a sleep long enough on an idle box is a window too short on a loaded one, and
+ * a full-suite run is the loaded case — which is how the claim test went flaky
+ * (`0 !== 1`, a pass that had not fitted inside the window). The bound is long
+ * enough that reaching it is a real failure of the mechanism being pinned, not
+ * of the machine.
+ */
+async function waitFor(done: () => boolean, timeoutMs = 2_000): Promise<void> {
+  const until = Date.now() + timeoutMs;
+  while (!done() && Date.now() < until) await sleep(5);
+}
+
+/* ------------------------------------------------------------------ */
+/* The loop the supervisor asks, and the lines it writes               */
+/* ------------------------------------------------------------------ */
+
+/** A pass of the loop, with nothing claimed unless the stand-in says otherwise. */
+function passSummary(claimed: boolean, accounts = 1): PassSummary {
+  return { claimed, accounts, changes: 0, runs: 0, due: 0, tokens: 0, ms: 1, gaps: [] };
+}
+
+interface StandIn {
+  loop: PassableLoop;
+  /** How many passes were asked of it. */
+  passes: number;
+  /** The most passes in flight at once, which must never be two. */
+  mostAtOnce: number;
+  /** How long a pass takes. A pass slower than the interval is the guard's case. */
+  holdMs: number;
+  /** Whether a pass answers that a peer holds the installation. */
+  held: boolean;
+  /** The accounts a pass answers it worked: zero is a Master holding no group. */
+  accounts: number;
+  /** Make the next `count` passes throw instead of working. */
+  failNext: (count: number, reason?: unknown) => void;
+  /** Whether the loop's own alarms were given up. */
+  stopped: boolean;
+  /** Make the next `count` passes answer only when the supervisor aborts them. */
+  hangNext: (count: number) => void;
+  /** The abort the last pass was handed, for the tests that give a pass up. */
+  signal: AbortSignal | undefined;
+  /** Whether the last pass ended because it was aborted. */
+  aborted: boolean;
+}
+
+function standInLoop(): StandIn {
+  let failures = 0;
+  let failure: unknown = new Error("the mail server did not answer");
+  let active = 0;
+  let hang = 0;
+  const state: StandIn = {
+    passes: 0,
+    mostAtOnce: 0,
+    holdMs: 1,
+    held: false,
+    accounts: 1,
+    stopped: false,
+    signal: undefined,
+    aborted: false,
+    failNext: (count: number, reason?: unknown) => {
+      failures = count;
+      if (reason !== undefined) failure = reason;
     },
-    stop: () => {},
+    hangNext: (count: number) => {
+      hang = count;
+    },
+    loop: {
+      async pass(_now?: Date, signal?: AbortSignal): Promise<PassSummary> {
+        state.passes += 1;
+        active += 1;
+        state.mostAtOnce = Math.max(state.mostAtOnce, active);
+        state.signal = signal;
+        state.aborted = false;
+        if (hang > 0) {
+          hang -= 1;
+          // A pass given up on stops at its abort, like every request it makes.
+          await new Promise<void>((resolve) =>
+            signal?.addEventListener("abort", () => resolve(), { once: true }),
+          );
+          state.aborted = true;
+        } else await sleep(state.holdMs);
+        active -= 1;
+        if (failures > 0) {
+          failures -= 1;
+          throw failure;
+        }
+        return passSummary(!state.held, state.accounts);
+      },
+      stop(): void {
+        state.stopped = true;
+      },
+    },
   };
-  const agent = supervise({
-    loop,
-    // Long enough that the interval never fires inside this test: the watchdog is
-    // the only clock here.
-    intervalMs: 24 * 60 * 60_000,
-    log: (line) => lines.push(line),
-  });
-  await settle();
-  assert.equal(started, 1, "the first pass starts at once");
+  return state;
+}
 
-  t.mock.timers.tick(PASS_WATCHDOG_MS);
-  await settle();
+/** The lines a supervised process wrote, and the one it is watched through. */
+function collector(): { lines: string[]; log: (line: string) => void } {
+  const lines: string[] = [];
+  return { lines, log: (line: string) => lines.push(line) };
+}
+
+const failuresIn = (lines: readonly string[]): string[] =>
+  lines.filter((line) => line.includes("the pass failed"));
+
+/** The lines a pass wrote, which is every line but the one the start writes. */
+const passLinesIn = (lines: readonly string[]): string[] =>
+  lines.filter((line) => !line.includes("asking for a pass every"));
+
+/* ------------------------------------------------------------------ */
+/* The mail server the accounts are resolved against                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The smallest mail server `resolveGroupAccounts` can be asked of: a session
+ * resource and a mail store, and nothing else.
+ *
+ * The groups a session lists are held in `groupAccounts` and **mutated by the
+ * tests**, which is the whole point: a group added to this list between two
+ * reads is an administrator adding the Master to a group in Stalwart's own
+ * directory, and the session that lists it is only ever seen by a caller that
+ * asks the server again. The mail store answers a folder for any account, which
+ * is what makes an account a group mailbox to the one classifier
+ * (`groupAccess.ts`'s probe).
+ */
+let groupAccounts: Array<[string, { name: string; isPersonal: boolean }]> = [];
+/** How many mail-store probes the classifier has made, which is what a pass costs. */
+let probes = 0;
+
+const mailServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+  const send = (body: unknown): void => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(body));
+  };
+  if (req.url?.startsWith("/.well-known/jmap")) {
+    send({
+      capabilities: {},
+      accounts: Object.fromEntries([
+        ...groupAccounts,
+        ["own", { name: "gilbert@example.com", isPersonal: true }],
+      ]),
+      primaryAccounts: {},
+      username: "gilbert@example.com",
+      apiUrl: `http://127.0.0.1:${SESSION_PORT}/jmap/`,
+      state: "1",
+    });
+    return;
+  }
+  probes += 1;
+  send({
+    methodResponses: [
+      ["Mailbox/get", { list: [{ id: "inbox", name: "Inbox", role: "inbox" }] }, "r"],
+    ],
+  });
+});
+await new Promise<void>((resolve) =>
+  mailServer.listen(SESSION_PORT, "127.0.0.1", resolve),
+);
+after(() => mailServer.close());
+
+/* ------------------------------------------------------------------ */
+/* The boot, and the installation the agent resolves itself against     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The session a boot hands over.
+ *
+ * `apiUrl`/`baseUrl` are a port nothing listens on: the session is only ever a
+ * stand-in for a boot that has happened (`startAgent` never signs in — the
+ * server's boot did), and nothing resolves the agent's groups from it — that
+ * read goes to the mail server every pass (`resolveGroupAccounts`).
+ */
+const SESSION = {
+  capabilities: {},
+  accounts: {},
+  primaryAccounts: {},
+  username: "gilbert@example.com",
+  apiUrl: "http://127.0.0.1:1/api",
+  downloadUrl: "http://127.0.0.1:1/download",
+  uploadUrl: "http://127.0.0.1:1/upload",
+  eventSourceUrl: "http://127.0.0.1:1/eventsource",
+  state: "1",
+  baseUrl: "http://127.0.0.1:1",
+} satisfies UpstreamSession;
+
+/** The account a stand-in boot's session carries: group-shaped, and nothing else. */
+const GROUP_ACCOUNT = { name: "team@example.org", isPersonal: false };
+
+interface BootOptions {
+  /** A model in the installation's document. On unless a test says otherwise. */
+  model?: boolean;
+  /** What the boot's own session carries. The agent works what the server answers. */
+  accounts?: Record<string, unknown>;
+}
+
+/** A boot that resolved, as the agent sees it. */
+function bootState(options: BootOptions = {}): BootConfiguration {
+  return {
+    installation: {
+      ...installationDefaults(),
+      secret: "an-installation-secret-long-enough-to-seal-a-session-with",
+      agent:
+        options.model === false
+          ? {}
+          : {
+              provider: {
+                provider: "example",
+                model: "a-model",
+                baseUrl: "https://models.example.com/v1",
+                apiKey: "a-key",
+              },
+            },
+    },
+    configuration: environmentConfiguration({
+      APP_SECRET: "test-secret-for-the-agent-supervisor",
+    }),
+    master: {
+      address: "gilbert@example.com",
+      authorization: "Basic dGVzdA==",
+      session: {
+        ...SESSION,
+        accounts: options.accounts ?? { ag1: GROUP_ACCOUNT },
+      },
+    },
+    accountId: "ag1",
+    created: false,
+    stalwartUrl: "http://127.0.0.1:1",
+  };
+}
+
+/* ------------------------------------------------------------------ */
+
+test("an installation that has chosen no model starts the agent, with one line", async (t) => {
+  /*
+   * The loop starts even with no model: each pass re-reads the document, so a
+   * model published from Administration is in force on the next pass instead of
+   * needing a restart. The one line says which state the installation is in.
+   */
+  const { lines, log } = collector();
+  const agent = await startAgent(bootState({ model: false }), { log });
+  assert.ok(agent, "the agent starts, so a model published later is picked up");
+  t.after(() => agent.stop());
+  assert.match(lines[0] ?? "", /chosen no model/);
+});
+
+test("a Master that works no group has an agent all the same", async (t) => {
+  /*
+   * The shape this replaces decided the question once, at the start, and
+   * answered null — which is exactly what made a group added in Stalwart's
+   * directory need a restart. Nothing about the Master's groups is decided by
+   * the boot now: it starts an agent, and every pass asks for the accounts
+   * (`resolveGroupAccounts` below, `loop.ts`).
+   *
+   * What this server answers is a session and a mail store and nothing else, so
+   * the pass that follows fails on the claim and says so — the pass is not what
+   * this test pins. What is pinned is the boot's own decision, and the one line
+   * a start writes: the interval it will ask on, and no verdict about groups.
+   */
+  const { lines, log } = collector();
+  const agent = await startAgent(bootState(), { log });
+  assert.ok(agent, "there is an agent, whatever the Master works");
+  t.after(() => agent.stop());
   assert.match(
-    lines.join("\n"),
-    /had not returned in 5 minutes and was given up on/,
-    "the pass is given up on, and it is said",
+    lines[0] ?? "",
+    /asking for a pass every/,
+    "and the start writes the one line it writes",
+  );
+});
+
+test("the groups are read from the server on every pass, not from the session the start held", async () => {
+  /*
+   * The membership itself is `loop.test.ts`'s mechanism (the loop asks for the
+   * accounts on every pass); what is pinned here is that the answer is read from
+   * the mail server each time rather than from the session the process started
+   * with. The starting session in this test is the stand-in at a port nothing
+   * listens on, and it knows of no group at all — so a caller that resolved from
+   * it could never see the group added below.
+   */
+  const ctx: Ctx = {
+    authorization: "Basic dGVzdA==",
+    session: { ...SESSION, accounts: {} },
+    username: "gilbert@example.com",
+  };
+  groupAccounts = [];
+  assert.deepEqual(await resolveGroupAccounts(ctx), [], "nothing to work yet");
+
+  groupAccounts = [["ag1", { name: "team@example.org", isPersonal: false }]];
+  assert.deepEqual(
+    await resolveGroupAccounts(ctx),
+    ["ag1"],
+    "the group added in the directory since is worked by the next read",
+  );
+});
+
+test("an unchanged roster is not probed again, and a moved one is", async () => {
+  /*
+   * The session is read on every pass — that is what makes a grant added in
+   * Stalwart's own directory visible without a restart — but the mail-store probe
+   * that follows it is a round trip per candidate, and what it answers cannot have
+   * changed while the session names the same candidates. So the first pass probes
+   * for real, a pass whose candidates are the same as the last one's reuses the
+   * roster, and a candidate added, removed or renamed probes again.
+   */
+  const ctx: Ctx = {
+    authorization: "Basic dGVzdA==",
+    session: { ...SESSION, accounts: {} },
+    username: "gilbert@example.com",
+  };
+  groupAccounts = [["ag1", { name: "team@example.org", isPersonal: false }]];
+  probes = 0;
+
+  assert.deepEqual(await resolveGroupAccounts(ctx), ["ag1"], "the first pass works");
+  assert.equal(probes, 1, "and probes the candidate for a mail store");
+
+  probes = 0;
+  assert.deepEqual(
+    await resolveGroupAccounts(ctx),
+    ["ag1"],
+    "the next pass works it too",
+  );
+  assert.equal(
+    probes,
+    0,
+    "and asks the mail store nothing: the roster cannot have moved",
   );
 
-  // The kick the end of that pass asks for is debounced, like any other.
-  t.mock.timers.tick(1_000);
-  await settle();
-  assert.equal(started, 2, "and the next pass starts once the stuck one is gone");
-  assert.match(lines.join("\n"), /the pass given up on has ended/);
+  probes = 0;
+  groupAccounts = [
+    ["ag1", { name: "team@example.org", isPersonal: false }],
+    ["ag2", { name: "other@example.org", isPersonal: false }],
+  ];
+  assert.deepEqual(
+    await resolveGroupAccounts(ctx),
+    ["ag1", "ag2"],
+    "a group the Master is added to is worked by the pass that follows",
+  );
+  assert.equal(probes, 2, "and both candidates are probed, the new one among them");
+});
 
-  await agent.stop();
+test("an agent whose conditions cannot be resolved is a line, not a failed boot", async () => {
+  /*
+   * The guard's own shape: a document this build cannot read at all. It cannot
+   * come from a boot of a build this one is (the parser is stricter), which is
+   * the point — whatever else goes wrong while the agent resolves itself is one
+   * line and an idle agent, never a server that fell over.
+   */
+  const { lines, log } = collector();
+  const broken = bootState();
+  (broken.installation as { agent?: unknown }).agent = undefined;
+  const agent = await startAgent(broken, { log });
+  assert.equal(agent, null, "no agent");
+  assert.equal(lines.length, 1, "one line");
+  assert.match(lines[0] ?? "", /it could not be started/);
+});
+
+test("a pass is asked on the interval, one at a time", async (t) => {
+  const stand = standInLoop();
+  /*
+   * A pass slower than the interval, which is the case the guard is for: two
+   * passes of one process in flight would work the same run twice, which is the
+   * thing the claim prevents between processes. The stand-in's own passes are
+   * shorter than the interval everywhere else, so this is where the guard shows.
+   */
+  stand.holdMs = 20;
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 5, log });
+  t.after(() => process.stop());
+  await sleep(120);
+  assert.ok(stand.passes >= 3, `the interval kept asking (${stand.passes} passes)`);
+  assert.equal(stand.mostAtOnce, 1, "a slower pass is never overtaken");
+  assert.equal(failuresIn(lines).length, 0, "and nothing was reported as failed");
+});
+
+test("the interval is ten seconds, and the start says so", async (t) => {
+  /*
+   * The number itself is the owner's decision and not a setting: ten seconds is
+   * what makes a group the Master is added to be worked by the next pass and a
+   * dated wait be picked up close to its instant, and it is what the line a
+   * person reads on the console states.
+   */
+  const stand = standInLoop();
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, log });
+  t.after(() => process.stop());
+  assert.equal(AGENT_PASS_INTERVAL_MS, 10_000, "a pass is asked every ten seconds");
+  assert.equal(
+    lines[0],
+    "[gilbert] agent: asking for a pass every 10 s, or 30 s while the wake stream is connected",
+    "and the start says which interval it is on",
+  );
+});
+
+test("a pass that worked and found nothing to do writes nothing", async (t) => {
+  /*
+   * Asserted on the lines the process wrote rather than on the pass not
+   * throwing: what a pass worked is the run documents, and a quiet installation
+   * is a quiet console. The only other line here is the one the start writes.
+   */
+  const stand = standInLoop();
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 10, log });
+  t.after(() => process.stop());
+  // Waited for on the passes themselves, never on a duration: a full-suite run
+  // is a loaded box, and a fixed window there is an assertion about the machine.
+  await waitFor(() => stand.passes >= 3);
+  assert.ok(stand.passes >= 3, `the interval kept asking (${stand.passes} passes)`);
+  assert.deepEqual(passLinesIn(lines), [], "no pass wrote a line");
+});
+
+test("the Master working no group is said once, and once again when it holds one", async (t) => {
+  const stand = standInLoop();
+  stand.accounts = 0;
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 10, log });
+  t.after(() => process.stop());
+  await sleep(60);
+  assert.equal(
+    passLinesIn(lines).filter((line) => line.includes("works no group")).length,
+    1,
+    "idle is a state, said once and not once per ten seconds",
+  );
+
+  // The Master is added to a group in Stalwart's directory: the next pass works
+  // it and says so once.
+  stand.accounts = 1;
+  await sleep(60);
+  assert.equal(
+    passLinesIn(lines).filter((line) => line.includes("works no group")).length,
+    1,
+    "and the idle line is not written again",
+  );
+  assert.equal(
+    passLinesIn(lines).filter((line) => line.includes("works a group again")).length,
+    1,
+    "picking a group up is said once as well",
+  );
+});
+
+test("a pass that throws is logged once per reason, and the next one still runs", async (t) => {
+  const stand = standInLoop();
+  const { lines, log } = collector();
+  stand.failNext(2);
+  const process = supervise({ loop: stand.loop, intervalMs: 10, log });
+  t.after(() => process.stop());
+  await waitFor(() => failuresIn(lines).length >= 1);
+  /*
+   * The same failure twice is one line: a mail server that is down fails the
+   * same way every ten seconds, and the next pass is the retry. The recovery is
+   * the change worth a line, and it is said once too.
+   */
+  await waitFor(() => stand.passes >= 4);
+  assert.equal(
+    failuresIn(lines).length,
+    1,
+    `the same failure is said once (${failuresIn(lines).length})`,
+  );
+  assert.match(failuresIn(lines)[0] ?? "", /the mail server did not answer/);
+  assert.equal(
+    lines.filter((line) => line.includes("the pass is working again")).length,
+    1,
+    "and the pass that works again says so, once",
+  );
+  assert.ok(stand.passes >= 4, "and the schedule went on asking");
+});
+
+test("a full upload allowance pauses the schedule instead of spending the next pass", async (t) => {
+  /*
+   * Stalwart counts a rejected upload towards the allowance, so the ordinary
+   * interval keeps an account at its ceiling rather than letting the window
+   * drain. The supervisor waits, then asks again.
+   */
+  const stand = standInLoop();
+  const { lines, log } = collector();
+  let clock = Date.UTC(2026, 9, 23, 12, 0, 0);
+  stand.failNext(1, new UpstreamError("Stalwart rejected the upload (429)", 429));
+  const process = supervise({
+    loop: stand.loop,
+    intervalMs: 10,
+    log,
+    now: () => new Date(clock),
+  });
+  t.after(() => process.stop());
+  await waitFor(() => lines.some((line) => /upload allowance is full/.test(line)));
+  assert.match(
+    lines.join("\n"),
+    /upload allowance is full, so the agent pauses for 15 minutes/,
+    "the pause is said once, with its length",
+  );
+  const asked = stand.passes;
+  await sleep(80);
+  assert.equal(stand.passes, asked, "no pass is asked while the allowance is full");
+  clock += QUOTA_PAUSE_MS;
+  await waitFor(() => stand.passes > asked);
+  assert.ok(stand.passes > asked, "and the schedule asks again once the pause ends");
+});
+
+test("a gap is said when it appears, and said again when it comes back", async (t) => {
+  /*
+   * A gap is a fault the pass could not fix by itself: an instruction this build
+   * cannot read, a change log that skipped. It is said when it appears — and not
+   * on every beat, or one broken file would fill the log — and said again if it
+   * goes and returns, because that is a new occurrence.
+   */
+  const { lines, log } = collector();
+  const answers: string[][] = [
+    ["team@example.org: the instruction at instruction.json is not readable"],
+    ["team@example.org: the instruction at instruction.json is not readable"],
+    [],
+    ["team@example.org: the instruction at instruction.json is not readable"],
+  ];
+  let asked = 0;
+  const process = supervise({
+    loop: {
+      async pass(): Promise<PassSummary> {
+        const gaps = answers[Math.min(asked, answers.length - 1)] ?? [];
+        asked += 1;
+        return { ...passSummary(true), gaps };
+      },
+      stop(): void {},
+    },
+    intervalMs: 5,
+    log,
+  });
+  t.after(() => process.stop());
+  await waitFor(() => asked >= 6);
+  assert.equal(
+    lines.filter((line) => line.includes("not readable")).length,
+    2,
+    "once when it appeared, once again when it returned",
+  );
+});
+
+test("a claim a peer holds is waited out, not fought for and not a failure", async (t) => {
+  const stand = standInLoop();
+  stand.held = true;
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 10, log });
+  t.after(() => process.stop());
+  await sleep(60);
+  assert.equal(
+    lines.filter((line) => line.includes("another process holds")).length,
+    1,
+    "the held claim is said once, not once per pass",
+  );
+  assert.equal(failuresIn(lines).length, 0, "a held claim is not an error");
+  assert.ok(stand.passes >= 2, "and the process keeps asking its turn");
+  assert.ok(
+    stand.passes <= 10,
+    `and does not retry in a tight loop (${stand.passes} passes in 60 ms)`,
+  );
+});
+
+test("a claim that lapses is taken over, and said once", async (t) => {
+  const stand = standInLoop();
+  stand.held = true;
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 10, log });
+  t.after(() => process.stop());
+  await waitFor(() => lines.some((line) => line.includes("another process holds")));
+  // The peer's claim lapses (`CLAIM_TTL_MS`): the next pass is this process's.
+  stand.held = false;
+  await waitFor(() => lines.some((line) => line.includes("is this process's again")));
+  // Then it stays said once: every later pass holds the claim and repeats it
+  // never. A delay here cannot make the count too low, only confirm it settled.
+  await sleep(40);
+  assert.equal(
+    lines.filter((line) => line.includes("is this process's again")).length,
+    1,
+    "taking the installation over is said once as well",
+  );
+});
+
+test("stop waits for the pass in flight before releasing the claim", async (t) => {
+  /*
+   * A pass holds the installation's claim. Releasing it beside a pass that is
+   * still working hands the runs to a peer while this process is still writing
+   * them, so stop joins the pass first.
+   */
+  let release!: () => void;
+  let started = false;
+  let loopStopped = false;
+  const loop: PassableLoop = {
+    async pass(): Promise<PassSummary> {
+      started = true;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return passSummary(true, 1);
+    },
+    stop(): void {
+      loopStopped = true;
+    },
+  };
+  const { log } = collector();
+  const process = supervise({ loop, intervalMs: 10_000, log });
+  t.after(() => process.stop());
+  await waitFor(() => started);
+
+  let resolved = false;
+  const stopping = process.stop().then(() => {
+    resolved = true;
+  });
+  await sleep(20);
+  assert.equal(resolved, false, "stop does not answer while the pass is in flight");
+  assert.equal(loopStopped, false, "nor does it release the claim");
+
+  release();
+  await stopping;
+  assert.equal(loopStopped, true, "the claim is released once the pass has ended");
+});
+
+test("stop gives up the schedule and the loop's alarms", async (t) => {
+  const stand = standInLoop();
+  const { log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 10, log });
+  t.after(() => process.stop());
+  await sleep(30);
+  const before = stand.passes;
+  await process.stop();
+  assert.equal(stand.stopped, true, "the loop's own alarms are given up");
+  await sleep(40);
+  assert.ok(
+    stand.passes - before <= 1,
+    `no pass is asked after the stop (${stand.passes - before} more)`,
+  );
+});
+
+test("a pass slower than an ordinary one is one line, with what it worked", async (t) => {
+  /*
+   * A pass is not an event and writes no log line, which is how an installation
+   * whose agent was working looked like one whose agent had stopped: a pass that
+   * took minutes left a person reading "nothing happened". A slow pass is a line,
+   * and it says what the pass worked.
+   */
+  const { lines, log } = collector();
+  const process = supervise({
+    loop: {
+      async pass(): Promise<PassSummary> {
+        return { ...passSummary(true), ms: 42_000, changes: 2, runs: 1, due: 3 };
+      },
+      stop(): void {},
+    },
+    intervalMs: 5,
+    log,
+  });
+  t.after(() => process.stop());
+
+  await waitFor(() => passLinesIn(lines).some((line) => line.includes("a pass took")));
+  const said = passLinesIn(lines).find((line) => line.includes("a pass took"));
+  assert.match(said ?? "", /42 s/, "the line says how long it took");
+  assert.match(said ?? "", /2 change\(s\), 1 run\(s\), 3 due/, "and what it worked");
+});
+
+test("a pass that does not return is given up on, and the next one waits for it", async (t) => {
+  /*
+   * Every request inside a pass has its own ceiling, so a pass still running is
+   * stuck where no ceiling reaches: left alone it holds the schedule for ever and
+   * reads as an idle agent. The supervisor gives it up by aborting the context it
+   * was handed — the one thing a pass listens to — and starts the next one only
+   * when that pass is really gone, never beside it.
+   */
+  const stand = standInLoop();
+  stand.hangNext(1);
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 20, watchdogMs: 1_000, log });
+  t.after(() => process.stop());
+
+  await waitFor(() => stand.aborted);
+  assert.equal(stand.signal?.aborted, true, "the stuck pass was aborted");
+  assert.match(
+    lines.join("\n"),
+    /had not returned in 1 second and was given up on/,
+    "and the giving up is said, not silent",
+  );
+  assert.equal(stand.mostAtOnce, 1, "no second pass runs beside the stuck one");
+
+  await waitFor(() => stand.passes >= 2);
+  assert.equal(stand.mostAtOnce, 1, "the next pass starts once the stuck one is gone");
+  assert.match(lines.join("\n"), /the pass given up on has ended/);
 });
 
 test("a pass that returns leaves no watchdog behind", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const lines: string[] = [];
-  let started = 0;
-  const loop = {
-    pass: async () => {
-      started += 1;
-      return {
-        claimed: true,
-        accounts: 1,
-        changes: 0,
-        runs: 0,
-        due: 0,
-        tokens: 0,
-        ms: 1,
-        gaps: [],
-      };
-    },
-    stop: () => {},
-  };
-  const agent = supervise({
-    loop,
-    intervalMs: 24 * 60 * 60_000,
-    log: (line) => lines.push(line),
-  });
-  await settle();
-  t.mock.timers.tick(PASS_WATCHDOG_MS);
-  await settle();
-  assert.equal(started, 1, "a pass that returned is never abandoned");
-  assert.doesNotMatch(lines.join("\n"), /abandoned/);
-  await agent.stop();
+  const stand = standInLoop();
+  const { lines, log } = collector();
+  const process = supervise({ loop: stand.loop, intervalMs: 5_000, watchdogMs: 40, log });
+  t.after(() => process.stop());
+
+  await waitFor(() => stand.passes >= 1);
+  await sleep(120);
+  assert.equal(
+    lines.filter((line) => line.includes("given up on")).length,
+    0,
+    "a pass that answered is never given up on",
+  );
 });

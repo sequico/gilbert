@@ -143,6 +143,16 @@ export const QUOTA_PAUSE_MS = 15 * 60_000;
 /** How long pushes are gathered before one pass is asked for. */
 const KICK_COALESCE_MS = 500;
 
+/** A wait, in the words a person reads: minutes when it is one, seconds otherwise. */
+function watchdogWords(ms: number): string {
+  if (ms >= 60_000) {
+    const minutes = Math.round(ms / 60_000);
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  const seconds = Math.round(ms / 1_000);
+  return `${seconds} second${seconds === 1 ? "" : "s"}`;
+}
+
 /**
  * The half of the loop this module uses.
  *
@@ -170,6 +180,8 @@ interface SupervisorOptions {
   loop: PassableLoop;
   /** `AGENT_PASS_INTERVAL_MS` unless a test needs the question asked sooner. */
   intervalMs?: number;
+  /** `PASS_WATCHDOG_MS` unless a test needs a pass given up on sooner. */
+  watchdogMs?: number;
   /** One line per event worth reading. */
   log?: (line: string) => void;
   /** The clock a pass is stamped with. The wall clock unless a test says otherwise. */
@@ -199,6 +211,7 @@ interface AgentProcess {
 export function supervise(options: SupervisorOptions): AgentProcess {
   const log = options.log ?? ((line: string) => console.log(line));
   const intervalMs = options.intervalMs ?? AGENT_PASS_INTERVAL_MS;
+  const watchdogMs = options.watchdogMs ?? PASS_WATCHDOG_MS;
   const now = options.now ?? (() => new Date());
   let stopped = false;
   /** The pass in flight, so stop can wait for it before releasing the claim. */
@@ -334,9 +347,9 @@ export function supervise(options: SupervisorOptions): AgentProcess {
       abandoned = true;
       control.abort();
       log(
-        `[gilbert] agent: a pass had not returned in ${Math.round(PASS_WATCHDOG_MS / 60_000)} minutes and was given up on; the next one starts when it is gone`,
+        `[gilbert] agent: a pass had not returned in ${watchdogWords(watchdogMs)} and was given up on; the next one starts when it is gone`,
       );
-    }, PASS_WATCHDOG_MS);
+    }, watchdogMs);
     current = work.finally(() => {
       clearTimeout(watchdog);
       inFlight = null;
