@@ -737,7 +737,9 @@ test("a pass that does not return is given up on, and the next one waits for it"
   const process = supervise({ loop: stand.loop, intervalMs: 20, watchdogMs: 1_000, log });
   t.after(() => process.stop());
 
-  await waitFor(() => stand.aborted);
+  // A watchdog is a wait measured in seconds: under a full suite this file shares
+  // the machine with a dozen others, so the wait is given room rather than a margin.
+  await waitFor(() => stand.aborted, 15_000);
   assert.equal(stand.signal?.aborted, true, "the stuck pass was aborted");
   assert.match(
     lines.join("\n"),
@@ -746,7 +748,7 @@ test("a pass that does not return is given up on, and the next one waits for it"
   );
   assert.equal(stand.mostAtOnce, 1, "no second pass runs beside the stuck one");
 
-  await waitFor(() => stand.passes >= 2);
+  await waitFor(() => stand.passes >= 2, 15_000);
   assert.equal(stand.mostAtOnce, 1, "the next pass starts once the stuck one is gone");
   assert.match(lines.join("\n"), /the pass given up on has ended/);
 });
