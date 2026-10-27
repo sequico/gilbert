@@ -373,6 +373,12 @@ function authorityNeeded(authority: ToolAuthority): RunAuthority | "alone" | "ne
  * send a person authorised does not authorise the next one; and `intent` is
  * never answered at all, because which policy is right is not a thing a run can
  * be authorised to decide.
+ *
+ * The **target** is what every act is identified by. Where the act carries words
+ * of its own — a message body, a page's text — those are part of the act and are
+ * compared exactly; where it carries none, a destructive act on a document or an
+ * event, the person's sentence may still quote what they were talking about, and
+ * that aside does not make their word a different act (owner decision 2026-10-27).
  */
 export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
   const needed = authorityNeeded(tool.authorityOf(args));
@@ -384,7 +390,7 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
     (one) =>
       one.authority === needed &&
       one.act.target === act.target &&
-      one.act.content === act.content,
+      (act.content === null || one.act.content === act.content),
   );
 }
 

@@ -11,8 +11,8 @@ for the act it authorises, and each act it names is recorded on the run
 (`RunAuthorisation`: the words verbatim, the class, the act, the address it came
 from and the message it arrived in) by the loop (`authoriseAnswer`,
 `server/src/agent/loop.ts`). What bounds that reading is the act: `mayRun`
-compares target and content exactly, so a sentence read too generously licenses
-nothing the step does not match. An **override** (class 4) is an installation
+compares the target always, and the content where the act carries words of its
+own, so a sentence read too generously licenses nothing the step does not match. An **override** (class 4) is an installation
 administrator's and is proved by the **directory**, not by the sentence: before an
 answer is read, the agent presents the sender's account to the server and reads
 whether it is a Stalwart administrator (`isAdministrator`, `server/src/agent/loop.ts`),
@@ -25,7 +25,8 @@ of this build can need, so only class 2 and the administrator's override are
 read. A document an earlier build wrote that carries an `outward` authorisation
 is still read as it was written, because the record is a contract; nothing new
 writes one. A person's word still names the act it is for, and `mayRun`
-compares target and content exactly, so a word for one message licenses no other.
+compares the target, and the words an act carries where it carries any, so a word
+for one message licenses no other.
 **Trash is class 2**: `act` with `what: "trash"` **moves** a message to the account's Deleted
 Items, where it can be recovered, and the act it asks a person to license is the
 message's id (owner decision 2026-10-18). The same class covers the acts that

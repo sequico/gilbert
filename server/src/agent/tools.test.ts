@@ -693,6 +693,22 @@ test("an outward act asks for a person's word, and a rule's declaration is not o
     true,
     "and a person's word for this act is",
   );
+  assert.equal(
+    mayRun(
+      send,
+      takeAuthorisation(quiet, {
+        what: "send it",
+        authority: "outward",
+        act: { target: "shipper@example.org", content: "Confirmed." },
+        by: "ada@example.org",
+        at: new Date().toISOString(),
+        from: { channel: "chat", id: "msg-1" },
+      }),
+      { ...args, text: "Something else." },
+    ),
+    false,
+    "the words are part of an act that carries them, so other words are another act",
+  );
 });
 
 test("a message is trashed only with a person's word for that message", async () => {
@@ -724,6 +740,33 @@ test("a message is trashed only with a person's word for that message", async ()
     id,
   })) as { folder?: string };
   assert.equal(moved.folder, "Deleted Items", "the message is in the trash folder");
+
+  /*
+   * An act that carries no words is the same act whatever the person's sentence
+   * added beside it: the word for "remove that message" still licenses the trash
+   * even when the reading quotes what they were talking about (owner decision
+   * 2026-10-27). A different target is still a different act.
+   */
+  const quote = takeAuthorisation(plain, {
+    what: "remove the booking confirmation",
+    authority: "destructive",
+    act: { target: id, content: "the booking confirmation" },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-2" },
+  });
+  const act = TOOLS.find((one) => one.name === "act");
+  assert.ok(act);
+  assert.equal(
+    mayRun(act, quote, act.parse({ what: "trash", id })),
+    true,
+    "a word for the message licenses the act, whatever it quoted",
+  );
+  assert.equal(
+    mayRun(act, quote, act.parse({ what: "trash", id: "another-message" })),
+    false,
+    "and another message is another act",
+  );
 });
 
 test("the reading tools answer from the group's account", async () => {
