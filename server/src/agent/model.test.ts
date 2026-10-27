@@ -355,16 +355,25 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
 });
 
 test("the turn may look the group's own state up with the reading tools, and not with anything else", async () => {
+  /*
+   * A name the reading catalogue does not hold is refused **and told back**: the turn
+   * goes on with the refusal as that lookup's answer, so a model that names a writing
+   * tool can correct itself inside the same decision instead of ending it — which is
+   * what killed a pass before its run was opened (live, 2026-10-27).
+   */
+  seen = [];
+  answers = [];
   answerWith({ read: { tool: "mail.send", arguments: { to: "x@example.com" } } });
-  await assert.rejects(
-    () =>
-      decideEvent(
-        { model, allowPrivateProvider: true },
-        { event: mailEvent, prose },
-        toolCall(),
-      ),
-    /There is no tool named "mail.send"/,
-    "a tool that writes is not in the reading catalogue to be named",
+  answerWith({ facts: { refused: "yes" } });
+  const told = await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, prose },
+    toolCall(),
+  );
+  assert.deepEqual(
+    told,
+    { kind: "decision", facts: { refused: "yes" } },
+    "a writing tool is not in the reading catalogue, and the turn goes on instead of dying",
   );
 
   seen = [];

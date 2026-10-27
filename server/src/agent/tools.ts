@@ -109,14 +109,21 @@ export function validatedTool(
      * candidate turns the round into a fix instead of a dead end; the call is still
      * refused, so nothing runs on a guess.
      */
-    const near = catalogue
-      .map((one) => one.name)
-      .filter((one) => one.endsWith(`.${name}`));
+    const names = catalogue.map((one) => one.name);
+    /*
+     * A name is matched in both directions: the model wrote `brief` for
+     * `read.brief`, and — because one tool really is called `read.brief` — it also
+     * wrote `read.open` for `open` (live, 2026-10-27). Either way the refusal names
+     * the candidate, and the call is still refused, so nothing runs on a guess.
+     */
+    const near = names.filter(
+      (one) => one.endsWith(`.${name}`) || name.endsWith(`.${one}`),
+    );
     throw new ToolError(
       "unknown_tool",
       near.length
         ? `There is no tool named "${name}". The tool is ${near.map((one) => `"${one}"`).join(" or ")}: a name is used as it is written, prefix included.`
-        : `There is no tool named "${name}".`,
+        : `There is no tool named "${name}". The tools are: ${names.join(", ")}.`,
     );
   }
   return { tool, args: tool.parse(raw) };
@@ -164,7 +171,21 @@ export async function runTool(
   raw: unknown,
   opts: { failSoft?: boolean } = {},
 ): Promise<unknown> {
-  const { tool, args } = validatedTool(catalogue, name, raw);
+  let resolved: { tool: AnyTool; args: unknown };
+  try {
+    resolved = validatedTool(catalogue, name, raw);
+  } catch (err) {
+    /*
+     * A name the catalogue does not hold is the reader's to hear too, when it asked
+     * `failSoft`: the model wrote `read.open` for `open`, and the refusal ended the
+     * whole decision turn — so the pass died **before a run was opened**, and a
+     * person's message was never worked and never even said to be waiting (live,
+     * 2026-10-27). The refusal now travels back into the turn, naming the tool.
+     */
+    if (opts.failSoft) return { problem: errorMessage(err) };
+    throw err;
+  }
+  const { tool, args } = resolved;
   /*
    * A write on a surface the run's matrix keeps off is refused before the class
    * is asked: the matrix says *where* this run may act (ADR 0038), the class says
