@@ -1166,6 +1166,47 @@ test("a draft is replaced with new words, trash is undone, and an empty folder g
     { name: "Throwaway" },
   );
   assert.deepEqual(gone, { name: "Throwaway", removed: true });
+
+  /*
+   * A folder that still holds folders is refused too: a person's word names one
+   * folder, and a destroy of the parent would take the child with it.
+   */
+  await writeTool("mail.folder", { name: "Parent" });
+  await writeTool("mail.folder", { name: "Child", parent: "Parent" });
+  const wordForParent = takeAuthorisation(plain, {
+    what: "remove the Parent folder",
+    authority: "destructive",
+    act: { target: "Parent", content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-parent" },
+  });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: wordForParent }, "mail.deleteFolder", {
+        name: "Parent",
+      }),
+    /still holds folders/,
+    "a folder holding folders is not removed by a word for the parent",
+  );
+  const wordForChild = takeAuthorisation(plain, {
+    what: "remove the Child folder",
+    authority: "destructive",
+    act: { target: "Child", content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-child" },
+  });
+  await runTool(TOOLS, { ctx, accountId, run: wordForChild }, "mail.deleteFolder", {
+    name: "Child",
+  });
+  const parentGone = await runTool(
+    TOOLS,
+    { ctx, accountId, run: wordForParent },
+    "mail.deleteFolder",
+    { name: "Parent" },
+  );
+  assert.deepEqual(parentGone, { name: "Parent", removed: true });
 });
 
 test("the Global contacts are searchable by name and by address", async () => {

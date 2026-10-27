@@ -1072,6 +1072,17 @@ export const deleteMailFolder = defineTool({
         `"${found.name}" is the account's ${found.role} folder, which the mail server keeps by role and does not remove.`,
         409,
       );
+    /*
+     * A folder is removed only when nothing is inside it: a destroy of a parent
+     * takes its children with it (or the server cascades it), and a person's
+     * word for `Throwaway` does not name the folders somebody filed under it.
+     */
+    if (Object.values(boxes).some((box) => box.parentId === found.id))
+      throw new ToolError(
+        "folder_not_empty",
+        `"${found.name}" still holds folders; remove or move them first, so the folder is removed only when it is empty.`,
+        409,
+      );
     const held = await clientOf(ctx).call<{ ids?: string[] }>(
       "Email/query",
       { accountId, filter: { inMailbox: found.id }, limit: 1 },
