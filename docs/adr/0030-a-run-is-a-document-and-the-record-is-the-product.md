@@ -152,11 +152,11 @@ agent's durable state.
   and the debt is marked paid only when the words have left, so a run that
   already spoke is not read as owing them. A run that dies without a word is the
   defect this closes: the person whose request woke it saw nothing, and the
-  installation looked like a queue that had stopped. A run woken by mail is said
-  in the group's conversation **when it closes without finishing**: an answer to that
-  person's message is mail sent outward, which only an instruction that declares it sends
-  may do (ADR 0028), so a `done` run woken by mail answers where it was asked and
-  the group's conversation is not a second place for it.
+  installation looked like a queue that had stopped. **A run woken by mail is
+  never answered by mail**: an outward message is a draft a person sends (ADR
+  0038), so a `done` run woken by mail keeps its record and sends nothing, and an
+  ending that owes words — `stopped`, `refused` — is said in the group's own
+  conversation, where the group reads it.
 - **A member of the group reads its runs and stops one that is in flight** —
   the one being worked and the one waiting on a person's answer, which nothing
   else moves; a group's every run in flight can be stopped at once, because a
