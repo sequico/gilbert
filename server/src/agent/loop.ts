@@ -76,6 +76,7 @@ import { postChatMessage, readChatMessage, readChatMessageAt } from "../groupCha
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
+import { sameAddress } from "../shared/address.js";
 import {
   isPassStatusDoc,
   PASS_STATUS_FILE,
@@ -121,7 +122,6 @@ import {
   waitUntil,
   withCase,
 } from "../shared/run.js";
-
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { archiveOldRuns } from "./archive.js";
@@ -157,8 +157,8 @@ import {
   type StepCall,
   setRunningModelAccess,
   summarisePlan,
-  usageMeter,
   type UsageMeter,
+  usageMeter,
 } from "./model.js";
 import { type AgentMeasure, emitMeasures } from "./otlp.js";
 import type { ProseLevel } from "./prose.js";
@@ -1375,7 +1375,7 @@ export class AgentLoop {
     /*
      * A knowledge base is named by its pages' titles: the standing instruction is
      * prose and names no page, so the turn is told what the base holds and opens the
-     * one it needs — and the note keeps the rule it read.
+     * one it needs — and the case's note keeps what it read.
      */
     const pages = strings(await look({ what: "pages" }), "pages", "title");
     /*
@@ -1420,7 +1420,7 @@ export class AgentLoop {
         (one) =>
           isRecord(one) &&
           typeof one.text === "string" &&
-          String(one.from ?? "").toLowerCase() === this.ctx.username.toLowerCase(),
+          sameAddress(typeof one.from === "string" ? one.from : "", this.ctx.username),
       );
       if (isRecord(mine) && typeof mine.text === "string")
         held.lastReport = {
