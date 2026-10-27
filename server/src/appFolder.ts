@@ -6,8 +6,8 @@
  * catalog and the chat folders. One implementation, because all of them need
  * the same things and each one of them would get them subtly differently.
  *
- * Facts this module encodes, all of them live-verified against Stalwart 0.16
- * (see gilbert-stalwart):
+ * Facts this module encodes, all of them live-verified against Stalwart (see
+ * gilbert-stalwart):
  *
  * - `FileNode/query` cannot filter by `name`; a filter the server does not
  *   know fails the whole query, so names are matched here (2026-08-27).
@@ -69,7 +69,7 @@ export function documentType(file: { type?: unknown }): string {
 /** The one encoder: what a document is about to be written as is bytes. */
 const utf8 = new TextEncoder();
 
-/** The JMAP capability that carries FileNode in Stalwart 0.16. */
+/** The JMAP capability that carries FileNode. */
 export const FILENODE_CAP = CAPABILITIES.filenode;
 
 /**
