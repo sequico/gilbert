@@ -14,8 +14,9 @@
 
 Where Stalwart departs from a spec, the settings a feature needs, and what
 Gilbert deliberately does not do. The supported server is the **1.0** line —
-Stalwart **0.16 and older is not supported** — and each entry states how it
-behaves there. For what is not built yet, see [ROADMAP.md](ROADMAP.md).
+Stalwart **0.16 and older is not supported** — and a behaviour below names the
+release it was measured against. For what is not built yet, see
+[ROADMAP.md](ROADMAP.md).
 
 - **`npm run i18n:coverage` counts only what it can see; an unseen string renders
   English however many catalogues ship.** It reads JSX text, missing a
