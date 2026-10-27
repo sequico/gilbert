@@ -176,6 +176,7 @@ import {
   readRun,
   replaceRun,
 } from "./runs.js";
+import { forgetStop, stopAsked } from "./stops.js";
 import { readAgentSwitch } from "./switch.js";
 import { threadLines } from "./thread.js";
 import { type DueWait, WaitTimers } from "./timers.js";
@@ -3278,6 +3279,32 @@ export class AgentLoop {
     run: RunDoc,
     state?: string,
   ): Promise<string | null> {
+    /*
+     * A person's stop outranks this write. The press is recorded in this process
+     * (`stops.ts`) because the compare-and-set alone lets the loop win the race
+     * indefinitely: it writes a step every few seconds, so a stop that retries
+     * loses every attempt and the run carries on. Here the intent is read before
+     * the write, the document is ended as `cancelled` on the person's behalf, and
+     * the step that was in flight is dropped — no plan continues from a record
+     * somebody has stopped.
+     */
+    const stopping = stopAsked(accountId, run.id);
+    if (stopping) {
+      forgetStop(accountId, run.id);
+      const held = await readRun(this.ctx, accountId, run.id);
+      if (held && (held.run.state === "running" || held.run.state === "blocked")) {
+        await replaceRun(
+          this.ctx,
+          accountId,
+          finishRun(held.run, "cancelled", {
+            at: stopping.at,
+            why: `stopped by ${stopping.by}`,
+          }),
+          { ifInState: held.state },
+        ).catch(() => undefined);
+      }
+      return null;
+    }
     await this.keepClaim();
     // A token from **this run's** own writes is newer than the record's; the
     // account-wide state says nothing about this document, and must never stand

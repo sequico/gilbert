@@ -50,6 +50,7 @@ import {
   readRunAt,
   replaceRun,
 } from "../agent/runs.js";
+import { askToStop, forgetStop } from "../agent/stops.js";
 import {
   AGENT_PASS_INTERVAL_MS,
   AGENT_PASS_INTERVAL_WITH_WAKE_MS,
@@ -163,11 +164,23 @@ async function stopRun(
   id: string,
   by: string,
 ): Promise<StopOutcome> {
+  /*
+   * The intent is recorded before the first attempt, not after: a pass writing
+   * this run right now can win the compare-and-set all four times, and the ask
+   * is what makes its next write end the run instead of out-racing the person.
+   * It is dropped once the document itself carries the ending.
+   */
+  askToStop(accountId, id, by);
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const record = await readRun(ctx, accountId, id);
-    if (!record) return { outcome: "not_found" };
-    if (record.run.state !== "running" && record.run.state !== "blocked")
+    if (!record) {
+      forgetStop(accountId, id);
+      return { outcome: "not_found" };
+    }
+    if (record.run.state !== "running" && record.run.state !== "blocked") {
+      forgetStop(accountId, id);
       return { outcome: "already", run: record.run };
+    }
     const ended = finishRun(record.run, "cancelled", {
       at: new Date().toISOString(),
       why: `stopped by ${by}`,
@@ -186,6 +199,7 @@ async function stopRun(
      */
     if (ended.caseKey === undefined)
       await forgetRunNote(ctx, accountId, ended.id).catch(() => undefined);
+    forgetStop(accountId, id);
     return { outcome: "closed", run: ended };
   }
   return { outcome: "moved" };
