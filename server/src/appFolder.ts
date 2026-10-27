@@ -80,6 +80,10 @@ export const FILENODE_CAP = CAPABILITIES.filenode;
  * sign-in, before anything writes, so a 0.16 deployment is refused with a
  * sentence instead of crash-looping on the app folder's create: two reads, and
  * only when the account holds a node, which every account with Files does.
+ *
+ * A failure to answer is **not** an answer: it is thrown, so the sign-in route
+ * reports the upstream as unreachable rather than telling somebody their server
+ * is old. Only a reply carrying no kind is the older shape.
  */
 export async function fileNodeWireIsV1(ctx: Ctx): Promise<boolean> {
   const accountId = filesAccountId(ctx);
@@ -87,25 +91,21 @@ export async function fileNodeWireIsV1(ctx: Ctx): Promise<boolean> {
   // that account walks through, and calling it old would be a lie.
   if (!accountId) return true;
   const client = clientOf(ctx);
-  try {
-    const queried = await client.call<{ ids?: string[] }>(
-      FILENODE_QUERY,
-      { accountId, limit: 1 },
-      [FILENODE_CAP],
-    );
-    const id = queried.ids?.[0];
-    // An account with no node at all cannot tell the two shapes apart; the app
-    // folder's create answers the same question with a sentence either way.
-    if (!id) return true;
-    const answered = await client.call<{ list?: Array<Record<string, unknown>> }>(
-      FILENODE_GET,
-      { accountId, ids: [id], properties: ["nodeType"] },
-      [FILENODE_CAP],
-    );
-    return typeof answered.list?.[0]?.nodeType === "string";
-  } catch {
-    return false;
-  }
+  const queried = await client.call<{ ids?: string[] }>(
+    FILENODE_QUERY,
+    { accountId, limit: 1 },
+    [FILENODE_CAP],
+  );
+  const id = queried.ids?.[0];
+  // An account with no node at all cannot tell the two shapes apart; the app
+  // folder's create answers the same question with a sentence either way.
+  if (!id) return true;
+  const answered = await client.call<{ list?: Array<Record<string, unknown>> }>(
+    FILENODE_GET,
+    { accountId, ids: [id], properties: ["nodeType"] },
+    [FILENODE_CAP],
+  );
+  return typeof answered.list?.[0]?.nodeType === "string";
 }
 
 /** An error with a message meant for the person using the app. */

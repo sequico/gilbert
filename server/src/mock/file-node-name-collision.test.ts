@@ -38,7 +38,7 @@ async function mkdir(name: string): Promise<string> {
       "FileNode/set",
       {
         accountId: ACCOUNT,
-        create: { d: { name, nodeType: "directory", parentId: null } },
+        create: { d: { name, "@type": "Directory", parentId: null } },
       },
       "d",
     ],
@@ -69,7 +69,7 @@ test("creating a node onto a sibling's name is refused", async () => {
       "FileNode/set",
       {
         accountId: ACCOUNT,
-        create: { d: { name: "create-clash", nodeType: "directory" } },
+        create: { d: { name: "create-clash", "@type": "Directory" } },
       },
       "c",
     ],

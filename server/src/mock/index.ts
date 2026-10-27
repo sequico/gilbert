@@ -2682,6 +2682,12 @@ function localFileNode(node: Obj): Obj {
   return out;
 }
 
+/** A create or an update that names a node the way 0.16 did is refused, as 1.0 does. */
+function refuseLocalNodeNames(node: Obj): void {
+  const named = ["nodeType", "type"].filter((key) => key in node);
+  if (named.length) throw new SetError("invalidProperties", "Invalid property.", named);
+}
+
 function genericGet(list: Obj[], type: string) {
   return (a: Obj) => {
     const ids = a.ids as string[] | null | undefined;
@@ -4911,6 +4917,7 @@ const handlers: Record<string, Handler> = {
       family,
       "f",
       (o) => {
+        refuseLocalNodeNames(o);
         // The wire's `@type`/`mediaType` become this store's own words.
         Object.assign(o, localFileNode(o));
         const stamp = new Date(now()).toISOString();
@@ -5040,6 +5047,7 @@ const handlers: Record<string, Handler> = {
        * `?? created` is what keeps either answer harmless.
        */
       (o, patch) => {
+        refuseLocalNodeNames(patch);
         Object.assign(patch, localFileNode(patch));
         refuseSiblingClash({ ...o, ...patch });
         if (typeof patch.blobId === "string") patch.blobId = wholeBlobId(patch.blobId);

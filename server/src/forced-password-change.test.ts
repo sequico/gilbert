@@ -280,7 +280,7 @@ test("a corrupt directive file reads as not forced", async () => {
       {
         accountId: "b1",
         "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-        properties: ["id", "name", "nodeType"],
+        properties: ["id", "name"],
       },
       "g",
     ],

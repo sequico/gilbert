@@ -46,10 +46,10 @@ non-UTC machine run them as `TZ=UTC npm test`.
 
 ### The mock
 
-The in-memory fake Stalwart 0.16 is enough JMAP to develop and demo against
+The in-memory fake Stalwart 1.0 is enough JMAP to develop and demo against
 without a real mailbox. It reproduces the quirks a naive fake gets wrong
 (`urn:stalwart:jmap` advertised per-account, identity signatures capped at 2047
-bytes, Stalwart's calendar vocabulary), and it tracks the current release. Four
+bytes, Stalwart's calendar vocabulary), and it tracks the current release. Five
 switches:
 
 | Name | Effect |
@@ -58,6 +58,7 @@ switches:
 | `MOCK_NO_REGISTRY=1` | omits the Stalwart capability, so the sign-in refusal can be tested |
 | `MOCK_NO_SCHEDULING_SEND=1` | refuses a calendar write that asks for scheduling messages |
 | `MOCK_NO_KEYWORD_SORT=1` | serves a server without keyword sorting, so the fallback can be developed against |
+| `MOCK_FILENODE_V0=1` | answers FileNode reads in 0.16's shape, so the sign-in version probe can be tested |
 
 Each behaviour is confirmed against a real server before it is copied here; the
 comments say which version and on what date.

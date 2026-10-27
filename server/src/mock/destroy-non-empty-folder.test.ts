@@ -46,7 +46,7 @@ async function mkdir(name: string, parentId: string | null = null): Promise<stri
   const responses = await jmap([
     [
       "FileNode/set",
-      { accountId: ACCOUNT, create: { d: { name, nodeType: "directory", parentId } } },
+      { accountId: ACCOUNT, create: { d: { name, "@type": "Directory", parentId } } },
       "d",
     ],
   ]);

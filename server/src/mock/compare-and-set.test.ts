@@ -52,7 +52,7 @@ async function createNode(
       {
         accountId,
         ...(ifInState ? { ifInState } : {}),
-        create: { n: { name, nodeType: "directory", parentId: null } },
+        create: { n: { name, "@type": "Directory", parentId: null } },
       },
       "n",
     ],
@@ -179,7 +179,7 @@ test("every type carries its own state, so one type's write is not another's", a
       "FileNode/set",
       {
         accountId,
-        create: { n: { name: "own-state", nodeType: "directory", parentId: null } },
+        create: { n: { name: "own-state", "@type": "Directory", parentId: null } },
       },
       "n",
     ],
@@ -407,7 +407,7 @@ test("a write in one account leaves another account's state where it was", async
       {
         accountId: ACCOUNT,
         create: {
-          o: { name: "other-account-node", nodeType: "directory", parentId: null },
+          o: { name: "other-account-node", "@type": "Directory", parentId: null },
         },
       },
       "s1",
@@ -418,7 +418,7 @@ test("a write in one account leaves another account's state where it was", async
       {
         accountId: GROUP_ACCOUNT,
         "#ifInState": { resultOf: "g1", name: "FileNode/get", path: "/state" },
-        create: { a: { name: "group-after", nodeType: "directory", parentId: null } },
+        create: { a: { name: "group-after", "@type": "Directory", parentId: null } },
       },
       "s2",
     ],
