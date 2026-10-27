@@ -1713,7 +1713,7 @@ series**, or **this occurrence only** (a `recurrenceOverrides` entry).
 - **Occurrence ids**: 0.16.21 identifies an occurrence by its recurrence id, so a
   write does not renumber a series; 0.16.20's synthetic ids encoded a *position* in
   the expanded series. Gilbert re-resolves an occurrence from its `recurrenceId`
-  immediately before touching it, because it supports 0.16 as a whole.
+  immediately before touching it, because it supports the 1.0 line as a whole.
 - *This and future* is not offered: the server refuses an occurrence belonging to
   such a change, and where it does Gilbert says so and offers the series.
 - **Events are dragged.** In the day and week grids an event moves by dragging it

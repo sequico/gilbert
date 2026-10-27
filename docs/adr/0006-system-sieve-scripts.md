@@ -19,7 +19,7 @@ A system script belongs to **gilbertstalwart** by the block's own definition
 in `README.md`: "the server's own configuration and system scripts, written
 through its management API." What that door is changed with 0.16 — the old
 REST management API was replaced by JMAP registry objects
-(`README.md`, "Requires Stalwart 0.16 or newer") — and a system Sieve script
+(`README.md`, "A Stalwart 1.0 or newer server") — and a system Sieve script
 is one such object.
 
 ## The object and the write door

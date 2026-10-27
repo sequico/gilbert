@@ -229,8 +229,10 @@ boundary stays until that port lands.
 A [Stalwart](https://stalw.art) **1.0 or newer** server. Sign-in refuses an older
 one by name: the check reads the FileNode shape 1.0 introduced, so a 0.16 server
 is turned away before anything writes. Node 24 (the LTS line) for a host
-install; the container carries its own. Upgrading from 0.16 is a one-way
-migration — see [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for the version notes.
+install; the container carries its own. Upgrading a 0.16 deployment to 1.0 is a
+one-way migration of the server itself; what changes for Gilbert is the
+FileNode's own shape, described under *The FileNode transport* above and in
+[KNOWN-ISSUES.md](KNOWN-ISSUES.md), under *Files*.
 
 ## Quick start
 
