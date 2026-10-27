@@ -620,7 +620,12 @@ export class AgentLoop {
   onDue?: () => void;
 
   constructor(
-    private readonly ctx: Ctx,
+    /**
+     * The context every request of this loop is made with. Mutable by one thing
+     * only: a pass swaps in a copy carrying its own abort (`pass`), and puts this
+     * back when it returns.
+     */
+    private ctx: Ctx,
     private readonly opts: AgentLoopOptions,
   ) {
     this.access = opts.access ?? null;
@@ -660,16 +665,40 @@ export class AgentLoop {
    * writes no log line, which is exactly how an installation whose agent is
    * working looked like one whose agent had stopped.
    */
-  async pass(now = new Date()): Promise<PassSummary> {
+  async pass(now = new Date(), signal?: AbortSignal): Promise<PassSummary> {
     const started = Date.now();
     this.passTokens = 0;
-    const summary = await this.workPass(now);
-    // What this pass's runs spent joins what the changes spent, so the document
-    // and the daily counter have one number (ADR 0038).
-    summary.tokens += this.passTokens;
-    summary.ms = Date.now() - started;
-    await this.recordStatus(summary);
-    return summary;
+    /*
+     * The pass's abort travels on the context, which is the one thing every
+     * request of the pass is made with (`Ctx.signal`): the supervisor gives a pass
+     * up by aborting here, and the mail server stops answering it. Swapping the
+     * context is safe because one pass runs at a time — the supervisor keeps
+     * `inFlight` until the pass is really gone (`supervisor.ts`).
+     */
+    const own = this.ctx;
+    if (signal) this.ctx = { ...own, signal };
+    try {
+      const summary = await this.workPass(now);
+      // What this pass's runs spent joins what the changes spent, so the document
+      // and the daily counter have one number (ADR 0038).
+      summary.tokens += this.passTokens;
+      summary.ms = Date.now() - started;
+      await this.recordStatus(summary);
+      return summary;
+    } finally {
+      this.ctx = own;
+    }
+  }
+
+  /**
+   * Whether the supervisor has given this pass up (`PASS_WATCHDOG_MS`).
+   *
+   * Asked where a pass would start new work, and nowhere else: what is already in
+   * flight ends on its own, and a run stopped between two waves stays on the record
+   * for the pass that follows.
+   */
+  private get givenUp(): boolean {
+    return this.ctx.signal?.aborted === true;
   }
 
   /**
@@ -929,6 +958,9 @@ export class AgentLoop {
     try {
       await Promise.all(
         accounts.map(async (accountId) => {
+          // A pass given up starts no new account: what is already in flight ends
+          // on its own, and the pass after this one reads from the cursor left here.
+          if (this.givenUp) return;
           this.opts.log?.(`[gilbert] agent: working ${accountId}`);
           let records: RunRecord[] | null = null;
           /*
@@ -981,17 +1013,18 @@ export class AgentLoop {
              * the account's working set as this pass leaves it, which is what the
              * waits are armed from.
              */
-            const after = spentToday
-              ? records
-              : await this.workChanges(
-                  accountId,
-                  now,
-                  summary,
-                  moved.size
-                    ? records.filter((record) => !moved.has(record.run.id))
-                    : records,
-                  read ?? undefined,
-                );
+            const after =
+              spentToday || this.givenUp
+                ? records
+                : await this.workChanges(
+                    accountId,
+                    now,
+                    summary,
+                    moved.size
+                      ? records.filter((record) => !moved.has(record.run.id))
+                      : records,
+                    read ?? undefined,
+                  );
             if (after) records = after;
             /*
              * An ending written and not said — the conversation refused the

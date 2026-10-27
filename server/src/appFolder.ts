@@ -129,6 +129,15 @@ export interface Ctx {
   authorization: string;
   session: UpstreamSession;
   username: string;
+  /**
+   * The abort the pass this context belongs to obeys.
+   *
+   * A pass the supervisor gives up on aborts here, and every request made with
+   * this context stops with it — the one place a pass can be interrupted, since a
+   * pass stuck on a promise nobody settles listens to nothing else. A context with
+   * no signal is a browser request's own, which no pass governs.
+   */
+  signal?: AbortSignal;
 }
 
 /**

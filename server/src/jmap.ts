@@ -207,6 +207,20 @@ async function refusalDetail(res: Response): Promise<string> {
 export interface SessionSource {
   readonly authorization: string;
   readonly session: UpstreamSession;
+  /** The pass's own abort, obeyed by every request made through this client. */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * The abort one request obeys: the per-call ceiling, and the pass that asked for it.
+ *
+ * One definition for every request this client makes, so a pass the supervisor
+ * abandons stops at the mail server instead of waiting out a ceiling that was
+ * chosen for a single call.
+ */
+function requestSignal(pass: AbortSignal | undefined, ceilingMs: number): AbortSignal {
+  const ceiling = AbortSignal.timeout(ceilingMs);
+  return pass ? AbortSignal.any([ceiling, pass]) : ceiling;
 }
 
 /**
@@ -309,7 +323,7 @@ export class JmapClient {
         using: [...new Set([JMAP_CORE, STALWART_CAP, ...using])],
         methodCalls: wireCalls,
       }),
-      signal: AbortSignal.timeout(config.upstreamTimeout),
+      signal: requestSignal(this.source.signal, config.upstreamTimeout),
     });
     if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
     // 403 is a permission, not a password: telling somebody their credentials
@@ -366,7 +380,7 @@ export class JmapClient {
         accept: "application/json",
       },
       body,
-      signal: AbortSignal.timeout(config.upstreamTimeout),
+      signal: requestSignal(this.source.signal, config.upstreamTimeout),
     });
     if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
     if (res.status === 403)
@@ -416,7 +430,7 @@ export class JmapClient {
     );
     const res = await fetch(url, {
       headers: { authorization: this.authorization },
-      signal: AbortSignal.timeout(config.upstreamTimeout),
+      signal: requestSignal(this.source.signal, config.upstreamTimeout),
     });
     if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
     // 403 is a permission, not a password: the same distinction `request` makes.

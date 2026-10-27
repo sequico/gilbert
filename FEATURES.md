@@ -443,10 +443,12 @@ is a step that ended and spends a step, so a model stuck on one malformed answer
 stopped by the valve rather than by a counter the record cannot show. The server starts the loop with itself
 (`server/src/agent/supervisor.ts`) and asks it for a pass on a pushed change,
 with ten seconds as the floor without a working stream and thirty with one, and
-**a pass that does not return in five minutes is abandoned**, said in one line and
-replaced by the next one: every call inside it has its own timeout, so a pass still
-running is the loop stuck where no timeout reaches, and left alone it would hold the
-schedule for good and read as an idle agent. **A pass works one
+**a pass that does not return in five minutes is given up on**: it is aborted at the
+context every request of it is made with, so the mail server stops answering it, and
+it is said in one line. The next pass starts when that one is really gone — never
+beside it, so two passes can never write one cursor. Every request inside a pass has
+its own ceiling, so a pass still running is one stuck where no ceiling reaches, and
+left alone it would hold the schedule for good and read as an idle agent. **A pass works one
 run for at most ninety seconds** before leaving it on purpose for
 the next one — at a turn boundary, nothing left open, marked on the run and resumed
 at once — so one group's long run does not make the others wait; the accounts each

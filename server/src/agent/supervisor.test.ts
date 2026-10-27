@@ -11,15 +11,22 @@ import test from "node:test";
 import { setImmediate as settle } from "node:timers/promises";
 import { PASS_WATCHDOG_MS, supervise } from "./supervisor.js";
 
-test("a pass that does not return is abandoned, said, and replaced", async (t) => {
+test("a pass that does not return is given up on, and the next one waits for it", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const lines: string[] = [];
   let started = 0;
   const loop = {
-    pass: async () => {
+    pass: async (_now?: Date, signal?: AbortSignal) => {
       started += 1;
-      // The first pass never returns; the one the watchdog starts does.
-      if (started === 1) await new Promise<void>(() => {});
+      if (started === 1) {
+        // The pass obeys the abort the supervisor hands it, like every request it
+        // makes: nothing else can stop one that is stuck.
+        await new Promise<void>((resolve) =>
+          signal?.addEventListener("abort", () => resolve(), { once: true }),
+        );
+        assert.equal(started, 1, "no second pass runs beside the one given up on");
+        throw new DOMException("aborted", "AbortError");
+      }
       return {
         claimed: true,
         accounts: 1,
@@ -47,14 +54,15 @@ test("a pass that does not return is abandoned, said, and replaced", async (t) =
   await settle();
   assert.match(
     lines.join("\n"),
-    /had not returned in 5 minutes, so it was abandoned and the next one starts/,
-    "the abandonment is said, not silent",
+    /had not returned in 5 minutes and was given up on/,
+    "the pass is given up on, and it is said",
   );
 
-  // The kick the watchdog asked for is debounced, like any other.
+  // The kick the end of that pass asks for is debounced, like any other.
   t.mock.timers.tick(1_000);
   await settle();
-  assert.equal(started, 2, "and the next pass starts while the stuck one is behind it");
+  assert.equal(started, 2, "and the next pass starts once the stuck one is gone");
+  assert.match(lines.join("\n"), /the pass given up on has ended/);
 
   await agent.stop();
 });

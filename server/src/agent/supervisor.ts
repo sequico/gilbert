@@ -152,8 +152,12 @@ const KICK_COALESCE_MS = 500;
  * mail server or a run.
  */
 export interface PassableLoop {
-  /** One pass: what the loop works. `claimed` false means a peer holds the installation. */
-  pass(now?: Date): Promise<PassSummary>;
+  /**
+   * One pass: what the loop works. `claimed` false means a peer holds the
+   * installation. The signal is the pass's own abort: a loop that obeys it stops
+   * asking the mail server and unwinds, which is how a pass is given up on.
+   */
+  pass(now?: Date, signal?: AbortSignal): Promise<PassSummary>;
   /** Give up the loop's alarms and its claim. */
   stop(): void | Promise<void>;
   /** Set by the supervisor: a wait that came due asks for a pass now. */
@@ -245,9 +249,10 @@ export function supervise(options: SupervisorOptions): AgentProcess {
     }
     /** Set by the watchdog when it gives up on this pass. */
     let abandoned = false;
+    const control = new AbortController();
     const work = (async () => {
       try {
-        const summary = await options.loop.pass(now());
+        const summary = await options.loop.pass(now(), control.signal);
         // The watchdog gave up on this pass: what it found is not news.
         if (abandoned) return;
         if (saidFailure) {
@@ -317,29 +322,28 @@ export function supervise(options: SupervisorOptions): AgentProcess {
     })();
     let current: Promise<void>;
     /*
-     * The watchdog: every call inside a pass has its own timeout, so a pass still
-     * running after `PASS_WATCHDOG_MS` is the loop itself, stuck where no timeout
-     * reaches. Left alone it holds `inFlight` for ever, no pass is asked again, and
-     * nothing is written — the agent is off and reads as idle. It is abandoned
-     * instead, with the one line that says so, and the next pass starts.
+     * The watchdog: every request inside a pass has its own ceiling, so a pass
+     * still running after `PASS_WATCHDOG_MS` is stuck where no ceiling reaches —
+     * and a pass given no word of it holds the schedule for ever, which reads as an
+     * idle agent. It is **aborted**, which is the one thing it listens to
+     * (`Ctx.signal`): its requests stop, it unwinds, and the next pass starts when
+     * it is really gone — never beside it, so two passes can never write one cursor.
      */
     const watchdog = setTimeout(() => {
       if (inFlight !== current) return;
       abandoned = true;
-      inFlight = null;
+      control.abort();
       log(
-        `[gilbert] agent: a pass had not returned in ${Math.round(PASS_WATCHDOG_MS / 60_000)} minutes, so it was abandoned and the next one starts`,
+        `[gilbert] agent: a pass had not returned in ${Math.round(PASS_WATCHDOG_MS / 60_000)} minutes and was given up on; the next one starts when it is gone`,
       );
-      kick();
     }, PASS_WATCHDOG_MS);
     current = work.finally(() => {
       clearTimeout(watchdog);
-      // A pass abandoned and replaced is not the one `inFlight` belongs to.
-      if (inFlight === current) inFlight = null;
-      if (abandoned)
-        log(
-          "[gilbert] agent: the abandoned pass returned, and what it found was dropped",
-        );
+      inFlight = null;
+      if (abandoned) {
+        log("[gilbert] agent: the pass given up on has ended");
+        kick();
+      }
     });
     inFlight = current;
     return current;
