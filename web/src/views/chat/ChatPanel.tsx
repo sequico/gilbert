@@ -44,6 +44,7 @@ import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
+import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { GroupRuns, StopRun } from "@/views/admin/agents/GroupRuns";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
@@ -734,6 +735,27 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
 
   // ----- emoji picker -----
   const [emojiOpen, setEmojiOpen] = useState(false);
+
+  /*
+   * Open on the group the reader is reading mail in.
+   *
+   * A panel that always opens on the same conversation or on nothing makes a
+   * reader who works `freight` all day select it every time. The account that is
+   * primary for mail **at that moment** is the one they are looking at, so that is
+   * the conversation this opens on — and only when it is one of this panel's
+   * groups: a personal mailbox has no conversation here, and the panel stays on
+   * its first entry.
+   */
+  const mailAccount = useMail((s) => s.accountId);
+  const followedAccount = useRef<Id | null>(null);
+  useEffect(() => {
+    if (!mailAccount || openAccountId) return;
+    if (followedAccount.current === mailAccount) return;
+    if (!accounts.some((one) => one.accountId === mailAccount)) return;
+    followedAccount.current = mailAccount;
+    atBottom.current = true;
+    openConv(mailAccount);
+  }, [mailAccount, openAccountId, accounts, openConv]);
 
   if (!accounts.length) return null;
 
