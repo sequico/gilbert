@@ -373,8 +373,7 @@ export function openWaits(
         typeof run.waiting?.what === "string" &&
         Boolean(run.waiting.what.trim()),
     )
-    .map(({ run }) => run.waiting as RunWait)
-    .slice(0, 8);
+    .map(({ run }) => run.waiting as RunWait);
 }
 
 /** One run, put where the batch's list holds it: replaced, or added at the end. */

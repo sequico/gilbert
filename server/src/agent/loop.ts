@@ -2024,9 +2024,11 @@ export class AgentLoop {
         memory: selection.facts,
         ...(openQuestions?.length
           ? {
-              openQuestions: openQuestions.map(
-                (wait) => `${wait.asked?.channel ?? "chat"}: ${wait.what}`,
-              ),
+              // The turn reads at most eight lines; the tool that must not ask a
+              // question twice is handed the whole list (`openWaits`).
+              openQuestions: openQuestions
+                .slice(0, 8)
+                .map((wait) => `${wait.asked?.channel ?? "chat"}: ${wait.what}`),
             }
           : {}),
         ...(current.startedBy.batch?.length ? { batch: current.startedBy.batch } : {}),
