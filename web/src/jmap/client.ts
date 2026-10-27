@@ -1,14 +1,14 @@
 import { CAPABILITIES } from "@gilbert/shared/capabilities";
 import { errorMessage } from "@gilbert/shared/errors";
 import {
+  fileNodeRequestArguments,
+  fileNodeResponseArguments,
+} from "@gilbert/shared/filenode";
+import {
   GROUP_NOT_ACCESSIBLE,
   GROUP_UNREADABLE,
   type GroupNeed,
 } from "@gilbert/shared/groupAccess";
-import {
-  fileNodeRequestArguments,
-  fileNodeResponseArguments,
-} from "@gilbert/shared/filenode";
 import { GENERIC_TYPES, mediaType, typeFromName } from "@gilbert/shared/media";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";

@@ -15,11 +15,11 @@ import { config } from "./config.js";
 import { forgetMailCache } from "./mailCache.js";
 import { forgetRemembered } from "./requestMemory.js";
 import { FILENODE_SET } from "./shared/appFolder.js";
+import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import {
   fileNodeRequestArguments,
   fileNodeResponseArguments,
 } from "./shared/filenode.js";
-import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import {
   absoluteUpstream,
   expandTemplate,

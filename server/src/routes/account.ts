@@ -22,7 +22,7 @@ import {
 } from "../account.js";
 import { EMPTY_POLICY, readAccountPolicy } from "../adminPolicy.js";
 import { agentWakeStatus } from "../agent/wake.js";
-import { filesAccountId, fileNodeWireIsV1 } from "../appFolder.js";
+import { fileNodeWireIsV1, filesAccountId } from "../appFolder.js";
 import { rateLimitKey } from "../clientip.js";
 import { config } from "../config.js";
 import { prepare as pushPrepare, pushStatus } from "../push.js";

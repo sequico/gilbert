@@ -97,7 +97,7 @@ async function findDir(parentId: string | null, name: string): Promise<string | 
     ],
   ]);
   const list = (
-    got as [string, { list: Array<{ id: string; name: string; ["@type"]: string }> }]
+    got as [string, { list: Array<{ id: string; name: string; "@type": string }> }]
   )[1].list;
   const found = list.find((n) => n["@type"] === "Directory" && n.name === name);
   return found?.id ?? null;
