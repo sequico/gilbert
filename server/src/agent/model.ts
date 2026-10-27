@@ -1828,12 +1828,12 @@ export async function readAnswerAuthority(
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group. A person answered a question your run asked. You are told the question, and the words they answered it with.",
-    'Answer with one JSON object and nothing else: {"authorisations": [{"authority": "outward" | "destructive", "target": "<what the act reaches>", "content": "<what it carries, or null>"}]}, or {"authorisations": []} when their words authorise no act.',
-    "Report only what their own words authorise: never an act they did not ask for, and never a class they did not give.",
+    'Answer with one JSON object and nothing else: {"authorisations": [{"authority": "destructive", "target": "<the object the act reaches>", "content": "<what it carries, or null>"}]}, or {"authorisations": []} when their words authorise no act.',
+    "Report only what their own words authorise: never an act they did not ask for, and never a class they did not give. No act of this build reaches outside the group's own account, so their words can authorise no outward act.",
     opts.admin
       ? 'The person who answered is an installation administrator, so you may report "override" when their own words grant one; never invent it.'
       : 'You never report "override": an override of the written policy is an installation administrator\'s, and this answer is not one.',
-    "Name the act the way the call that would take it names it — the address a send goes to, or the object it acts on — because an authorisation that does not match the act exactly is refused and licenses nothing.",
+    "Name the act the way the call that would take it names it — the object it acts on — because an authorisation that does not match the act exactly is refused and licenses nothing.",
   ].join("\n");
   const user = [
     "The question the run asked:",
@@ -1874,10 +1874,13 @@ function parseAuthorisations(raw: unknown, admin = false): ReadAuthorisation[] {
   return list.map((one) => {
     if (!isRecord(one)) throw problem("An authorisation must be a JSON object.");
     const authority = one.authority;
-    const allowed =
-      authority === "outward" ||
-      authority === "destructive" ||
-      (admin && authority === "override");
+    /*
+     * Only the classes an act of this build can need: a destructive act (or an
+     * administrator's override). An `outward` act has no tool — an outward
+     * message is a draft a person sends — so a reading that reported one would
+     * license nothing and invite a send nobody can make (ADR 0028).
+     */
+    const allowed = authority === "destructive" || (admin && authority === "override");
     if (!allowed)
       throw problem(
         `"${String(authority)}" is not an authority a person's answer can give.`,
@@ -1888,16 +1891,11 @@ function parseAuthorisations(raw: unknown, admin = false): ReadAuthorisation[] {
     if (raw !== null && typeof raw !== "string")
       throw problem('"content" in an authorisation must be text or null.');
     // Trimmed on both sides: the act's own words are, and a licence that differs
-    // from the call by the newline a model added is a licence for nothing. An
-    // outward act's target is an address and the send's own act lowercases it,
-    // so the licence is lowercased the same way; an id stays as it is.
+    // from the call by the newline a model added is a licence for nothing. An id
+    // or a path stays exactly as the act names it, because the guard compares it
+    // exactly.
     const content = raw === null ? null : raw.trim();
-    const target = one.target.trim();
-    return {
-      authority,
-      target: authority === "outward" ? target.toLowerCase() : target,
-      content,
-    };
+    return { authority, target: one.target.trim(), content };
   });
 }
 

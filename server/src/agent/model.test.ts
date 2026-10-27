@@ -1259,19 +1259,15 @@ test("a person's answer is read for the act it authorises, and never for an over
    */
   const access = { model, allowPrivateProvider: true };
   const answer = {
-    asked: "shall I send the reply to the shipper?",
-    said: "yes, send it: the booked slot is Thursday",
+    asked: "shall I delete the duplicate booking?",
+    said: "yes, delete it",
     from: "sam@example.org",
   };
 
   answerWith({
-    authorisations: [
-      { authority: "outward", target: "ops@shipper.example", content: "the slot" },
-      { authority: "destructive", target: "drafts/e-1", content: null },
-    ],
+    authorisations: [{ authority: "destructive", target: "drafts/e-1", content: null }],
   });
   assert.deepEqual(await readAnswerAuthority(access, answer), [
-    { authority: "outward", target: "ops@shipper.example", content: "the slot" },
     { authority: "destructive", target: "drafts/e-1", content: null },
   ]);
 
@@ -1284,8 +1280,14 @@ test("a person's answer is read for the act it authorises, and never for an over
 
   for (const refused of [
     { authorisations: [{ authority: "override", target: "policy", content: null }] },
-    { authorisations: [{ authority: "outward", target: "", content: null }] },
-    { authorisations: [{ authority: "outward", target: "a", content: 7 }] },
+    // No act of this build reaches outward, so the reading refuses to grant one.
+    {
+      authorisations: [
+        { authority: "outward", target: "ops@shipper.example", content: "hi" },
+      ],
+    },
+    { authorisations: [{ authority: "destructive", target: "", content: null }] },
+    { authorisations: [{ authority: "destructive", target: "a", content: 7 }] },
     { authorisations: "none" },
     { authorisations: [], rules: [] },
   ]) {

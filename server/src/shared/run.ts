@@ -213,9 +213,10 @@ export interface RunMessageRef {
 
 /**
  * Which authority a person gave (ADR 0028): the word for something irreversible
- * or destructive (class 2), the word for something outward (class 3) — which no
- * act of this build asks for, since an outward message is a draft a person sends
- * (ADR 0038) — or the administrator's override of the written policy (class 4).
+ * or destructive (class 2), or the administrator's override of the written policy
+ * (class 4). `outward` is read and never written: no act of this build reaches
+ * outside the group's own account — an outward message is a draft a person sends
+ * (ADR 0038) — and a document an earlier build wrote is read as it was written.
  * The class the agent decides alone, and the intent, which is approved where ADR
  * 0020 puts it, are not authorisations.
  */
@@ -389,16 +390,15 @@ export function openQuestionsOf(
  * The act an authority is given for (ADR 0028), read from what the act reaches
  * and what it carries.
  *
- * The bound ADR 0028 draws: "an instruction that asks for a send authorises
- * **that send and no other**". A class is not an act — a run that carried one
- * outward authority would otherwise send to anybody, once, and the record could
- * not tell one send from the next. So the authority a person gave names the act
- * it is for, and the guard compares the act a tool is about to take against it.
+ * The bound ADR 0028 draws: a person's word authorises **the act it names and no
+ * other**. A class is not an act, and the record could not tell one act of a
+ * class from the next. So the authority a person gave names the act it is for,
+ * and the guard compares the act a tool is about to take against it.
  */
 export interface RunAuthorityAct {
-  /** What the act reaches: the address a send goes to, or the object it acts on. */
+  /** What the act reaches: the object it acts on. */
   target: string;
-  /** What the act carries outward, when it carries anything: the text of a send. */
+  /** What the act carries, when it carries anything: the words that change. */
   content: string | null;
 }
 

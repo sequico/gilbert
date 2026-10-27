@@ -136,7 +136,7 @@ people's.
 | --- | --- | --- | --- |
 | 1 | Reversible, inside the group's account | filing a message, a keyword, a label, a folder, writing, moving or renaming a file, creating an event in the group's own calendar, a draft, a workorder step, a KB proposal, a fact, a question | **The agent** |
 | 2 | Irreversible or destructive | destroying a message, a folder or a page, emptying a folder, deleting or overwriting a document, changing or removing a calendar event | **A person, always** |
-| 3 | Outward | anything that reaches somebody outside the mandate — and nothing of this build does, since an outward message is a draft a person sends | **A person's word**, for the day a sending act exists; no step can match one today |
+| 3 | Outward | anything that reaches somebody outside the mandate — and nothing of this build does, since an outward message is a draft a person sends | **A person's word**, for the day a sending act exists; no step can match one today, and the reading of an answer offers none |
 | 4 | Beyond the policy | an act the written policy forbids | **Only an installation administrator**, proved by the directory and never by the sentence |
 | 5 | The intent | which policy is right, what a workorder should carry, whether a KB change is accepted | **Never the agent**: it proposes, a person approves |
 
@@ -388,7 +388,10 @@ asked twice: a second run that needs the same answer waits on the same sentence,
 and the one reply continues every run that was waiting on it. That sentence is also read once for **what it
 authorises** (ADR 0028): an act it names is recorded on the run with the person's
 own words, the class, the act it is for and the message it arrived in, and the
-guard licenses exactly that act and no other. An **override** (class 4) is an
+guard licenses exactly that act and no other. The reading offers only the classes
+an act of this build can need — **destructive** and, for an administrator,
+**override** — and no outward one, because nothing outside the account can be
+acted on. An **override** (class 4) is an
 installation administrator's, and it is proved by the **directory**: before the
 answer is read, the agent presents the sender's account to the server and reads
 whether it is a Stalwart administrator, so an administrator's own words may grant

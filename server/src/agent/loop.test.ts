@@ -2196,7 +2196,7 @@ test("a run stopped while the agent works it is not overwritten, and no step fol
   );
 });
 
-test("a person's answer is the word an outward act asks for, recorded for that act", async () => {
+test("a person's answer is the word a destructive act asks for, recorded for that act", async () => {
   /*
    * The path ADR 0028 leaves open (owner decision 2026-10-18): the sentence that
    * answers a run's question can also be the word a class asks for. The reading is
@@ -2209,7 +2209,7 @@ test("a person's answer is the word an outward act asks for, recorded for that a
     ctx,
     accountId,
     ctx.username,
-    "shall I send the reply to the shipper?",
+    "shall I delete the duplicate note?",
   );
   await createRun(
     ctx,
@@ -2221,7 +2221,7 @@ test("a person's answer is the word an outward act asks for, recorded for that a
           startedBy: { woke: "chat created: gilbert/chat/word.json" },
         }),
         {
-          what: "shall I send the reply to the shipper?",
+          what: "shall I delete the duplicate note?",
           asked: { channel: "chat", id: asked },
           until: null,
         },
@@ -2229,48 +2229,47 @@ test("a person's answer is the word an outward act asks for, recorded for that a
       "blocked",
       {
         at: new Date().toISOString(),
-        why: "waiting on a person: shall I send the reply to the shipper?",
+        why: "waiting on a person: shall I delete the duplicate note?",
       },
     ),
   );
   await putInstruction(["chat"]);
 
-  /* The act a person is asked for, as a stand-in: the mail channel's send is not
-     in the catalogue (ADR 0029), and what is under test is the word and the guard. */
-  const sent: string[] = [];
-  const sendOut = defineTool<{ to: string; text: string }>({
-    name: "test.send",
-    description:
-      "Send one message outward — the stand-in for the act a person authorises.",
-    authority: "outward",
+  /* The act a person is asked for, as a stand-in: what is under test is the word
+     and the guard, not which endpoint takes it. */
+  const erased: string[] = [];
+  const erase = defineTool<{ path: string; text: string }>({
+    name: "test.erase",
+    description: "Erase a document — the stand-in for the act a person authorises.",
+    authority: "destructive",
     writes: true,
     spend: { steps: 1 },
-    act: (args: { to: string; text: string }) => ({
-      target: args.to,
+    act: (args: { path: string; text: string }) => ({
+      target: args.path,
       content: args.text,
     }),
-    args: { to: { type: "text" }, text: { type: "text" } },
+    args: { path: { type: "text" }, text: { type: "text" } },
     parse: (raw: unknown) => {
-      const one = raw as { to?: unknown; text?: unknown };
-      return { to: String(one.to ?? ""), text: String(one.text ?? "") };
+      const one = raw as { path?: unknown; text?: unknown };
+      return { path: String(one.path ?? ""), text: String(one.text ?? "") };
     },
-    run: async (_call, args: { to: string }) => {
-      sent.push(args.to);
-      return { sentTo: args.to };
+    run: async (_call, args: { path: string }) => {
+      erased.push(args.path);
+      return { erased: args.path };
     },
   });
-  const agent = loop(HOLDER, { catalogue: [...TOOLS, sendOut] });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, erase] });
   await agent.start();
 
-  const words = "yes, send it: the booked slot is Thursday";
+  const words = "yes, delete it";
   onCall = (system) =>
     isAuthorisation(system)
       ? {
           authorisations: [
             {
-              authority: "outward",
-              target: "ops@shipper.example",
-              content: "the booked slot is Thursday",
+              authority: "destructive",
+              target: "Notes/duplicate.md",
+              content: "the duplicate note",
             },
           ],
         }
@@ -2279,10 +2278,10 @@ test("a person's answer is the word an outward act asks for, recorded for that a
         : {
             calls: [
               {
-                name: "test.send",
+                name: "test.erase",
                 arguments: {
-                  to: "ops@shipper.example",
-                  text: "the booked slot is Thursday",
+                  path: "Notes/duplicate.md",
+                  text: "the duplicate note",
                 },
               },
             ],
@@ -2305,8 +2304,8 @@ test("a person's answer is the word an outward act asks for, recorded for that a
     })),
     [
       {
-        authority: "outward",
-        act: { target: "ops@shipper.example", content: "the booked slot is Thursday" },
+        authority: "destructive",
+        act: { target: "Notes/duplicate.md", content: "the duplicate note" },
         by: "sam@example.org",
         from: reply,
         what: words,
@@ -2315,8 +2314,8 @@ test("a person's answer is the word an outward act asks for, recorded for that a
     "the person's own words, the act they name, the address and the message",
   );
   assert.deepEqual(
-    sent,
-    ["ops@shipper.example"],
+    erased,
+    ["Notes/duplicate.md"],
     "and the act the word was for is the act that ran",
   );
 });

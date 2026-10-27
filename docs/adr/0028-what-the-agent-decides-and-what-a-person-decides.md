@@ -20,9 +20,11 @@ and only then may the reading report the class. **No catalogue act sends**: an
 outward message leaves as a draft a person sends (ADR 0038), so `act` with
 `what: "reply"` writes a draft in the group's own Drafts and a draft is class 1 —
 reversible and inside the account. Class 3 therefore has no act to license in
-this build: a person's answer is still read, and an `outward` authority it
-reports is recorded on the run, but no step can match it until a sending act
-exists. A person's word still names the act it is for, and `mayRun`
+this build, and the reading does not report it: a reportable class is one an act
+of this build can need, so only class 2 and the administrator's override are
+read. A document an earlier build wrote that carries an `outward` authorisation
+is still read as it was written, because the record is a contract; nothing new
+writes one. A person's word still names the act it is for, and `mayRun`
 compares target and content exactly, so a word for one message licenses no other.
 **Trash is class 2**: `act` with `what: "trash"` **moves** a message to the account's Deleted
 Items, where it can be recovered, and the act it asks a person to license is the
@@ -61,7 +63,9 @@ Five classes, and the agent's freedom is exactly the first.
    person's word**, and no act of this build is outward: an outward message is a
    draft a person sends (ADR 0038), so the class is named for the day a sending
    act exists, and it licenses nothing today. An instruction cannot declare a
-   send, because nothing carries that declaration on a run.
+   send, because nothing carries that declaration on a run. The reading of a
+   person's answer offers no outward authorisation for the same reason: a class
+   nothing can act on is a class nobody is asked to grant.
 4. **Beyond the policy** — an act the written policy forbids. The agent does not
    do it: it **names the policy and the page** and asks, and **only an
    installation administrator may override**. The trace carries the name, the
