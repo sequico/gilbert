@@ -182,7 +182,13 @@ export const useChat = create<ChatState>((set, get) => {
       // Page the transcript from the tail: the newest messages first, older
       // ones fetched on demand by the reader (`loadOlder`). The chat opens at
       // the bottom, on the page of a conversation rather than on its history.
-      const first = await fetchPage(accountId, folders, 0, 0);
+      //
+      // The count is **asked for** on the first read: `total` is what says where
+      // the tail is, and a JMAP query answers it only when `calculateTotal` asks
+      // (a page's own length is the first page, which is the history this window
+      // exists to skip). Unasked, `total` is absent, the window starts at 0, and
+      // the chat opens on the oldest messages while the newest sit out of sight.
+      const first = await fetchPage(accountId, folders, 0, 0, true);
       const total = first.total;
       const from = Math.max(0, total - CHAT_TAIL);
       const page = await fetchPage(accountId, folders, from, total - from || CHAT_TAIL);
@@ -228,6 +234,8 @@ export const useChat = create<ChatState>((set, get) => {
     folders: { chat: Id },
     position: number,
     limit: number,
+    /** Ask the server to count the level — only the read that needs the tail does. */
+    count = false,
   ): Promise<{ nodes: ChatMessage[]; state: string; total: number }> {
     const {
       list,
@@ -236,6 +244,7 @@ export const useChat = create<ChatState>((set, get) => {
     } = await listChildrenWithState(accountId, folders.chat, messageProps(), {
       position,
       limit,
+      total: count,
     });
     /*
      * The population the query matched, which is what the paging arithmetic
