@@ -139,6 +139,18 @@ describe("the agent at work, in the conversation", () => {
     expect(admin.fetchGroupRuns).toHaveBeenCalled();
   });
 
+  it("says nothing while the agent is turned off, even with a run in flight", async () => {
+    admin.fetchGroupAgent.mockResolvedValue({ enabled: false });
+    await act(async () => {
+      // The switch is a FileNode in the installation's account: the stream
+      // names it, and the panel reads the document again a second later.
+      for (const listener of stream.listeners) listener("inst", "FileNode");
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
+    });
+    expect(host.textContent).toContain("Gilbert AI off");
+    expect(typing()).toBeNull();
+  });
+
   it("goes away when the run does", async () => {
     admin.fetchGroupRuns.mockResolvedValue([]);
     await act(async () => {

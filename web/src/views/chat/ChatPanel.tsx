@@ -1052,23 +1052,30 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
          * the conversation, and the way to the run it belongs to. It is chrome and
          * not a message — nothing is posted, and the thread's records are untouched —
          * and it goes when the run does: the report that ends it arrives as a message,
-         * and the listing is read again on that arrival.
+         * and the listing is read again on that arrival. An agent switched off is
+         * not writing: a run left `running` when the switch went off is not
+         * advanced until it is back on, and the line would claim otherwise.
          */}
-        {writing > 0 && !runsOpen && !questionsOpen && !timedOpen && !searchOpen && (
-          <button
-            type="button"
-            className="chat-typing"
-            onClick={() => setRunsOpen(true)}
-            title={t("Open the runs")}
-          >
-            <span className="chat-typing-dots" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
-            {t("Gilbert is writing…")}
-          </button>
-        )}
+        {writing > 0 &&
+          agentOn !== false &&
+          !runsOpen &&
+          !questionsOpen &&
+          !timedOpen &&
+          !searchOpen && (
+            <button
+              type="button"
+              className="chat-typing"
+              onClick={() => setRunsOpen(true)}
+              title={t("Open the runs")}
+            >
+              <span className="chat-typing-dots" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              {t("Gilbert is writing…")}
+            </button>
+          )}
       </div>
       {open && !searchOpen && !runsOpen && (
         <div className="chat-composer">
