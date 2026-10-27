@@ -62,7 +62,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
       expect(
         queriesOf(srv).some(
           (q) =>
-            (q.filter as { nodeType?: string } | undefined)?.nodeType === "directory",
+            (q.filter as { nodeType?: string } | undefined)?.nodeType === "Directory",
         ),
       ).toBe(true),
     );
