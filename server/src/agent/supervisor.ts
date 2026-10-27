@@ -111,13 +111,24 @@ export const AGENT_PASS_INTERVAL_WITH_WAKE_MS = 30_000;
  * How long a pass may take before it is worth a line.
  *
  * A pass is not an event, and its own line is written **when it returns**: this
- * one says a pass finished late, with what it worked. A pass that never returns
- * writes nothing here, and that is read from the loop's progress lines instead —
- * it names the account and the run it started and never finished (`loop.ts`,
- * its `log`). Thirty seconds is several times an ordinary pass with a model call
- * in it.
+ * one says a pass finished late, with what it worked. A pass that does not return
+ * is `PASS_WATCHDOG_MS`'s, which abandons it and says so. Thirty seconds is
+ * several times an ordinary pass with a model call in it.
  */
 export const SLOW_PASS_MS = 30_000;
+
+/**
+ * How long a pass may run before it is abandoned and the next one starts.
+ *
+ * Every call inside a pass has its own timeout — the mail server's
+ * (`limits.upstreamTimeout`) and the provider's — so a pass that stops here is not
+ * a call that never answered: it is the loop itself, stuck where no timeout
+ * reaches. Left alone it holds `inFlight`, no further pass is asked, and nothing
+ * is written: the agent is off and looks idle. Five minutes is several times a
+ * pass with several accounts and model calls in it, so the abandonment costs
+ * nothing on a healthy installation.
+ */
+export const PASS_WATCHDOG_MS = 5 * 60_000;
 
 /**
  * How long a pass waits after the mail server's upload allowance is full.
@@ -232,9 +243,13 @@ export function supervise(options: SupervisorOptions): AgentProcess {
       queued = true;
       return inFlight;
     }
+    /** Set by the watchdog when it gives up on this pass. */
+    let abandoned = false;
     const work = (async () => {
       try {
         const summary = await options.loop.pass(now());
+        // The watchdog gave up on this pass: what it found is not news.
+        if (abandoned) return;
         if (saidFailure) {
           saidFailure = null;
           log("[gilbert] agent: the pass is working again");
@@ -297,10 +312,34 @@ export function supervise(options: SupervisorOptions): AgentProcess {
         }
       }
     })();
-    inFlight = work.finally(() => {
+    let current: Promise<void>;
+    /*
+     * The watchdog: every call inside a pass has its own timeout, so a pass still
+     * running after `PASS_WATCHDOG_MS` is the loop itself, stuck where no timeout
+     * reaches. Left alone it holds `inFlight` for ever, no pass is asked again, and
+     * nothing is written — the agent is off and reads as idle. It is abandoned
+     * instead, with the one line that says so, and the next pass starts.
+     */
+    const watchdog = setTimeout(() => {
+      if (inFlight !== current) return;
+      abandoned = true;
       inFlight = null;
+      log(
+        `[gilbert] agent: a pass had not returned in ${Math.round(PASS_WATCHDOG_MS / 60_000)} minutes, so it was abandoned and the next one starts`,
+      );
+      kick();
+    }, PASS_WATCHDOG_MS);
+    current = work.finally(() => {
+      clearTimeout(watchdog);
+      // A pass abandoned and replaced is not the one `inFlight` belongs to.
+      if (inFlight === current) inFlight = null;
+      if (abandoned)
+        log(
+          "[gilbert] agent: the abandoned pass returned, and what it found was dropped",
+        );
     });
-    return inFlight;
+    inFlight = current;
+    return current;
   }
 
   /**
