@@ -248,8 +248,11 @@ a run's catalogue follows the selection.
 no dot, one verb means one thing, a call is chosen by one `what`/`action` whose
 every value is named where the turn reads it and carries its own schema branch, a
 refusal names what it accepts, and a tool answers a distillation rather than the
-payload. A value the schema hides and a refusal that says only "bad arguments" are
-each a step the run pays for and learns nothing from.
+payload. The endpoints a verb routes to are internal: they are not in the
+catalogue a turn reads and are never named in a prompt, so one action has one name
+and the model is never taught a spelling no tool has. A value the schema hides and
+a refusal that says only "bad arguments" are each a step the run pays for and
+learns nothing from.
 
 A change in the group's account wakes the instruction when its **wake row**
 watches that surface; one change opens **one** run, and a run the account

@@ -19,7 +19,7 @@ export function jobCall(
     "knowledge.read": "page",
     "chat.read": "chat",
     "workorder.read": "workorder",
-    "run.read": "run",
+    "runs.read": "run",
   };
   if (read[name]) return { name: "open", args: { ...args, what: read[name] } };
   const find: Record<string, string> = {
@@ -82,6 +82,7 @@ const ENDPOINT_SURFACES = new Set([
   "knowledge",
   "workorder",
   "run",
+  "runs",
   "memory",
 ]);
 

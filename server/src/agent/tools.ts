@@ -103,19 +103,12 @@ export function validatedTool(
   const tool = catalogue.find((one) => one.name === name);
   if (!tool) {
     /*
-     * A name that is the tail of one this catalogue holds is named back: the model
-     * wrote `brief` for `read.brief` (live, 2026-10-27), and a refusal that only
-     * says "there is no tool named brief" leaves it nothing to correct. Naming the
-     * candidate turns the round into a fix instead of a dead end; the call is still
-     * refused, so nothing runs on a guess.
+     * A name the catalogue does not hold is named back where one name is the tail of
+     * the other — `read.open` for `open`, `open` for `read.open` — because a refusal
+     * that only says "there is no tool named …" leaves the model nothing to correct
+     * with. The call is still refused, so nothing runs on a guess.
      */
     const names = catalogue.map((one) => one.name);
-    /*
-     * A name is matched in both directions: the model wrote `brief` for
-     * `read.brief`, and — because one tool really is called `read.brief` — it also
-     * wrote `read.open` for `open` (live, 2026-10-27). Either way the refusal names
-     * the candidate, and the call is still refused, so nothing runs on a guess.
-     */
     const near = names.filter(
       (one) => one.endsWith(`.${name}`) || name.endsWith(`.${one}`),
     );

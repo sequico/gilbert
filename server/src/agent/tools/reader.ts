@@ -21,7 +21,7 @@ export const readBrief = defineTool<{
   question: string;
   about?: string;
 }>({
-  name: "read.brief",
+  name: "brief.read",
   description:
     "Ask one question about this group's own account and get a few lines back: what a " +
     "thread says, which documents a folder holds and what is missing from them, what a " +

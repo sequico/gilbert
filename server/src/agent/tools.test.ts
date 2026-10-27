@@ -778,7 +778,7 @@ test("the reading tools answer from the group's account", async () => {
     startedBy: { woke: "mail created: m-1" },
   });
   await createRun(ctx, accountId, stored);
-  const read = await tool<{ run: RunDoc }>("run.read", { id: "read-me" });
+  const read = await tool<{ run: RunDoc }>("runs.read", { id: "read-me" });
   assert.equal(read.run.id, "read-me");
   assert.deepEqual(read.run.startedBy, stored.startedBy);
 
@@ -794,7 +794,7 @@ test("the reading tools answer from the group's account", async () => {
     "runs/archive/2026-09/archived-run.json",
     archived,
   );
-  const foundArchived = await tool<{ run: RunDoc; month?: string }>("run.read", {
+  const foundArchived = await tool<{ run: RunDoc; month?: string }>("runs.read", {
     id: "archived-run",
   });
   assert.equal(foundArchived.run.id, "archived-run");

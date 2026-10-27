@@ -47,7 +47,7 @@ async function archivedRun(
 }
 
 export const readRunTool = defineTool({
-  name: "run.read",
+  name: "runs.read",
   description:
     "Read one run of this account by its id: what started it, the plan and how " +
     "each step ended, what it is waiting for, every authorisation it holds, and " +

@@ -1443,7 +1443,7 @@ export async function decideEvent(
     "The tools you may read with:",
     ...READING_TOOLS.map(toolLine),
     "Every argument name a tool takes is listed in its parentheses, and a call naming any other is refused whole: there is no second spelling.",
-    "A tool's name is used exactly as printed above, prefix and all: `read.brief`, never `brief`.",
+    "A tool's name is used exactly as printed above — which object you open is the `what` value, never part of the name.",
     ...heads,
   ];
   const system = reader
