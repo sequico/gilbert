@@ -106,6 +106,16 @@ Where the integration lives:
 
 ## Quirks confirmed live — read before assuming
 
+- **A header property's form is checked, and a wrong form refuses the whole
+  `Email/get`** (`is_allowed_form`, `crates/jmap-proto/src/object/email.rs` and
+  `crates/jmap/src/email/get.rs`, v1.0.0; live: `header:List-Unsubscribe:asText`
+  answered `invalidArguments`). Only `asRaw` is admissible for every header.
+  `Subject`/`Comments`/`Keywords` admit `asText`; the address headers
+  `asAddresses`; `Message-ID`/`In-Reply-To`/`References` `asMessageIds`;
+  `Date`/`Resent-Date` `asDate`; the `List-*` family `asURLs`; and
+  `Return-Path` and `Received` **raw alone**. `bodyProperties` is validated the
+  same way. The mock reproduces the refusal (`HEADER_FORMS`,
+  `server/src/mock/index.ts`).
 - `FileNode/query` **cannot filter by `name`**; name filters are matched
   client-side (`web/src/lib/appFolder.ts`). A filter the server does not know
   fails the whole query.

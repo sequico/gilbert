@@ -240,7 +240,15 @@ export interface Email {
   attachments?: EmailBodyPart[];
   headers?: EmailHeader[];
   // convenience header fetches
-  "header:List-Unsubscribe:asText"?: string | null;
+  /*
+   * The `:asRaw` form on three of these is not a preference: Stalwart 1.0
+   * checks a header property's requested form against the header's own kind and
+   * answers `invalidArguments` otherwise (`is_allowed_form`, `email/get.rs`).
+   * `List-Unsubscribe` (with the other `List-*` headers) admits URLs or raw, and
+   * `Return-Path` and `Received` admit raw alone — so `:asText` on any of them
+   * fails the whole `Email/get`.
+   */
+  "header:List-Unsubscribe:asRaw"?: string | null;
   "header:List-Unsubscribe-Post:asText"?: string | null;
   "header:List-Id:asText"?: string | null;
   "header:Disposition-Notification-To:asAddresses"?: EmailAddress[] | null;
@@ -249,9 +257,9 @@ export interface Email {
   "header:Auto-Submitted:asText"?: string | null;
   /** Bulk/list mail marks itself here; read receipts for it only confirm the address. */
   "header:Precedence:asText"?: string | null;
-  "header:Return-Path:asText"?: string | null;
+  "header:Return-Path:asRaw"?: string | null;
   "header:Authentication-Results:asText"?: string | null;
-  "header:Received:asText:all"?: string[] | null;
+  "header:Received:asRaw:all"?: string[] | null;
   "header:X-Spam-Status:asText"?: string | null;
   "header:X-Spam-Result:asText"?: string | null;
   /** What the spam filter's own model said, when AI classification is on (lib/spamScore). */
@@ -268,7 +276,7 @@ export interface Email {
  * have.
  */
 export const EMAIL_FULL_HEADER_PROPS = [
-  "header:List-Unsubscribe:asText",
+  "header:List-Unsubscribe:asRaw",
   "header:List-Unsubscribe-Post:asText",
   "header:List-Id:asText",
   "header:Disposition-Notification-To:asAddresses",

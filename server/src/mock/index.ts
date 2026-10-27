@@ -851,7 +851,7 @@ function addEmail(o: {
         ...attachments,
       ],
     },
-    "header:List-Unsubscribe:asText": o.from[1].includes("newsletter")
+    "header:List-Unsubscribe:asRaw": o.from[1].includes("newsletter")
       ? "<mailto:unsub@newsletter.example?subject=unsubscribe>, <https://newsletter.example/unsub>"
       : null,
     /*
@@ -2477,6 +2477,56 @@ class MethodError extends Error {
   }
 }
 
+/**
+ * The forms Stalwart 1.0 admits for a header property, and the refusal for any
+ * other (`is_allowed_form`, `crates/jmap-proto/src/object/email.rs`, v1.0.0).
+ *
+ * A header not named here admits every form; `asRaw` is admitted everywhere and
+ * a property with no form at all is raw. `Return-Path` and `Received` admit raw
+ * alone, and the `List-*` family admits `asURLs` — so a request carrying
+ * `:asText` on any of them fails the whole `Email/get`, which is the bug this
+ * table exists to reproduce.
+ */
+const HEADER_FORMS: Readonly<Record<string, readonly string[]>> = {
+  subject: ["asText"],
+  comments: ["asText"],
+  keywords: ["asText"],
+  from: ["asAddresses"],
+  sender: ["asAddresses"],
+  "reply-to": ["asAddresses"],
+  to: ["asAddresses"],
+  cc: ["asAddresses"],
+  bcc: ["asAddresses"],
+  "resent-from": ["asAddresses"],
+  "resent-sender": ["asAddresses"],
+  "resent-to": ["asAddresses"],
+  "resent-cc": ["asAddresses"],
+  "resent-bcc": ["asAddresses"],
+  "message-id": ["asMessageIds"],
+  "in-reply-to": ["asMessageIds"],
+  references: ["asMessageIds"],
+  "resent-message-id": ["asMessageIds"],
+  date: ["asDate"],
+  "resent-date": ["asDate"],
+  "list-help": ["asURLs"],
+  "list-unsubscribe": ["asURLs"],
+  "list-subscribe": ["asURLs"],
+  "list-post": ["asURLs"],
+  "list-owner": ["asURLs"],
+  "list-archive": ["asURLs"],
+  "return-path": [],
+  received: [],
+};
+
+/** Whether a requested property is a header asked for in a form it does not admit. */
+function formRefused(property: string): boolean {
+  if (!property.startsWith("header:")) return false;
+  const [name = "", form] = property.slice("header:".length).split(":");
+  if (!form || form === "asRaw") return false;
+  const allowed = HEADER_FORMS[name.toLowerCase()];
+  return allowed ? !allowed.includes(form) : false;
+}
+
 const MAX_OBJECTS = 500;
 
 /**
@@ -3400,7 +3450,22 @@ const handlers: Record<string, Handler> = {
       limit: page,
     };
   },
-  "Email/get": (a) => genericGet(emailsFor(a.accountId), "Email")(a),
+  /*
+   * A header property's form is checked before the read, and a form the header
+   * does not admit refuses the whole call (`is_allowed_form`, `email/get.rs` on
+   * v1.0.0). Live-verified: `header:List-Unsubscribe:asText` answered
+   * `invalidArguments`, which is how a 0.16-era property list broke every
+   * `Email/get` on 1.0. `asRaw` is admitted for every header and is not listed.
+   */
+  "Email/get": (a) => {
+    for (const property of [
+      ...((a.properties as string[]) ?? []),
+      ...((a.bodyProperties as string[]) ?? []),
+    ])
+      if (formRefused(property))
+        throw new MethodError("invalidArguments", `Invalid property ${property}`);
+    return genericGet(emailsFor(a.accountId), "Email")(a);
+  },
   /*
    * Real changes, not an empty answer.
    *

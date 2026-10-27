@@ -351,7 +351,7 @@ export const MessageView = memo(function MessageView({
       ),
     [e.attachments],
   );
-  const unsubscribe = e["header:List-Unsubscribe:asText"];
+  const unsubscribe = e["header:List-Unsubscribe:asRaw"];
   /* The agent's processing state on this message, and only on this message:
      the product's own vocabulary names it, the keyword says whether this one
      carries it. */
@@ -425,7 +425,10 @@ export const MessageView = memo(function MessageView({
 
   const onUnsubscribe = async () => {
     if (!unsubscribe) return;
-    const urls = [...unsubscribe.matchAll(/<([^>]+)>/g)].map((m) => m[1]!);
+    // Raw, so a folded header arrives with its folding intact.
+    const urls = [...unsubscribe.matchAll(/<([^>]+)>/g)].map((m) =>
+      m[1]!.replace(/\s+/g, ""),
+    );
     const mailto = urls.find((u) => u.startsWith("mailto:"));
     const http = urls.find((u) => /^https?:/i.test(u));
     if (mailto) {
