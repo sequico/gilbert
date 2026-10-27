@@ -10,11 +10,18 @@
  */
 
 import type { Ctx } from "../appFolder.js";
+import { fileChildren, findFolderPath } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt, readChatMessageBy } from "../groupChat.js";
 import { sameAddress } from "../shared/address.js";
+import { APP_FOLDER_NAME, type FileNodeLike, nodeStamp } from "../shared/appFolder.js";
 import { areaOfSource } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
-import { addressedToAgent, addressesAgent } from "../shared/chat.js";
+import {
+  addressedToAgent,
+  addressesAgent,
+  CHAT_FOLDER,
+  messageProps,
+} from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import type { RunDoc, RunWait } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
@@ -460,6 +467,22 @@ export async function workChanges(
         ),
     ),
   ];
+  /*
+   * The conversation is also read **as a folder**, because the change log stopped
+   * naming it: on Stalwart 1.0 three messages written into a group produced no run
+   * and no line anywhere, while `FileNode/changes` from the state the pass had just
+   * written listed unrelated nodes and answered `hasMoreChanges: false` (live,
+   * 2026-10-27). A conversation is one document per message, so what no run has
+   * answered can be read off the folder itself.
+   */
+  if (!held) {
+    const listed = await listRunsForWorking(deps.ctx, accountId);
+    for (const problem of listed.problems) summary.gaps.push(`${accountId}: ${problem}`);
+    held = listed.records;
+  }
+  for (const swept of await unansweredChat(deps.ctx, accountId, held))
+    if (!events.some((event) => event.source === "chat" && event.where === swept.where))
+      events.push(swept);
   if (!events.length) {
     // A quiet account pays no document read: there is nothing to apply it to.
     deps.cursors.set(accountId, read.cursor);
@@ -762,10 +785,61 @@ export async function workChanges(
   return held;
 }
 
-/** The longest opening line a run carries: a row has one line, not a document. */
-const ABOUT_MAX = 240;
-
 /**
+ * Messages in the group's conversation that **no run has answered**.
+ *
+ * The change log wakes a run, and on Stalwart 1.0 it stopped naming the
+ * conversation's own documents: three messages written into a group produced no
+ * run and no line anywhere, while `FileNode/changes` from the state the pass had
+ * just written listed unrelated nodes and answered `hasMoreChanges: false` (live,
+ * 2026-10-27). A conversation is one document per message in one folder, so what
+ * is unworked can be read off the folder: everything newer than the newest message
+ * a run already names, newest first and capped, and never a message a run's
+ * `woke` already carries.
+ *
+ * A group no run has spoken in yet contributes at most one message: the sweep is a
+ * repair for a log that lies, not a way to replay a history.
+ */
+const CHAT_SWEEP_MAX = 20;
+
+async function unansweredChat(
+  ctx: Ctx,
+  accountId: string,
+  held: readonly RunRecord[],
+): Promise<AccountEvent[]> {
+  const folderId = await findFolderPath(
+    ctx,
+    accountId,
+    `${APP_FOLDER_NAME}/${CHAT_FOLDER}`,
+  );
+  if (!folderId) return [];
+  const nodes = (await fileChildren(ctx, accountId, folderId, messageProps()))
+    .filter(
+      (node) =>
+        node.nodeType === "file" &&
+        typeof node.name === "string" &&
+        node.name.endsWith(".json"),
+    )
+    .sort((a, b) => nodeStamp(b).localeCompare(nodeStamp(a)));
+  const pathOf = (node: FileNodeLike) =>
+    `${APP_FOLDER_NAME}/${CHAT_FOLDER}/${String(node.name)}`;
+  const answered = new Set(held.map((record) => record.run.startedBy.woke));
+  const newest = nodes.find((node) => answered.has(`chat created: ${pathOf(node)}`));
+  const after = newest ? nodeStamp(newest) : "";
+  const unworked = nodes.filter(
+    (node) => !answered.has(`chat created: ${pathOf(node)}`) && nodeStamp(node) > after,
+  );
+  return (newest ? unworked : unworked.slice(0, 1))
+    .slice(0, CHAT_SWEEP_MAX)
+    .map((node) => ({
+      source: "chat" as const,
+      change: "created" as const,
+      where: pathOf(node),
+    }));
+}
+
+/** The longest opening line a run carries: a row has one line, not a document. */
+const ABOUT_MAX = 240; /**
  * What woke a run, and who set it off — in the words the change carried.
  *
  * `woke` names the change (`chat created: <path>`, `mail created: <id>`); this is
