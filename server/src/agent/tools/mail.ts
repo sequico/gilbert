@@ -11,9 +11,9 @@
 
 import { readGroupLabels, writeGroupLabels } from "../../account.js";
 import type { Ctx } from "../../appFolder.js";
-import { APP_FOLDER_NAME } from "../../shared/appFolder.js";
 import { cachedMail } from "../../mailCache.js";
 import { sameAddress } from "../../shared/address.js";
+import { APP_FOLDER_NAME } from "../../shared/appFolder.js";
 import { CAPABILITIES } from "../../shared/capabilities.js";
 import { moveMailboxPatch, refusalOf, type SetResponse } from "../../shared/jmap.js";
 import { queryThenGet } from "../../shared/jmapQuery.js";

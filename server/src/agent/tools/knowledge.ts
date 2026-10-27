@@ -6,7 +6,6 @@
  */
 
 import { findFolderPath, readAppJsonAt } from "../../appFolder.js";
-import { APP_FOLDER_NAME } from "../../shared/appFolder.js";
 import { asDraft } from "../../knowledge/documents.js";
 import {
   KnowledgeAdminError,
@@ -15,6 +14,7 @@ import {
   readArticle,
 } from "../../knowledgeAdmin.js";
 import { AGENT_SIGNATURE } from "../../shared/agent.js";
+import { APP_FOLDER_NAME } from "../../shared/appFolder.js";
 import { mapLimit, READ_CONCURRENCY } from "../../shared/concurrency.js";
 import {
   blocksFromText,

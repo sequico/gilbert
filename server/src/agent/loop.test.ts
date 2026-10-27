@@ -698,7 +698,6 @@ test("an area declared for writing opens nothing unless its surface is watched",
  * message: it is told them, fenced as data.
  */
 test("a mail change is read before the decision turn, so the turn spends no lookup on it", async () => {
-  const _id = "intake-mail-words";
   await putInstruction();
   const agent = loop();
   await agent.start();
@@ -779,7 +778,6 @@ test("a drop of files is one run and one report, after the folder is quiet", asy
 });
 
 test("two changes of one address open one run, not two", async () => {
-  const _id = "intake-fused";
   await putInstruction(["workorder"]);
   const agent = loop();
   await agent.start();
@@ -967,7 +965,6 @@ test("a run says how it ended, unless the ending is already words between them",
    * speaks; a question and a stop are already words, and a background run that
    * finished keeps its record.
    */
-  const _id = "intake-says";
   await putInstruction(["chat", "mail"]);
   const agent = loop();
   await agent.start();
@@ -1140,7 +1137,6 @@ test("a run that already answered in the conversation does not repeat its ending
    * ending beside it would be two messages for one piece of work. What a `done`
    * run must say is said when it said nothing.
    */
-  const _id = "intake-spoke";
   await putInstruction(["chat"]);
   const agent = loop();
   await agent.start();
@@ -1176,7 +1172,6 @@ test("the same change continues one run rather than open a second", async () => 
    * running is continued from its document; one that ended is
    * the answer it already has.
    */
-  const id = "intake-once";
   await putInstruction();
   const agent = loop();
   await agent.start();
@@ -1236,7 +1231,6 @@ test("a stopped run is not proposed again for the same change", async () => {
    * therefore closes that change — a later pass that
    * re-reads an unfinished batch does not open a fresh one beside it.
    */
-  const id = "intake-stopped";
   await putInstruction();
   const agent = loop();
   await agent.start();
@@ -1267,7 +1261,6 @@ test("a stopped run is not proposed again for the same change", async () => {
 });
 
 test("a change the instruction does not cover costs no model call and no step", async () => {
-  const _id = "intake-workorder";
   await putInstruction(["workorder"]);
   const agent = loop();
   await agent.start();
@@ -1290,7 +1283,6 @@ test("a change the instruction does not cover costs no model call and no step", 
 });
 
 test("a claim another process holds stops the pass before it works anything", async () => {
-  const id = "intake-claimed";
   await putInstruction();
   const peer = await takeClaim(ctx, "process-peer", new Date());
   assert.ok(peer, "the peer takes the installation's claim");
@@ -1786,7 +1778,6 @@ test("a person's answer continues the run that asked for it", async () => {
    * carries is an alarm for a question nobody answers, never the thing that
    * picks it up.
    */
-  const id = "intake-answer";
   // The question, and the run that parked on it, are both there before the loop
   // starts reading: the answer below is then the only change the pass finds.
   const asked = await postChatMessage(
@@ -2001,7 +1992,7 @@ test("an answer is worked once, whatever the decision names beside it", async ()
    * the steps the first one recorded. The record is the product (ADR 0030), so
    * the step the answer wrote is on it exactly once.
    */
-  const id = "answer-once";
+  const _id = "answer-once";
   const _beside = "answer-once-beside";
   const asked = await postChatMessage(
     ctx,
@@ -2061,7 +2052,7 @@ test("an answer is worked even when the instruction does not watch its surface",
    * where they were asked. Correlating that answer is the record's job: if the
    * "nothing watches this" shortcut runs first, the run stays parked for ever.
    */
-  const id = "answer-from-mail";
+  const _id = "answer-from-mail";
   const asked = await postChatMessage(
     ctx,
     accountId,
@@ -2204,7 +2195,6 @@ test("a person's answer is the word a destructive act asks for, recorded for tha
    * the guard compares that act exactly, so what is recorded here licenses the step
    * whose act it matches and nothing else.
    */
-  const id = "intake-authorised";
   const asked = await postChatMessage(
     ctx,
     accountId,
@@ -2424,7 +2414,6 @@ test("a change that answers nothing of ours opens a run of its own", async () =>
   // The same message, with no question of ours behind it: a change the instruction
   // covers is a change it answers, and the answer-continuation is not a way for a
   // chat message to be swallowed.
-  const _id = "intake-answer-elsewhere";
   await putInstruction(["chat"]);
   const agent = loop();
   await agent.start();
@@ -2439,7 +2428,6 @@ test("a change that answers nothing of ours opens a run of its own", async () =>
 });
 
 test("a run whose wait has come due is picked up again, from its document", async () => {
-  const id = "intake-due";
   await putInstruction();
   // A run a process wrote and then lost, its wait already past.
   await createRun(
@@ -2570,7 +2558,6 @@ test("the independent calls of one answer are executed, each its own step", asyn
 });
 
 test("the steps of one answer that are ready run together, not one after another", async () => {
-  const _id = "intake-parallel";
   await putInstruction();
   // A tool that is in flight for a moment: two of them overlap only if the loop
   // makes them at once.
@@ -3582,7 +3569,6 @@ test("a fact one run learns is handed to the next change's call, and the record 
    * working one change is carried into the next one, and the run's record says
    * which fact it reasoned from.
    */
-  const _id = "intake-memory";
   await putInstruction();
   const agent = loop();
   await agent.start();
@@ -3802,7 +3788,6 @@ test("a fact a pass writes is visible to the next pass, not to the pass that wro
    * taken per change — or per write — is a failing test rather than a silent
    * cost.
    */
-  const _id = "intake-same-pass";
   await putInstruction();
   const agent = loop();
   await agent.start();
@@ -3870,7 +3855,6 @@ test("a fact a pass writes is visible to the next pass, not to the pass that wro
 });
 
 test("every call is told the installation's line and the group's instruction, in the record's order", async () => {
-  const _id = "intake-prose";
   await putInstruction();
   const line = "Answer in the group's own words, never in English.";
   const standing = "Read the shipper's booking before answering.";

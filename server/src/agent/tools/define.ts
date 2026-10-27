@@ -16,8 +16,8 @@ import type {
   RunAuthorityAct,
   RunDoc,
   RunSpent,
+  RunWait,
 } from "../../shared/run.js";
-import type { RunWait } from "../../shared/run.js";
 import type { SurfaceMode, SurfaceName } from "../../shared/surfaces.js";
 import type { MemoryStore } from "../memory.js";
 import type { UsageMeter } from "../model.js";

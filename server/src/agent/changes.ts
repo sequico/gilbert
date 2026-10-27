@@ -11,13 +11,13 @@
 
 import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt, readChatMessageBy } from "../groupChat.js";
+import { sameAddress } from "../shared/address.js";
 import { areaOfSource } from "../shared/areas.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { addressedToAgent, addressesAgent } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import type { RunDoc, RunWait } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
-import { sameAddress } from "../shared/address.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import {
@@ -32,10 +32,10 @@ import type { MemoryStore } from "./memory.js";
 import { recallFor } from "./memory.js";
 import type { ModelAccess, UsageMeter } from "./model.js";
 import { decideEvent, usageMeter } from "./model.js";
+import { eventWriteKey, takeOwnWrite } from "./ownWrites.js";
 import type { ProseLevel } from "./prose.js";
 import { type Drop, dropEvent } from "./queue.js";
 import { listRunsForWorking, type RunRecord } from "./runs.js";
-import { takeOwnWrite, eventWriteKey } from "./ownWrites.js";
 import type { ToolCall } from "./tools/define.js";
 import { readMessageForPass, sendNotice } from "./tools/mail.js";
 
