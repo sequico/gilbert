@@ -39,7 +39,9 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   every pass — so a group added in Stalwart's own directory is worked by the next
   one, with no restart — and asks for a pass every ten seconds, or thirty while
   the wake stream is connected, with the claim
-  keeping an installation to one agent when a second copy of the server runs.
+  keeping an installation to one agent when a second copy of the server runs, and
+  a pass that has not returned in five minutes given up on by aborting it — the
+  next one starts when it is really gone, never beside it.
   The writing acts do the reversible work of the group's own
   account, and three of the inventory's promises are among them: `act` with
   `what: "reply"` drafts a reply to everyone into the group's Drafts, sent by
