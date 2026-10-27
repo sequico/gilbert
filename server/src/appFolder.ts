@@ -38,6 +38,7 @@ import {
   type FileNodeLike,
   FOLDER_PROPS,
   findAppFolderId,
+  nodeCacheStamp,
   nodeStamp,
   STAMP_PROPS,
 } from "./shared/appFolder.js";
@@ -1151,7 +1152,7 @@ export async function listAppSheets<T>(
      * other's rule.
      */
     const key = `${accountId}\u0000${path}`;
-    const stamp = nodeStamp(node);
+    const stamp = nodeCacheStamp(node);
     const remembered = held.get(key);
     if (remembered?.stamp === stamp) {
       rows.push({ id, doc: remembered.doc as T, problem: null });
