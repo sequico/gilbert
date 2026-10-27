@@ -35,7 +35,7 @@ body:
     id: stalwart-version
     attributes:
       label: Stalwart version
-      description: Gilbert speaks JMAP to Stalwart 0.16 or newer.
+      description: Gilbert speaks JMAP to Stalwart 1.0 or newer.
     validations:
       required: true
   - type: input
