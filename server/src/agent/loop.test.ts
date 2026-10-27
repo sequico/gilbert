@@ -2916,7 +2916,9 @@ test("a spoken report standing on a refused step is sent back once", async () =>
    * The report ends the run (ADR 0038), but it is a claim like a `done`: a wave
    * that refuses an act and says it was done must not close the run on the
    * refusal, or the record would show a false success. The mechanical check
-   * sends it back once, with the refusal named.
+   * sends it back once, with the refusal named, and tells the model that what it
+   * already reported stands — a run sent back to correct itself is not one that
+   * repeats the same report in the conversation.
    */
   await putInstruction();
   const agent = loop();
@@ -2939,7 +2941,7 @@ test("a spoken report standing on a refused step is sent back once", async () =>
   assert.equal(run.ended?.why, "I could not file it");
   const checked = run.plan.find((step) => step.what === DONE_CHECKED);
   assert.ok(checked, "the refusal was put to the model before the report stood");
-  assert.match(checked.outcome, /refused step/);
+  assert.match(checked.outcome, /refused step\(s\), and this run has already said/);
 });
 
 test("an area the group's instruction declares is offered, even when the matrix turned it off", async () => {

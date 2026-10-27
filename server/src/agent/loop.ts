@@ -239,6 +239,17 @@ const CASE_PLACE_LINES_MAX = 120;
 export const DONE_CHECKED = "the work, checked against the plan's refusals";
 
 /**
+ * Whether a call is the group's own report: `say` with the `say` action (ADR 0038).
+ *
+ * One definition, read twice: the wave records that the run spoke, and a run that
+ * has already spoken does not speak again. `say` with `ask` asks a person a
+ * question and reports nothing, so it is not one.
+ */
+function reportsInChat(call: StepCall): boolean {
+  return call.name === "say" && isRecord(call.args) && call.args.action === "say";
+}
+
+/**
  * The step the judge leaves on the record (ADR 0038).
  *
  * The judge fires on a **suspect plan** — a refused step, then a later step that
@@ -2609,8 +2620,7 @@ export class AgentLoop {
              * about what was done, so it does not make the run a report
              * (ADR 0030, 0038).
              */
-            const said =
-              call.name === "say" && isRecord(call.args) && call.args.action === "say";
+            const said = reportsInChat(call);
             // The report is the last phase (ADR 0038): what it said ends the run
             // after this wave, rather than the model being asked for a `done`.
             // The sentence is the words it asked to say, not the step's answer
@@ -2727,7 +2737,7 @@ export class AgentLoop {
           current = this.withStep(
             current,
             DONE_CHECKED,
-            `the plan carries ${refused} refused step(s): finish the work, or say what you could not do`,
+            `the plan carries ${refused} refused step(s), and this run has already said what it did in the conversation: finish the work and answer \`done\`, and say it again only if what you reported no longer stands`,
             false,
           );
           const kept = await this.store(accountId, current, token);
