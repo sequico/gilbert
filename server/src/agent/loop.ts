@@ -246,7 +246,13 @@ export const DONE_CHECKED = "the work, checked against the plan's refusals";
  * question and reports nothing, so it is not one.
  */
 function reportsInChat(call: StepCall): boolean {
-  return call.name === "say" && isRecord(call.args) && call.args.action === "say";
+  // Trimmed like the router reads it (`routeOf`), so `" say "` is the same action.
+  return (
+    call.name === "say" &&
+    isRecord(call.args) &&
+    typeof call.args.action === "string" &&
+    call.args.action.trim() === "say"
+  );
 }
 
 /**
@@ -2751,7 +2757,7 @@ export class AgentLoop {
           current = this.withStep(
             current,
             DONE_CHECKED,
-            `the plan carries ${refused} refused step(s), and this run has already said what it did in the conversation: finish the work and answer \`done\`, and say it again only if what you reported no longer stands`,
+            `the plan carries ${refused} refused step(s), and this run has already said what it did in the conversation: finish the work and answer \`done\``,
             false,
           );
           const kept = await this.store(accountId, current, token);
