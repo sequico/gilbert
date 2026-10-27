@@ -267,7 +267,7 @@ const ARCHIVE_EVERY_MS = 60 * 60_000;
 /** How stale the off path's reading may be before it starts from now instead. */
 const OFF_READING_FRESH_MS = 60 * 60_000;
 /** How often a pass that worked nothing rewrites the last pass it left. */
-const STATUS_EVERY_MS = 60_000;
+const STATUS_EVERY_MS = 5 * 60_000;
 /** How long a run left running without a wait waits before it is tried again. */
 const STUCK_RETRY_MS = 60_000;
 
@@ -452,6 +452,8 @@ export class AgentLoop {
   private claimTakenAt: string | null = null;
   /** When the last pass's document was written, so a quiet one is not a write. */
   private statusAt = 0;
+  /** The status document as last written, so a pass with nothing new uploads none. */
+  private lastStatus: PassStatusDoc | undefined;
   /** The last run the loop ended, for the status document a person reads. */
   private lastEnded: PassStatusDoc["lastEnded"] | null = null;
   /**
@@ -1782,8 +1784,29 @@ export class AgentLoop {
       spent,
       ...(this.lastEnded ? { lastEnded: this.lastEnded } : {}),
     };
+    /*
+     * A pass that has nothing new to say does not upload a document to say it.
+     *
+     * Every write of a document is one **blob upload**, and Stalwart refuses the
+     * installation once its blob quota is spent — "You have exceeded the blob
+     * upload quota of 10000 files or 500000000 bytes", which stopped the agent on
+     * 2026-10-27. The quota counts uploads, so a garbage collector frees nothing:
+     * what saves it is not writing. `at` and `ms` move on every pass, so two
+     * documents are never byte-identical; the comparison ignores them, and a
+     * heartbeat is written at most once per `STATUS_EVERY_MS` so the surface still
+     * says when the pass last ran.
+     */
+    const content = (one: PassStatusDoc) =>
+      JSON.stringify({ ...one, at: undefined, ms: undefined });
+    const unchanged =
+      this.lastStatus !== undefined && content(this.lastStatus) === content(doc);
+    if (unchanged && at.getTime() - this.statusAt < STATUS_EVERY_MS) {
+      this.statusAt = at.getTime();
+      return;
+    }
     try {
       await writeAppFileAt(this.ctx, accountId, PASS_STATUS_FILE, doc);
+      this.lastStatus = doc;
       this.statusAt = at.getTime();
       this.statusSpent = spent;
     } catch (err) {
