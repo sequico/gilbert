@@ -265,11 +265,26 @@ export async function offPath(
   /** What a notice could not be delivered for: said by the pass, not swallowed. */
   problems: string[] = [],
 ): Promise<void> {
+  /*
+   * Where the work stopped. The cursor **stays here** for as long as the agent is
+   * off: a change nobody answered is work the first pass after it is turned on has
+   * to see, and advancing past it dropped a chat message somebody wrote while the
+   * switch was off — it appeared never to have arrived (live, 2026-10-27). The
+   * notices are deduplicated below, so re-reading the same batch every pass costs a
+   * read and no repeat.
+   */
+  const before = deps.cursors.get(accountId);
   const read = await readChangesForPass(deps.ctx, deps.cursors, accountId);
   // A gap in the log is mentions this pass did not see: said, not assumed empty.
   if (read.gap) problems.push(read.gap);
+  const seen: Record<string, string> = { ...(before?.seen ?? {}) };
+  const now = new Date().toISOString();
   for (const event of read.events) {
     if (event.change !== "created") continue;
+    const key = `${event.source}:${event.where}`;
+    // Answered already, in a pass that read the same batch: one notice, not one a pass.
+    if (key in seen) continue;
+    seen[key] = now;
     try {
       if (event.source === "chat") {
         const message = await readChatMessageAt(deps.ctx, accountId, event.where);
@@ -326,12 +341,18 @@ export async function offPath(
         });
       }
     } catch (err) {
-      // The cursor moves past this change either way, so the notice is gone:
-      // the pass says so rather than letting a person believe they were told.
+      // A notice that did not leave is said, and the change stays unread: the
+      // cursor below is where the work stopped, not where this pass got to.
       problems.push(`${event.source} ${event.where}: ${errorMessage(err)}`);
     }
   }
-  deps.cursors.set(accountId, read.cursor);
+  /*
+   * Only `seen` moves. `before` may be absent on the very first pass, and then
+   * `readChangesForPass` has just anchored the cursor to now — there is no backlog
+   * to keep, so what it wrote stands.
+   */
+  if (before) deps.cursors.set(accountId, { ...before, seen });
+  else deps.cursors.set(accountId, { ...read.cursor, seen });
 }
 
 /** The decision turn's tokens, on the run it opened or continued. */
