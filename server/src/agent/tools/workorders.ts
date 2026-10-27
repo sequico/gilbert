@@ -32,7 +32,7 @@ import {
 import { type TemplateReader, templateDef } from "../../workorder/templates.js";
 import { settleStepAsAgent, WorkorderAdminError } from "../../workorderAdmin.js";
 import { fileWriteKey, markOwnWrite } from "../ownWrites.js";
-import { argsRecord, countArg, notFound, textArg } from "./args.js";
+import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 
 /**
@@ -246,7 +246,9 @@ export const settleStep = defineTool({
       uid: textArg(args, "uid"),
       path: textArg(args, "path"),
       state,
-      note: args.note === undefined ? "" : textArg(args, "note"),
+      // The catalogue's one reader for an optional text: `null` and a blank
+      // note both mean "no note", as they do everywhere else.
+      note: optionalTextArg(args, "note") ?? "",
     };
   },
   run: async ({ ctx, accountId }, { uid, path, state, note }) => {

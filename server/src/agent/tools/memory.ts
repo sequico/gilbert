@@ -20,7 +20,7 @@ import {
   subjectProblem,
 } from "../../shared/memory.js";
 import { readHistory, rememberFact } from "../memory.js";
-import { argsRecord, textArg } from "./args.js";
+import { argsRecord, optionalTextArg, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 
 /**
@@ -159,13 +159,9 @@ export const rememberFactTool = defineTool({
     const predicate = normalizePredicate(rawPredicate);
     const predicateIssue = predicateProblem(predicate);
     if (predicateIssue) throw new ToolError("bad_arguments", predicateIssue);
-    const rawObject: unknown = args.object;
-    if (rawObject !== undefined && (typeof rawObject !== "string" || !rawObject.trim()))
-      throw new ToolError(
-        "bad_arguments",
-        '"object" must name another entity, or be left out.',
-      );
-    const object = typeof rawObject === "string" ? rawObject.trim() : undefined;
+    // The catalogue's one reader for an optional text: `null`, an absent field
+    // and a blank one all mean "no object", and a non-text is refused.
+    const object = optionalTextArg(args, "object");
     const objectProblem = object
       ? (subjectProblem(object) ?? instanceSubjectProblem(object))
       : null;

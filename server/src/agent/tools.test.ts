@@ -435,6 +435,35 @@ test("the reading half this build ships holds no writer, and spends nothing", ()
   }
 });
 
+test("the case's note is kept under its key, and an empty one clears it", async () => {
+  /*
+   * The note is the case's scratchpad (ADR 0034): a run names the case and the
+   * note lands under it, and the tool's own description says an empty text
+   * clears it — a promise the parser has to keep, or the model is told a clear
+   * it cannot make.
+   */
+  const path = "cases/bk-901.md";
+  const first = await writeTool<{ case?: string; note: string }>("note", {
+    key: "BK-901",
+    text: "folder MS2/BK-901 · reported the booking",
+  });
+  assert.equal(first.case, "BK-901", "the answer names the case it filed under");
+  const held = await readAppFileAt(ctx, accountId, path);
+  assert.ok(held?.text.includes("MS2/BK-901"), "and the note is the case's document");
+
+  const cleared = await writeTool<{ note: string }>("note", {
+    key: "BK-901",
+    text: "",
+  });
+  assert.equal(cleared.note, "", "an empty text is the clear the tool promises");
+  assert.equal(await readAppFileAt(ctx, accountId, path), null, "and the note is gone");
+  await assert.rejects(
+    () => writeTool("note", { key: "BK-901" }),
+    /must be text/,
+    "a note with no text field at all is still refused",
+  );
+});
+
 test("a failed call is repeated only when the act it names is reversible", () => {
   /*
    * The four verbs are one tool each, so a verb's declared class is its default:
@@ -972,6 +1001,14 @@ test("the calendar is read and changed through its own tools", async () => {
       }),
     /authority/,
     "changing an event takes a person's word for it",
+  );
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: allowed }, "calendar.update", {
+        id: created.id,
+      }),
+    /at least one field/,
+    "a change that names no field is refused before the server is asked",
   );
   await runTool(TOOLS, { ctx, accountId, run: allowed }, "calendar.update", {
     id: created.id,

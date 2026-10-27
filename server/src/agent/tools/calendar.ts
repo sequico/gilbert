@@ -334,6 +334,13 @@ export const updateEvent = defineTool({
         409,
       );
     const patch = patchOf({ title, start, duration, timeZone, description });
+    // An update that names nothing is not a change: the server would be asked to
+    // set an empty object, and the answer would claim a write nobody asked for.
+    if (!Object.keys(patch).length)
+      throw new ToolError(
+        "bad_arguments",
+        "A change names at least one field to change: title, start, duration, timeZone or description.",
+      );
     const res = await clientOf(ctx).call<SetResponse>(
       "CalendarEvent/set",
       { accountId, update: { [id]: patch } },

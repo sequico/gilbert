@@ -12,8 +12,8 @@
  */
 
 import { casePath, writeCaseNote } from "../case.js";
-import { argsRecord, optionalTextArg, textArg } from "./args.js";
-import { defineTool } from "./define.js";
+import { argsRecord, optionalTextArg } from "./args.js";
+import { defineTool, ToolError } from "./define.js";
 
 export const noteTool = defineTool<{ text: string; key?: string }>({
   name: "note",
@@ -29,7 +29,18 @@ export const noteTool = defineTool<{ text: string; key?: string }>({
   args: { text: { type: "text" }, key: { type: "text" } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
-    return { text: textArg(args, "text"), key: optionalTextArg(args, "key") };
+    /*
+     * The text is required and may be empty: the description says an empty note
+     * clears the scratchpad, and the one writer does exactly that (`case.ts`).
+     * Every other text argument in the catalogue refuses a blank value, which is
+     * why this one reads its own.
+     */
+    if (typeof args.text !== "string")
+      throw new ToolError(
+        "bad_arguments",
+        '"text" must be text, or empty to clear the note.',
+      );
+    return { text: args.text, key: optionalTextArg(args, "key") };
   },
   run: async ({ ctx, accountId, run }, { text, key }) => {
     /*
