@@ -46,6 +46,24 @@ test("every job's name is one lowercase word, and no dot", () => {
     );
 });
 
+test("no description names an endpoint behind a verb", () => {
+  /*
+   * A description is the model's to read. An endpoint's name is internal (ADR
+   * 0038), so a dotted one written there is a name no catalogue holds, and a turn
+   * that writes it spends its lookup on a refusal.
+   */
+  for (const tool of TOOLS) {
+    const named = [
+      ...tool.description.matchAll(/`([a-z][a-z0-9-]*\.[a-z][a-z0-9-]*)`/g),
+    ].map((one) => one[1]);
+    assert.deepEqual(
+      named,
+      [],
+      `"${tool.name}" describes ${named.join(", ")}, and only the verbs are the model's`,
+    );
+  }
+});
+
 test("every value of a job's discriminator is named where the turn reads it", () => {
   /*
    * The description and the discriminator's `about` are both handed to the turn
