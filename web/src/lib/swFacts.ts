@@ -162,6 +162,7 @@ export function workerAccounts(opts: {
       inboxId: folderIdOfRole(opts.accountTrees, a.accountId, "inbox"),
       archiveId: folderIdOfRole(opts.accountTrees, a.accountId, "archive"),
       chatFolderId: conv?.folders?.chat ?? null,
+      // biome-ignore lint/complexity/useMathMinMax: ISO timestamps compared as strings; Math.max would coerce them to NaN.
       watermark: conv ? conv.nodes.reduce((m, n) => (n.at > m ? n.at : m), "") : "",
     };
   });

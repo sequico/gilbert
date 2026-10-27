@@ -75,17 +75,22 @@ function CalendarGrid({
   };
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const keys: Record<string, () => Date> = {
-      ArrowLeft: () => addDays(focus, -1),
-      ArrowRight: () => addDays(focus, 1),
-      ArrowUp: () => addDays(focus, -7),
-      ArrowDown: () => addDays(focus, 7),
-      PageUp: () => addMonths(focus, -1),
-      PageDown: () => addMonths(focus, 1),
-      Home: () => addDays(focus, -((focus.getDay() - weekStart + 7) % 7)),
-      End: () => addDays(focus, 6 - ((focus.getDay() - weekStart + 7) % 7)),
-    };
-    const next = keys[e.key];
+    /*
+     * A `Map`, not an object: the keys are `KeyboardEvent.key` values, and four
+     * of them are capitalised ("PageUp", "End"), which the linter reads as
+     * component definitions inside a function.
+     */
+    const keys = new Map<string, () => Date>([
+      ["ArrowLeft", () => addDays(focus, -1)],
+      ["ArrowRight", () => addDays(focus, 1)],
+      ["ArrowUp", () => addDays(focus, -7)],
+      ["ArrowDown", () => addDays(focus, 7)],
+      ["PageUp", () => addMonths(focus, -1)],
+      ["PageDown", () => addMonths(focus, 1)],
+      ["Home", () => addDays(focus, -((focus.getDay() - weekStart + 7) % 7))],
+      ["End", () => addDays(focus, 6 - ((focus.getDay() - weekStart + 7) % 7))],
+    ]);
+    const next = keys.get(e.key);
     if (next) {
       e.preventDefault();
       move(next());

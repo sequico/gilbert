@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
   // Code style is calibrated to how this codebase is actually written
   // (measured 2026-09-04): two-space indentation, double quotes, semicolons,
   // lines wrapped near 90 columns, LF endings. No markdown/css/html on
@@ -77,5 +77,18 @@
         "useIterableCallbackReturn": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      // A test harness wraps the component it drives, so it is declared inline
+      // beside the case that mounts it. Each case mounts once, and the remount
+      // the rule protects against is the point of the harness, not a bug.
+      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "correctness": { "noComponentHookFactories": "off" }
+        }
+      }
+    }
+  ]
 }

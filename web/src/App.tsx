@@ -646,6 +646,7 @@ function AuthedApp() {
       .map(
         (c) =>
           `${c.accountId}|${c.name}|${c.folders!.chat}|${c.nodes.reduce(
+            // biome-ignore lint/complexity/useMathMinMax: ISO timestamps compared as strings; Math.max would coerce them to NaN.
             (m, n) => (n.at > m ? n.at : m),
             "",
           )}`,
