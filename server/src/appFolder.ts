@@ -329,11 +329,14 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
        * Stalwart 1.0 renamed a node's kind to `@type`, and a server that does
        * not accept it answers `invalidProperties`. Say both, because "created
        * but returned no id" hid the real answer on the deployment that ran
-       * 1.0 before this build spoke it.
+       * 1.0 before this build spoke it. Any other refusal — forbidden, over
+       * quota — is reported as itself, with no guess about the version.
        */
       if (refused)
         throw new AppFolderError(
-          `The mail server refused the app folder: ${refusalOf(refused)} Gilbert needs a Stalwart ${STALWART_MIN_VERSION} server, whose FileNode shape this build speaks.`,
+          refused.type === "invalidProperties"
+            ? `The mail server refused the app folder: ${refusalOf(refused)} Gilbert needs a Stalwart ${STALWART_MIN_VERSION} server, whose FileNode shape this build speaks.`
+            : `The mail server refused the app folder: ${refusalOf(refused)}`,
         );
       throw new AppFolderError(
         "The mail server created the app folder but returned no id.",
