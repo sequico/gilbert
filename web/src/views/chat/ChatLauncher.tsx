@@ -127,11 +127,10 @@ export function ChatLauncher() {
       return;
     }
     setOpen(true);
-    // First use: open the first conversation so the panel is not an empty
-    // shell; `open` warms the transcript if the warm-up has not reached it.
-    if (!useChat.getState().openAccountId) {
-      openConversation(groups[0]!.accountId);
-    }
+    // First use: open a conversation so the panel is not an empty shell. Which
+    // one is the chat panel's own rule (`ChatPanel` opens the group the reader is
+    // reading mail in); opening the first here as well would win the race and make
+    // that rule unreachable.
   };
 
   const button = (
