@@ -22,7 +22,7 @@ import {
 } from "../account.js";
 import { EMPTY_POLICY, readAccountPolicy } from "../adminPolicy.js";
 import { agentWakeStatus } from "../agent/wake.js";
-import { filesAccountId } from "../appFolder.js";
+import { filesAccountId, fileNodeWireIsV1 } from "../appFolder.js";
 import { rateLimitKey } from "../clientip.js";
 import { config } from "../config.js";
 import { prepare as pushPrepare, pushStatus } from "../push.js";
@@ -205,11 +205,14 @@ export function registerAccountRoutes(api: Hono<Env>): void {
     const authorization = `Basic ${Buffer.from(`${username}:${effectivePassword}`, "utf8").toString("base64")}`;
     try {
       const upstream = await fetchUpstreamSession(authorization, upstreamFor(username));
-      // Gilbert requires Stalwart 0.16 or newer. Refuse here, once and
-      // clearly, rather than signing someone in and letting Files, the account
-      // locale and self-service credentials each fail in their own way with
-      // nothing to connect them. The credentials were good, so say so.
-      if (!hasStalwartRegistry(upstream)) {
+      // Gilbert requires Stalwart 1.0 or newer. Refuse here, once and clearly,
+      // rather than signing someone in and letting Files, the account locale
+      // and self-service credentials each fail in their own way with nothing to
+      // connect them. The credentials were good, so say so.
+      if (
+        !hasStalwartRegistry(upstream) ||
+        !(await fileNodeWireIsV1({ authorization, session: upstream, username }))
+      ) {
         // The credentials were accepted; only the server is too old. Not an
         // attempt worth counting against them.
         loginLimiter().refund(limitKey);
@@ -217,7 +220,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
         return c.json(
           {
             error: "unsupported_server",
-            message: `Your credentials are fine, but this mail server is older than Stalwart ${STALWART_MIN_VERSION}, which Gilbert needs. Upgrade the server, or run the release tagged stalwart-0.15-support.`,
+            message: `Your credentials are fine, but this mail server is older than Stalwart ${STALWART_MIN_VERSION}, which Gilbert needs. Upgrade the server.`,
           },
           501,
         );

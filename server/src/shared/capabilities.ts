@@ -3,7 +3,7 @@
  * once and with a clear message. One constant, so the refusal and the About
  * panel cannot name different minimums.
  */
-export const STALWART_MIN_VERSION = "0.16";
+export const STALWART_MIN_VERSION = "1.0.0";
 
 /**
  * The JMAP capability URNs, one definition for both tiers.

@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { freePort } from "./testkit.js";
 
 /**
- * Gilbert requires Stalwart 0.16 or newer. Sign-in is where that is enforced,
+ * Gilbert requires Stalwart 1.0 or newer. Sign-in is where that is enforced,
  * and it matters that it is enforced *there*: the alternative is signing
  * someone in and letting Files, the account locale and self-service
  * credentials each fail in their own way, with nothing to connect the three or
@@ -69,12 +69,8 @@ test("the message says the credentials were fine, and names the way out", async 
   // Someone hitting this has typed a correct password. Saying so is the
   // difference between "upgrade your server" and "try your password again".
   assert.match(body.message, /credentials are fine/i);
-  assert.match(body.message, /0\.16/);
-  assert.match(
-    body.message,
-    /stalwart-0\.15-support/,
-    "the tag to build from if they cannot upgrade",
-  );
+  assert.match(body.message, /1\.0/);
+  assert.match(body.message, /Upgrade the server/, "the way out is upgrading");
 });
 
 test("no session is minted for a server we cannot talk to", async () => {

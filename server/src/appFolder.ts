@@ -42,7 +42,7 @@ import {
   STAMP_PROPS,
 } from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
-import { CAPABILITIES } from "./shared/capabilities.js";
+import { CAPABILITIES, STALWART_MIN_VERSION } from "./shared/capabilities.js";
 import { errorMessage } from "./shared/errors.js";
 import { refusalOf, type SetResponse } from "./shared/jmap.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
@@ -71,6 +71,42 @@ const utf8 = new TextEncoder();
 
 /** The JMAP capability that carries FileNode in Stalwart 0.16. */
 export const FILENODE_CAP = CAPABILITIES.filenode;
+
+/**
+ * Whether this server answers Stalwart 1.0's FileNode shape.
+ *
+ * 1.0 renamed a node's kind to `@type`; a 0.16 server ignores a property it does
+ * not know, so an answer that carries no kind is the older shape. Asked at
+ * sign-in, before anything writes, so a 0.16 deployment is refused with a
+ * sentence instead of crash-looping on the app folder's create: two reads, and
+ * only when the account holds a node, which every account with Files does.
+ */
+export async function fileNodeWireIsV1(ctx: Ctx): Promise<boolean> {
+  const accountId = filesAccountId(ctx);
+  // No Files on this account means nothing to ask: the probe is not the door
+  // that account walks through, and calling it old would be a lie.
+  if (!accountId) return true;
+  const client = clientOf(ctx);
+  try {
+    const queried = await client.call<{ ids?: string[] }>(
+      FILENODE_QUERY,
+      { accountId, limit: 1 },
+      [FILENODE_CAP],
+    );
+    const id = queried.ids?.[0];
+    // An account with no node at all cannot tell the two shapes apart; the app
+    // folder's create answers the same question with a sentence either way.
+    if (!id) return true;
+    const answered = await client.call<{ list?: Array<Record<string, unknown>> }>(
+      FILENODE_GET,
+      { accountId, ids: [id], properties: ["nodeType"] },
+      [FILENODE_CAP],
+    );
+    return typeof answered.list?.[0]?.nodeType === "string";
+  } catch {
+    return false;
+  }
+}
 
 /** An error with a message meant for the person using the app. */
 export class AppFolderError extends Error {
@@ -288,6 +324,17 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
         const again = await findAppFolder(ctx, accountId);
         if (again) return again;
       }
+      /*
+       * A refusal that is not `alreadyExists` is the server refusing the shape:
+       * Stalwart 1.0 renamed a node's kind to `@type`, and a server that does
+       * not accept it answers `invalidProperties`. Say both, because "created
+       * but returned no id" hid the real answer on the deployment that ran
+       * 1.0 before this build spoke it.
+       */
+      if (refused)
+        throw new AppFolderError(
+          `The mail server refused the app folder: ${refusalOf(refused)} Gilbert needs a Stalwart ${STALWART_MIN_VERSION} server, whose FileNode shape this build speaks.`,
+        );
       throw new AppFolderError(
         "The mail server created the app folder but returned no id.",
       );
