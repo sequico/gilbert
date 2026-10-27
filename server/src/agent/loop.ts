@@ -452,6 +452,8 @@ export class AgentLoop {
   private claimTakenAt: string | null = null;
   /** When the last pass's document was written, so a quiet one is not a write. */
   private statusAt = 0;
+  /** The pass failures already said in a group's conversation, and when. */
+  private readonly failureSaid = new Map<string, number>();
   /** The status document as last written, so a pass with nothing new uploads none. */
   private lastStatus: PassStatusDoc | undefined;
   /** The last run the loop ended, for the status document a person reads. */
@@ -770,6 +772,17 @@ export class AgentLoop {
     }
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
+    /*
+     * Said in the pass's own document, not only in the journal: an installation
+     * whose Master holds no group works nothing at all, and a person watching the
+     * group's conversation has no way to tell that from an agent with nothing to
+     * say (2026-10-27: three messages into a group whose agent was idle, and not a
+     * line anywhere).
+     */
+    if (accounts.length === 0)
+      summary.gaps.push(
+        "the Master works no group, so nothing is read: add it to a group in the directory",
+      );
     if (!agentSwitch.enabled) {
       /*
        * Off still answers the people who wrote -- in chat and by mail, with a
@@ -1305,7 +1318,40 @@ export class AgentLoop {
       return after;
     } catch (err) {
       this.retryAfter.set(accountId, now.getTime() + 60_000);
+      await this.sayThePassFailed(accountId, err);
       throw err;
+    }
+  }
+
+  /**
+   * Say it in the group's own conversation when the pass cannot read its work.
+   *
+   * A group whose pass keeps failing saw nothing at all: no run, no notice, no
+   * line anywhere — a person wrote three times into a conversation that looked
+   * alive and heard nothing back (live, 2026-10-27, where every pass of the
+   * account ended in Stalwart's `maxConcurrentRequests`). Silence is only honest
+   * when there is nothing to say; a failure the account can be told about is
+   * something to say.
+   *
+   * Once per reason per half hour: a failing pass repeats every minute, and a
+   * message per minute is a second fault on top of the first.
+   */
+  private async sayThePassFailed(accountId: string, err: unknown): Promise<void> {
+    const reason = errorMessage(err).slice(0, 200);
+    const key = `${accountId}\u0000${reason}`;
+    const said = Date.now() - (this.failureSaid.get(key) ?? 0) < 30 * 60_000;
+    if (said) return;
+    this.failureSaid.set(key, Date.now());
+    try {
+      await postChatMessage(
+        this.ctx,
+        accountId,
+        this.ctx.username,
+        `I could not read this group's changes: ${reason} Nothing has been worked since, and I will try again.`,
+      );
+    } catch {
+      // The pass's own failure is already the gap it reports; a notice that
+      // cannot be posted must not become a second exception.
     }
   }
 
