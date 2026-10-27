@@ -92,14 +92,14 @@ async function findDir(parentId: string | null, name: string): Promise<string | 
   const [got] = await jmap([
     [
       "FileNode/get",
-      { accountId: GROUP_ACCOUNT, ids, properties: ["id", "name", "nodeType"] },
+      { accountId: GROUP_ACCOUNT, ids, properties: ["id", "name", "@type"] },
       "0",
     ],
   ]);
   const list = (
-    got as [string, { list: Array<{ id: string; name: string; nodeType: string }> }]
+    got as [string, { list: Array<{ id: string; name: string; ["@type"]: string }> }]
   )[1].list;
-  const found = list.find((n) => n.nodeType === "directory" && n.name === name);
+  const found = list.find((n) => n["@type"] === "Directory" && n.name === name);
   return found?.id ?? null;
 }
 
@@ -107,7 +107,7 @@ async function findDir(parentId: string | null, name: string): Promise<string | 
 async function dir(parentId: string | null, name: string): Promise<string> {
   const existing = await findDir(parentId, name);
   if (existing) return existing;
-  const made = await setNodes({ d: { parentId, name, nodeType: "directory" } });
+  const made = await setNodes({ d: { parentId, name, "@type": "Directory" } });
   return made.d!.id;
 }
 
@@ -145,8 +145,8 @@ test("a message written into the group chat folder shows up in FileNode/changes"
       parentId: chatFolder,
       name: "m1.json",
       blobId,
-      type: "application/json",
-      nodeType: "file",
+      mediaType: "application/json",
+      "@type": "File",
     },
   });
   const messageId = made.m!.id;
@@ -266,8 +266,8 @@ test("a FileNode set announces a state change on the event source", async () => 
           text: "live",
         }),
       ),
-      type: "application/json",
-      nodeType: "file",
+      mediaType: "application/json",
+      "@type": "File",
     },
   });
 
@@ -301,8 +301,8 @@ test("FileNode/query pages by position and reports the real total", async () => 
         parentId: chatFolder,
         name: `page-${Date.now()}-${i}.json`,
         blobId,
-        type: "application/json",
-        nodeType: "file",
+        mediaType: "application/json",
+        "@type": "File",
       },
     });
     ids.push(made.m!.id);

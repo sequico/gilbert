@@ -149,6 +149,15 @@ unbounded, and nothing in the account says which one is the current file.
   running server's testimony, and the reader's `modified ?? created` holds either
   answer.
 <!-- owed: modified-on-update -->
+- **The wire's names are translated, not spoken.** Stalwart 1.0 names a node's
+  kind `@type` (`File`, `Directory`, `SymLink`) and its MIME `mediaType`;
+  everything this tree names them `nodeType` and `type` in lower case, and
+  `server/src/shared/filenode.ts` translates on both JMAP transports. That keeps
+  a node's spelling out of every store, view and test, at the price of one map
+  per FileNode call and a vocabulary a reader has to know to follow a node from
+  a view to the server. Speaking the wire's names throughout — the adapter
+  deleted — is the native form and is not this decision's: it is owed.
+<!-- owed: native-filenode-wire -->
 - **The attachment path is the one refusal left**, and the summary string for a
   folder in the way is the only sentence a taken name produces.
 - **The read's own account of how much of a level it saw has no consumer.**

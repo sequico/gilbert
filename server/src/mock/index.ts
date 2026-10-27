@@ -41,6 +41,8 @@ const PORT = Number(process.env.MOCK_PORT ?? 8788);
  * support for it.
  */
 const NO_REGISTRY = process.env.MOCK_NO_REGISTRY === "1";
+/** Answer FileNode reads as Stalwart 0.16 did, for the sign-in version probe. */
+const FILE_NODE_V0 = process.env.MOCK_FILENODE_V0 === "1";
 /**
  * Stalwart advertises FUTURERELEASE in the session but only honours it when
  * the MTA's own `futureRelease` setting is on -- and that setting defaults to
@@ -2647,6 +2649,48 @@ function hideShareWithUnlessAsked(a: Obj, res: { list: Obj[] }): { list: Obj[] }
   return { ...res, list: res.list.map(({ shareWith: _drop, ...rest }) => rest) };
 }
 
+/**
+ * A stored FileNode as Stalwart 1.0's wire names it: `@type` with capitalised
+ * values and `mediaType` for the MIME. The store keeps the tree's own words, so
+ * this pair is where the mock speaks the protocol and nowhere else.
+ */
+function wireFileNode(node: Obj): Obj {
+  const out: Obj = { ...node };
+  if ("nodeType" in out) {
+    out["@type"] =
+      out.nodeType === "directory"
+        ? "Directory"
+        : out.nodeType === "symlink"
+          ? "SymLink"
+          : "File";
+    delete out.nodeType;
+  }
+  if ("type" in out) {
+    out.mediaType = out.type;
+    delete out.type;
+  }
+  return out;
+}
+
+/** A wire FileNode as this store keeps it: `nodeType` lower case, `type` MIME. */
+function localFileNode(node: Obj): Obj {
+  const out: Obj = { ...node };
+  if ("@type" in out) {
+    out.nodeType =
+      out["@type"] === "Directory"
+        ? "directory"
+        : out["@type"] === "SymLink"
+          ? "symlink"
+          : "file";
+    delete out["@type"];
+  }
+  if ("mediaType" in out) {
+    out.type = out.mediaType;
+    delete out.mediaType;
+  }
+  return out;
+}
+
 function genericGet(list: Obj[], type: string) {
   return (a: Obj) => {
     const ids = a.ids as string[] | null | undefined;
@@ -4764,7 +4808,10 @@ const handlers: Record<string, Handler> = {
         f.isTopLevel ? n.parentId != null : f.parentId ? n.parentId !== f.parentId : false
       )
         return false;
-      if (f.nodeType && n.nodeType !== f.nodeType) return false;
+      // 1.0 keeps the filter's key and changes its values: `Directory` on the
+      // wire is `directory` in this store.
+      const kind = typeof f.nodeType === "string" ? f.nodeType.toLowerCase() : undefined;
+      if (kind && n.nodeType !== kind) return false;
       return true;
     });
     // Position/limit paging, the way a real JMAP server answers it: the ids
@@ -4786,7 +4833,27 @@ const handlers: Record<string, Handler> = {
       ...(a.calculateTotal ? { total } : {}),
     };
   },
-  [FILENODE_GET]: (a) => genericGet(nodesFor(a.accountId), "FileNode")(a),
+  [FILENODE_GET]: (a) => {
+    /*
+     * The mock is a Stalwart 1.0 server: its FileNodes leave with `@type`
+     * (`File`/`Directory`/`SymLink`) and `mediaType`, and the properties a
+     * caller asks for are the wire's names. Its own store keeps the tree's
+     * lower-case words, so the request is translated down and the answer back
+     * up — the same pair the real clients apply in the other direction
+     * (`server/src/shared/filenode.ts`).
+     */
+    const request: Obj = { ...a };
+    // `MOCK_FILENODE_V0` answers as 0.16 did — `nodeType` and `type`, and an
+    // unknown property (such as `@type`) simply absent — which is the shape
+    // sign-in must refuse.
+    if (FILE_NODE_V0) return genericGet(nodesFor(a.accountId), "FileNode")(request);
+    if (Array.isArray(request.properties))
+      request.properties = (request.properties as string[]).map((one) =>
+        one === "@type" ? "nodeType" : one === "mediaType" ? "type" : one,
+      );
+    const answer = genericGet(nodesFor(a.accountId), "FileNode")(request);
+    return { ...answer, list: answer.list.map(wireFileNode) };
+  },
   [FILENODE_CHANGES]: (a) => {
     // FileNode/changes on a real 0.16 server works from a `sinceState` and
     // reports what changed (verified live 2026-09-07, see the Stalwart skill);
@@ -4853,6 +4920,8 @@ const handlers: Record<string, Handler> = {
       family,
       "f",
       (o) => {
+        // The wire's `@type`/`mediaType` become this store's own words.
+        Object.assign(o, localFileNode(o));
         const stamp = new Date(now()).toISOString();
         Object.assign(o, {
           created: stamp,
@@ -4980,6 +5049,7 @@ const handlers: Record<string, Handler> = {
        * `?? created` is what keeps either answer harmless.
        */
       (o, patch) => {
+        Object.assign(patch, localFileNode(patch));
         refuseSiblingClash({ ...o, ...patch });
         if (typeof patch.blobId === "string") patch.blobId = wholeBlobId(patch.blobId);
         o.modified = new Date(now()).toISOString();

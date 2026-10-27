@@ -5,6 +5,10 @@ import {
   GROUP_UNREADABLE,
   type GroupNeed,
 } from "@gilbert/shared/groupAccess";
+import {
+  fileNodeRequestArguments,
+  fileNodeResponseArguments,
+} from "@gilbert/shared/filenode";
 import { GENERIC_TYPES, mediaType, typeFromName } from "@gilbert/shared/media";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
@@ -496,9 +500,17 @@ export class JmapClient {
     signal?: AbortSignal,
   ): Promise<JmapResponse> {
     if (signal?.aborted) throw new ApiError(0, "aborted", "Request aborted");
+    /*
+     * The one boundary that speaks Stalwart 1.0's FileNode: `nodeType`/`type`
+     * become `@type`/`mediaType` on the way out and back (`shared/filenode.ts`),
+     * so a store or a view keeps the tree's own words.
+     */
+    const wireCalls = methodCalls.map(
+      ([name, args, id]): Invocation => [name, fileNodeRequestArguments(name, args), id],
+    );
     const body: Record<string, unknown> = {
       using: this.supportedUsing(using),
-      methodCalls,
+      methodCalls: wireCalls,
     };
     if (createdIds) body.createdIds = createdIds;
     const res = await apiFetch<JmapResponse>("/api/jmap", {
@@ -506,6 +518,9 @@ export class JmapClient {
       body: JSON.stringify(body),
       ...(signal ? { signal } : {}),
     });
+    res.methodResponses = res.methodResponses.map(
+      ([name, args, id]): Invocation => [name, fileNodeResponseArguments(name, args), id],
+    );
     if (res.sessionState && this.session && res.sessionState !== this.session.state) {
       /*
        * Advance the baseline here, where the change is seen, and not leave it

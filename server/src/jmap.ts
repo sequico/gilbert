@@ -15,6 +15,10 @@ import { config } from "./config.js";
 import { forgetMailCache } from "./mailCache.js";
 import { forgetRemembered } from "./requestMemory.js";
 import { FILENODE_SET } from "./shared/appFolder.js";
+import {
+  fileNodeRequestArguments,
+  fileNodeResponseArguments,
+} from "./shared/filenode.js";
 import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import {
   absoluteUpstream,
@@ -285,6 +289,15 @@ export class JmapClient {
       )
     )
       forgetMailCache();
+    /*
+     * The one boundary that speaks Stalwart 1.0's FileNode: every call is
+     * translated on the way out and every answer on the way back
+     * (`shared/filenode.ts`), so a caller keeps the tree's own `nodeType`/`type`
+     * and never has to know the wire's `@type`/`mediaType`.
+     */
+    const wireCalls = methodCalls.map(
+      ([name, args, id]): Invocation => [name, fileNodeRequestArguments(name, args), id],
+    );
     const res = await fetch(absoluteUpstream(this.session.apiUrl, this.session.baseUrl), {
       method: "POST",
       headers: {
@@ -294,7 +307,7 @@ export class JmapClient {
       },
       body: JSON.stringify({
         using: [...new Set([JMAP_CORE, STALWART_CAP, ...using])],
-        methodCalls,
+        methodCalls: wireCalls,
       }),
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });
@@ -312,7 +325,9 @@ export class JmapClient {
         502,
       );
     const body = (await res.json()) as { methodResponses?: MethodResponses };
-    return body.methodResponses ?? [];
+    return (body.methodResponses ?? []).map(
+      ([name, args, id]): Invocation => [name, fileNodeResponseArguments(name, args), id],
+    );
   }
 
   /** Send a batch and return it addressable by call id. */
