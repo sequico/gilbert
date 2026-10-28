@@ -58,7 +58,9 @@ own when the call named nobody: opening a card shows what was said to it — whe
 by whom, in which campaign, with which outcome and note — so the card a caller
 opens in November carries what a colleague said in October. A call to a
 switchboard that named nobody is the company's history until a person is attached
-to it.
+to it, and the routing note that says who is competent for what is that same
+card's own note or a person's title, written while the call is happening: the
+handoff carries it, and does not invent it.
 
 ### The two lists
 
@@ -76,8 +78,7 @@ to call is not a campaign's to keep.
 - a **row** — a part document of its own, so two members of the group write
   without touching each other. It carries the number to dial and, once a card
   exists for it, the card it calls; and its state, its owner and its next call. A
-  row may point at a company and no person: that is the ordinary switchboard case,
-  not a defect.
+  row may point at a company and no person.
 - **Today** — not stored: the queue is the view of the rows that are mine or
   due, and it is where the work happens. The call is placed from the person's own
   phone.
@@ -109,7 +110,10 @@ to call is not a campaign's to keep.
 - **The list arrives by paste or file, and the work happens on a phone.** A
   hundred calls begin as a paste or a file, never as a form filled once per
   number, and the work happens on the screen in the caller's hand: the size of the
-  list is why the first is true, and where the call is made is why the second is.
+  list is why the first is true, and where the call is made is why the second is. A
+  file is read by its columns; **a paste has none**, so it is read for the numbers
+  in it — one row for each, the words around it kept as the row's own context —
+  because the paste that starts a campaign is as often a mail as a spreadsheet.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the conditional write and the lapsed lease the installation's
   own claim already uses (ADR 0032) — and a caller holds one row at a time.
