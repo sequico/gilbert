@@ -32,10 +32,9 @@ rather than before it.
 
 Gilbert already holds identity: a group's own contacts are JSContact cards in
 the group's account, with organizations, labelled phones, titles and roles, and
-relations between a person and the company they work at — and they reach a
-person's own phone through the ordinary contact sync. What the installation does
-**not** hold is a relationship: no stage, no value, no forecast, no owner of an
-account. That line is the whole difference between this area and the CRM the
+relations between a person and the company they work at. What the installation
+does **not** hold is a relationship: no stage, no value, no forecast, no owner of
+an account. That line is the whole difference between this area and the CRM the
 company already runs.
 
 ## Decision
