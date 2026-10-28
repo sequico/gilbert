@@ -131,9 +131,11 @@ to call is not a campaign's to keep.
   dropped, an extension and any prose move to the row's note, and a number the
   table cannot place is refused and counted, never guessed and never stored
   half-written.
-- **The area is the agent's like the others.** Reading a card's calls is free;
-  proposing the note a call leaves behind is a write, and only a group whose
-  instruction declares the area may receive it.
+- **A campaign reads one revision of its script.** The script is a page of the
+  knowledge base, taken at the revision the campaign started with: two callers
+  saying different things because somebody edited the page on Wednesday is worse
+  than a script that is a week old, and the page's own history says what was
+  issued when.
 
 **`gilbertoutbound` is a block for the same reason the other four are** — an
 area of the product with a boundary of its own — and what it does not own already
