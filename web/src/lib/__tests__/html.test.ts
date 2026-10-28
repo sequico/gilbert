@@ -4,6 +4,7 @@ import {
   htmlDeclaresColors,
   LIGHT_SURFACE_LUMINANCE,
   markKeptSurfaces,
+  mirrorImageWidths,
   relativeLuminance,
   sanitizeEditorHtml,
   sanitizeEmailHtml,
@@ -125,6 +126,22 @@ describe("sanitizeEmailHtml", () => {
   });
   it("editor sanitizer keeps basic formatting", () => {
     expect(sanitizeEditorHtml("<b>x</b><script>1</script>")).toBe("<b>x</b>");
+  });
+});
+
+describe("mirrorImageWidths", () => {
+  it("gives an image the width its style carries, which a desktop client reads", () => {
+    const root = document.createElement("div");
+    root.innerHTML = '<img src="a.png" style="width: 300px; height: auto;">';
+    mirrorImageWidths(root);
+    expect(root.querySelector("img")?.getAttribute("width")).toBe("300");
+  });
+
+  it("leaves an image whose style sets no width alone", () => {
+    const root = document.createElement("div");
+    root.innerHTML = '<img src="a.png" style="max-width: 100%;">';
+    mirrorImageWidths(root);
+    expect(root.querySelector("img")?.hasAttribute("width")).toBe(false);
   });
 });
 

@@ -32,7 +32,7 @@ import {
   useState,
 } from "react";
 import Squire from "squire-rte";
-import { sanitizeEditorFragment } from "@/lib/html";
+import { mirrorImageWidths, sanitizeEditorFragment } from "@/lib/html";
 import { t as translate } from "@/lib/i18n";
 import { isLinkUrl } from "@/lib/linkUrl";
 import { type Anchor, Popover, useMenu } from "@/ui/popover";
@@ -278,7 +278,10 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       setUndo({ canUndo: false, canRedo: false });
     }
 
-    const onInput = () => emit();
+    const onInput = () => {
+      mirrorImageWidths(el);
+      emit();
+    };
     const onUndoState = (event: Event) => {
       const detail = (event as CustomEvent<{ canUndo: boolean; canRedo: boolean }>)
         .detail;

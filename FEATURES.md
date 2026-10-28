@@ -1486,7 +1486,10 @@ minimisable and maximisable; full-screen on mobile.
 - **Rich text**: bold, italic, underline, strikethrough, text colour, highlight,
   font size, alignment, bulleted and numbered lists, indent/outdent, blockquote,
   code block, links (`Ctrl+K`), inline images, an emoji picker, and remove
-  formatting. Tab and Shift+Tab indent inside a list. The editor is **Squire**
+  formatting. Tab and Shift+Tab indent inside a list. An image clicked in the
+  body is resized in place, by its handles or the arrow keys, and the width it
+  is given reaches a desktop client as the image's `width` attribute as well as
+  an inline style. The editor is **Squire**
   (ADR 0025): a quoted or forwarded message keeps its original markup, quoting
   nests, and the same component serves the composer, templates and an identity's
   signature.

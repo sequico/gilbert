@@ -555,6 +555,23 @@ export function sanitizeEditorFragment(input: string): DocumentFragment {
   return document.importNode(fragment, true);
 }
 
+/**
+ * Give an image the width its inline style already has.
+ *
+ * The composer's engine resizes an image by setting `width` in its style, which
+ * every browser and most clients read — but the desktop clients built on a word
+ * processor ignore CSS on an image and read the `width` attribute, so a picture
+ * resized in the composer arrived there at its own size. The attribute carries
+ * the same number; nothing else about the image is touched.
+ */
+export function mirrorImageWidths(root: ParentNode): void {
+  for (const img of root.querySelectorAll<HTMLImageElement>("img")) {
+    const width = Math.round(Number.parseFloat(img.style.width));
+    if (width > 0 && img.getAttribute("width") !== String(width))
+      img.setAttribute("width", String(width));
+  }
+}
+
 /** Base CSS injected into the shadow root that hosts HTML email. */
 export const EMAIL_BASE_CSS = `
 :host { display:block; color-scheme: light; }
