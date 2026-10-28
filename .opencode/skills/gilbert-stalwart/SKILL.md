@@ -115,7 +115,10 @@ Where the integration lives:
   `Date`/`Resent-Date` `asDate`; the `List-*` family `asURLs`; and
   `Return-Path` and `Received` **raw alone**. `bodyProperties` is validated the
   same way. The mock reproduces the refusal (`HEADER_FORMS`,
-  `server/src/mock/index.ts`).
+  `server/src/mock/index.ts`). Live on 1.0.0: `header:List-Unsubscribe:asURLs`
+  is accepted, and answered as the key with a `null` value where a message
+  carries no such header — a wrong *form* is what is refused, not a name the
+  server does not know, which it drops from the answer.
 - `FileNode/query` **cannot filter by `name`**; name filters are matched
   client-side (`web/src/lib/appFolder.ts`). A filter the server does not know
   fails the whole query.
