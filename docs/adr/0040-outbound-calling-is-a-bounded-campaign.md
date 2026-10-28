@@ -128,10 +128,10 @@ its own, because a promise not to call is not a campaign's to keep.
   group calls Zambia, Rwanda and Tanzania while another calls China, Bulgaria and
   Turkey, and the number is what says which.
   Every other form is normalised on arrival — a leading code the table knows and a
-  length that country has, a trunk zero dropped, an extension and any prose moved
-  to the row's note — and a number the table cannot place is refused and counted,
-  never guessed and never stored half-written. The do-not-call list is matched on
-  that same string.
+  length that country has, a national trunk prefix dropped, an extension and any
+  prose moved to the row's note — and a number the table cannot place is refused
+  and counted, never guessed and never stored half-written. The do-not-call list is
+  matched on that same string.
 - **The area is the agent's like the others.** Reading a card's calls is free;
   proposing the note a call leaves behind is a write, and only a group whose
   instruction declares the area may receive it.
