@@ -546,9 +546,10 @@ so a later drop in the same folder is a run of its own. A folder that appears is
 not a document and a removal whose path is unknown wakes nothing. A question is
 asked once: the plan turn is shown the questions the group already has open, and
 a `say` with the `ask` action answers with the open question's message instead
-of posting a second copy. A page's transcription is remembered by the content of its bytes, so the
-same scan answers the same words to every run, and an identifier the model cannot
-read is transcribed as `(unclear)` rather than guessed. The Work panel counts the
+of posting a second copy. A page's transcription is remembered by the content of its
+bytes for the life of the process (a bounded map, `IMAGE_READS_MAX`), so the same scan
+answers the same words to every run that process works, and an identifier the model
+cannot read is transcribed as `(unclear)` rather than guessed. The Work panel counts the
 decision turn's calls on the run it opens, and labels the steps a run spent and
 the plan entries that failed as the two tallies they are.
 
