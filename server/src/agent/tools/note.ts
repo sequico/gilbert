@@ -26,7 +26,13 @@ export const noteTool = defineTool<{ text: string; key?: string }>({
   authority: "reversible",
   writes: true,
   spend: {},
-  args: { text: { type: "text" }, key: { type: "text" } },
+  args: {
+    text: {
+      type: "text",
+      about: "the whole note, replacing what was there; empty clears it",
+    },
+    key: { type: "text", about: "the case's name, as the group's report calls it" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     /*

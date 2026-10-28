@@ -106,7 +106,10 @@ export const findEvents = defineTool({
     `occurrence in the window is a row and carries the id that answers it. At most ${FIND_MAX} rows.`,
   authority: "reversible",
   writes: false,
-  args: { from: { type: "text" }, to: { type: "text" } },
+  args: {
+    from: { type: "text", about: "the window's start, ISO 8601 (2026-10-20T00:00:00Z)" },
+    to: { type: "text", about: "the window's end, ISO 8601 (2026-11-20T00:00:00Z)" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { from: textArg(args, "from"), to: textArg(args, "to") };
@@ -220,12 +223,28 @@ export const createEvent = defineTool({
   surface: "calendar",
   spend: { steps: 1 },
   args: {
-    calendar: { type: "text" },
-    title: { type: "text" },
-    start: { type: "text" },
-    duration: { type: "text" },
-    timeZone: { type: "text" },
-    description: { type: "text" },
+    calendar: {
+      type: "text",
+      about:
+        "a calendar id or name, from open (calendars); the account's own when absent",
+    },
+    title: {
+      type: "text",
+      about: "the event's title, as a person reads it on their calendar",
+    },
+    start: {
+      type: "text",
+      about: "wall-clock start: 2026-10-20T09:00:00, or 2026-10-20 alone for a whole day",
+    },
+    duration: {
+      type: "text",
+      about: "an ISO 8601 duration (PT1H, P1D); one hour when absent",
+    },
+    timeZone: {
+      type: "text",
+      about: "an IANA zone (Europe/Rome), the event's own when absent",
+    },
+    description: { type: "text", about: "the body a person opens the event to read" },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -304,12 +323,24 @@ export const updateEvent = defineTool({
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
   args: {
-    id: { type: "text" },
-    title: { type: "text" },
-    start: { type: "text" },
-    duration: { type: "text" },
-    timeZone: { type: "text" },
-    description: { type: "text" },
+    id: { type: "text", about: "an event id, from open (events)" },
+    title: {
+      type: "text",
+      about: "the event's title, as a person reads it on their calendar",
+    },
+    start: {
+      type: "text",
+      about: "wall-clock start: 2026-10-20T09:00:00, or 2026-10-20 alone for a whole day",
+    },
+    duration: {
+      type: "text",
+      about: "an ISO 8601 duration (PT1H, P1D); one hour when absent",
+    },
+    timeZone: {
+      type: "text",
+      about: "an IANA zone (Europe/Rome), the event's own when absent",
+    },
+    description: { type: "text", about: "the body a person opens the event to read" },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);

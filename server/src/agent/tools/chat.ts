@@ -124,7 +124,10 @@ export const findChat = defineTool({
   authority: "reversible",
   writes: false,
   args: {
-    query: { type: "text" },
+    query: {
+      type: "text",
+      about: "the words to look for in the conversation's text; no search operators",
+    },
     limit: { type: "number", min: 1, max: CHAT_FIND_MAX },
   },
   parse: (raw: unknown) => {
@@ -280,8 +283,16 @@ export const sayInChat = defineTool({
   surface: "chat",
   spend: { steps: 1 },
   args: {
-    text: { type: "text", max: CHAT_MAX_TEXT },
-    replyTo: { type: "text" },
+    text: {
+      type: "text",
+      max: CHAT_MAX_TEXT,
+      about: "what the group reads, in its own conversation; markdown is drawn",
+    },
+    replyTo: {
+      type: "text",
+      about:
+        "a message id to answer in its thread, from open (chat) or the one that woke this run",
+    },
     refs: {
       type: "list",
       max: 200,
@@ -324,7 +335,13 @@ export const askInChat = defineTool({
   surface: "chat",
   waits: true,
   spend: { steps: 1 },
-  args: { text: { type: "text", max: ASK_TEXT_MAX } },
+  args: {
+    text: {
+      type: "text",
+      max: ASK_TEXT_MAX,
+      about: "the question, in the group's own words",
+    },
+  },
   parse: (raw: unknown) => ({ text: chatText(argsRecord(raw), ASK_TEXT_MAX) }),
   run: async ({ ctx, accountId, run, openWaits }, { text }) => {
     /*

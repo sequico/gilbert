@@ -54,6 +54,21 @@ import {
 import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
 
+/*
+ * What the arguments the model fills in hold, said **once** for every tool that
+ * takes them. A path, a folder, a message and an attachment name are the four
+ * things this area asks for, and ten tools ask for them: a sentence written beside
+ * each would be ten chances to say it differently, which is the drift the interface
+ * rules exist to stop (ADR 0038).
+ */
+const PATH_ABOUT =
+  "a path in the group's Files, `Folder/name.ext`, as open (files) answers";
+const FOLDER_ABOUT =
+  "a folder path in the group's Files, `Folder/Sub`; the group's top level when absent";
+const MESSAGE_ABOUT = "a message id, from open (messages)";
+const ATTACHMENT_ABOUT =
+  "the attachment's own file name, exactly as open (message) answered it";
+
 export const listFiles = defineTool({
   name: "files.list",
   description:
@@ -64,7 +79,7 @@ export const listFiles = defineTool({
     "); `total` and `truncated` say whether the folder holds more.",
   authority: "reversible",
   writes: false,
-  args: { path: { type: "text" }, limit: { type: "number", min: 1 } },
+  args: { path: { type: "text", about: PATH_ABOUT }, limit: { type: "number", min: 1 } },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -123,7 +138,7 @@ export const readNode = defineTool({
     "build cannot read says so rather than answering bytes.",
   authority: "reversible",
   writes: false,
-  args: { path: { type: "text" } },
+  args: { path: { type: "text", about: PATH_ABOUT } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId, readImage, meter }, { path }) => {
     const held = await findVisibleFile(ctx, accountId, path);
@@ -263,7 +278,10 @@ export const writeDocument = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  args: { path: { type: "text" }, text: { type: "text" } },
+  args: {
+    path: { type: "text", about: PATH_ABOUT },
+    text: { type: "text", about: "the document's text, written exactly as it is" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), text: textArg(args, "text") };
@@ -290,10 +308,13 @@ export const saveFile = defineTool({
   surface: "files",
   spend: { steps: 1 },
   args: {
-    path: { type: "text" },
-    from: { type: "text" },
-    message: { type: "text" },
-    attachment: { type: "text" },
+    path: { type: "text", about: PATH_ABOUT },
+    from: {
+      type: "text",
+      about: "a copy to make: the path of a document already in Files",
+    },
+    message: { type: "text", about: MESSAGE_ABOUT },
+    attachment: { type: "text", about: ATTACHMENT_ABOUT },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -438,7 +459,10 @@ export const overwriteDocument = defineTool({
   surface: "files",
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
-  args: { path: { type: "text" }, text: { type: "text" } },
+  args: {
+    path: { type: "text", about: PATH_ABOUT },
+    text: { type: "text", about: "the document's text, written exactly as it is" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), text: textArg(args, "text") };
@@ -511,7 +535,7 @@ export const deleteDocument = defineTool({
   surface: "files",
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
-  args: { path: { type: "text" } },
+  args: { path: { type: "text", about: PATH_ABOUT } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
     const held = await findVisibleNode(ctx, accountId, path);
@@ -566,7 +590,7 @@ export const createFileFolder = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  args: { path: { type: "text" } },
+  args: { path: { type: "text", about: PATH_ABOUT } },
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
     const id = await ensureRootFolderPath(ctx, accountId, path);
@@ -585,7 +609,10 @@ export const moveFile = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  args: { path: { type: "text" }, folder: { type: "text" } },
+  args: {
+    path: { type: "text", about: PATH_ABOUT },
+    folder: { type: "text", about: FOLDER_ABOUT },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), folder: optionalTextArg(args, "folder") ?? "" };
@@ -634,7 +661,10 @@ export const renameFile = defineTool({
   writes: true,
   surface: "files",
   spend: { steps: 1 },
-  args: { path: { type: "text" }, name: { type: "text" } },
+  args: {
+    path: { type: "text", about: PATH_ABOUT },
+    name: { type: "text", about: "the new name alone, with no folder in it" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), name: textArg(args, "name") };

@@ -187,7 +187,7 @@ export const readWorkorder = defineTool({
     "are the installation's, read beside the part this account holds.",
   authority: "reversible",
   writes: false,
-  args: { uid: { type: "text" } },
+  args: { uid: { type: "text", about: "the workorder's uid, from open (workorders)" } },
   parse: (raw: unknown) => ({ uid: textArg(argsRecord(raw), "uid") }),
   run: async ({ ctx, accountId }, { uid }) => {
     const name = workorderFileName(uid);
@@ -229,10 +229,14 @@ export const settleStep = defineTool({
   surface: "workorder",
   spend: { steps: 1 },
   args: {
-    uid: { type: "text" },
-    path: { type: "text" },
-    state: { type: "one of", values: WORKORDER_STEP_STATES },
-    note: { type: "text" },
+    uid: { type: "text", about: "the workorder's uid, from open (workorders)" },
+    path: { type: "text", about: "the step's path, as open (workorder) answers it" },
+    state: {
+      type: "one of",
+      values: WORKORDER_STEP_STATES,
+      about: "how the step ends: done, skipped or not-applicable (done when absent)",
+    },
+    note: { type: "text", about: "what the person reading the checklist should know" },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);

@@ -118,7 +118,13 @@ export const searchKnowledge = defineTool({
     "`total` and `truncated` say whether more matched.",
   authority: "reversible",
   writes: false,
-  args: { query: { type: "text" }, limit: { type: "number", min: 1 } },
+  args: {
+    query: {
+      type: "text",
+      about: "the words to look for in the pages' own text; no search operators",
+    },
+    limit: { type: "number", min: 1 },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -189,8 +195,11 @@ export const readKnowledgePage = defineTool({
   authority: "reversible",
   writes: false,
   args: {
-    folder: { type: "text" },
-    title: { type: "text" },
+    folder: {
+      type: "text",
+      about: "the page's folder in the knowledge base, `Area/Sub`",
+    },
+    title: { type: "text", about: "the page's title, as open (pages) answered it" },
     offset: { type: "number", min: 0 },
   },
   parse: (raw: unknown) => {
@@ -233,7 +242,17 @@ export const proposePage = defineTool({
   writes: true,
   surface: "knowledge",
   spend: { steps: 1 },
-  args: { folder: { type: "text" }, title: { type: "text" }, text: { type: "text" } },
+  args: {
+    folder: {
+      type: "text",
+      about: "the page's folder in the knowledge base, `Area/Sub`",
+    },
+    title: { type: "text", about: "the page's title, unique inside its folder" },
+    text: {
+      type: "text",
+      about: "the page's body, as the person approving it will read it",
+    },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { ...pageTarget(args), text: textArg(args, "text") };

@@ -48,6 +48,28 @@ test("every job's name is one lowercase word, and no dot", () => {
     );
 });
 
+test("every argument the model may fill in says what it holds", () => {
+  /*
+   * The same rule that keeps a name from drifting, applied to the arguments: an
+   * argument whose meaning is only its name is a step the run pays to discover.
+   * One installation sent a mailbox id to a message read because the schema said
+   * "text", and another spent four lookups guessing a search's operators, which
+   * is why the grammar travels with `query` and not only in a description the
+   * prompt never shows (`shared/search.ts`).
+   *
+   * `limit` and `offset` are the exception: they are a page's bounds, their `min`
+   * states what they are, and a sentence beside them would be noise in every
+   * schema.
+   */
+  const pageBounds = new Set(["limit", "offset"]);
+  const silent: string[] = [];
+  for (const tool of TOOLS)
+    for (const [key, spec] of Object.entries(tool.args))
+      if (!pageBounds.has(key) && !spec.about?.trim())
+        silent.push(`"${tool.name}" takes "${key}"`);
+  assert.deepEqual(silent, [], "every argument names what it holds");
+});
+
 test("no description names an endpoint behind a verb", () => {
   /*
    * A description is the model's to read. An endpoint's name is internal (ADR

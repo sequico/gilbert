@@ -35,7 +35,13 @@ export const readBrief = defineTool<{
    * so nothing is declared here and nothing is counted twice.
    */
   spend: {},
-  args: { question: { type: "text" }, about: { type: "text" } },
+  args: {
+    question: { type: "text", about: "what you need to know, in one sentence" },
+    about: {
+      type: "text",
+      about: "the object the question concerns: a thread, a folder, a page",
+    },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const about = optionalTextArg(args, "about");

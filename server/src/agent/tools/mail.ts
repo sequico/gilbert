@@ -113,7 +113,17 @@ export const findMessages = defineTool({
     'The answer names the messages it found; read the ones you need with `open` (`what: "message"`).',
   authority: "reversible",
   writes: false,
-  args: { query: { type: "text" }, limit: { type: "number", min: 1 } },
+  args: {
+    /*
+     * The grammar travels **with the argument**, because it is what the model must
+     * know before writing one: the endpoint's description is not in the prompt, and
+     * a run that does not know the operators guesses `$hasattachment`, `attachment`,
+     * `has:attachment` in three passes (live, 2026-10-28: five spellings, four
+     * wasted steps). One definition, `shared/search.ts`, where the parser is.
+     */
+    query: { type: "text", about: SEARCH_GRAMMAR },
+    limit: { type: "number", min: 1 },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -203,7 +213,13 @@ export const readAttachment = defineTool({
     "picture is transcribed by the installation's model.",
   authority: "reversible",
   writes: false,
-  args: { id: { type: "text" }, name: { type: "text" } },
+  args: {
+    id: { type: "text", about: "a message id, from open (messages)" },
+    name: {
+      type: "text",
+      about: "the attachment's own file name, as open (message) answered it",
+    },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), name: textArg(args, "name") };
@@ -340,7 +356,13 @@ export const fileMessage = defineTool({
   writes: true,
   surface: "mail",
   spend: { steps: 1 },
-  args: { id: { type: "text" }, folder: { type: "text" } },
+  args: {
+    id: { type: "text", about: "a message id, from open (messages)" },
+    folder: {
+      type: "text",
+      about: "a mailbox folder: its name, its role (`inbox`) or its id",
+    },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), folder: textArg(args, "folder") };
@@ -401,9 +423,12 @@ export const setKeyword = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   args: {
-    id: { type: "text" },
-    keyword: { type: "text" },
-    on: { type: "boolean" },
+    id: { type: "text", about: "a message id, from open (messages)" },
+    keyword: {
+      type: "text",
+      about: "a keyword or one of the product's G- labels, e.g. $seen",
+    },
+    on: { type: "boolean", about: "true to set the keyword, false to take it off" },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -588,7 +613,10 @@ export const draftReply = defineTool({
   writes: true,
   surface: "mail",
   spend: { steps: 1 },
-  args: { id: { type: "text" }, text: { type: "text" } },
+  args: {
+    id: { type: "text", about: "the message being answered, from open (messages)" },
+    text: { type: "text", about: "the draft's body, written as the person will send it" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), text: textArg(args, "text") };
@@ -741,11 +769,11 @@ export const editDraft = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   args: {
-    id: { type: "text" },
-    text: { type: "text" },
-    subject: { type: "text" },
-    to: { type: "text" },
-    cc: { type: "text" },
+    id: { type: "text", about: "a draft's message id, from open (messages)" },
+    text: { type: "text", about: "the draft's body, replacing the one it holds" },
+    subject: { type: "text", about: "the subject line; left as it is when absent" },
+    to: { type: "text", about: "the To line, addresses separated by commas" },
+    cc: { type: "text", about: "the Cc line, addresses separated by commas" },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -974,9 +1002,15 @@ export const defineLabel = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   args: {
-    keyword: { type: "text" },
-    name: { type: "text" },
-    color: { type: "text" },
+    keyword: {
+      type: "text",
+      about: "the label's keyword, `G-` prefixed, e.g. G-invoice",
+    },
+    name: { type: "text", about: "the name a person reads in the label list" },
+    color: {
+      type: "text",
+      about: "the colour the label is drawn with, an #rrggbb value",
+    },
   },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -1022,7 +1056,10 @@ export const renameMailFolder = defineTool({
   writes: true,
   surface: "mail",
   spend: { steps: 1 },
-  args: { name: { type: "text" }, to: { type: "text" } },
+  args: {
+    name: { type: "text", about: "the folder's name now" },
+    to: { type: "text", about: "the name it takes; the messages inside do not move" },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { name: textArg(args, "name"), to: textArg(args, "to") };
@@ -1060,7 +1097,9 @@ export const deleteMailFolder = defineTool({
   surface: "mail",
   spend: { steps: 1 },
   act: (args: { name: string }) => ({ target: args.name, content: null }),
-  args: { name: { type: "text" } },
+  args: {
+    name: { type: "text", about: "the folder's name, as open (folders) answered it" },
+  },
   parse: (raw: unknown) => ({ name: textArg(argsRecord(raw), "name") }),
   run: async ({ ctx, accountId }, { name }) => {
     const boxes = await mailboxesOf(ctx, accountId);
@@ -1115,7 +1154,14 @@ export const createMailFolder = defineTool({
   writes: true,
   surface: "mail",
   spend: { steps: 1 },
-  args: { name: { type: "text" }, parent: { type: "text" } },
+  args: {
+    name: { type: "text", about: "the new folder's name" },
+    parent: {
+      type: "text",
+      about:
+        "the folder it goes inside: a name, a role or an id; the top level when absent",
+    },
+  },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { name: textArg(args, "name"), parent: optionalTextArg(args, "parent") };

@@ -82,8 +82,8 @@ export const SEARCH_GRAMMAR =
   '"subject:", "body:", "in:"/"folder:" (a folder name or role), ' +
   '"label:"/"keyword:" and "-label:"/"-keyword:", "is:unread", "is:read", ' +
   '"is:starred"/"is:flagged", "has:star"/"has:flag"/"has:attachment", ' +
-  '"before:"/"older:", "after:"/"since:"/"newer:", "larger:"/"size:", ' +
-  '"smaller:"';
+  '"before:"/"older:"/"older_than:", "after:"/"since:"/"newer:"/"newer_than:", ' +
+  '"larger:"/"size:", "smaller:"';
 
 const SIZE_RE = /^(\d+(?:\.\d+)?)\s*([kmg]?b?)$/i;
 function parseSize(s: string): number | undefined {
