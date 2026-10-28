@@ -65,12 +65,11 @@ nobody is the company's own history until a person is attached to it.
 
 ### Two lists, and they are not the same kind of thing
 
-- a **campaign's list** — the rows that belong to one campaign. A list never
-  exists without the campaign that owns it and never outlives it: re-running a
-  list is a new campaign with the same file, not the same list reused.
-- the **do-not-call list** — the installation's own, durable, one for every
-  group. It is the only list that lives on its own, and the reason is that a
-  promise not to call is not a campaign's to keep.
+A **campaign's list** is its rows: it never exists without the campaign that owns
+it and never outlives it, so re-running a list is a new campaign with the same
+file rather than the same list reused. The **do-not-call list** is the
+installation's own, durable and one for every group — the only list that lives on
+its own, because a promise not to call is not a campaign's to keep.
 
 ### Four objects, and nothing else
 
