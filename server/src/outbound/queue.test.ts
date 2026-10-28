@@ -51,7 +51,10 @@ test("a row another caller holds is not offered, and is counted", () => {
 });
 
 test("a claim that has lapsed is free again", () => {
-  const abandoned = row({ uid: "abandoned", claim: claim("anna", "2026-10-28T09:59:00Z") });
+  const abandoned = row({
+    uid: "abandoned",
+    claim: claim("anna", "2026-10-28T09:59:00Z"),
+  });
   const { queue, heldByOthers } = todayQueue([abandoned], { caller: "sam", now });
   assert.deepEqual(
     queue.map((r) => r.uid),

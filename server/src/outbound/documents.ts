@@ -1,41 +1,66 @@
 /**
  * The outbound documents on disk (ADR 0040).
  *
- * Every write here is a read-modify-write under the account's compare-and-set:
- * the state token is taken **before** the document is read, so a write that
- * lands in between is refused instead of overwritten, and the act is retried
- * once. That is the whole of the concurrency story — two callers of one list
- * touch different rows, and two callers of one row are one refusal apart.
+ * Every write is a read-modify-write under the account's compare-and-set: the
+ * state token is taken **before** the document is read, so a write that lands in
+ * between is refused instead of overwritten, and the act is retried once. That is
+ * the whole concurrency story — two callers of one list touch different rows, and
+ * two callers of one row are one refusal apart.
  *
  * Nothing here decides policy: which row may be taken and what settling it means
  * are `rowActions.ts`, and what the queue offers is `queue.ts`.
  */
 
 import {
-  type Ctx,
   appFolderState,
-  listAppDir,
+  type Ctx,
+  listAppSheets,
   readAppJsonAt,
   writeAppFileAt,
 } from "../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import {
+  type CampaignDoc,
+  campaignFolderPath,
   campaignPath,
+  type DoNotCallDoc,
   doNotCallPath,
   isCampaignDoc,
   isDoNotCallDoc,
   isRowDoc,
+  type RowDoc,
   rowFolderPath,
   rowPath,
-  type CampaignDoc,
-  type DoNotCallDoc,
-  type RowDoc,
 } from "../shared/outbound.js";
 import { OutboundError, requireState } from "./errors.js";
 
 /** The sentence an exhausted retry carries: the write did not land, and that is all it means. */
 function writeFailed(what: string): OutboundError {
-  return new OutboundError("outbound_write_failed", `${what} could not be written: another write kept landing first. Try again.`, 502);
+  return new OutboundError(
+    "outbound_write_failed",
+    `${what} could not be written: another write kept landing first. Try again.`,
+    502,
+  );
+}
+
+/** Write one document under the compare-and-set, retried once. */
+async function writeWithRetry(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+  doc: unknown,
+  what: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+    const token = requireState(await appFolderState(ctx, accountId));
+    try {
+      await writeAppFileAt(ctx, accountId, path, doc, { ifInState: token });
+      return;
+    } catch (err) {
+      if (retryStateMismatch(err, attempt)) break;
+    }
+  }
+  throw writeFailed(what);
 }
 
 async function readDoc<T>(
@@ -48,22 +73,79 @@ async function readDoc<T>(
   return isDoc(doc) ? doc : null;
 }
 
-/** One campaign, or null when it is not there or this build cannot read it. */
-export async function readCampaign(ctx: Ctx, accountId: string, uid: string): Promise<CampaignDoc | null> {
-  return readDoc(ctx, accountId, campaignPath(uid), isCampaignDoc);
+/**
+ * Change one document under the compare-and-set.
+ *
+ * The read, the rule and the write are one attempt: a change somebody else made
+ * in between is a state mismatch, and the retry reads the document as they left
+ * it.
+ */
+async function mutateAt<T>(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+  isDoc: (value: unknown) => value is T,
+  missing: () => OutboundError,
+  mutate: (doc: T) => T,
+  what: string,
+): Promise<T> {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+    const token = requireState(await appFolderState(ctx, accountId));
+    const doc = await readDoc(ctx, accountId, path, isDoc);
+    if (!doc) throw missing();
+    const next = mutate(doc);
+    try {
+      await writeAppFileAt(ctx, accountId, path, next, { ifInState: token });
+      return next;
+    } catch (err) {
+      if (retryStateMismatch(err, attempt)) break;
+    }
+  }
+  throw writeFailed(what);
 }
 
-/** Every campaign of the account, by uid. */
-export async function listCampaigns(ctx: Ctx, accountId: string): Promise<CampaignDoc[]> {
-  const nodes = await listAppDir(ctx, accountId, "outbound/campaigns");
-  const docs: CampaignDoc[] = [];
-  for (const node of nodes) {
-    const name = typeof node.name === "string" ? node.name : "";
-    if (!name.endsWith(".json")) continue;
-    const doc = await readCampaign(ctx, accountId, name.slice(0, -5));
-    if (doc) docs.push(doc);
+/** What a folder of documents gave: the ones this build reads, and what it could not. */
+export interface ReadAll<T> {
+  docs: T[];
+  /** One sentence per document that is there and cannot be read. */
+  problems: string[];
+}
+
+async function readAll<T>(
+  ctx: Ctx,
+  accountId: string,
+  dir: string,
+  isDoc: (value: unknown) => value is T,
+): Promise<ReadAll<T>> {
+  const sheets = await listAppSheets<T | null>(ctx, accountId, dir, (_id, text) => {
+    try {
+      const doc: unknown = JSON.parse(text);
+      return isDoc(doc) ? doc : null;
+    } catch {
+      return null;
+    }
+  });
+  const docs: T[] = [];
+  const problems: string[] = [];
+  for (const sheet of sheets) {
+    if (sheet.doc === null) {
+      // A document that is there and unreadable is a gap said out loud, never a
+      // campaign that quietly leaves the list.
+      problems.push(`${sheet.id}: ${sheet.problem ?? "this build cannot read it"}`);
+      continue;
+    }
+    docs.push(sheet.doc);
   }
-  return docs.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return { docs, problems };
+}
+
+/** One campaign, or null when it is not there or this build cannot read it. */
+export async function readCampaign(
+  ctx: Ctx,
+  accountId: string,
+  uid: string,
+): Promise<CampaignDoc | null> {
+  return readDoc(ctx, accountId, campaignPath(uid), isCampaignDoc);
 }
 
 /** One row of a campaign, or null when it is not there. */
@@ -76,54 +158,63 @@ export async function readRow(
   return readDoc(ctx, accountId, rowPath(campaignUid, rowUid), isRowDoc);
 }
 
-/** Every row of a campaign. */
-export async function readRows(ctx: Ctx, accountId: string, campaignUid: string): Promise<RowDoc[]> {
-  const nodes = await listAppDir(ctx, accountId, rowFolderPath(campaignUid));
-  const docs: RowDoc[] = [];
-  for (const node of nodes) {
-    const name = typeof node.name === "string" ? node.name : "";
-    if (!name.endsWith(".json")) continue;
-    const doc = await readRow(ctx, accountId, campaignUid, name.slice(0, -5));
-    if (doc) docs.push(doc);
-  }
-  return docs;
+/** Every campaign of the account, oldest first, and what could not be read. */
+export async function listCampaigns(
+  ctx: Ctx,
+  accountId: string,
+): Promise<ReadAll<CampaignDoc>> {
+  const { docs, problems } = await readAll(
+    ctx,
+    accountId,
+    campaignFolderPath(),
+    isCampaignDoc,
+  );
+  return { docs: docs.sort((a, b) => a.createdAt.localeCompare(b.createdAt)), problems };
 }
 
-/** Write a campaign as it stands; a new campaign has one writer by construction. */
-export async function writeCampaign(ctx: Ctx, accountId: string, doc: CampaignDoc): Promise<void> {
-  await writeAppFileAt(ctx, accountId, campaignPath(doc.uid), doc, {
-    ifInState: requireState(await appFolderState(ctx, accountId)),
-  });
+/** Every row of a campaign, and what could not be read. */
+export async function readRows(
+  ctx: Ctx,
+  accountId: string,
+  campaignUid: string,
+): Promise<ReadAll<RowDoc>> {
+  return readAll(ctx, accountId, rowFolderPath(campaignUid), isRowDoc);
 }
 
-/** Change one campaign under the compare-and-set, or say the write did not land. */
+/** Write a campaign as it stands. */
+export async function writeCampaign(
+  ctx: Ctx,
+  accountId: string,
+  doc: CampaignDoc,
+): Promise<void> {
+  await writeWithRetry(
+    ctx,
+    accountId,
+    campaignPath(doc.uid),
+    doc,
+    `The campaign "${doc.uid}"`,
+  );
+}
+
+/** Change one campaign under the compare-and-set. */
 export async function mutateCampaign(
   ctx: Ctx,
   accountId: string,
   uid: string,
   mutate: (doc: CampaignDoc) => CampaignDoc,
 ): Promise<CampaignDoc> {
-  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
-    const token = requireState(await appFolderState(ctx, accountId));
-    const doc = await readCampaign(ctx, accountId, uid);
-    if (!doc) throw new OutboundError("outbound_not_found", `No campaign "${uid}" is there.`, 404);
-    const next = mutate(doc);
-    try {
-      await writeAppFileAt(ctx, accountId, campaignPath(uid), next, { ifInState: token });
-      return next;
-    } catch (err) {
-      if (retryStateMismatch(err, attempt)) break;
-    }
-  }
-  throw writeFailed(`The campaign "${uid}"`);
+  return mutateAt(
+    ctx,
+    accountId,
+    campaignPath(uid),
+    isCampaignDoc,
+    () => new OutboundError("outbound_not_found", `No campaign "${uid}" is there.`, 404),
+    mutate,
+    `The campaign "${uid}"`,
+  );
 }
 
-/**
- * Change one row under the compare-and-set.
- *
- * The read, the rule and the write are one attempt: a row taken by somebody else
- * between them is a state mismatch, and the retry reads the row as they left it.
- */
+/** Change one row under the compare-and-set. */
 export async function mutateRow(
   ctx: Ctx,
   accountId: string,
@@ -131,19 +222,20 @@ export async function mutateRow(
   rowUid: string,
   mutate: (doc: RowDoc) => RowDoc,
 ): Promise<RowDoc> {
-  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
-    const token = requireState(await appFolderState(ctx, accountId));
-    const doc = await readRow(ctx, accountId, campaignUid, rowUid);
-    if (!doc) throw new OutboundError("outbound_not_found", `No row "${rowUid}" is in campaign "${campaignUid}".`, 404);
-    const next = mutate(doc);
-    try {
-      await writeAppFileAt(ctx, accountId, rowPath(campaignUid, rowUid), next, { ifInState: token });
-      return next;
-    } catch (err) {
-      if (retryStateMismatch(err, attempt)) break;
-    }
-  }
-  throw writeFailed(`The row "${rowUid}"`);
+  return mutateAt(
+    ctx,
+    accountId,
+    rowPath(campaignUid, rowUid),
+    isRowDoc,
+    () =>
+      new OutboundError(
+        "outbound_not_found",
+        `No row "${rowUid}" is in campaign "${campaignUid}".`,
+        404,
+      ),
+    mutate,
+    `The row "${rowUid}"`,
+  );
 }
 
 /** The installation's do-not-call list, or an empty one when none was written yet. */
@@ -152,16 +244,11 @@ export async function readDoNotCall(ctx: Ctx, accountId: string): Promise<DoNotC
   return doc ?? { version: 1, numbers: [], updatedAt: new Date(0).toISOString() };
 }
 
-/** Rewrite the do-not-call list under the compare-and-set. */
-export async function writeDoNotCall(ctx: Ctx, accountId: string, doc: DoNotCallDoc): Promise<void> {
-  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
-    const token = requireState(await appFolderState(ctx, accountId));
-    try {
-      await writeAppFileAt(ctx, accountId, doNotCallPath(), doc, { ifInState: token });
-      return;
-    } catch (err) {
-      if (retryStateMismatch(err, attempt)) break;
-    }
-  }
-  throw writeFailed("The do-not-call list");
+/** Rewrite the do-not-call list. */
+export async function writeDoNotCall(
+  ctx: Ctx,
+  accountId: string,
+  doc: DoNotCallDoc,
+): Promise<void> {
+  await writeWithRetry(ctx, accountId, doNotCallPath(), doc, "The do-not-call list");
 }

@@ -40,7 +40,10 @@ function bandOf(row: RowDoc, caller: string, now: Date): number {
   return 2; // free, no date
 }
 
-export function todayQueue(rows: readonly RowDoc[], { caller, now, limit = 20 }: TodayInput): TodayResult {
+export function todayQueue(
+  rows: readonly RowDoc[],
+  { caller, now, limit = 20 }: TodayInput,
+): TodayResult {
   let due = 0;
   let upcoming = 0;
   let heldByOthers = 0;
@@ -64,9 +67,15 @@ export function todayQueue(rows: readonly RowDoc[], { caller, now, limit = 20 }:
   offered.sort((a, b) => {
     if (a.band !== b.band) return a.band - b.band;
     if (a.band === 0) return (a.row.claim?.at ?? "").localeCompare(b.row.claim?.at ?? "");
-    if (a.band === 1) return (a.row.nextCallAt ?? "").localeCompare(b.row.nextCallAt ?? "");
+    if (a.band === 1)
+      return (a.row.nextCallAt ?? "").localeCompare(b.row.nextCallAt ?? "");
     return a.row.createdAt.localeCompare(b.row.createdAt);
   });
 
-  return { queue: offered.slice(0, Math.max(0, limit)).map((entry) => entry.row), due, upcoming, heldByOthers };
+  return {
+    queue: offered.slice(0, Math.max(0, limit)).map((entry) => entry.row),
+    due,
+    upcoming,
+    heldByOthers,
+  };
 }

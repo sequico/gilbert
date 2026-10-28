@@ -9,20 +9,32 @@
  * the campaign's business and never a switch in the code.
  */
 
-import { heldByOther, withCall, type RowDoc } from "../shared/outbound.js";
+import { heldByOther, type RowDoc, withCall } from "../shared/outbound.js";
 
 /** How long a taken row is believed to be in a caller's hands. */
 export const CLAIM_LEASE_MS = 15 * 60 * 1000;
 
-export type TakeResult = { ok: true; row: RowDoc } | { ok: false; reason: "settled" | "held_by_other" };
+export type TakeResult =
+  | { ok: true; row: RowDoc }
+  | { ok: false; reason: "settled" | "held_by_other" };
 
 /** Take a row: the caller holds it until the lease lapses. */
-export function takeRow(row: RowDoc, { by, now, leaseMs = CLAIM_LEASE_MS }: { by: string; now: Date; leaseMs?: number }): TakeResult {
+export function takeRow(
+  row: RowDoc,
+  { by, now, leaseMs = CLAIM_LEASE_MS }: { by: string; now: Date; leaseMs?: number },
+): TakeResult {
   if (row.state !== "open") return { ok: false, reason: "settled" };
   if (heldByOther(row, by, now)) return { ok: false, reason: "held_by_other" };
   return {
     ok: true,
-    row: { ...row, claim: { by, at: now.toISOString(), until: new Date(now.getTime() + leaseMs).toISOString() } },
+    row: {
+      ...row,
+      claim: {
+        by,
+        at: now.toISOString(),
+        until: new Date(now.getTime() + leaseMs).toISOString(),
+      },
+    },
   };
 }
 

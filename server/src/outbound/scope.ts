@@ -47,11 +47,17 @@ export async function campaignAccount(
       403,
     );
   }
-  const ctx = await openMasterSession(admin, "outbound calling", (code, message, status) =>
-    new OutboundError(code, message, status),
+  const ctx = await openMasterSession(
+    admin,
+    "outbound calling",
+    (code, message, status) => new OutboundError(code, message, status),
   );
   const accountId = groupAccountId(ctx, group);
-  if (!accountId) throw groupNotGranted(group.trim() || group, "its outbound calls cannot be read or written");
+  if (!accountId)
+    throw groupNotGranted(
+      group.trim() || group,
+      "its outbound calls cannot be read or written",
+    );
   const folderId = await ensureFolderPath(ctx, accountId, OUTBOUND_FOLDER);
   return { ctx, accountId, folderId };
 }
@@ -63,7 +69,8 @@ export async function doNotCallAccount(
   const { ctx, accountId } = await openMasterAccount(admin, {
     what: "the do-not-call list",
     missingCode: "no_installation_account",
-    missingMessage: "The Master's own account could not be read, so the do-not-call list cannot be reached.",
+    missingMessage:
+      "The Master's own account could not be read, so the do-not-call list cannot be reached.",
     files: true,
     refuse: (code, message, status) => new OutboundError(code, message, status),
   });

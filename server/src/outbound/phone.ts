@@ -24,7 +24,12 @@
  * it, so a row can keep "int. 24" where a person reads it.
  */
 
-import { type CountryCode, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
+import {
+  type CountryCode,
+  getCountries,
+  getCountryCallingCode,
+  parsePhoneNumberFromString,
+} from "libphonenumber-js";
 import { isE164 } from "../shared/outbound.js";
 /** Why a shape could not become a number. A refusal is counted, never guessed. */
 export type NumberRefusal = "empty" | "no_country" | "invalid";
@@ -50,7 +55,8 @@ const DECORATION = /[\s\u00a0().\-/]/g;
 const MAX_DIGITS = 15;
 
 /** The calling codes, longest first, so `39` is tried before `3` would be. */
-const CALLING_CODES: readonly { code: string; countries: readonly CountryCode[] }[] = buildCallingCodes();
+const CALLING_CODES: readonly { code: string; countries: readonly CountryCode[] }[] =
+  buildCallingCodes();
 
 function buildCallingCodes(): { code: string; countries: CountryCode[] }[] {
   const byCode = new Map<string, CountryCode[]>();
@@ -66,12 +72,18 @@ function buildCallingCodes(): { code: string; countries: CountryCode[] }[] {
 }
 
 /** The digits of a raw entry, its extension, and whether it stated a country. */
-function readEntry(raw: string): { digits: string; extension: string | null; international: boolean } {
+function readEntry(raw: string): {
+  digits: string;
+  extension: string | null;
+  international: boolean;
+} {
   const match = EXTENSION_MARKER.exec(raw);
   const extension = match?.[1] ? match[1].replace(DECORATION, "") : null;
   const body = (match ? raw.slice(0, match.index) : raw).replace(DECORATION, "");
-  if (body.startsWith("+")) return { digits: body.slice(1).replace(/\D/g, ""), extension, international: true };
-  if (body.startsWith("00")) return { digits: body.slice(2).replace(/\D/g, ""), extension, international: true };
+  if (body.startsWith("+"))
+    return { digits: body.slice(1).replace(/\D/g, ""), extension, international: true };
+  if (body.startsWith("00"))
+    return { digits: body.slice(2).replace(/\D/g, ""), extension, international: true };
   return { digits: body.replace(/\D/g, ""), extension, international: false };
 }
 
@@ -80,13 +92,14 @@ function readEntry(raw: string): { digits: string; extension: string | null; int
  * number, or say why it is not one.
  */
 export function normaliseNumber(raw: string): NormalisedNumber {
-  if (!raw || !raw.trim()) return { ok: false, reason: "empty" };
+  if (!raw?.trim()) return { ok: false, reason: "empty" };
   const { digits, extension, international } = readEntry(raw);
   if (!digits || digits.length > MAX_DIGITS) return { ok: false, reason: "invalid" };
 
   if (international) {
     const parsed = parsePhoneNumberFromString(`+${digits}`);
-    if (!parsed?.isValid() || !isE164(parsed.number)) return { ok: false, reason: "invalid" };
+    if (!parsed?.isValid() || !isE164(parsed.number))
+      return { ok: false, reason: "invalid" };
     return { ok: true, e164: parsed.number, extension };
   }
 
@@ -98,7 +111,11 @@ export function normaliseNumber(raw: string): NormalisedNumber {
     if (!national) continue;
     for (const country of countries) {
       const parsed = parsePhoneNumberFromString(national, country);
-      if (parsed?.isValid() && parsed.countryCallingCode === code && isE164(parsed.number)) {
+      if (
+        parsed?.isValid() &&
+        parsed.countryCallingCode === code &&
+        isE164(parsed.number)
+      ) {
         return { ok: true, e164: parsed.number, extension };
       }
     }

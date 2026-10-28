@@ -3,13 +3,29 @@ import { test } from "node:test";
 import { normaliseNumber } from "./phone.js";
 
 test("an international number is reduced to E.164", () => {
-  assert.deepEqual(normaliseNumber("+39 02 1234 567"), { ok: true, e164: "+39021234567", extension: null });
-  assert.deepEqual(normaliseNumber("+1 (415) 555-0100"), { ok: true, e164: "+14155550100", extension: null });
-  assert.deepEqual(normaliseNumber("  +39.333.123.4567  "), { ok: true, e164: "+393331234567", extension: null });
+  assert.deepEqual(normaliseNumber("+39 02 1234 567"), {
+    ok: true,
+    e164: "+39021234567",
+    extension: null,
+  });
+  assert.deepEqual(normaliseNumber("+1 (415) 555-0100"), {
+    ok: true,
+    e164: "+14155550100",
+    extension: null,
+  });
+  assert.deepEqual(normaliseNumber("  +39.333.123.4567  "), {
+    ok: true,
+    e164: "+393331234567",
+    extension: null,
+  });
 });
 
 test("the old international prefix is the same statement", () => {
-  assert.deepEqual(normaliseNumber("0039 333 123 4567"), { ok: true, e164: "+393331234567", extension: null });
+  assert.deepEqual(normaliseNumber("0039 333 123 4567"), {
+    ok: true,
+    e164: "+393331234567",
+    extension: null,
+  });
 });
 
 test("a normalised number normalises to itself", () => {
@@ -19,8 +35,16 @@ test("a normalised number normalises to itself", () => {
 });
 
 test("a form that names its country is resolved, and keeps the country it named", () => {
-  assert.deepEqual(normaliseNumber("39 333 123 4567"), { ok: true, e164: "+393331234567", extension: null });
-  assert.deepEqual(normaliseNumber("260 977 123456"), { ok: true, e164: "+260977123456", extension: null });
+  assert.deepEqual(normaliseNumber("39 333 123 4567"), {
+    ok: true,
+    e164: "+393331234567",
+    extension: null,
+  });
+  assert.deepEqual(normaliseNumber("260 977 123456"), {
+    ok: true,
+    e164: "+260977123456",
+    extension: null,
+  });
 });
 
 test("a form without a country is refused, not guessed", () => {
@@ -34,12 +58,19 @@ test("the extension leaves the number and comes back beside it", () => {
     e164: "+39021234567",
     extension: "24",
   });
-  assert.deepEqual(normaliseNumber("+39 333 1234567 x24"), { ok: true, e164: "+393331234567", extension: "24" });
+  assert.deepEqual(normaliseNumber("+39 333 1234567 x24"), {
+    ok: true,
+    e164: "+393331234567",
+    extension: "24",
+  });
 });
 
 test("what is not a number is refused with its reason", () => {
   assert.deepEqual(normaliseNumber(""), { ok: false, reason: "empty" });
   assert.deepEqual(normaliseNumber("   "), { ok: false, reason: "empty" });
   assert.deepEqual(normaliseNumber("+39 000"), { ok: false, reason: "invalid" });
-  assert.deepEqual(normaliseNumber("+39 333 123456789012"), { ok: false, reason: "invalid" });
+  assert.deepEqual(normaliseNumber("+39 333 123456789012"), {
+    ok: false,
+    reason: "invalid",
+  });
 });

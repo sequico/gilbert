@@ -33,6 +33,11 @@ export function campaignPath(uid: string): string {
   return `${OUTBOUND_FOLDER}/${CAMPAIGN_FOLDER}/${uid}.json`;
 }
 
+/** The folder holding every campaign of one account. */
+export function campaignFolderPath(): string {
+  return `${OUTBOUND_FOLDER}/${CAMPAIGN_FOLDER}`;
+}
+
 /** `outbound/rows/<campaignUid>/<rowUid>.json`, app-folder-relative. */
 export function rowPath(campaignUid: string, rowUid: string): string {
   return `${OUTBOUND_FOLDER}/${ROW_FOLDER}/${campaignUid}/${rowUid}.json`;
@@ -187,11 +192,22 @@ function isNullableInstant(value: unknown): value is string | null {
 }
 
 function isOutcome(value: unknown): value is CampaignOutcome {
-  return isRecord(value) && isString(value.id) && value.id !== "" && isString(value.label) && value.label !== "";
+  return (
+    isRecord(value) &&
+    isString(value.id) &&
+    value.id !== "" &&
+    isString(value.label) &&
+    value.label !== ""
+  );
 }
 
 function isScriptRef(value: unknown): value is CampaignScriptRef {
-  return isRecord(value) && isString(value.nodeId) && value.nodeId !== "" && isString(value.revision);
+  return (
+    isRecord(value) &&
+    isString(value.nodeId) &&
+    value.nodeId !== "" &&
+    isString(value.revision)
+  );
 }
 
 function isWindow(value: unknown): value is CampaignWindow {
@@ -199,7 +215,9 @@ function isWindow(value: unknown): value is CampaignWindow {
 }
 
 function isClaim(value: unknown): value is RowClaim {
-  return isRecord(value) && isString(value.by) && isInstant(value.at) && isInstant(value.until);
+  return (
+    isRecord(value) && isString(value.by) && isInstant(value.at) && isInstant(value.until)
+  );
 }
 
 function isCall(value: unknown): value is RowCall {
@@ -214,7 +232,9 @@ function isCall(value: unknown): value is RowCall {
 }
 
 function isLabel(value: unknown): value is RowLabel {
-  return isRecord(value) && isNullableString(value.company) && isNullableString(value.name);
+  return (
+    isRecord(value) && isNullableString(value.company) && isNullableString(value.name)
+  );
 }
 
 /**
@@ -239,7 +259,10 @@ export function isCampaignDoc(value: unknown): value is CampaignDoc {
   // list is a campaign that cannot record anything, and a repeated id is a
   // vocabulary with two meanings for one word.
   if (value.outcomes.length === 0) return false;
-  if (new Set(value.outcomes.map((outcome) => (outcome as CampaignOutcome).id)).size !== value.outcomes.length) {
+  if (
+    new Set(value.outcomes.map((outcome) => (outcome as CampaignOutcome).id)).size !==
+    value.outcomes.length
+  ) {
     return false;
   }
   if (!isWindow(value.window)) return false;
@@ -261,14 +284,22 @@ export function isRowDoc(value: unknown): value is RowDoc {
   if (!isNullableInstant(value.nextCallAt)) return false;
   if (!Array.isArray(value.calls) || !value.calls.every(isCall)) return false;
   if (value.calls.length > MAX_CALLS_KEPT) return false;
-  if (typeof value.trimmed !== "number" || !Number.isInteger(value.trimmed) || value.trimmed < 0) return false;
+  if (
+    typeof value.trimmed !== "number" ||
+    !Number.isInteger(value.trimmed) ||
+    value.trimmed < 0
+  )
+    return false;
   return isInstant(value.createdAt);
 }
 
 /** Whether the installation's do-not-call document is one this build can read. */
 export function isDoNotCallDoc(value: unknown): value is DoNotCallDoc {
   if (!isRecord(value) || value.version !== 1) return false;
-  if (!Array.isArray(value.numbers) || !value.numbers.every((number) => isString(number) && number.startsWith("+"))) {
+  if (
+    !Array.isArray(value.numbers) ||
+    !value.numbers.every((number) => isString(number) && number.startsWith("+"))
+  ) {
     return false;
   }
   return isInstant(value.updatedAt);
