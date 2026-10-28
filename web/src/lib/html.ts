@@ -562,11 +562,14 @@ export function sanitizeEditorFragment(input: string): DocumentFragment {
  * every browser and most clients read — but the desktop clients built on a word
  * processor ignore CSS on an image and read the `width` attribute, so a picture
  * resized in the composer arrived there at its own size. The attribute carries
- * the same number; nothing else about the image is touched.
+ * the same number; nothing else about the image is touched, and a width given as
+ * a percentage stays in the style, where a pixel attribute cannot mean it.
  */
 export function mirrorImageWidths(root: ParentNode): void {
   for (const img of root.querySelectorAll<HTMLImageElement>("img")) {
-    const width = Math.round(Number.parseFloat(img.style.width));
+    const style = img.style.width.trim();
+    if (!style.endsWith("px")) continue;
+    const width = Math.round(Number.parseFloat(style));
     if (width > 0 && img.getAttribute("width") !== String(width))
       img.setAttribute("width", String(width));
   }

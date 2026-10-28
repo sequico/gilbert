@@ -143,6 +143,14 @@ describe("mirrorImageWidths", () => {
     mirrorImageWidths(root);
     expect(root.querySelector("img")?.hasAttribute("width")).toBe(false);
   });
+
+  it("keeps a width given as a percentage in the style", () => {
+    const root = document.createElement("div");
+    root.innerHTML = '<img src="a.png" style="width: 50%;">';
+    mirrorImageWidths(root);
+    // A pixel attribute saying "50" would shrink it to a thumbnail.
+    expect(root.querySelector("img")?.hasAttribute("width")).toBe(false);
+  });
 });
 
 describe("htmlDeclaresColors", () => {
