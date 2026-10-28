@@ -15,6 +15,7 @@ import { readCardIndex } from "../outbound/cards.js";
 import {
   listCampaigns,
   mutateDoNotCall,
+  readCardCalls,
   readDoNotCall,
   readRows,
 } from "../outbound/documents.js";
@@ -22,7 +23,13 @@ import { OutboundError } from "../outbound/errors.js";
 import { normaliseNumber } from "../outbound/phone.js";
 import { todayQueue } from "../outbound/queue.js";
 import { campaignAccount } from "../outbound/scope.js";
-import { createCampaign, importList, settle, take } from "../outbound/writes.js";
+import {
+  closeCampaign,
+  createCampaign,
+  importList,
+  settle,
+  take,
+} from "../outbound/writes.js";
 import type { LiveSession } from "../sessions.js";
 import { isRecord } from "../shared/json.js";
 import type {
@@ -30,6 +37,7 @@ import type {
   CampaignScriptRef,
   CampaignWindow,
 } from "../shared/outbound.js";
+import { isPastWindow } from "../shared/outbound.js";
 import type { Env } from "./shared.js";
 import { failureFor, readJson, requireSession } from "./shared.js";
 
@@ -127,7 +135,56 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         required(c.req.query("group"), "group"),
       );
       const { docs, problems } = await listCampaigns(ctx, accountId);
-      return c.json({ ok: true, campaigns: docs, problems });
+      /*
+       * A window that has passed with rows still open is a finding for the group —
+       * closed, extended, or carried into the next campaign — and never a list that
+       * quietly stops existing. Only the campaigns past their window are read for
+       * it, because that is the only state in which the count means anything.
+       */
+      const now = new Date();
+      const findings: Array<{ uid: string; purpose: string; open: number }> = [];
+      for (const campaign of docs) {
+        if (campaign.state !== "running" || !isPastWindow(campaign, now)) continue;
+        const read = await readRows(ctx, accountId, campaign.uid);
+        problems.push(...read.problems);
+        const open = read.docs.filter((row) => row.state === "open").length;
+        if (open > 0)
+          findings.push({ uid: campaign.uid, purpose: campaign.purpose, open });
+      }
+      return c.json({ ok: true, campaigns: docs, problems, findings });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  /**
+   * Close a campaign, carrying its open rows into a successor when asked.
+   *
+   * `carry` is the second of the two resolutions the record allows for work still
+   * to do: the rows move to a new campaign with the same purpose and vocabulary,
+   * and the one being closed keeps its own.
+   */
+  api.post("/outbound/campaigns/:uid/close", requireSession, async (c) => {
+    try {
+      const body: unknown = await readJson(c);
+      if (!isRecord(body))
+        throw new OutboundError("bad_request", "A close names its group.", 400);
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(body.group, "group"),
+      );
+      const closed = await closeCampaign(ctx, accountId, c.req.param("uid"), {
+        carry: body.carry === true,
+        createdBy: c.get("session").username,
+        now: new Date(),
+        newUid: randomUUID,
+      });
+      return c.json({
+        ok: true,
+        campaign: closed.campaign,
+        successor: closed.successor,
+        carried: closed.carried,
+      });
     } catch (err) {
       return outboundFailure(c, err);
     }
@@ -182,6 +239,26 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         blocked: imported.blocked,
         refused: imported.refused,
       });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  /**
+   * What was said to one card, read by whoever may read the group.
+   *
+   * The row dies with its campaign; this does not, which is what lets a card
+   * opened in November say what a colleague said in October.
+   */
+  api.get("/outbound/card-calls", requireSession, async (c) => {
+    try {
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(c.req.query("group"), "group"),
+      );
+      const cardUid = required(c.req.query("card"), "card");
+      const { calls, trimmed } = await readCardCalls(ctx, accountId, cardUid);
+      return c.json({ ok: true, calls, trimmed });
     } catch (err) {
       return outboundFailure(c, err);
     }

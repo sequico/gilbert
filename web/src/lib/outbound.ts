@@ -45,14 +45,42 @@ export interface Settlement {
 
 const groupQuery = (group: string) => `group=${encodeURIComponent(group)}`;
 
-/** The group's campaigns, with what could not be read. */
-export async function listCampaigns(
+/** A campaign past its window with work still to do. */
+export interface CampaignFinding {
+  uid: string;
+  purpose: string;
+  open: number;
+}
+
+/** The group's campaigns, what could not be read, and what needs a decision. */
+export async function listCampaigns(group: string): Promise<{
+  campaigns: CampaignDoc[];
+  problems: string[];
+  findings: CampaignFinding[];
+}> {
+  const res = await apiFetch<{
+    campaigns: CampaignDoc[];
+    problems: string[];
+    findings: CampaignFinding[];
+  }>(`/api/outbound/campaigns?${groupQuery(group)}`);
+  return {
+    campaigns: res.campaigns ?? [],
+    problems: res.problems ?? [],
+    findings: res.findings ?? [],
+  };
+}
+
+/** Close a campaign, carrying its open rows into a successor when asked. */
+export async function closeCampaign(
   group: string,
-): Promise<{ campaigns: CampaignDoc[]; problems: string[] }> {
-  const res = await apiFetch<{ campaigns: CampaignDoc[]; problems: string[] }>(
-    `/api/outbound/campaigns?${groupQuery(group)}`,
+  campaignUid: string,
+  carry: boolean,
+): Promise<{ carried: number }> {
+  const res = await apiFetch<{ carried: number }>(
+    `/api/outbound/campaigns/${encodeURIComponent(campaignUid)}/close`,
+    { method: "POST", body: JSON.stringify({ group, carry }) },
   );
-  return { campaigns: res.campaigns ?? [], problems: res.problems ?? [] };
+  return { carried: res.carried ?? 0 };
 }
 
 /** Write a campaign for a purpose, with the outcomes its callers will choose. */
@@ -85,6 +113,26 @@ export async function importRows(
     blocked: res.blocked ?? 0,
     refused: res.refused ?? [],
   };
+}
+
+/** One call as a card's log keeps it. */
+export interface CardCall {
+  at: string;
+  by: string;
+  /** The campaign's own outcome id. */
+  outcome: string;
+  note: string | null;
+}
+
+/** What was said to one card, whoever dialled it. */
+export async function fetchCardCalls(
+  group: string,
+  cardUid: string,
+): Promise<{ calls: CardCall[]; trimmed: number }> {
+  const res = await apiFetch<{ calls: CardCall[]; trimmed: number }>(
+    `/api/outbound/card-calls?${groupQuery(group)}&card=${encodeURIComponent(cardUid)}`,
+  );
+  return { calls: res.calls ?? [], trimmed: res.trimmed ?? 0 };
 }
 
 /** The group's do-not-call list, canonical E.164 numbers. */

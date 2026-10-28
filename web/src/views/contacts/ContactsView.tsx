@@ -68,6 +68,7 @@ import { Avatar, Empty, Spinner, useIsNarrow } from "@/ui/misc";
 import { MenuItem, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
+import { CardCalls } from "@/views/contacts/CardCalls";
 import { LazyContactEditor } from "../lazyPieces";
 import { MergeContactsDialog } from "./MergeContactsDialog";
 
@@ -1499,6 +1500,9 @@ function ContactDetail({
               ))}
             </div>
           )}
+          {/* What the group said to this person, on the card rather than in the
+              campaign that said it: the call outlives the list (ADR 0040). */}
+          <CardCalls cardUid={c.id} accountId={accountId} />
           {Object.values(c.addresses ?? {}).length > 0 && (
             <div className="contact-section">
               <h3>{translate("Address")}</h3>

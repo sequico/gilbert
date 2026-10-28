@@ -24,6 +24,20 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "Close “{purpose}” and carry its open rows?":
+      "“{purpose}” kapatılsın ve açık satırlar taşınsın mı?",
+    "Close “{purpose}”?": "“{purpose}” kapatılsın mı?",
+    "The rows still open move to a new campaign with the same purpose and outcomes.":
+      "Hâlâ açık satırlar, aynı amaç ve sonuçlarla yeni bir kampanyaya geçer.",
+    "The rows still open stay with this campaign, and it leaves Today.":
+      "Hâlâ açık satırlar bu kampanyada kalır ve kampanya Today'den çıkar.",
+    "“{purpose}” is past its window with {open} rows still open.":
+      "“{purpose}” penceresini aştı ve {open} satır hâlâ açık.",
+    "Close it below, with or without carrying the rows still open.":
+      "Aşağıdan kapatın; açık satırları taşıyıp taşımamayı siz seçin.",
+    "Close it and carry the open rows": "Kapat ve açık satırları taşı",
+    "Close the campaign": "Kampanyayı kapat",
+    Calls: "Aramalar",
     "No group to call for": "Arayacak grup yok",
     "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
       "Bir liste bir gruba aittir ve henüz hiçbir grupta değilsiniz. Bir grup sizi eklediğinde kampanyaları ve listesi burada olur.",
@@ -2468,6 +2482,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} older calls are no longer kept here": {
+      one: "{n} eski arama artık burada tutulmuyor",
+      other: "{n} eski arama artık burada tutulmuyor",
+    },
     "{n} matched a card": {
       one: "{n} satır bir kartla eşleşti",
       other: "{n} satır bir kartla eşleşti",

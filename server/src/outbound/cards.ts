@@ -17,6 +17,7 @@ import type { Ctx } from "../appFolder.js";
 import { JMAP_CONTACTS, JmapClient } from "../jmap.js";
 import type { CardIndexDoc } from "../shared/outbound.js";
 import { readCardIndexDoc, writeCardIndex } from "./documents.js";
+import { OutboundError } from "./errors.js";
 import { normaliseNumber } from "./phone.js";
 
 /** A card as this module needs it: its id, and the phones it carries. */
@@ -59,6 +60,80 @@ async function buildIndex(
     }
   }
   return { version: 1, cardState: state, cards, builtAt: now.toISOString() };
+}
+
+/**
+ * The name of the book a card created by a call is put in.
+ *
+ * The group's own address book is the one a member already reads and writes; a
+ * group with none gets this one, named the way a person would name it, rather than
+ * a book per caller or a book the product hides.
+ */
+const OUTBOUND_BOOK_NAME = "Contacts";
+
+/** The group's address book, created when the group has none at all. */
+async function bookId(client: JmapClient, accountId: string): Promise<string> {
+  const read = await client.call<{ list?: Array<{ id?: unknown }> }>(
+    "AddressBook/get",
+    { accountId, ids: null, properties: ["id", "name"] },
+    [JMAP_CONTACTS],
+  );
+  const found = (read.list ?? []).find((book) => typeof book.id === "string");
+  if (found) return found.id as string;
+
+  const set = await client.call<{ created?: Record<string, { id?: unknown }> }>(
+    "AddressBook/set",
+    { accountId, create: { b: { name: OUTBOUND_BOOK_NAME } } },
+    [JMAP_CONTACTS],
+  );
+  const created = set.created?.b?.id;
+  if (typeof created !== "string") {
+    throw new OutboundError(
+      "card_book_unavailable",
+      "The group has no address book and one could not be created, so the card this call needs was not written.",
+      502,
+    );
+  }
+  return created;
+}
+
+/**
+ * The card a first call creates, carrying the number that was dialled.
+ *
+ * Created at the call and never by an import (ADR 0040): a list of three hundred
+ * numbers must not become three hundred entries in the group's address book, and a
+ * list nobody dialled must leave nothing behind. The words around the number in
+ * the paste become the card's first note, because they are what the caller knew
+ * before the conversation started.
+ */
+export async function createCardFor(
+  ctx: Ctx,
+  accountId: string,
+  { number, note }: { number: string; note: string | null },
+): Promise<string> {
+  const client = new JmapClient(ctx);
+  const book = await bookId(client, accountId);
+  const card = {
+    "@type": "Card",
+    version: "1.0",
+    addressBookIds: { [book]: true },
+    phones: { p1: { "@type": "Phone", number } },
+    ...(note ? { notes: { n1: { "@type": "Note", note } } } : {}),
+  };
+  const set = await client.call<{ created?: Record<string, { id?: unknown }> }>(
+    "ContactCard/set",
+    { accountId, create: { c: card } },
+    [JMAP_CONTACTS],
+  );
+  const created = set.created?.c?.id;
+  if (typeof created !== "string") {
+    throw new OutboundError(
+      "card_not_created",
+      "The call was recorded, but the card it should belong to could not be written.",
+      502,
+    );
+  }
+  return created;
 }
 
 /**

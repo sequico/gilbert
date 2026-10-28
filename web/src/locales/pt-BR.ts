@@ -51,6 +51,20 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "Close “{purpose}” and carry its open rows?":
+      "Fechar “{purpose}” e levar as linhas abertas?",
+    "Close “{purpose}”?": "Fechar “{purpose}”?",
+    "The rows still open move to a new campaign with the same purpose and outcomes.":
+      "As linhas ainda abertas passam para uma campanha nova com o mesmo propósito e os mesmos resultados.",
+    "The rows still open stay with this campaign, and it leaves Today.":
+      "As linhas ainda abertas ficam com esta campanha, que sai do Today.",
+    "“{purpose}” is past its window with {open} rows still open.":
+      "“{purpose}” está fora da sua janela, com {open} linhas ainda abertas.",
+    "Close it below, with or without carrying the rows still open.":
+      "Feche-a abaixo, com ou sem as linhas ainda abertas.",
+    "Close it and carry the open rows": "Fechar e levar as linhas abertas",
+    "Close the campaign": "Fechar a campanha",
+    Calls: "Ligações",
     "No group to call for": "Nenhum grupo para ligar",
     "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
       "Uma lista pertence a um grupo, e você ainda não está em nenhum. Quando um grupo adicionar você, as campanhas e a lista dele ficam aqui.",
@@ -2568,6 +2582,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} older calls are no longer kept here": {
+      one: "{n} ligação antiga não é mais guardada aqui",
+      other: "{n} ligações antigas não são mais guardadas aqui",
+    },
     "{n} matched a card": {
       one: "{n} linha corresponde a um contato",
       other: "{n} linhas correspondem a um contato",

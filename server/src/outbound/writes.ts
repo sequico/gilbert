@@ -15,7 +15,17 @@ import type {
   CampaignWindow,
   RowDoc,
 } from "../shared/outbound.js";
-import { mutateRow, readCampaign, writeCampaign, writeRow } from "./documents.js";
+import { createCardFor } from "./cards.js";
+import {
+  appendCardCall,
+  mutateCampaign,
+  mutateRow,
+  readCampaign,
+  readRow,
+  readRows,
+  writeCampaign,
+  writeRow,
+} from "./documents.js";
 import { OutboundError } from "./errors.js";
 import { type ImportPlan, planImport } from "./importList.js";
 import { type SettleInput, type SettleResult, settleRow, takeRow } from "./rowActions.js";
@@ -125,6 +135,64 @@ function rowRefusal(reason: RowRefusal, outcome = ""): OutboundError {
   }
 }
 
+/**
+ * Close a campaign, carrying its still-open rows into a successor when asked.
+ *
+ * Closing is a state, not a deletion: the rows stay with the campaign that made
+ * them, and the card keeps the calls. Carrying is for the other resolution the
+ * record allows — the work that is still to do moves to a new campaign with the
+ * same purpose and vocabulary, because a row's path is its campaign's and a row
+ * cannot be moved.
+ */
+export async function closeCampaign(
+  ctx: Ctx,
+  accountId: string,
+  campaignUid: string,
+  {
+    carry,
+    createdBy,
+    now,
+    newUid,
+  }: { carry: boolean; createdBy: string; now: Date; newUid: () => string },
+): Promise<{ campaign: CampaignDoc; successor: CampaignDoc | null; carried: number }> {
+  const campaign = await openCampaign(ctx, accountId, campaignUid);
+  const open = (await readRows(ctx, accountId, campaignUid)).docs.filter(
+    (row) => row.state === "open",
+  );
+
+  let successor: CampaignDoc | null = null;
+  let carried = 0;
+  if (carry && open.length > 0) {
+    successor = await createCampaign(ctx, accountId, {
+      uid: newUid(),
+      purpose: campaign.purpose,
+      outcomes: campaign.outcomes,
+      script: campaign.script,
+      window: null,
+      createdBy,
+      now,
+    });
+    for (const row of open) {
+      await writeRow(ctx, accountId, {
+        ...row,
+        uid: newUid(),
+        campaignUid: successor.uid,
+        claim: null,
+        calls: [],
+        trimmed: 0,
+        createdAt: now.toISOString(),
+      });
+      carried += 1;
+    }
+  }
+
+  const closed = await mutateCampaign(ctx, accountId, campaignUid, (doc) => ({
+    ...doc,
+    state: "closed",
+  }));
+  return { campaign: closed, successor, carried };
+}
+
 /** Take a row for the caller holding it. */
 export async function take(
   ctx: Ctx,
@@ -152,9 +220,38 @@ export async function settle(
 ): Promise<RowDoc> {
   const campaign = await openCampaign(ctx, accountId, campaignUid);
   const outcomes = campaign.outcomes.map((outcome) => outcome.id);
-  return mutateRow(ctx, accountId, campaignUid, rowUid, (doc) => {
-    const settled = settleRow(doc, input, outcomes);
-    if (settled.ok) return settled.row;
-    throw rowRefusal(settled.reason, input.outcome);
+  const before = await readRow(ctx, accountId, campaignUid, rowUid);
+  if (!before) {
+    throw new OutboundError(
+      "outbound_not_found",
+      `No row "${rowUid}" is in campaign "${campaignUid}".`,
+      404,
+    );
+  }
+
+  /*
+   * The rules are asked of the row as it stands before anything is created: a
+   * settle that will be refused must not leave a card behind. The same rules run
+   * again inside the write, where they decide under the compare-and-set — this is
+   * the same pure function, not a second copy of them.
+   */
+  const refusable = settleRow(before, { ...input, cardUid: null }, outcomes);
+  if (!refusable.ok) throw rowRefusal(refusable.reason, input.outcome);
+
+  // The first call to a number is what makes it somebody the group knows.
+  const cardUid =
+    input.cardUid ??
+    before.cardUid ??
+    (await createCardFor(ctx, accountId, { number: before.e164, note: before.context }));
+
+  const settled = await mutateRow(ctx, accountId, campaignUid, rowUid, (doc) => {
+    const result = settleRow(doc, { ...input, cardUid }, outcomes);
+    if (result.ok) return result.row;
+    throw rowRefusal(result.reason, input.outcome);
   });
+
+  // The call also belongs to the card, which outlives the campaign that made it.
+  const call = settled.calls.at(-1);
+  if (call) await appendCardCall(ctx, accountId, cardUid, call);
+  return settled;
 }

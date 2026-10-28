@@ -21,19 +21,24 @@ import {
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import {
   type CampaignDoc,
+  type CardCallsDoc,
   type CardIndexDoc,
   campaignFolderPath,
   campaignPath,
+  cardCallsPath,
   cardIndexPath,
   type DoNotCallDoc,
   doNotCallPath,
   isCampaignDoc,
+  isCardCallsDoc,
   isCardIndexDoc,
   isDoNotCallDoc,
   isRowDoc,
+  type RowCall,
   type RowDoc,
   rowFolderPath,
   rowPath,
+  windowCalls,
 } from "../shared/outbound.js";
 import { OutboundError, requireState } from "./errors.js";
 
@@ -288,6 +293,56 @@ export async function writeCardIndex(
   doc: CardIndexDoc,
 ): Promise<void> {
   await writeWithRetry(ctx, accountId, cardIndexPath(), doc, "The card index");
+}
+
+/** The calls a card carries, or an empty window when none was written yet. */
+export async function readCardCalls(
+  ctx: Ctx,
+  accountId: string,
+  cardUid: string,
+): Promise<CardCallsDoc> {
+  const doc = await readDoc(ctx, accountId, cardCallsPath(cardUid), isCardCallsDoc);
+  return (
+    doc ?? {
+      version: 1,
+      cardUid,
+      calls: [],
+      trimmed: 0,
+      updatedAt: new Date(0).toISOString(),
+    }
+  );
+}
+
+/** Add one call to a card's log, keeping the window the row keeps. */
+export async function appendCardCall(
+  ctx: Ctx,
+  accountId: string,
+  cardUid: string,
+  call: RowCall,
+): Promise<CardCallsDoc> {
+  return mutateAt(
+    ctx,
+    accountId,
+    cardCallsPath(cardUid),
+    isCardCallsDoc,
+    () => ({
+      version: 1 as const,
+      cardUid,
+      calls: [],
+      trimmed: 0,
+      updatedAt: new Date(0).toISOString(),
+    }),
+    (doc) => {
+      const { calls, dropped } = windowCalls(doc.calls, call);
+      return {
+        ...doc,
+        calls,
+        trimmed: doc.trimmed + dropped,
+        updatedAt: new Date().toISOString(),
+      };
+    },
+    `The calls of card "${cardUid}"`,
+  );
 }
 
 /** A list nobody has written yet: the state the group starts from. */

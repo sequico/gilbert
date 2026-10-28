@@ -28,6 +28,9 @@ export const DO_NOT_CALL_FILE = "do-not-call.json";
 /** The numbers the group's cards carry, as one readable index (ADR 0040). */
 export const CARD_INDEX_FILE = "card-index.json";
 
+/** One call log per card, in a folder of their own. */
+export const CARD_CALLS_FOLDER = "calls";
+
 /** How many calls a row keeps before the oldest become a count. */
 export const MAX_CALLS_KEPT = 20;
 
@@ -59,6 +62,11 @@ export function doNotCallPath(): string {
 /** The card index, app-folder-relative. */
 export function cardIndexPath(): string {
   return `${OUTBOUND_FOLDER}/${CARD_INDEX_FILE}`;
+}
+
+/** `outbound/calls/<cardUid>.json`: the calls a card carries. */
+export function cardCallsPath(cardUid: string): string {
+  return `${OUTBOUND_FOLDER}/${CARD_CALLS_FOLDER}/${cardUid}.json`;
 }
 
 /** A campaign runs for a window and then is closed; closing is a state. */
@@ -186,6 +194,22 @@ export interface RowDoc {
 export interface DoNotCallDoc {
   version: 1;
   numbers: string[];
+  updatedAt: string;
+}
+
+/**
+ * The calls a card carries, whoever dialled them.
+ *
+ * The row dies with its campaign; this does not. It is what makes a card opened
+ * in November say what a colleague said in October, and it keeps the same bounded
+ * window a row does: the most recent calls, and the count of what left it.
+ */
+export interface CardCallsDoc {
+  version: 1;
+  cardUid: string;
+  calls: RowCall[];
+  /** How many calls were trimmed out of `calls`. */
+  trimmed: number;
   updatedAt: string;
 }
 
@@ -322,6 +346,26 @@ export function isRowDoc(value: unknown): value is RowDoc {
   return isInstant(value.createdAt);
 }
 
+/**
+ * Whether a campaign's window has passed.
+ *
+ * The window orders the work and never deletes it: a campaign past it with rows
+ * still open is a finding for the group, not a list that quietly stops existing.
+ */
+export function isPastWindow(campaign: CampaignDoc, now: Date): boolean {
+  const to = campaign.window.to;
+  return to !== null && Date.parse(to) < now.getTime();
+}
+
+/** Whether a card's call log is one this build can read. */
+export function isCardCallsDoc(value: unknown): value is CardCallsDoc {
+  if (!isRecord(value) || value.version !== 1) return false;
+  if (!isString(value.cardUid) || !Array.isArray(value.calls)) return false;
+  if (!value.calls.every(isCall)) return false;
+  if (!Number.isInteger(value.trimmed) || (value.trimmed as number) < 0) return false;
+  return isInstant(value.updatedAt);
+}
+
 /** Whether the card index is one this build can read. */
 export function isCardIndexDoc(value: unknown): value is CardIndexDoc {
   if (!isRecord(value) || value.version !== 1) return false;
@@ -354,11 +398,22 @@ export function isDoNotCallDoc(value: unknown): value is DoNotCallDoc {
  * called" answerable after the detail has gone.
  */
 export function withCall(row: RowDoc, call: RowCall): RowDoc {
-  const calls = [...row.calls, call];
-  const overflow = Math.max(0, calls.length - MAX_CALLS_KEPT);
-  return {
-    ...row,
-    calls: overflow ? calls.slice(overflow) : calls,
-    trimmed: row.trimmed + overflow,
-  };
+  const { calls, dropped } = windowCalls(row.calls, call);
+  return { ...row, calls, trimmed: row.trimmed + dropped };
+}
+
+/**
+ * One call added to a window of them, and how many fell off the far end.
+ *
+ * The row keeps its own window and a card keeps its own, and the two must agree
+ * about how many calls "kept" means, or one of them grows without limit while the
+ * other says it does not.
+ */
+export function windowCalls(
+  calls: readonly RowCall[],
+  call: RowCall,
+): { calls: RowCall[]; dropped: number } {
+  const next = [...calls, call];
+  const dropped = Math.max(0, next.length - MAX_CALLS_KEPT);
+  return { calls: dropped ? next.slice(dropped) : next, dropped };
 }

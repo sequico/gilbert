@@ -330,6 +330,82 @@ test("a number a group's card already carries is matched at the import", async (
   );
 });
 
+test("the first call creates the card, and the call stays on it", async () => {
+  const campaign = await newCampaign("A number nobody knows");
+  await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 055 1234567",
+  });
+  const [row] = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  assert.ok(row);
+  assert.equal(
+    row.cardUid,
+    null,
+    "a number with no card stays a row until it is dialled",
+  );
+
+  await post(`/api/outbound/campaigns/${campaign.uid}/rows/${row.uid}/take`, {
+    group: GROUP,
+  });
+  const settled = await post(
+    `/api/outbound/campaigns/${campaign.uid}/rows/${row.uid}/settle`,
+    { group: GROUP, outcome: "no_answer" },
+  );
+  assert.equal(settled.status, 200, JSON.stringify(settled.body));
+  const cardUid = (settled.body?.row as Row).cardUid;
+  assert.ok(cardUid, "the first call is what creates the card");
+
+  const log = await call(
+    `/api/outbound/card-calls?group=${encodeURIComponent(GROUP)}&card=${encodeURIComponent(cardUid)}`,
+  );
+  assert.equal(log.status, 200, JSON.stringify(log.body));
+  const calls = (log.body?.calls ?? []) as Array<{ outcome: string; by: string }>;
+  assert.equal(calls.length, 1, "the call is on the card, not only on the row");
+  assert.equal(calls[0].outcome, "no_answer");
+  assert.equal(calls[0].by, "demo@example.com");
+
+  // The card exists in the group's address book, which is what the index reads: a
+  // second paste of the same number is matched without anything else being written.
+  const again = await newCampaign("The same number, later");
+  const matched = await post(`/api/outbound/campaigns/${again.uid}/rows`, {
+    group: GROUP,
+    text: "+39 055 1234567",
+  });
+  assert.equal(matched.body?.matched, 1);
+});
+
+test("closing a campaign keeps it, and carrying moves the rows still open", async () => {
+  const campaign = await newCampaign("Ends in October");
+  await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 011 1234567\n+39 051 1234567",
+  });
+  const closed = await post(`/api/outbound/campaigns/${campaign.uid}/close`, {
+    group: GROUP,
+    carry: true,
+  });
+  assert.equal(closed.status, 200, JSON.stringify(closed.body));
+  const successor = closed.body?.successor as Campaign | null;
+  assert.ok(successor, "the open rows have somewhere to go");
+  assert.equal(closed.body?.carried, 2);
+  assert.equal((closed.body?.campaign as Campaign).state, "closed");
+
+  const listed = await call(`/api/outbound/campaigns?group=${encodeURIComponent(GROUP)}`);
+  const campaigns = (listed.body?.campaigns ?? []) as Campaign[];
+  assert.equal(campaigns.find((entry) => entry.uid === campaign.uid)?.state, "closed");
+  assert.ok(campaigns.some((entry) => entry.uid === successor.uid));
+
+  const carried = (await today()).filter((row) => row.campaignUid === successor.uid);
+  assert.equal(carried.length, 2, "the rows still open work in the new campaign");
+  assert.deepEqual(carried[0].calls, [], "and start with an empty window of their own");
+
+  const refused = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 06 12345678",
+  });
+  assert.equal(refused.status, 409, "a closed campaign takes no new rows");
+});
+
 test("a campaign that was never created is refused by every act on it", async () => {
   const res = await post("/api/outbound/campaigns/missing/rows", {
     group: GROUP,

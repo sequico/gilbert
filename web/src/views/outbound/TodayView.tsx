@@ -5,17 +5,21 @@ import { useEffect, useMemo, useState } from "react";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
+  type CampaignFinding,
+  closeCampaign,
   createCampaign,
   fetchDoNotCall,
   fetchToday,
   type ImportReport,
   importRows,
+  listCampaigns,
   setDoNotCall,
   settleRow,
   type TodayBoard,
   takeRow,
 } from "@/lib/outbound";
 import { useMail } from "@/store/mail";
+import { confirmDialog } from "@/ui/dialog";
 import { LoadState } from "@/ui/LoadState";
 import { Empty } from "@/ui/misc";
 
@@ -42,6 +46,7 @@ export function TodayView() {
   const [taken, setTaken] = useState<RowDoc | null>(null);
   const [busy, setBusy] = useState(false);
   const [doNotCall, setDoNotCallNumbers] = useState<string[]>([]);
+  const [findings, setFindings] = useState<CampaignFinding[]>([]);
 
   // The group being worked: the one the caller chose, or the first they are in.
   const active = useMemo(
@@ -53,12 +58,14 @@ export function TodayView() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [queue, blocked] = await Promise.all([
+      const [queue, blocked, campaigns] = await Promise.all([
         fetchToday(name),
         fetchDoNotCall(name),
+        listCampaigns(name),
       ]);
       setBoard(queue);
       setDoNotCallNumbers(blocked);
+      setFindings(campaigns.findings);
     } catch (err) {
       setLoadError(errorMessage(err));
     } finally {
@@ -101,6 +108,40 @@ export function TodayView() {
     setBusy(true);
     try {
       setDoNotCallNumbers(await setDoNotCall(active, number, blocked));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Close a campaign, saying what happens to the rows still open.
+   *
+   * Closing is a state and never a deletion, but the rows it leaves open are the
+   * group's decision: closing keeps them with the campaign that made them, and
+   * carrying moves the still-open ones into a new campaign with the same purpose.
+   */
+  async function close(uid: string, carry: boolean) {
+    const campaign = board?.campaigns[uid]?.purpose ?? "";
+    const agreed = await confirmDialog({
+      title: carry
+        ? t("Close “{purpose}” and carry its open rows?", { purpose: campaign })
+        : t("Close “{purpose}”?", { purpose: campaign }),
+      message: carry
+        ? t(
+            "The rows still open move to a new campaign with the same purpose and outcomes.",
+          )
+        : t("The rows still open stay with this campaign, and it leaves Today."),
+      confirmLabel: t("Close"),
+    });
+    if (!agreed) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await closeCampaign(active, uid, carry);
+      setTaken(null);
+      await load(active);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -230,6 +271,22 @@ export function TodayView() {
             )}
           </section>
 
+          {findings.length > 0 && (
+            <div className="warn-box" style={{ marginTop: 16 }}>
+              {findings.map((finding) => (
+                <p key={finding.uid}>
+                  {t("“{purpose}” is past its window with {open} rows still open.", {
+                    purpose: finding.purpose,
+                    open: finding.open,
+                  })}
+                </p>
+              ))}
+              <p className="hint">
+                {t("Close it below, with or without carrying the rows still open.")}
+              </p>
+            </div>
+          )}
+
           <DoNotCallList
             numbers={doNotCall}
             busy={busy}
@@ -241,6 +298,7 @@ export function TodayView() {
             campaigns={board.campaigns}
             busy={busy}
             onCreated={() => void refresh()}
+            onClose={(uid, carry) => void close(uid, carry)}
             group={active}
             onError={setError}
           />
@@ -330,6 +388,7 @@ function StartList({
   campaigns,
   busy,
   onCreated,
+  onClose,
   onError,
 }: {
   group: string;
@@ -337,6 +396,8 @@ function StartList({
   campaigns: Record<string, { purpose: string }>;
   busy: boolean;
   onCreated: () => void;
+  /** Close the chosen campaign, carrying its open rows or not. */
+  onClose: (uid: string, carry: boolean) => void;
   onError: (message: string | null) => void;
 }) {
   const [target, setTarget] = useState("");
@@ -445,6 +506,25 @@ function StartList({
           ))}
         </select>
       </div>
+      {chosen && (
+        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          <button
+            className="btn btn-ghost"
+            disabled={disabled}
+            onClick={() => onClose(chosen, true)}
+          >
+            {t("Close it and carry the open rows")}
+          </button>
+          <button
+            className="btn btn-ghost"
+            disabled={disabled}
+            onClick={() => onClose(chosen, false)}
+          >
+            {t("Close the campaign")}
+          </button>
+        </div>
+      )}
+
       <div className="field">
         <label htmlFor="today-paste">{t("Numbers, one per line")}</label>
         <textarea

@@ -47,6 +47,20 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "Close “{purpose}” and carry its open rows?":
+      "「{purpose}」を閉じて未処理の行を引き継ぎますか？",
+    "Close “{purpose}”?": "「{purpose}」を閉じますか？",
+    "The rows still open move to a new campaign with the same purpose and outcomes.":
+      "まだ開いている行は、同じ目的と結果を持つ新しいキャンペーンに移ります。",
+    "The rows still open stay with this campaign, and it leaves Today.":
+      "まだ開いている行はこのキャンペーンに残り、キャンペーンは Today から外れます。",
+    "“{purpose}” is past its window with {open} rows still open.":
+      "「{purpose}」は期間を過ぎていますが、{open} 行がまだ開いています。",
+    "Close it below, with or without carrying the rows still open.":
+      "下で閉じてください。開いている行を引き継ぐかどうかを選べます。",
+    "Close it and carry the open rows": "閉じて未処理の行を引き継ぐ",
+    "Close the campaign": "キャンペーンを閉じる",
+    Calls: "通話",
     "No group to call for": "電話するグループがありません",
     "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
       "リストはグループのもので、まだどのグループにも入っていません。グループがあなたを追加すると、そのキャンペーンとリストがここに表示されます。",
@@ -2550,6 +2564,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} older calls are no longer kept here": {
+      one: "{n} 件の古い通話はここに保存されていません",
+      other: "{n} 件の古い通話はここに保存されていません",
+    },
     "{n} matched a card": {
       one: "{n} 行が連絡先と一致しました",
       other: "{n} 行が連絡先と一致しました",

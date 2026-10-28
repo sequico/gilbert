@@ -44,6 +44,20 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "Close “{purpose}” and carry its open rows?":
+      "„{purpose}“ sluiten en de open rijen meenemen?",
+    "Close “{purpose}”?": "„{purpose}“ sluiten?",
+    "The rows still open move to a new campaign with the same purpose and outcomes.":
+      "De nog open rijen gaan naar een nieuwe campagne met hetzelfde doel en dezelfde uitkomsten.",
+    "The rows still open stay with this campaign, and it leaves Today.":
+      "De nog open rijen blijven bij deze campagne, en die verdwijnt uit Today.",
+    "“{purpose}” is past its window with {open} rows still open.":
+      "„{purpose}“ is voorbij zijn venster met {open} nog open rijen.",
+    "Close it below, with or without carrying the rows still open.":
+      "Sluit hem hieronder, met of zonder de open rijen mee te nemen.",
+    "Close it and carry the open rows": "Sluiten en de open rijen meenemen",
+    "Close the campaign": "Campagne sluiten",
+    Calls: "Gesprekken",
     "No group to call for": "Geen groep om voor te bellen",
     "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
       "Een lijst hoort bij een groep, en je zit nog in geen enkele. Zodra een groep je toevoegt, staan zijn campagnes en zijn lijst hier.",
@@ -2556,6 +2570,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} older calls are no longer kept here": {
+      one: "{n} ouder gesprek wordt hier niet meer bewaard",
+      other: "{n} oudere gesprekken worden hier niet meer bewaard",
+    },
     "{n} matched a card": {
       one: "{n} rij hoort bij een kaart",
       other: "{n} rijen horen bij een kaart",

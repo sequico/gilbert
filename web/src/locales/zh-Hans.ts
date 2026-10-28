@@ -46,6 +46,19 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "Close “{purpose}” and carry its open rows?": "关闭「{purpose}」并带走未结的行？",
+    "Close “{purpose}”?": "关闭「{purpose}」？",
+    "The rows still open move to a new campaign with the same purpose and outcomes.":
+      "仍未结的行会转到一次目的和结果相同的新活动。",
+    "The rows still open stay with this campaign, and it leaves Today.":
+      "仍未结的行留在这次活动里，活动会从 Today 中移除。",
+    "“{purpose}” is past its window with {open} rows still open.":
+      "「{purpose}」已超出其时间范围，仍有 {open} 行未结。",
+    "Close it below, with or without carrying the rows still open.":
+      "在下面关闭它，可带走也可不带走未结的行。",
+    "Close it and carry the open rows": "关闭并带走未结的行",
+    "Close the campaign": "关闭活动",
+    Calls: "通话",
     "No group to call for": "没有可致电的群组",
     "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
       "名单属于某个群组，而你还不在任何群组中。群组把你加入后，它的活动名单就在这里。",
@@ -2464,6 +2477,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} older calls are no longer kept here": {
+      one: "{n} 条较早的通话不再保存在这里",
+      other: "{n} 条较早的通话不再保存在这里",
+    },
     "{n} matched a card": {
       one: "{n} 行与联系人匹配",
       other: "{n} 行与联系人匹配",

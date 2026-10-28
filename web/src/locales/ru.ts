@@ -50,6 +50,20 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "Close “{purpose}” and carry its open rows?":
+      "Закрыть «{purpose}» и перенести открытые строки?",
+    "Close “{purpose}”?": "Закрыть «{purpose}»?",
+    "The rows still open move to a new campaign with the same purpose and outcomes.":
+      "Ещё открытые строки переходят в новую кампанию с той же целью и теми же исходами.",
+    "The rows still open stay with this campaign, and it leaves Today.":
+      "Ещё открытые строки остаются с этой кампанией, и она уходит из Today.",
+    "“{purpose}” is past its window with {open} rows still open.":
+      "«{purpose}» вышла за своё окно, и {open} строк ещё открыты.",
+    "Close it below, with or without carrying the rows still open.":
+      "Закройте её ниже — с переносом открытых строк или без.",
+    "Close it and carry the open rows": "Закрыть и перенести открытые строки",
+    "Close the campaign": "Закрыть кампанию",
+    Calls: "Звонки",
     "No group to call for": "Нет группы, куда звонить",
     "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
       "Список принадлежит группе, а вы пока ни в одной не состоите. Как только группа добавит вас, её кампании и её список будут здесь.",
@@ -2547,6 +2561,12 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} older calls are no longer kept here": {
+      one: "{n} старый звонок здесь больше не хранится",
+      few: "{n} старых звонка здесь больше не хранятся",
+      many: "{n} старых звонков здесь больше не хранятся",
+      other: "{n} старых звонка здесь больше не хранятся",
+    },
     "{n} matched a card": {
       one: "{n} строка нашлась в карточке",
       few: "{n} строки нашлись в карточке",
