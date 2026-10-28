@@ -21,10 +21,11 @@ tier. Every durable thing — mail, calendars, contacts, files, filters and
 Gilbert's own settings — lives in the mail store. The container is disposable,
 and with `IMMUTABLE=1` it has nothing writable at all.
 
-Everything belongs to one of four blocks — **gilbertmailer**, **gilbertserver**,
-**gilbertagents** and **gilbertstalwart** — defined in `README.md`, the only
-place they are defined. `gilbertmailer`, and inside `gilbertserver` the layer
-that serves it, came from upstream; everything else is Gilbert's own.
+Everything belongs to one of five blocks — **gilbertmailer**, **gilbertserver**,
+**gilbertagents**, **gilbertstalwart** and **gilbertoutbound** — defined in
+`README.md`, the only place they are defined. `gilbertmailer`, and inside
+`gilbertserver` the layer that serves it, came from upstream; everything else is
+Gilbert's own.
 
 ### Capabilities, and what happens without them
 

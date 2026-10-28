@@ -20,7 +20,8 @@ instead of a rewrite of it, and that earlier record states `Status: Superseded
 by NNNN.` — one line, naming the record that carries the decision now.
 
 A record names a block — **gilbertmailer**, **gilbertserver**,
-**gilbertagents**, **gilbertstalwart** — the way `README.md` defines it, and
+**gilbertagents**, **gilbertstalwart**, **gilbertoutbound** — the way
+`README.md` defines it, and
 redefines none of them: the definitions live there and are not restated here.
 What
 Gilbert *does* is the inventory in `FEATURES.md` and the code itself; a
@@ -396,7 +397,8 @@ is, not what a user sees.
   Proposed** (`shared/chat.ts`, `agent/tools/chat.ts`, `lib/agentRefs.ts`,
   `views/chat/ChatPanel.tsx`).
 - **0040 — Outbound calling is a bounded campaign, not a customer record.**
-  The one commercial activity that is an operation rather than a relationship:
+  The fifth block, `gilbertoutbound`, and the one commercial activity that is an
+  operation rather than a relationship:
   a campaign of a group's own, its rows as documents of their own (so two
   callers never collide), a session that is only the queue of what is mine or
   due, and a handoff that leaves through a calendar event, a message or a file.

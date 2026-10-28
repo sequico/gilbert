@@ -148,9 +148,9 @@ a restart never leaves a document to delete by hand.
 The detail, item by item, is [FEATURES.md › Security and
 privacy](FEATURES.md#security-and-privacy).
 
-## The four blocks
+## The five blocks
 
-Gilbert is four blocks. They are areas of the product, not directories — one
+Gilbert is five blocks. They are areas of the product, not directories — one
 code tree holds several of them — and every document names them this way and no
 other:
 
@@ -169,6 +169,11 @@ other:
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.
+- **gilbertoutbound** — outbound calling: a group's campaign with its script, its
+  outcomes and its list, a row that is a document of its own and dies with the
+  campaign, and a screened list that leaves through a calendar event, a message
+  or a file. Designed by
+  [ADR 0040](docs/adr/0040-outbound-calling-is-a-bounded-campaign.md); not built.
 
 *Server* is the word worth pinning down: **Stalwart** is the mail server that
 holds every durable byte, and **gilbertserver** is this product's own Node

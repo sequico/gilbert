@@ -40,8 +40,9 @@ replaced is left to git rather than kept beside it or pointed at. If somebody
 wants history, it is in git.
 
 ## Naming rule
-The product has four blocks, named once in `README.md`: **gilbertmailer**,
-**gilbertserver**, **gilbertagents** and **gilbertstalwart**. Every doc, ADR
+The product has five blocks, named once in `README.md`: **gilbertmailer**,
+**gilbertserver**, **gilbertagents**, **gilbertstalwart** and
+**gilbertoutbound**. Every doc, ADR
 and skill names them that way and does not redefine them; a new document links
 to the README rather than restating it. Only `gilbertmailer`, and inside
 `gilbertserver` the layer that serves it, come from upstream — the rest is

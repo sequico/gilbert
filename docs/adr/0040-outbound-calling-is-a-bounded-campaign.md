@@ -35,9 +35,10 @@ declared set of areas.
 
 ## Decision
 
-**Outbound is an area of the product** — `outbound` in the areas the agent's
-instruction may declare, a document collection inside the group's own app folder,
-and no second database, no second identity and no second permission model.
+**Outbound is the fifth block of the product — `gilbertoutbound` — and an area of
+the agent's** — `outbound` in the areas an instruction may declare, a document
+collection inside the group's own app folder, and no second database, no second
+identity and no second permission model.
 
 Four objects, and nothing else:
 
@@ -82,9 +83,15 @@ quotes, invoices, product catalogues, a customer 360, report suites and any
 surviving anagraphic record. A request for one of these is a request for a CRM,
 and the answer is the CRM the company already runs.
 
-The name carries no acronym and no block name: it is an area inside the server's
-own tree, as `knowledge` and `workorders` are, and a fifth block name would say
-`outbound` is a product beside Gilbert rather than a function inside it.
+**`gilbertoutbound` is a block for the same reason the other four are** — an
+area of the product with a boundary of its own — and it owns the campaign, the
+row, the session and the handoff, and nothing else: the identity is Stalwart's,
+the access is the group's, the durable document is the `gilbert` app folder,
+the model work is `gilbertagents` and the pass that wakes a due list is
+`gilbertserver`'. `README.md` defines the five blocks and this record does not
+restate the definitions. Its agent-facing name is `outbound`, the plain noun the
+rest of the area vocabulary uses: a block is how the product is divided, an area
+is what a run may use, and the two registers never stand in for each other.
 
 ## Consequences
 
