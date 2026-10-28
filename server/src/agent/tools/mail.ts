@@ -426,7 +426,8 @@ export const setKeyword = defineTool({
     id: { type: "text", about: "a message id, from open (messages)" },
     keyword: {
       type: "text",
-      about: "a keyword or one of the product's G- labels, e.g. $seen",
+      about:
+        "a keyword ($seen, $flagged) or a label's keyword: one of the product's G- ones, or the group's own",
     },
     on: { type: "boolean", about: "true to set the keyword, false to take it off" },
   },
