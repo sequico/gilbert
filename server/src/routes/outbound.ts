@@ -258,10 +258,10 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         c.req.param("rowUid"),
         {
           outcome: required(body.outcome, "outcome"),
-          note: optional(body, "note"),
+          note: optional(body.note, "note"),
           by: c.get("session").username,
           at: new Date(),
-          cardUid: optional(body, "cardUid"),
+          cardUid: optional(body.cardUid, "cardUid"),
           nextCallAt: instantOf(body.nextCallAt, "nextCallAt"),
         },
       );
