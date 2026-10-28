@@ -79,9 +79,10 @@ nobody is the company's own history until a person is attached to it.
   group it belongs to. Its list is its rows and is not a document beside it.
   Closing a campaign is a state, not a deletion.
 - a **row** — a part document of its own, so two members of the group write
-  without touching each other. It points at the card it calls and the number to
-  dial, and carries its state, its owner and its next call. A row may point at a
-  company and no person: that is the ordinary switchboard case, not a defect.
+  without touching each other. It carries the number to dial and, once a card
+  exists for it, the card it calls; and its state, its owner and its next call. A
+  row may point at a company and no person: that is the ordinary switchboard case,
+  not a defect.
 - **Today** — not stored: the queue is the view of the rows that are mine or
   due, and it is where the work happens. The call is placed from the person's own
   phone; the product has no telephony and acquires none.
