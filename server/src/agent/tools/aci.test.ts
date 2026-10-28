@@ -7,7 +7,9 @@
  * the forty-fifth is not the habit of whoever writes it but these five rules,
  * stated in `jobs.ts`'s header and held here: a name the provider accepts, one
  * verb for one meaning, one discriminator with a schema branch per value, a
- * refusal that names what it accepts, and an answer that distils.
+ * refusal that names what it accepts, and an answer that distils. Beside them is
+ * the one the record states: **one action, one name** — no description, and no
+ * prompt, names an endpoint behind a verb.
  *
  * Each test fails when its rule is broken, which is the point: a test that only
  * shows the catalogue loads proves nothing about the interface.
