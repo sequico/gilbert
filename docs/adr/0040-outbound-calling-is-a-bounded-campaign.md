@@ -62,10 +62,10 @@ to it.
 ### The two lists
 
 A **campaign's list** is its rows: it never exists without the campaign that owns
-it and never outlives it, so re-running a list is a new campaign with the same
-file rather than the same list reused. The **do-not-call list** is the
-installation's own, durable and one for every group — the only list that lives on
-its own, because a promise not to call is not a campaign's to keep.
+it, so re-running a list is a new campaign with the same file rather than the
+same list reused. The **do-not-call list** is the installation's own, durable and
+one for every group — the only list that lives on its own, because a promise not
+to call is not a campaign's to keep.
 
 ### Four things, and nothing else
 
