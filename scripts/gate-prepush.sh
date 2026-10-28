@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Pre-push gate (see AGENTS.md, "Every push is gated").
+# Pre-push gate (see AGENTS.md, "Verification").
 #
-# The gate is `npm run check:ci` (== `npm run prepush`). Behaviour:
-#   - default        -> the FULL gate (`npm run check:ci`)
+# Behaviour:
+#   - default        -> the AFFECTED gate: only the parts of the tree the pushed
+#                       diff touches (`scripts/gate-lib.sh`), its independent
+#                       steps run together
+#   - GATE=full      -> the full gate (`npm run check:ci`), as before
 #   - GATE=fast      -> only the fast checks (`npm run check:fast`)
 #   - GATE=off       -> skip, deliberately (like --no-verify, but explicit)
 #   - a push whose tip is not the checked-out commit is REFUSED, rather than
@@ -10,25 +13,26 @@
 #     hook can only verify the one that is checked out.
 # Besides, it skips without running anything when:
 #   - nothing a gate reads changed (see "What the checks read", below), or
-#   - this exact tree (tree hash) already passed in this mode (cache
-#     `.git/gate-cache`). A new branch always runs.
+#   - this exact tree (tree hash) already passed in this mode and with these
+#     areas (cache `.git/gate-cache`). A new branch always runs.
 #
-# It keeps the suite from re-running on every push while iterating. A push is
-# still covered by CI (release/Dependabot) and by review.
+# A change the area map cannot name runs the full gate: the map narrows the work
+# only where it can name the part that changed, and a wrong narrowing is a red
+# discovered in production.
 set -uo pipefail
 
-case "${GATE:-full}" in
-	full | fast) ;;
+case "${GATE:-affected}" in
+	affected | full | fast) ;;
 	off)
 		echo "pre-push: GATE=off — skipping the gates (deliberate bypass)."
 		exit 0
 		;;
 	*)
-		echo "pre-push: GATE='${GATE}' is not valid (fast|full|off)." >&2
+		echo "pre-push: GATE='${GATE}' is not valid (affected|fast|full|off)." >&2
 		exit 2
 		;;
 esac
-mode="${GATE:-full}"
+mode="${GATE:-affected}"
 
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
@@ -146,23 +150,40 @@ EOF
 	fi
 fi
 
-# Skip when this exact tree has already passed in this mode: the pushed commit's
-# tree, not HEAD's, so a green pass here is a pass for what is being pushed.
+# The areas the pushed diff needs, from the one map (`scripts/gate-lib.sh`). A
+# diff that could not be read is the whole tree's.
+# shellcheck source=scripts/gate-lib.sh
+. "${root}/scripts/gate-lib.sh"
+if [ -n "$changed" ]; then
+	areas="$(printf '%s\n' "$changed" | gate_areas_for)"
+else
+	areas="full"
+fi
+area_key="$(printf '%s' "$areas" | tr '\n' ',')"
+
+# Skip when this exact tree has already passed in this mode, with these areas: the
+# pushed commit's tree, not HEAD's, so a green pass here is a pass for what is
+# being pushed.
 cache="$(git rev-parse --git-dir)/gate-cache"
-key="$(git rev-parse "${target}^{tree}"):$mode"
+key="$(git rev-parse "${target}^{tree}"):$mode:$area_key"
 if [ -f "$cache" ] && grep -qxF "$key" "$cache"; then
-	echo "pre-push: tree already verified ($mode); skipping."
+	echo "pre-push: tree already verified ($mode: $area_key); skipping."
 	exit 0
 fi
 
-if [ "$mode" = "full" ]; then
-	echo "pre-push: FULL gate (npm run check:ci)…"
-	npm run check:ci
-else
+if [ "$mode" = "fast" ]; then
 	echo "pre-push: fast gate (npm run check:fast)…"
 	npm run check:fast
+	status=$?
+elif [ "$mode" = "full" ]; then
+	echo "pre-push: full gate (npm run check:ci)…"
+	npm run check:ci
+	status=$?
+else
+	# shellcheck disable=SC2086 # the areas are words by construction
+	gate_run $areas
+	status=$?
 fi
-status=$?
 if [ "$status" -eq 0 ]; then
 	printf '%s\n' "$key" >>"$cache"
 fi

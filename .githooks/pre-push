@@ -1,9 +1,11 @@
 #!/bin/sh
-# Pre-push gate, driven by `scripts/gate-prepush.sh` (see AGENTS.md).
+# Pre-push gate, driven by `scripts/gate-prepush.sh` (see AGENTS.md, "Verification").
 #
-# Default: the full gate (`npm run check:ci`). `GATE=fast` runs only
-# typecheck+lint; `GATE=off` skips. It also skips when nothing a gate reads
-# changed, or when this exact tree already passed. Enabled per clone with
+# Default: the affected gate — only the areas the pushed diff touches, their
+# independent steps in parallel (`scripts/gate-lib.sh`). `GATE=full` runs the
+# whole gate (`npm run check:ci`), `GATE=fast` only typecheck+lint, `GATE=off`
+# skips. It also skips when nothing a gate reads changed, or when this exact
+# tree already passed with those areas. Enabled per clone with
 # `git config core.hooksPath .githooks`; bypass a run deliberately with
 # `git push --no-verify`.
 #

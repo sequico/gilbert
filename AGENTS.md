@@ -319,18 +319,44 @@ zero in the same shell invocation. Verification is per write step, never
 batched at the end of a long run. Whole-tree rename scans (e.g. for
 `ihasmail`) are never truncated with head/tail — scan per file with bounded
 output instead.
-**Every push is gated** (`npm run check:ci`: typecheck + Biome lint + the check
-scripts + tests + build); the `.githooks/pre-push` hook enforces it, enabled per
+**Every push is gated, and the gate runs what the push can break** (owner
+decision 2026-10-28). The `.githooks/pre-push` hook enforces it, enabled per
 clone with `git config core.hooksPath .githooks`. The hook gates the tree being
 pushed: it reads the ref updates git hands it, refuses a push whose tip is not
 the checked-out commit (this hook can only verify the checkout it runs in), and
-keys the cache on the pushed commit's tree. The hook is checkpoint-driven:
-the default runs the full gate; `GATE=fast` runs only typecheck+lint; `GATE=off`
-skips deliberately. It also skips when every changed path is binary and named by
-no check, or when the exact tree already passed in that mode
-(cache `.git/gate-cache`). Bypass a single push with `--no-verify`. `ci.yml` does
-not run on push: it is the release pre-check, and only Dependabot's pull requests
-start it, because their branches never pass through the local hook.
+keys the cache on the pushed commit's tree.
+
+Three levels, and the cost of each grows with what it can catch:
+
+- **The affected gate (default, ~1–3 min).** The diff decides the work:
+  `scripts/gate-lib.sh` maps the changed paths to areas — `web`, `server`,
+  `test-web`, `test-server`, `i18n`, `workflow`, plus `lint` and the prose checks
+  (`adr:owed`, `adr:cite`, `config:dead`) which read every text file and so
+  always run. The independent steps run **in parallel**, and a failing step
+  prints the sentence the tool wrote. `web/src/locales` also pulls `i18n`, the
+  shared tree (`server/src/shared`) pulls both packages, and **a path the map
+  cannot name — the toolchain, the lockfile, the image, the deploy, the gate's
+  own scripts, a file nobody classified — runs the full gate**: a wrong
+  narrowing is a red discovered in production, and the map only narrows where it
+  can name the part that changed.
+- **The full gate (`GATE=full`, `npm run check:ci`, `npm run prepush:full`)**:
+  typecheck, Biome, the check scripts, the whole suite in UTC and the build, in
+  that order. It is what a release runs (`ci.yml` is the pre-check, and only
+  Dependabot's pull requests start it, because their branches never pass through
+  the local hook) and what the owner runs when the change is wide.
+- **`GATE=fast`** is typecheck + Biome alone, and **`GATE=off`** skips
+  deliberately; `--no-verify` bypasses a single push.
+
+The hook also skips when every changed path is binary and named by no check, or
+when the exact tree already passed in that mode **with those areas** (cache
+`.git/gate-cache`). A gate that ran no step fails: an unknown area is a hole,
+not a pass.
+
+**No pre-commit hook.** A check after every unit is the cost this repository
+decided against (owner decision 2026-10-14): the review passes over the work, and
+the gate runs once, at the push. The full gate's standard is unchanged — 0/0/0,
+read from the tool's own output — and it is the standard of the release, not of
+every step along the way.
 
 **An action's `uses:` names a full commit SHA**, with the version it is in a
 comment beside it (owner decision 2026-09-23): a tag is a moving target, and

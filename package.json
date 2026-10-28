@@ -18,7 +18,7 @@
     "start": "node server/dist/index.js",
     "typecheck": "npm run typecheck -w web && npm run typecheck -w server",
     "test": "npm run test -w web && npm run test -w server",
-    "prepush": "npm run check:ci",
+    "prepush": "bash scripts/gate-prepush.sh",
     "prepush:full": "npm run check:ci",
     "check:fast": "npm run typecheck && npm run lint",
     "check:ci": "npm run check:fast && npm run adr:owed && npm run adr:cite && npm run config:dead && npm run workflow:pin && npm run i18n:check && TZ=UTC npm test && npm run build",

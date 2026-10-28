@@ -65,10 +65,12 @@ comments say which version and on what date.
 
 ## The gate
 
-`npm run check:ci` is the one gate, in order: typecheck, Biome, the check scripts
-(`adr:owed`, `adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`), the tests
-in UTC and the build. The pre-push hook runs the same pipeline as
-`npm run prepush`; enable it once per clone:
+`npm run check:ci` is the **full** gate, in order: typecheck, Biome, the check
+scripts (`adr:owed`, `adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`),
+the tests in UTC and the build. The pre-push hook runs the **affected** gate by
+default — only the areas the pushed diff touches, in parallel
+(`scripts/gate-lib.sh`), with the full gate for a change the map cannot name —
+as `npm run prepush`; enable it once per clone:
 
 ```bash
 git config core.hooksPath .githooks

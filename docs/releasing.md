@@ -5,19 +5,31 @@ lives in `AGENTS.md`; this is the procedure the law points at, in one place.
 
 ## The gate
 
-One pipeline verifies the tree, and it has one source: **`npm run check:ci`** in
-`package.json` — typecheck, Biome, `adr:owed`, `adr:cite`, `config:dead`,
-`workflow:pin`, `i18n:check`, the tests under `TZ=UTC`, and the build.
+Two pipelines, one description of what a change needs, and the cost of each grows
+with what it can catch (owner decision 2026-10-28).
+
+**The affected gate is the default**, and it is what the pre-push hook runs: the
+pushed diff decides the work. `scripts/gate-lib.sh` maps the changed paths to
+areas — the SPA, the server, their suites, the catalogues, the workflows, plus
+Biome and the checks that read prose and configuration — and the independent
+steps run together. A path the map cannot name (the toolchain, the lockfile, the
+image, the deploy, the gate's own scripts) runs the **full gate** instead: the
+map narrows only where it can name the part that changed.
+
+**The full gate is `npm run check:ci`** (`npm run prepush:full`): typecheck,
+Biome, `adr:owed`, `adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`, the
+tests under `TZ=UTC`, and the build, in that order. It is what a release runs and
+what a wide change runs.
 
 The **pre-push hook** (`.githooks/pre-push`, enabled once per clone with
 `git config core.hooksPath .githooks`) runs it before every push, so a push that
 fails it is refused; a push whose tip is not the checkout the hook runs in is
 refused too, because the gate verifies a tree and that checkout is the only one
 it can verify. `git push --no-verify` bypasses it deliberately and never
-by accident. `.github/workflows/ci.yml` runs the same script and adds only a
+by accident. `.github/workflows/ci.yml` runs the **full** script and adds only a
 Docker smoke build, which a local gate cannot assume; because `release.yml`
-calls `ci.yml` as its pre-check, the check that prepares a release is the check
-a push met, not a weaker second list (ADR 0021).
+calls `ci.yml` as its pre-check, the check that prepares a release is the full
+gate, not a weaker second list (ADR 0021).
 
 Two checks the pipeline does not carry, on purpose:
 
