@@ -256,6 +256,44 @@ function reportsInChat(call: StepCall): boolean {
 }
 
 /**
+ * The refusals a run has **not** recovered from.
+ *
+ * A **call** is a step whose line is `<verb> {…}` — what the loop writes when the
+ * model asked for one, whether or not the verb still exists in this build's
+ * catalogue (a document written by an older build is read, not rewritten). A step
+ * the loop itself wrote — `the model's answer`, the mechanical check, the judge's
+ * verdict — is not a call: those are the loop telling the model something, and
+ * counting them as refusals made every later report look worse than the plan.
+ *
+ * A refused call the run answered afterwards — the same verb on the same object,
+ * done later — is a probe it paid for and learned from: a folder looked for before
+ * it existed, an id guessed. Anything else stays counted, which is what the
+ * mechanical check exists for: a refused act is never covered by a later one that
+ * did something else (ADR 0030, 0038).
+ */
+function unrecoveredRefusals(plan: readonly RunStep[]): number {
+  const isCall = (what: string): boolean => what.split(" ")[1]?.startsWith("{") === true;
+  const verbOf = (what: string): string => what.split(" ")[0] ?? "";
+  const objectOf = (what: string): string | null =>
+    /"(?:what|action)":"([^"]*)"/.exec(what)?.[1] ?? null;
+  return plan.filter((step, at) => {
+    if (step.state !== "failed" || !isCall(step.what)) return false;
+    const verb = verbOf(step.what);
+    const object = objectOf(step.what);
+    return !plan
+      .slice(at + 1)
+      .some(
+        (later) =>
+          later.state === "done" &&
+          isCall(later.what) &&
+          verbOf(later.what) === verb &&
+          object !== null &&
+          objectOf(later.what) === object,
+      );
+  }).length;
+}
+
+/**
  * The step the judge leaves on the record (ADR 0038).
  *
  * The judge fires on a **suspect plan** — a refused step, then a later step that
@@ -2312,7 +2350,7 @@ export class AgentLoop {
          * the model still chooses is accepted: the failed step and this one stay
          * on the record, so the claim is checkable.
          */
-        const refused = current.plan.filter((step) => step.state === "failed").length;
+        const refused = unrecoveredRefusals(current.plan);
         const finished = current.plan.filter((step) => step.state === "done").length;
         /*
          * Both checks count: the mechanical one and the judge's are one answer to
@@ -2801,7 +2839,7 @@ export class AgentLoop {
          * report that stands on a step that failed. The judge stays with the
          * `done` answer; this is the check a report owes.
          */
-        const refused = current.plan.filter((step) => step.state === "failed").length;
+        const refused = unrecoveredRefusals(current.plan);
         const checked = current.plan.filter(
           (step) => step.what === DONE_CHECKED || step.what === JUDGE_CHECKED,
         ).length;

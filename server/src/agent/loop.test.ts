@@ -2858,14 +2858,12 @@ test("a document that asks for an act outside the grants is data, and the act is
     calls: [{ name: "say", arguments: { action: "say", text: "I cannot." } }],
   });
   /*
-   * The refusal on the plan sends the spoken report back once (ADR 0038), and the
-   * report it already made stands: a second `say` is refused, so the model
-   * finishes by answering `done`.
+   * The report stands: the act that was refused is not on the plan (the answer
+   * that asked for it was refused whole, and that is the loop's own retry), so
+   * there is no gap the report owes words for. What a person reads is the refusal
+   * recorded on the run and the one sentence the model said.
    */
-  answerWith({
-    calls: [{ name: "say", arguments: { action: "say", text: "I still cannot." } }],
-  });
-  answerWith({ done: "I still cannot." });
+
   await postChatMessage(
     ctx,
     accountId,
@@ -2876,7 +2874,7 @@ test("a document that asks for an act outside the grants is data, and the act is
 
   const run = await runOf();
   assert.equal(run.state, "done", "the run ends saying it could not");
-  assert.equal(run.ended?.why, "I still cannot.");
+  assert.equal(run.ended?.why, "I cannot.");
   const refused = run.plan.filter((step) => step.state === "failed");
   assert.ok(
     refused.some((step) => /"act"/.test(step.outcome)),
@@ -2959,6 +2957,41 @@ test("a report standing on a refused step is judged, and the verdict is on the r
    * (it does not stand), and the third is accepted with both checks beside it.
    */
   assert.equal(choosing, 3, "the report was put back with each gap named");
+});
+
+test("a probe the run answered afterwards is not a gap its report owes", async () => {
+  /*
+   * Live, 2026-10-28: a run listed a folder before it existed, created it, saved four
+   * files and said so — and the mechanical check counted the first refusal as a gap,
+   * sent the report back, and the model spent ten more steps re-reading the four
+   * documents it had just written. The same verb on the same object, done later, is
+   * the run answering itself.
+   */
+  await putInstruction(["files", "chat"]);
+  const agent = loop();
+  await agent.start();
+  answerWith({ facts: {} });
+  answerWith({ calls: [{ name: "open", arguments: { what: "files", path: "TODO" } }] });
+  answerWith({ calls: [{ name: "act", arguments: { what: "folder", path: "TODO" } }] });
+  answerWith({ calls: [{ name: "open", arguments: { what: "files", path: "TODO" } }] });
+  answerWith({
+    calls: [{ name: "say", arguments: { action: "say", text: "the folder is there" } }],
+  });
+  await postChatMessage(
+    ctx,
+    accountId,
+    "sam@example.org",
+    "metti i file della cartella TODO",
+  );
+  await agent.pass();
+
+  const run = await runOf();
+  assert.equal(run.state, "done");
+  assert.equal(run.ended?.why, "the folder is there");
+  assert.ok(
+    !run.plan.some((step) => step.what === DONE_CHECKED),
+    "the report owed no gap, so nothing was sent back",
+  );
 });
 
 test("a spoken report standing on a refused step is sent back once, and speaks once", async () => {
@@ -3054,8 +3087,6 @@ test("a malformed answer costs a step and is asked again, not the run", async ()
   answerWith(stuck);
   answerWith(aLook());
   answerWith({ done: "the model recovered and finished" });
-  // Two refused steps stand, so the first `done` is refused once and said again.
-  answerWith({ done: "the model recovered and finished" });
   await deliver("a change the model fumbles twice");
   await agent.pass();
 
@@ -3068,8 +3099,8 @@ test("a malformed answer costs a step and is asked again, not the run", async ()
   );
   assert.equal(
     run.spent.steps,
-    3,
-    "each refusal, and the check the `done` after them earned, spent a step of the budget",
+    2,
+    "each refused answer spent a step of the budget, and no check was owed: the loop is what asked again",
   );
   assert.equal(run.ended?.why, "the model recovered and finished");
 });
