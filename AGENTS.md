@@ -332,8 +332,9 @@ Three levels, and the cost of each grows with what it can catch:
   `scripts/gate-lib.sh` maps the changed paths to areas — `web`, `server`,
   `test-web`, `test-server`, `i18n`, `workflow`, plus `lint` and the prose checks
   (`adr:owed`, `adr:cite`, `config:dead`) which read every text file and so
-  always run. The independent steps run **in parallel**, and a failing step
-  prints the sentence the tool wrote. `web/src/locales` also pulls `i18n`, the
+  always run. The independent steps run **in parallel, at most one per core**
+  (`GATE_JOBS` overrides), and a failing step prints the sentence the tool
+  wrote. `web/src/locales` also pulls `i18n`, the
   shared tree (`server/src/shared`) pulls both packages, and **a path the map
   cannot name — the toolchain, the lockfile, the image, the deploy, the gate's
   own scripts, a file nobody classified — runs the full gate**: a wrong

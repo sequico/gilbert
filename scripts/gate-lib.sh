@@ -89,10 +89,14 @@ gate_commands() {
 	esac
 }
 
-# Run the areas it is given, the independent ones at once, and say what ran.
+# Run the areas it is given, the independent steps together, and say what ran.
 #
 # A failing step prints its own log: a gate that says "failed" without the
 # sentence the tool wrote is a gate somebody re-runs by hand to read.
+#
+# **At most one step per core**, in batches: seven steps on four cores do not
+# finish in the time of the slowest — they fight for the cores and the tests,
+# which are the long step, lose. `GATE_JOBS` overrides the count.
 gate_run() {
 	local area
 	for area in "$@"; do
@@ -103,51 +107,63 @@ gate_run() {
 		fi
 	done
 
-	local root logs names pids status=0 started
+	local root logs jobs started steps step slug command
 	root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 	logs="$(mktemp -d "${TMPDIR:-/tmp}/gilbert-gate.XXXXXX")"
-	names=()
-	pids=()
-	started=$(date +%s)
+	jobs="${GATE_JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
+	steps=()
+	local hole=0
 
 	for area in "$@"; do
-		local before=${#names[@]}
+		local before=${#steps[@]}
 		while IFS= read -r command; do
 			[ -n "$command" ] || continue
-			local slug="${area}: ${command}"
-			local log
-			log="${logs}/$(printf '%s' "$slug" | tr ' /:' '___').log"
-			names+=("$slug")
-			(
-				cd "$root" || exit 1
-				# shellcheck disable=SC2086 # the command is a command line by design
-				bash -c "$command" >"$log" 2>&1
-			) &
-			pids+=($!)
+			steps+=("${area}|${command}")
 		done < <(gate_commands "$area")
 		# An area with no command is a name the runner does not know: fail closed,
 		# or the gate quietly runs nothing and says it passed.
-		if [ "${#names[@]}" = "$before" ]; then
+		if [ "${#steps[@]}" = "$before" ]; then
 			echo "gate: '$area' names no step; refusing to pass on nothing." >&2
-			status=1
+			hole=1
 		fi
 	done
-
-	if [ "${#names[@]}" = 0 ]; then
+	if [ "${#steps[@]}" = 0 ]; then
 		echo "gate: nothing to run; refusing to pass on nothing." >&2
 		return 1
 	fi
 
-	echo "gate: $((${#names[@]})) step(s) in parallel, $(printf '%s ' "$@")"
-	local at=0
-	for pid in "${pids[@]}"; do
-		if ! wait "$pid"; then
-			status=1
-			step_log="$(printf '%s' "${names[$at]}" | tr ' /:' '___')"
-			echo "gate: FAILED — ${names[$at]}"
-			sed -n '1,40p' "${logs}/${step_log}.log" | sed 's/^/    /'
-		fi
-		at=$((at + 1))
+	started=$(date +%s)
+	echo "gate: ${#steps[@]} step(s), ${jobs} at a time ($(printf '%s ' "$@"))"
+	local status=$hole index=0 log rc at
+	while [ "$index" -lt "${#steps[@]}" ]; do
+		local batch=() pids=() logs_of=() names=()
+		while [ "${#batch[@]}" -lt "$jobs" ] && [ "$index" -lt "${#steps[@]}" ]; do
+			batch+=("${steps[$index]}")
+			index=$((index + 1))
+		done
+		for step in "${batch[@]}"; do
+			slug="${step%%|*}: ${step#*|}"
+			log="${logs}/$(printf '%s' "$slug" | tr ' /:' '___').log"
+			names+=("$slug")
+			logs_of+=("$log")
+			(
+				cd "$root" || exit 1
+				# shellcheck disable=SC2086 # the command is a command line by design
+				bash -c "${step#*|}" >"$log" 2>&1
+				echo $? >"${log}.rc"
+			) &
+			pids+=($!)
+		done
+		wait
+		for at in "${!pids[@]}"; do
+			# `wait` hands back the last job's status only: each step writes its own.
+			rc="$(cat "${logs_of[$at]}.rc" 2>/dev/null || echo 1)"
+			if [ "$rc" != 0 ]; then
+				status=1
+				echo "gate: FAILED — ${names[$at]}"
+				sed -n '1,30p' "${logs_of[$at]}" | sed 's/^/    /'
+			fi
+		done
 	done
 	echo "gate: done in $(( $(date +%s) - started ))s (logs in ${logs})"
 	return "$status"
