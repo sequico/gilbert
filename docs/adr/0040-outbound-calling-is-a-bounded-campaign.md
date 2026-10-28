@@ -1,11 +1,11 @@
-# ADR 0040 — Outbound calling is a bounded campaign, not a customer record
+# ADR 0040 — Outbound calling is a bounded campaign
 
 Status: Proposed
 
 Implementation: Not built. No area, route, document or view of this area
 exists: `shared/areas.ts` names eight areas and `outbound` is not one of them,
 and the `gilbert` app folder holds no campaign, row or call log. The primitives
-the decision rests on are built and are named in its Context: the app folder's
+the decision rests on are built and are named here: the app folder's
 documents (`server/src/appFolder.ts`), the group's contact cards (JSContact for
 `organizations`, labelled `phones`, `titles` and `relatedTo`), the workorder's
 root, parts and states (`server/src/workorder/`, ADR 0036), the claim a document is
@@ -34,9 +34,7 @@ rather than before it.
 Gilbert already holds identity: a group's own contacts are JSContact cards in
 the group's account, with organizations, labelled phones, titles and roles, and
 relations between a person and the company they work at. What the installation
-does **not** hold is a relationship: no stage, no value, no forecast, no owner of
-an account. That line is the whole difference between this area and the CRM the
-company already runs.
+does **not** hold is a relationship — the difference this area is built on.
 
 ## Decision
 
@@ -73,8 +71,7 @@ its own, because a promise not to call is not a campaign's to keep.
 
 - a **campaign** — the root document. One sentence of purpose, the script it
   points at, the outcome vocabulary it admits, the window it runs in, and the
-  group it belongs to. Its list is its rows and is not a document beside it.
-  Closing a campaign is a state, not a deletion.
+  group it belongs to. Closing a campaign is a state, not a deletion.
 - a **row** — a part document of its own, so two members of the group write
   without touching each other. It carries the number to dial and, once a card
   exists for it, the card it calls; and its state, its owner and its next call. A

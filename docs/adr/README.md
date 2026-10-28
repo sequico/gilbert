@@ -396,7 +396,7 @@ is, not what a user sees.
   opens the object below the panel and leaves the panel where it is. **Built,
   Proposed** (`shared/chat.ts`, `agent/tools/chat.ts`, `lib/agentRefs.ts`,
   `views/chat/ChatPanel.tsx`).
-- **0040 — Outbound calling is a bounded campaign, not a customer record.**
+- **0040 — Outbound calling is a bounded campaign.**
   The fifth block, `gilbertoutbound`: a campaign of a group's own with its list,
   its rows as documents of their own (so two callers never collide), **Today** as
   the queue of what is mine or due, and a handoff that leaves through a calendar
