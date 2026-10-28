@@ -82,8 +82,8 @@ to call is not a campaign's to keep.
   due, and it is where the work happens. The call is placed from the person's own
   phone.
 - a **handoff** — not an object: an outcome selects rows into a screened list
-  that leaves through Gilbert's own surfaces, a calendar event for the
-  appointment, a message to the receiving group, a file. It carries the row's
+  that leaves through Gilbert's own surfaces — a calendar event for the
+  appointment, a message to the receiving group, a file — carrying the row's
   outcome and note, who called and when, the discovered person and the routing
   note that says who is competent for what. The product's job ends when the
   campaign closes and the subset has left.
@@ -159,9 +159,6 @@ A card outlives this area and may already carry a number in any form: outbound
 writes only the canonical one, normalises a card's number when it touches it, and
 reports what it could not normalise instead of rewriting a contact's own data
 silently.
-
-The handoff must be takeable: copy, CSV or a message, with the discovered person
-and the routing note included.
 
 What the area cannot do without is an agent that reads a card it just did not
 write: a document cache that misses a replaced document makes the note proposed
