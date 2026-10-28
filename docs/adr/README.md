@@ -405,7 +405,10 @@ is, not what a user sees.
   created when the work needs them — with the call log on the person and on the
   company when the person was not known: the row dies with the campaign, what it
   learned does not. One do-not-call list serves the installation, checked against
-  every number a card carries; outcomes are named per campaign; a row is claimed
+  every number a card carries, and a number has one form — E.164, `+` country code
+  and digits, no space, punctuation, extension or trunk zero, normalised on
+  arrival and refused when it cannot be resolved; outcomes are named per campaign;
+  a row is claimed
   before its number is dialled; no stage, value or forecast, and no telephony,
   because the call is made from the person's own phone. **Not built, Proposed.**
 

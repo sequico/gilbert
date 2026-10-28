@@ -110,10 +110,15 @@ nobody is the company's own history until a person is attached to it.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the same act of taking a piece of work the workorder already
   knows.
-- **A number that already exists is reused, never duplicated.** Import and a
-  discovered contact both resolve through the cards the group already holds; a
-  number found on another card is attached with its label and reported, not
-  silently created twice.
+- **A number has one form: E.164 and nothing else.** `+` and the country code
+  followed by digits, no space, no punctuation, no extension, no trunk zero, no
+  note: the canonical string is the number's identity, and two rows that carry it
+  are the same number however they were written when they arrived. Every other
+  form is normalised on arrival — a national number resolved with the
+  installation's own country, a trunk zero dropped, an extension and any prose
+  moved to the row's note — and a number that cannot be resolved is refused and
+  counted, never guessed and never stored half-written. The do-not-call list is
+  matched on that same string.
 - **The area is the agent's like the others.** Reading a card's calls is free;
   proposing the note a call leaves behind is a write, and only a group whose
   instruction declares the area may receive it.
@@ -135,10 +140,12 @@ may use, and the two registers never stand in for each other.
 ## Consequences
 
 The import is the surface that decides adoption, not the tab: a hundred calls
-begin as a paste or a file, normalised and resolved against the group's cards and
-the installation's do-not-call list, with the counts said out loud — matched,
-created, duplicated, refused. A form filled once per number is a campaign nobody
-runs.
+begin as a paste or a file, normalised to the one canonical form and resolved
+against the group's cards and the installation's do-not-call list, with the counts
+said out loud — matched, created, duplicated, refused. A form filled once per
+number is a campaign nobody runs. The resolution of a national form wants the
+installation's own country, set once rather than asked per campaign; without it a
+number is not guessed at.
 
 Resolution by number wants an index the group keeps, because asking the mail
 server to find a card by phone is not the cheap read a hundred-row paste needs;
