@@ -55,6 +55,47 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No group to call for": "Keine Gruppe zum Anrufen",
+    "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
+      "Eine Liste gehört zu einer Gruppe, und Sie sind noch in keiner. Sobald eine Gruppe Sie aufnimmt, sind ihre Kampagnen und ihre Liste hier.",
+    "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
+      "Die Anrufe, auf die diese Liste wartet. Nehmen Sie eine Zeile, rufen Sie die Nummer von Ihrem eigenen Telefon aus an und sagen Sie dann, wie es gelaufen ist.",
+    "{due} due · {ahead} ahead · {held} with another caller":
+      "{due} fällig · {ahead} später · {held} bei einem anderen Anrufer",
+    Queue: "Warteschlange",
+    "Nothing left to call": "Nichts mehr anzurufen",
+    "Every open row is done, due later, or in another caller's hands.":
+      "Jede offene Zeile ist erledigt, später fällig oder in der Hand eines anderen Anrufers.",
+    "ext. {extension}": "Durchw. {extension}",
+    "Take this row": "Diese Zeile nehmen",
+    "yours now": "jetzt Ihre",
+    Call: "Anrufen",
+    "No number in this line": "Keine Nummer in dieser Zeile",
+    "The number does not say which country it is in":
+      "Die Nummer sagt nicht, in welchem Land sie liegt",
+    "No country uses this number": "Kein Land verwendet diese Nummer",
+    "The line is empty": "Die Zeile ist leer",
+    "Start a list": "Eine Liste beginnen",
+    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
+      "Eine Liste ist eine Kampagne: ein Zweck, die Ergebnisse, die ihre Anrufer wählen, und die Nummern, eine pro Zeile eingefügt.",
+    Purpose: "Zweck",
+    "Renewals, October": "Verlängerungen, Oktober",
+    "Outcomes, one per line": "Ergebnisse, eines pro Zeile",
+    Spoke: "Gesprochen",
+    "Create the campaign": "Kampagne anlegen",
+    "Into which campaign": "In welche Kampagne",
+    "Numbers, one per line": "Nummern, eine pro Zeile",
+    "ACME, ask for Tizio, +39 333 123 4567":
+      "ACME, fragen Sie nach Tizio, +39 333 123 4567",
+    "Add to the list": "Zur Liste hinzufügen",
+    "Do not call": "Nicht anrufen",
+    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
+      "Eine Nummer auf dieser Liste wird nie in eine Kampagne geschrieben: der Import zählt sie und lässt sie aus.",
+    "Number never to call": "Nummer, die nie angerufen wird",
+    "Country code and number": "Ländervorwahl und Nummer",
+    "Allow calls again": "Anrufe wieder erlauben",
+    // ── End of outbound calling ─────────────────────────────────────────
     Workorders: "Arbeitsaufträge",
     Completed: "Abgeschlossen",
     Replaced: "Ersetzt",
@@ -2572,6 +2613,21 @@ export const catalog: Catalog = {
       "Nur ein Administrator kann die Dateien einer Gruppe endgültig löschen.",
   },
   plurals: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} rows added": { one: "{n} Zeile hinzugefügt", other: "{n} Zeilen hinzugefügt" },
+    "{n} already in the list": {
+      one: "{n} bereits in der Liste",
+      other: "{n} bereits in der Liste",
+    },
+    "{n} on do not call": {
+      one: "{n} auf „nicht anrufen“",
+      other: "{n} auf „nicht anrufen“",
+    },
+    "{n} lines could not be read": {
+      one: "{n} Zeile nicht lesbar",
+      other: "{n} Zeilen nicht lesbar",
+    },
+    // ── End of outbound calling ─────────────────────────────────────────
     // ── Third pass ─────────────────────────────────────────────────────
     "{done} of {n} items": {
       one: "{done} von {n} Element",

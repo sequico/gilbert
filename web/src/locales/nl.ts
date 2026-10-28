@@ -43,6 +43,46 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No group to call for": "Geen groep om voor te bellen",
+    "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
+      "Een lijst hoort bij een groep, en je zit nog in geen enkele. Zodra een groep je toevoegt, staan zijn campagnes en zijn lijst hier.",
+    "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
+      "De gesprekken waar deze lijst op wacht. Neem een rij, bel het nummer vanaf je eigen telefoon en zeg daarna hoe het ging.",
+    "{due} due · {ahead} ahead · {held} with another caller":
+      "{due} te doen · {ahead} later · {held} bij een andere beller",
+    Queue: "Wachtrij",
+    "Nothing left to call": "Niets meer om te bellen",
+    "Every open row is done, due later, or in another caller's hands.":
+      "Elke open rij is gedaan, later aan de beurt, of in handen van een andere beller.",
+    "ext. {extension}": "toestel {extension}",
+    "Take this row": "Deze rij nemen",
+    "yours now": "nu van jou",
+    Call: "Bellen",
+    "No number in this line": "Geen nummer in deze regel",
+    "The number does not say which country it is in":
+      "Het nummer zegt niet in welk land het ligt",
+    "No country uses this number": "Geen land gebruikt dit nummer",
+    "The line is empty": "De regel is leeg",
+    "Start a list": "Een lijst beginnen",
+    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
+      "Een lijst is een campagne: een doel, de uitkomsten die de bellers kiezen, en de nummers, één per regel geplakt.",
+    Purpose: "Doel",
+    "Renewals, October": "Verlengingen, oktober",
+    "Outcomes, one per line": "Uitkomsten, één per regel",
+    Spoke: "Gesproken",
+    "Create the campaign": "Campagne aanmaken",
+    "Into which campaign": "In welke campagne",
+    "Numbers, one per line": "Nummers, één per regel",
+    "ACME, ask for Tizio, +39 333 123 4567": "ACME, vraag naar Tizio, +39 333 123 4567",
+    "Add to the list": "Aan de lijst toevoegen",
+    "Do not call": "Niet bellen",
+    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
+      "Een nummer op deze lijst komt nooit in een campagne: de import telt het en laat het weg.",
+    "Number never to call": "Nummer dat nooit gebeld wordt",
+    "Country code and number": "Landcode en nummer",
+    "Allow calls again": "Bellen weer toestaan",
+    // ── End of outbound calling ─────────────────────────────────────────
     Workorders: "Werkorders",
     Completed: "Voltooid",
     Replaced: "Vervangen",
@@ -2515,6 +2555,18 @@ export const catalog: Catalog = {
       "Alleen een beheerder kan de bestanden van een groep definitief verwijderen.",
   },
   plurals: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} rows added": { one: "{n} rij toegevoegd", other: "{n} rijen toegevoegd" },
+    "{n} already in the list": {
+      one: "{n} al in de lijst",
+      other: "{n} al in de lijst",
+    },
+    "{n} on do not call": { one: "{n} op niet bellen", other: "{n} op niet bellen" },
+    "{n} lines could not be read": {
+      one: "{n} regel onleesbaar",
+      other: "{n} regels onleesbaar",
+    },
+    // ── End of outbound calling ─────────────────────────────────────────
     // ── Third pass ─────────────────────────────────────────────────────
     "{done} of {n} items": {
       one: "{done} van {n} item",

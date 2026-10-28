@@ -45,6 +45,45 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No group to call for": "没有可致电的群组",
+    "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
+      "名单属于某个群组，而你还不在任何群组中。群组把你加入后，它的活动名单就在这里。",
+    "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
+      "这份名单在等的电话。领取一行，用自己的手机拨打号码，然后记录结果。",
+    "{due} due · {ahead} ahead · {held} with another caller":
+      "{due} 条到期 · {ahead} 条稍后 · {held} 条在他人手中",
+    Queue: "队列",
+    "Nothing left to call": "没有需要致电的了",
+    "Every open row is done, due later, or in another caller's hands.":
+      "每条未结的行要么已完成，要么稍后到期，要么在另一位致电人手中。",
+    "ext. {extension}": "分机 {extension}",
+    "Take this row": "领取这一行",
+    "yours now": "现在归你",
+    Call: "拨打",
+    "No number in this line": "这一行没有号码",
+    "The number does not say which country it is in": "号码没有说明是哪个国家",
+    "No country uses this number": "没有国家使用这个号码",
+    "The line is empty": "这一行是空的",
+    "Start a list": "开始一份名单",
+    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
+      "名单就是一次活动：一个目的、致电人要选择的结果，以及每行粘贴一个的号码。",
+    Purpose: "目的",
+    "Renewals, October": "续约，十月",
+    "Outcomes, one per line": "结果，每行一个",
+    Spoke: "已通话",
+    "Create the campaign": "创建活动",
+    "Into which campaign": "加入哪个活动",
+    "Numbers, one per line": "号码，每行一个",
+    "ACME, ask for Tizio, +39 333 123 4567": "ACME，找 Tizio，+39 333 123 4567",
+    "Add to the list": "加入名单",
+    "Do not call": "不要致电",
+    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
+      "此名单上的号码永远不会写入活动：导入会计入并跳过它。",
+    "Number never to call": "永不致电的号码",
+    "Country code and number": "国家代码和号码",
+    "Allow calls again": "重新允许致电",
+    // ── End of outbound calling ─────────────────────────────────────────
     Workorders: "工单",
     Completed: "已完成",
     Replaced: "已替换",
@@ -2424,6 +2463,21 @@ export const catalog: Catalog = {
       "只有管理员可以永久删除群组的文件。",
   },
   plurals: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} rows added": { one: "{n} 行已添加", other: "{n} 行已添加" },
+    "{n} already in the list": {
+      one: "{n} 条已在名单中",
+      other: "{n} 条已在名单中",
+    },
+    "{n} on do not call": {
+      one: "{n} 条位于「不要致电」",
+      other: "{n} 条位于「不要致电」",
+    },
+    "{n} lines could not be read": {
+      one: "{n} 行无法读取",
+      other: "{n} 行无法读取",
+    },
+    // ── End of outbound calling ─────────────────────────────────────────
     // ── Third pass ─────────────────────────────────────────────────────
     "{done} of {n} items": {
       other: "第 {done} 项，共 {n} 项",

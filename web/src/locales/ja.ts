@@ -46,6 +46,45 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No group to call for": "電話するグループがありません",
+    "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
+      "リストはグループのもので、まだどのグループにも入っていません。グループがあなたを追加すると、そのキャンペーンとリストがここに表示されます。",
+    "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
+      "このリストが待っている電話です。行を取得し、ご自分の電話から番号にかけ、結果を記録してください。",
+    "{due} due · {ahead} ahead · {held} with another caller":
+      "{due} 件が期限 · {ahead} 件が後日 · {held} 件が他の発信者の手元",
+    Queue: "キュー",
+    "Nothing left to call": "かける相手が残っていません",
+    "Every open row is done, due later, or in another caller's hands.":
+      "開いている行はすべて完了、後日の期限、または他の発信者の手元にあります。",
+    "ext. {extension}": "内線 {extension}",
+    "Take this row": "この行を取得",
+    "yours now": "あなたの担当",
+    Call: "電話する",
+    "No number in this line": "この行に番号がありません",
+    "The number does not say which country it is in": "番号から国が分かりません",
+    "No country uses this number": "この番号を使う国はありません",
+    "The line is empty": "行が空です",
+    "Start a list": "リストを始める",
+    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
+      "リストはキャンペーンです。目的、発信者が選ぶ結果、そして1行に1件ずつ貼り付けた番号でできています。",
+    Purpose: "目的",
+    "Renewals, October": "更新、10月",
+    "Outcomes, one per line": "結果（1行に1件）",
+    Spoke: "話した",
+    "Create the campaign": "キャンペーンを作成",
+    "Into which campaign": "どのキャンペーンに",
+    "Numbers, one per line": "番号（1行に1件）",
+    "ACME, ask for Tizio, +39 333 123 4567": "ACME、Tizio を呼び出し、+39 333 123 4567",
+    "Add to the list": "リストに追加",
+    "Do not call": "電話しない",
+    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
+      "このリストの番号はキャンペーンに書き込まれません。取り込みが数えて除外します。",
+    "Number never to call": "決して電話しない番号",
+    "Country code and number": "国番号と番号",
+    "Allow calls again": "再び電話を許可",
+    // ── End of outbound calling ─────────────────────────────────────────
     Workorders: "作業指示",
     Completed: "完了",
     Replaced: "置き換え済み",
@@ -2510,6 +2549,21 @@ export const catalog: Catalog = {
       "グループのファイルを完全に削除できるのは管理者だけです。",
   },
   plurals: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} rows added": { one: "{n} 行を追加しました", other: "{n} 行を追加しました" },
+    "{n} already in the list": {
+      one: "{n} 件は既にリストにあります",
+      other: "{n} 件は既にリストにあります",
+    },
+    "{n} on do not call": {
+      one: "{n} 件は「電話しない」にあります",
+      other: "{n} 件は「電話しない」にあります",
+    },
+    "{n} lines could not be read": {
+      one: "{n} 行を読み取れませんでした",
+      other: "{n} 行を読み取れませんでした",
+    },
+    // ── End of outbound calling ─────────────────────────────────────────
     // ── Third pass ─────────────────────────────────────────────────────
     "{done} of {n} items": {
       other: "{n} 件中 {done} 件",

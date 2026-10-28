@@ -23,6 +23,46 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No group to call for": "Arayacak grup yok",
+    "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
+      "Bir liste bir gruba aittir ve henüz hiçbir grupta değilsiniz. Bir grup sizi eklediğinde kampanyaları ve listesi burada olur.",
+    "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
+      "Bu listenin beklediği aramalar. Bir satır alın, numarayı kendi telefonunuzdan arayın, sonra nasıl geçtiğini söyleyin.",
+    "{due} due · {ahead} ahead · {held} with another caller":
+      "{due} sırada · {ahead} ileride · {held} başka bir arayanda",
+    Queue: "Kuyruk",
+    "Nothing left to call": "Arayacak bir şey kalmadı",
+    "Every open row is done, due later, or in another caller's hands.":
+      "Açık her satır ya tamamlandı, ya ileride bir tarihte, ya da başka bir arayanın elinde.",
+    "ext. {extension}": "dahili {extension}",
+    "Take this row": "Bu satırı al",
+    "yours now": "artık sizin",
+    Call: "Ara",
+    "No number in this line": "Bu satırda numara yok",
+    "The number does not say which country it is in":
+      "Numara hangi ülkede olduğunu söylemiyor",
+    "No country uses this number": "Bu numarayı hiçbir ülke kullanmıyor",
+    "The line is empty": "Satır boş",
+    "Start a list": "Bir liste başlat",
+    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
+      "Liste bir kampanyadır: bir amaç, arayanların seçeceği sonuçlar ve satır başına bir tane yapıştırılan numaralar.",
+    Purpose: "Amaç",
+    "Renewals, October": "Yenilemeler, Ekim",
+    "Outcomes, one per line": "Sonuçlar, satır başına bir tane",
+    Spoke: "Konuştum",
+    "Create the campaign": "Kampanyayı oluştur",
+    "Into which campaign": "Hangi kampanyaya",
+    "Numbers, one per line": "Numaralar, satır başına bir tane",
+    "ACME, ask for Tizio, +39 333 123 4567": "ACME, Tizio'yu isteyin, +39 333 123 4567",
+    "Add to the list": "Listeye ekle",
+    "Do not call": "Arama",
+    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
+      "Bu listedeki bir numara hiçbir zaman bir kampanyaya yazılmaz: içe aktarma onu sayar ve dışarıda bırakır.",
+    "Number never to call": "Asla aranmayacak numara",
+    "Country code and number": "Ülke kodu ve numara",
+    "Allow calls again": "Aramalara yeniden izin ver",
+    // ── End of outbound calling ─────────────────────────────────────────
     Workorders: "İş emirleri",
     Completed: "Tamamlandı",
     Replaced: "Değiştirildi",
@@ -2427,6 +2467,18 @@ export const catalog: Catalog = {
       "Bir grubun dosyalarını yalnızca yönetici kalıcı olarak silebilir.",
   },
   plurals: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} rows added": { one: "{n} satır eklendi", other: "{n} satır eklendi" },
+    "{n} already in the list": {
+      one: "{n} zaten listede",
+      other: "{n} zaten listede",
+    },
+    "{n} on do not call": { one: "{n} arama listesinde", other: "{n} arama listesinde" },
+    "{n} lines could not be read": {
+      one: "{n} satır okunamadı",
+      other: "{n} satır okunamadı",
+    },
+    // ── End of outbound calling ─────────────────────────────────────────
     "({n} deleted first)": {
       one: "(önce {n} silindi)",
       other: "(önce {n} silindi)",

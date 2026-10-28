@@ -43,6 +43,46 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No group to call for": "Немає групи, куди телефонувати",
+    "A list belongs to a group, and you are in none yet. Once a group adds you, its campaigns and its list are here.":
+      "Список належить групі, а ви ще не в жодній. Щойно група додасть вас, її кампанії та її список будуть тут.",
+    "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
+      "Дзвінки, на які чекає цей список. Візьміть рядок, зателефонуйте на номер зі свого телефону, потім скажіть, як усе минуло.",
+    "{due} due · {ahead} ahead · {held} with another caller":
+      "{due} до строку · {ahead} пізніше · {held} у іншого телефонуючого",
+    Queue: "Черга",
+    "Nothing left to call": "Більше нема кому телефонувати",
+    "Every open row is done, due later, or in another caller's hands.":
+      "Кожен відкритий рядок або закрито, або він чекає пізнішого строку, або він у руках іншого телефонуючого.",
+    "ext. {extension}": "внутр. {extension}",
+    "Take this row": "Взяти цей рядок",
+    "yours now": "тепер ваш",
+    Call: "Зателефонувати",
+    "No number in this line": "У цьому рядку немає номера",
+    "The number does not say which country it is in":
+      "За номером не зрозуміти, у якій він країні",
+    "No country uses this number": "Жодна країна не використовує цей номер",
+    "The line is empty": "Рядок порожній",
+    "Start a list": "Почати список",
+    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
+      "Список — це кампанія: мета, результати, які оберуть телефонуючі, і номери, вставлені по одному в рядку.",
+    Purpose: "Мета",
+    "Renewals, October": "Продовження, жовтень",
+    "Outcomes, one per line": "Результати, по одному в рядку",
+    Spoke: "Поговорили",
+    "Create the campaign": "Створити кампанію",
+    "Into which campaign": "У яку кампанію",
+    "Numbers, one per line": "Номери, по одному в рядку",
+    "ACME, ask for Tizio, +39 333 123 4567": "ACME, запитати Тіціо, +39 333 123 4567",
+    "Add to the list": "Додати до списку",
+    "Do not call": "Не телефонувати",
+    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
+      "Номер із цього списку ніколи не потрапляє в кампанію: імпорт рахує його й лишає осторонь.",
+    "Number never to call": "Номер, на який не телефонувати",
+    "Country code and number": "Код країни й номер",
+    "Allow calls again": "Знову дозволити дзвінки",
+    // ── End of outbound calling ─────────────────────────────────────────
     Workorders: "Наряди",
     Completed: "Завершено",
     Replaced: "Замінено",
@@ -2503,6 +2543,32 @@ export const catalog: Catalog = {
       "Остаточно видалити файли групи може лише адміністратор.",
   },
   plurals: {
+    // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} rows added": {
+      one: "{n} рядок додано",
+      few: "{n} рядки додано",
+      many: "{n} рядків додано",
+      other: "{n} рядка додано",
+    },
+    "{n} already in the list": {
+      one: "{n} уже в списку",
+      few: "{n} уже в списку",
+      many: "{n} уже в списку",
+      other: "{n} уже в списку",
+    },
+    "{n} on do not call": {
+      one: "{n} у «не телефонувати»",
+      few: "{n} у «не телефонувати»",
+      many: "{n} у «не телефонувати»",
+      other: "{n} у «не телефонувати»",
+    },
+    "{n} lines could not be read": {
+      one: "{n} рядок не вдалося прочитати",
+      few: "{n} рядки не вдалося прочитати",
+      many: "{n} рядків не вдалося прочитати",
+      other: "{n} рядка не вдалося прочитати",
+    },
+    // ── End of outbound calling ─────────────────────────────────────────
     // ── Third pass ─────────────────────────────────────────────────────
     "{done} of {n} items": {
       one: "{done} з {n} елемента",
