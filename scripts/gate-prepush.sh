@@ -152,8 +152,12 @@ fi
 
 # The areas the pushed diff needs, from the one map (`scripts/gate-lib.sh`). A
 # diff that could not be read is the whole tree's.
+#
+# The library is found beside this script, never through the checkout: the hook
+# is a script invoked from wherever the push happens, and a fixture repository
+# with no `scripts/` of its own must still be able to run it.
 # shellcheck source=scripts/gate-lib.sh
-. "${root}/scripts/gate-lib.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/gate-lib.sh"
 if [ -n "$changed" ]; then
 	areas="$(printf '%s\n' "$changed" | gate_areas_for)"
 else
