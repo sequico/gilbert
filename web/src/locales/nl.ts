@@ -73,6 +73,11 @@ export const catalog: Catalog = {
     "Reply all": "Allen beantwoorden",
     Forward: "Doorsturen",
     "Move to…": "Verplaatsen naar…",
+    "Add to another book…": "Aan een ander adresboek toevoegen…",
+    "Add {name} to another book…": "{name} aan een ander adresboek toevoegen…",
+    "Added to “{name}”": "Toegevoegd aan ‘{name}’",
+    "There is no other book to add it to.":
+      "Er is geen ander adresboek om het aan toe te voegen.",
     "Move to (v)": "Verplaatsen naar (v)",
     "Move to folder": "Naar map verplaatsen",
     "Move here": "Hierheen verplaatsen",

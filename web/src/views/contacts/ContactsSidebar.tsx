@@ -151,9 +151,10 @@ export function ContactsSidebar() {
       : (contacts.books[sel.bookId] ??
         contacts.sharedBooks.find((b) => b.book.id === sel.bookId)?.book);
   const canImport =
-    sel.bookId === "all" ? own.length > 0 : Boolean(selectedBook?.myRights?.mayWrite ?? true);
-  const defaultBookId =
-    own.find((b) => b.isDefault)?.id ?? own[0]?.id ?? "all";
+    sel.bookId === "all"
+      ? own.length > 0
+      : Boolean(selectedBook?.myRights?.mayWrite ?? true);
+  const defaultBookId = own.find((b) => b.isDefault)?.id ?? own[0]?.id ?? "all";
   /*
    * The installation's directory (ADR 0019): one book, read by everyone and
    * never "added". It leads the Contacts list rather than sitting in "Shared

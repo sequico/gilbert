@@ -74,6 +74,11 @@ export const catalog: Catalog = {
     "Reply all": "Відповісти всім",
     Forward: "Переслати",
     "Move to…": "Перемістити до…",
+    "Add to another book…": "Додати до іншої адресної книги…",
+    "Add {name} to another book…": "Додати {name} до іншої адресної книги…",
+    "Added to “{name}”": "Додано до «{name}»",
+    "There is no other book to add it to.":
+      "Іншої адресної книги, куди його додати, немає.",
     "Move to (v)": "Перемістити до (v)",
     "Move to folder": "Перемістити до теки",
     "Move here": "Перемістити сюди",

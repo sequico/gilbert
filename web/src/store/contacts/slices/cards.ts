@@ -60,6 +60,7 @@ export function cardsSlice(
   | "search"
   | "cardsIn"
   | "createCard"
+  | "addCardToBook"
   | "moveCardTo"
   | "updateCard"
   | "repointContactRefs"
@@ -303,6 +304,30 @@ export function cardsSlice(
       const id = res.created!.c!.id;
       await get().getCard(id, accountId_);
       return id;
+    },
+
+    /*
+     * One more book for a card that already has one.
+     *
+     * The whole map goes out, not the new id alone: a JMAP update that sends
+     * `addressBookIds` with one entry replaces the membership and moves the card,
+     * which is the opposite of what was asked (measured on Stalwart 1.0.0: a card
+     * with two books is kept, listed by both, and up to ten are allowed).
+     *
+     * The card is named by its account and its id, and the book must belong to
+     * that account: a card lives inside one account, so no book of another
+     * account can hold it.
+     */
+    async addCardToBook(card, bookId) {
+      const own = get().accountId;
+      const held =
+        card.accountId === own || !card.accountId
+          ? get().cards[card.id]
+          : get().sharedCards[sharedKey(card.accountId, card.id)];
+      const books = { ...(held?.addressBookIds ?? {}) };
+      if (books[bookId]) return;
+      books[bookId] = true;
+      await get().updateCard(card, { addressBookIds: books });
     },
 
     /*

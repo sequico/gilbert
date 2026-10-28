@@ -1787,7 +1787,14 @@ JMAP Contacts and JSContact.
 - **Letter index** down the list, with `#` for anything not starting with a letter.
 - **Search** across name, address, organisation and notes, in one book or all.
 - **vCard import** through `ContactCard/parse` (a file of any number of cards), and
-  **export** of one card, a whole book, or everything as `.vcf`.
+  **export** of one card, a whole book, or everything as `.vcf`. Both are at the foot
+  of the books, named for what is selected, and offered on any book the reader may
+  write — a group's own directory included, because a member writes it.
+- **A contact can belong to several books of its account** without being copied:
+  *Add to another book…* on a row files it into one more and keeps the one it is
+  in, up to the server's ten. Membership is the card's own (`addressBookIds`, RFC
+  9553), so each book lists it; moving it to another **account** is the separate,
+  administrator's action.
 - **LDIF import**, for address books from SOGo, Thunderbird or an LDAP directory.
   Nothing on the server reads LDIF, so the file is read here: RFC 2849 for the
   syntax and [Mozilla's address book schema][ldif-schema] for the attributes. Work

@@ -97,6 +97,10 @@ export const catalog: Catalog = {
     Forward: "Inoltra",
 
     "Move to…": "Sposta in…",
+    "Add to another book…": "Aggiungi a un’altra rubrica…",
+    "Add {name} to another book…": "Aggiungi {name} a un’altra rubrica…",
+    "Added to “{name}”": "Aggiunto a «{name}»",
+    "There is no other book to add it to.": "Non c’è un’altra rubrica a cui aggiungerlo.",
 
     "Move to (v)": "Sposta in (v)",
 

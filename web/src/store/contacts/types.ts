@@ -170,6 +170,15 @@ export interface ContactsState {
     edited?: Partial<ContactCard>,
   ): Promise<Id>;
   /**
+   * File a card into one more book of its own account, keeping the others.
+   *
+   * RFC 9553 keeps membership in the card (`addressBookIds`), and this server
+   * refuses nothing about a card in up to ten books -- so a contact belongs to
+   * several groups without being copied. The whole map goes out, because an
+   * update carrying one id *moves* the card instead of adding to it.
+   */
+  addCardToBook(card: CardAddress, bookId: Id): Promise<void>;
+  /**
    * Write a patch to one card, named by its account and its id.
    *
    * The pair, because an id alone resolves to the reader's own card wherever one

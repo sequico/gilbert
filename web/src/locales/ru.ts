@@ -80,6 +80,11 @@ export const catalog: Catalog = {
     "Reply all": "Ответить всем",
     Forward: "Переслать",
     "Move to…": "Переместить в…",
+    "Add to another book…": "Добавить в другую адресную книгу…",
+    "Add {name} to another book…": "Добавить {name} в другую адресную книгу…",
+    "Added to “{name}”": "Добавлено в «{name}»",
+    "There is no other book to add it to.":
+      "Другой адресной книги, куда его добавить, нет.",
     "Move to (v)": "Переместить в (v)",
     "Move to folder": "Переместить в папку",
     "Move here": "Переместить сюда",

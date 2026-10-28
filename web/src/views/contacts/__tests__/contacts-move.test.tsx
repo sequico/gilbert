@@ -135,7 +135,7 @@ describe("moving a contact from the list", () => {
   it("offers the move to an administrator, naming each group's book", async () => {
     await arrange(true);
     await rightClick();
-    expect(destinations()).toEqual(["Move to…"]);
+    expect(destinations()).toEqual(["Add to another book…", "Move to…"]);
     await openMove();
     // The group whose account owns the book, and the book itself.
     expect(document.body.textContent).toContain("freight@example.org");
@@ -145,9 +145,11 @@ describe("moving a contact from the list", () => {
     expect(destinations()).not.toContain("My book");
   });
 
-  it("offers nothing at all to a reader who is not an administrator", async () => {
+  it("offers no move to a reader who is not an administrator", async () => {
     await arrange(false);
     await rightClick();
-    expect(destinations()).toEqual([]);
+    // Only the move changes whose the card is (ADR 0016). Filing it into another
+    // book of its own account is the reader's own business, so that entry stays.
+    expect(destinations()).toEqual(["Add to another book…"]);
   });
 });

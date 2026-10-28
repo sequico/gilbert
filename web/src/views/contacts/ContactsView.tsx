@@ -6,6 +6,7 @@ import {
   Calendar as CalIcon,
   Download,
   FolderInput,
+  FolderPlus,
   Globe,
   Mail,
   MapPin,
@@ -29,7 +30,7 @@ import {
 } from "react";
 import { useLocation, useSearch } from "wouter";
 import { setErrorMessage } from "@/jmap/client";
-import type { ContactCard } from "@/jmap/types";
+import type { AddressBook, ContactCard } from "@/jmap/types";
 import { avatarColor } from "@/lib/address";
 import {
   type CardAddress,
@@ -146,6 +147,11 @@ export function ContactsView({ id }: { id?: string }) {
     accountId: string | null;
   } | null>(null);
   const [moving, setMoving] = useState<{
+    card: ContactCard;
+    accountId: string | null;
+  } | null>(null);
+  /* The card being filed into one more book of its own account. */
+  const [addingTo, setAddingTo] = useState<{
     card: ContactCard;
     accountId: string | null;
   } | null>(null);
@@ -881,16 +887,16 @@ export function ContactsView({ id }: { id?: string }) {
                         navigate(cardPath({ id: c.id, accountId: cardAccountId }))
                       }
                       /*
-                       * The one action that is about where the card lives rather
-                       * than what is in it: a right-click offers it, and the move
-                       * dialog asks the destination. Nothing is drawn on a row
-                       * that has nowhere to go, so the menu is opened only where
-                       * the reader may move one (ADR 0016). The directory is
-                       * read through a route rather than held in an account, so
-                       * it has nowhere to go and is left out (ADR 0019).
+                       * The menu is about where the card lives rather than what
+                       * is in it: one entry files it into another book of its own
+                       * account and keeps the one it is in, and a second moves it
+                       * to another account, which an administrator's session alone
+                       * may do (ADR 0016). The directory is read through a route
+                       * rather than held in an account, so its cards are left out
+                       * (ADR 0019).
                        */
                       onContextMenu={
-                        mayMove && cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID
+                        cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID
                           ? (e) => openMenuAt(e, c, cardAccountId)
                           : undefined
                       }
@@ -1032,14 +1038,26 @@ export function ContactsView({ id }: { id?: string }) {
         width={230}
       >
         {menuCard && (
-          <MenuItem
-            icon={<FolderInput size={16} />}
-            label={translate("Move to…")}
-            onClick={() => {
-              setMoving(menuCard);
-              setMenuCard(null);
-            }}
-          />
+          <>
+            <MenuItem
+              icon={<FolderPlus size={16} />}
+              label={translate("Add to another book…")}
+              onClick={() => {
+                setAddingTo(menuCard);
+                setMenuCard(null);
+              }}
+            />
+            {mayMove && (
+              <MenuItem
+                icon={<FolderInput size={16} />}
+                label={translate("Move to…")}
+                onClick={() => {
+                  setMoving(menuCard);
+                  setMenuCard(null);
+                }}
+              />
+            )}
+          </>
         )}
       </Popover>
       {moving && (
@@ -1052,6 +1070,17 @@ export function ContactsView({ id }: { id?: string }) {
             clearPicked();
             navigate(cardPath(moved));
             toast.success(translate("Contact moved"));
+          }}
+        />
+      )}
+      {addingTo && (
+        <AddToBookDialog
+          card={addingTo.card}
+          accountId={addingTo.accountId}
+          onClose={() => setAddingTo(null)}
+          onAdded={(name) => {
+            setAddingTo(null);
+            toast.success(translate("Added to “{name}”", { name }));
           }}
         />
       )}
@@ -1068,6 +1097,88 @@ export function ContactsView({ id }: { id?: string }) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * One more book for a card, in the account that holds it.
+ *
+ * A contact belongs to several groups without being copied: RFC 9553 keeps the
+ * membership in the card, and this server takes up to ten books for one card,
+ * listed by each of them (measured on 1.0.0). Only the card's own account is
+ * offered, because a card lives inside one account and no book of another can
+ * hold it -- moving it to another account is a different action, an
+ * administrator's.
+ *
+ * The books the card is already in are not offered: filing it there again
+ * writes nothing, and a list of destinations that includes the current one
+ * invites a click that appears to do nothing.
+ */
+function AddToBookDialog({
+  card,
+  accountId,
+  onClose,
+  onAdded,
+}: {
+  card: ContactCard;
+  /** The account holding the card, half of its address -- null for the reader's own. */
+  accountId: string | null;
+  onClose: () => void;
+  onAdded: (bookName: string) => void;
+}) {
+  const contacts = useContacts();
+  const inBook = card.addressBookIds ?? {};
+  const sameAccount: AddressBook[] =
+    accountId && accountId !== contacts.accountId
+      ? contacts.sharedBooks.filter((b) => b.accountId === accountId).map((b) => b.book)
+      : Object.values(contacts.books);
+  const choices = sameAccount
+    .filter((b) => !inBook[b.id])
+    // A book the reader may not write is a destination the server refuses; the
+    // list says nothing about it rather than offering it and failing.
+    .filter((b) => b.myRights?.mayWrite ?? true)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const [busy, setBusy] = useState(false);
+
+  const add = async (book: AddressBook) => {
+    setBusy(true);
+    try {
+      await contacts.addCardToBook(
+        { id: card.id, accountId: accountId ?? null },
+        book.id,
+      );
+      onAdded(book.name);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={translate("Add {name} to another book…", {
+        name: contactDisplayName(card),
+      })}
+    >
+      {choices.length === 0 ? (
+        <p className="muted">{translate("There is no other book to add it to.")}</p>
+      ) : (
+        choices.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            className="btn btn-ghost"
+            disabled={busy}
+            onClick={() => void add(b)}
+          >
+            {b.name}
+          </button>
+        ))
+      )}
+    </Dialog>
   );
 }
 
