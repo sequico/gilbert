@@ -402,7 +402,8 @@ is, not what a user sees.
   the queue of what is mine or due, and a handoff that leaves through a calendar
   event, a message or a file. Identity is not rebuilt — it is the group's own
   contact cards, company and person with labelled numbers, titles and relation,
-  created when the work needs them — with the call log on the person and on the
+  created **at the first call and never by an import**, a list nobody dialled
+  leaving nothing behind — with the call log on the person and on the
   company when the person was not known: the row dies with the campaign, what it
   learned does not. One do-not-call list serves the installation, checked against
   every number a card carries, and a number has one form — E.164, `+` country code

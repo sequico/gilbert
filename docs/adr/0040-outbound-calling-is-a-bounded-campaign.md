@@ -49,11 +49,13 @@ no second permission model.
 
 Identity is not rebuilt. The company is a contact card of the organization kind,
 the person is an individual card whose labelled phones carry every number known
-for them and whose `relatedTo` names the company. A card is created when the
-work needs it — an imported number with no card becomes one, a person discovered
-on a call becomes one — and it is the group's own data, so it is guarded by the
-group's own access and reaches the group's phones as any contact does. No second
-address book exists beside it.
+for them and whose `relatedTo` names the company. **A card is created at the first
+call, never by an import**: an imported number with no card stays a row, the
+person discovered on a call becomes a card at that moment, and a list of three
+hundred numbers never becomes three hundred entries in the group's address book
+and in every member's phone. Until that call the row carries what the file said —
+a number, an optional company and name — and nothing is left behind by a list
+nobody dialled.
 
 **The call log lives on the person, and on the company when the person was not
 known.** Opening a card shows what was said to it: when, by whom, in which
@@ -142,7 +144,8 @@ may use, and the two registers never stand in for each other.
 The import is the surface that decides adoption, not the tab: a hundred calls
 begin as a paste or a file, normalised to the one canonical form and resolved
 against the group's cards and the installation's do-not-call list, with the counts
-said out loud — matched, created, duplicated, refused. A form filled once per
+said out loud — matched to a card, new, duplicated within the list, refused. An
+import writes no card and no contact: it writes rows. A form filled once per
 number is a campaign nobody runs. The resolution of a national form wants the
 installation's own country, set once rather than asked per campaign; without it a
 number is not guessed at.
