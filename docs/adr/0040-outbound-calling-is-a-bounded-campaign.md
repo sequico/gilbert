@@ -50,12 +50,10 @@ no second permission model.
 Identity is not rebuilt. The company is a contact card of the organization kind,
 the person is an individual card whose labelled phones carry every number known
 for them and whose `relatedTo` names the company. **A card is created at the first
-call, never by an import**: an imported number with no card stays a row, the
-person discovered on a call becomes a card at that moment, and a list of three
-hundred numbers never becomes three hundred entries in the group's address book
-and in every member's phone. Until that call the row carries what the file said —
-a number, an optional company and name — and nothing is left behind by a list
-nobody dialled.
+call, never by an import**: an imported number with no card stays a row until
+somebody dials it, so a list of three hundred numbers never becomes three hundred
+entries in the group's address book and in every member's phone, and a list nobody
+dialled leaves nothing behind.
 
 **The call log lives on the person, and on the company when the person was not
 known.** Opening a card shows what was said to it: when, by whom, in which

@@ -401,15 +401,10 @@ is, not what a user sees.
   its rows as documents of their own (so two callers never collide), **Today** as
   the queue of what is mine or due, and a handoff that leaves through a calendar
   event, a message or a file. Identity is not rebuilt — it is the group's own
-  contact cards, company and person with labelled numbers, titles and relation,
-  created **at the first call and never by an import**, a list nobody dialled
-  leaving nothing behind — with the call log on the person and on the
-  company when the person was not known: the row dies with the campaign, what it
-  learned does not. One do-not-call list serves the installation, checked against
-  every number a card carries, and a number has one form — E.164, `+` country code
-  and digits, no space, punctuation, extension or trunk zero, normalised on
-  arrival and refused when it cannot be resolved; outcomes are named per campaign;
-  a row is claimed
-  before its number is dialled; no stage, value or forecast, and no telephony,
-  because the call is made from the person's own phone. **Not built, Proposed.**
+  contact cards, created at the first call and never by an import — and the call
+  log sits on the person, or on the company when the person was not known: the row
+  dies with the campaign, what it learned does not. A number has one form, E.164;
+  one do-not-call list serves the installation, checked against every number a card
+  carries; a row is claimed before it is dialled; no stage, no value, no forecast,
+  no dialer, no telephony. **Not built, Proposed.**
 
