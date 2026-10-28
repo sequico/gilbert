@@ -269,7 +269,9 @@ function reportsInChat(call: StepCall): boolean {
  * done later — is a probe it paid for and learned from: a folder looked for before
  * it existed, an id guessed. Anything else stays counted, which is what the
  * mechanical check exists for: a refused act is never covered by a later one that
- * did something else (ADR 0030, 0038).
+ * did something else (ADR 0030, 0038). The case's note names no object, so a failed
+ * note always counts: there is nothing to match it against, and the check's
+ * direction is to keep a claim out, not to let one through.
  */
 function unrecoveredRefusals(plan: readonly RunStep[]): number {
   const isCall = (what: string): boolean => what.split(" ")[1]?.startsWith("{") === true;
