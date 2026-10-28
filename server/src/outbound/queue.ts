@@ -2,13 +2,13 @@
  * Today — the queue a caller works (ADR 0040).
  *
  * Today is not stored: it is the view of the rows that are mine or due, ordered
- * so the work that is already late comes first, and so a caller who has started a
- * row can finish it before taking another. A row another caller holds is not
- * offered, and a claim that has lapsed is free again — which is what makes a
- * caller leaving the desk cost nothing.
+ * so a row already in my hands is finished first, then what is late, then what
+ * carried no date. A row another caller holds is not offered, and a claim that has
+ * lapsed is free again — which is what makes a caller leaving the desk cost
+ * nothing.
  *
- * The counts come back with the queue because a list that is being worked must
- * say how much is left, and "due today" is not the same number as "in Today".
+ * The counts come back with the queue because a list being worked must say how
+ * much is left, and "due today" is not the same number as "in Today".
  */
 
 import { claimIsLive, heldByOther, type RowDoc } from "../shared/outbound.js";
@@ -33,11 +33,22 @@ export interface TodayResult {
   heldByOthers: number;
 }
 
-/** Where a row falls in the order, lowest first. */
-function bandOf(row: RowDoc, caller: string, now: Date): number {
-  if (claimIsLive(row.claim, now) && row.claim.by === caller) return 0; // started, finish it
-  if (row.nextCallAt !== null && Date.parse(row.nextCallAt) <= now.getTime()) return 1; // due
-  return 2; // free, no date
+/** Where a row stands for this caller, and so the band it sorts in. */
+type Band = "mine" | "due" | "free" | "later";
+
+const ORDER: Record<Band, number> = { mine: 0, due: 1, free: 2, later: 3 };
+
+function bandOf(row: RowDoc, caller: string, now: Date): Band {
+  if (claimIsLive(row.claim, now) && row.claim.by === caller) return "mine";
+  if (row.nextCallAt === null) return "free";
+  return Date.parse(row.nextCallAt) <= now.getTime() ? "due" : "later";
+}
+
+/** The key within a band: the oldest claim, the earliest date, the oldest row. */
+function keyOf(row: RowDoc, band: Band): string {
+  if (band === "mine") return row.claim?.at ?? "";
+  if (band === "due") return row.nextCallAt ?? "";
+  return row.createdAt;
 }
 
 export function todayQueue(
@@ -47,7 +58,7 @@ export function todayQueue(
   let due = 0;
   let upcoming = 0;
   let heldByOthers = 0;
-  const offered: { row: RowDoc; band: number }[] = [];
+  const offered: { row: RowDoc; band: Band }[] = [];
 
   for (const row of rows) {
     if (row.state !== "open") continue;
@@ -56,21 +67,19 @@ export function todayQueue(
       continue;
     }
     const band = bandOf(row, caller, now);
-    if (band === 2 && row.nextCallAt !== null) {
+    if (band === "later") {
       upcoming += 1;
       continue;
     }
-    if (band === 1) due += 1;
+    if (band === "due") due += 1;
     offered.push({ row, band });
   }
 
-  offered.sort((a, b) => {
-    if (a.band !== b.band) return a.band - b.band;
-    if (a.band === 0) return (a.row.claim?.at ?? "").localeCompare(b.row.claim?.at ?? "");
-    if (a.band === 1)
-      return (a.row.nextCallAt ?? "").localeCompare(b.row.nextCallAt ?? "");
-    return a.row.createdAt.localeCompare(b.row.createdAt);
-  });
+  offered.sort(
+    (a, b) =>
+      ORDER[a.band] - ORDER[b.band] ||
+      keyOf(a.row, a.band).localeCompare(keyOf(b.row, b.band)),
+  );
 
   return {
     queue: offered.slice(0, Math.max(0, limit)).map((entry) => entry.row),

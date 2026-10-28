@@ -117,21 +117,24 @@ async function readAll<T>(
   dir: string,
   isDoc: (value: unknown) => value is T,
 ): Promise<ReadAll<T>> {
-  const sheets = await listAppSheets<T | null>(ctx, accountId, dir, (_id, text) => {
-    try {
-      const doc: unknown = JSON.parse(text);
-      return isDoc(doc) ? doc : null;
-    } catch {
-      return null;
-    }
-  });
+  const sheets = await listAppSheets<unknown>(
+    ctx,
+    accountId,
+    dir,
+    (_id, text) => JSON.parse(text) as unknown,
+  );
   const docs: T[] = [];
   const problems: string[] = [];
   for (const sheet of sheets) {
-    if (sheet.doc === null) {
-      // A document that is there and unreadable is a gap said out loud, never a
-      // campaign that quietly leaves the list.
-      problems.push(`${sheet.id}: ${sheet.problem ?? "this build cannot read it"}`);
+    // Two different failures, told apart: the folder could not give the bytes, or
+    // it gave bytes this build cannot read. Either way the document is named
+    // rather than quietly leaving the list.
+    if (sheet.problem !== null) {
+      problems.push(`${sheet.id}: ${sheet.problem}`);
+      continue;
+    }
+    if (!isDoc(sheet.doc)) {
+      problems.push(`${sheet.id}: this build cannot read it`);
       continue;
     }
     docs.push(sheet.doc);

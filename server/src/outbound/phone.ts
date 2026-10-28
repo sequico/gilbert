@@ -51,9 +51,6 @@ const EXTENSION_MARKER = /\s*(?:int(?:erno)?\.?|ext(?:ension)?\.?|x|#|;)\s*(\d[\
 /** Everything a phone number is allowed to be decorated with. */
 const DECORATION = /[\s\u00a0().\-/]/g;
 
-/** E.164 allows fifteen digits in all, after the `+`. */
-const MAX_DIGITS = 15;
-
 /** The calling codes, longest first, so `39` is tried before `3` would be. */
 const CALLING_CODES: readonly { code: string; countries: readonly CountryCode[] }[] =
   buildCallingCodes();
@@ -94,7 +91,7 @@ function readEntry(raw: string): {
 export function normaliseNumber(raw: string): NormalisedNumber {
   if (!raw?.trim()) return { ok: false, reason: "empty" };
   const { digits, extension, international } = readEntry(raw);
-  if (!digits || digits.length > MAX_DIGITS) return { ok: false, reason: "invalid" };
+  if (!digits) return { ok: false, reason: "invalid" };
 
   if (international) {
     const parsed = parsePhoneNumberFromString(`+${digits}`);
