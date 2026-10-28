@@ -136,6 +136,9 @@ to call is not a campaign's to keep.
   saying different things because somebody edited the page on Wednesday is worse
   than a script that is a week old, and the page's own history says what was
   issued when.
+- **The area is the agent's like the others.** Reading a card's calls is free;
+  proposing the note a call leaves behind is a write, and only a group whose
+  instruction declares the area may receive it.
 
 **`gilbertoutbound` is a block for the same reason the other four are** — an
 area of the product with a boundary of its own — and what it does not own already
