@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { decodeTransfer, MAX_MIME_DEPTH, parseMime } from "../mime";
 

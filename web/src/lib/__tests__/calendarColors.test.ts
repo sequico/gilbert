@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The fixed palette a new entry is coloured from, and the step that walks it: a
  * list that grows takes the next swatch rather than running out or repeating.

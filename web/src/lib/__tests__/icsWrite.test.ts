@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { JSCalendarEvent } from "@/jmap/types";
 import { parseIcs, toIcs, zoneTransitions } from "@/lib/ics";

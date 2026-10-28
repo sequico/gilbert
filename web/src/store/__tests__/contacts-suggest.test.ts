@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ContactCard } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";

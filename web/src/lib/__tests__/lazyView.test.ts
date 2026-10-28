@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VIEW_LOAD_TIMEOUT_MS, withViewTimeout } from "@/lib/lazyView";
 

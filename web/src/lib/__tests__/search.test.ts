@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { buildFilter, parseQuery } from "@gilbert/shared/search";
 import { describe, expect, it } from "vitest";
 import type { Mailbox } from "@/jmap/types";

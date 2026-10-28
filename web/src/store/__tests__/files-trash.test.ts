@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { parseTrashDocument } from "@gilbert/shared/trash";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";

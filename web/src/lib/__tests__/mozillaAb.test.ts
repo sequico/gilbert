@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { ContactCard } from "@/jmap/types";
 import { parseLdif } from "@/lib/ldif";

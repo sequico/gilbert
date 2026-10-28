@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { DEFAULT_UI_LANGUAGE, resolveUiLanguage, UI_LANGUAGES } from "@/lib/languages";
 import { acceptRemote, DEFAULT_SETTINGS } from "@/store/settings";

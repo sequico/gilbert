@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { Mailbox } from "@/jmap/types";
 import { settingsMailboxTree as tree } from "@/lib/mailboxScope";

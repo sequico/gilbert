@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { FileNode, Id } from "@/jmap/types";
 import { canDropFileNodes, NODE_MIME, readDraggedIds } from "@/lib/filenode";

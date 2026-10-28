@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
 import type { Email, GetResponse, Mailbox, QueryResponse } from "@/jmap/types";

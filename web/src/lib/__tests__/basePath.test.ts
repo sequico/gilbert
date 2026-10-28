@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import {

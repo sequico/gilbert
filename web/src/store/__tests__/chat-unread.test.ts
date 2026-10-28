@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { ChatMessage } from "@/lib/chat";
 import { type ChatConversation, unreadOf, useChat } from "@/store/chat";

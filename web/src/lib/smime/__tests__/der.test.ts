@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { type Asn1, oid, TAG } from "@/lib/smime/der";
 import { ecdsaDerToRaw } from "@/lib/smime/verify";

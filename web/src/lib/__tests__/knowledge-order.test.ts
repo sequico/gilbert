@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { KnowledgeSummary } from "@gilbert/shared/knowledge";
 import { describe, expect, it } from "vitest";
 import { siblingDropPlan } from "@/lib/knowledge";

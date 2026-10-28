@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { RunSummary } from "@/lib/agentAdmin";
 import { metricsOf, periodSince, sameRunHeader } from "../agents/metrics";

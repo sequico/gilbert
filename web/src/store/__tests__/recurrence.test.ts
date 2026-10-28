@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "@/jmap/types";
 import { isRecurring } from "@/store/calendar";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { AGENT_SIGNATURE } from "@gilbert/shared/agent";
 import { afterEach, describe, expect, it } from "vitest";
 import { setCatalog } from "@/lib/i18n";

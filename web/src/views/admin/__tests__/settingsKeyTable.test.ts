@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, isSettingsKey } from "@/store/settings";
 import { ENTRIES, EXAMPLES, exampleFor, GROUPS } from "../SettingsKeyTable";

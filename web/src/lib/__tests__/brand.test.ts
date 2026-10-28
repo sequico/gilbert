@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { appNameFor, DEFAULT_APP_NAME } from "@/lib/brand";
 

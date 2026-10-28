@@ -162,13 +162,17 @@ test, no skipped test, a dependency audit at zero (the release pre-check runs
 **Tests assume the runner's local timezone is UTC** (GitHub's default); on a
 non-UTC machine run them as `TZ=UTC npm test` — `check:ci` already forces it so
 the local gate matches CI.
-**`npm run check:ci` is the one gate**, in order: typecheck, Biome, `adr:owed`,
+**A web test file that needs no DOM declares `// @vitest-environment node` on its
+first line**; jsdom is the default for everything else, deliberately: a file that
+forgets gets a DOM and works, and one that declares `node` and then reaches for
+`window` fails loudly. Creating a jsdom is 71% of the web suite's time and 139 of
+its 331 files never touch one (`web/vite.config.ts`).
+**`npm run check:ci` is the full gate**, in order: typecheck, Biome, `adr:owed`,
 `adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`, `TZ=UTC npm test`, then
-`npm run build`. The pre-push hook runs it (`npm run prepush` is that pipeline
-under the name the hook calls), and
-`ci.yml` runs the same script — so the release pre-check and a developer's push
-cannot diverge. The only part of CI that is not in it is the Docker smoke build,
-which a local gate cannot assume has a daemon.
+`npm run build`. `npm run prepush` is the affected gate the hook runs (see
+*Verification*), and `ci.yml` runs `check:ci` — so the release pre-check is the
+full gate and not a weaker second list. The only part of CI that is not in it is
+the Docker smoke build, which a local gate cannot assume has a daemon.
 Version from git at build time (`node scripts/version.mjs`).
 
 ## Language

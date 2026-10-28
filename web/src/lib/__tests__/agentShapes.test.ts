@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { AREA_NAMES } from "@gilbert/shared/areas";
 import { INSTRUCTION_VERSION } from "@gilbert/shared/instruction";
 import { SURFACES } from "@gilbert/shared/surfaces";

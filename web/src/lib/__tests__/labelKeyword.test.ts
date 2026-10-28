@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The two that can make a label — the catalogue and the picker on a message —
  * ask one rule, so a keyword cannot be right in one surface and loose in the

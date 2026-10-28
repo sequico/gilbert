@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { descendantKeywords, labelTree, visibleLabels } from "@/lib/labelTree";
 import type { Label } from "@/store/settings";

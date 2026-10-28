@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { AGENT_LABELS } from "@gilbert/shared/labels";
 import { describe, expect, it } from "vitest";
 import {

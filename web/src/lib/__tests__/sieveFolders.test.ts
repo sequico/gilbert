@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { newRule, type SieveRule } from "../sieve";
 import { detachFolders, retargetRules } from "../sieveFolders";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Where a reference the agent wrote sends the reader (ADR 0039).
  *

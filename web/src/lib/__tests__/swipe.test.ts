@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { describeSwipe, SWIPE_CHOICES, type SwipeAction } from "../swipe";
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { CATCH_UP_FLOOR_MS, shouldCatchUp } from "@/lib/catchUp";
 

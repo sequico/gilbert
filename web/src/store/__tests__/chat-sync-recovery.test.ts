@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { client, JmapMethodError } from "@/jmap/client";
 import type { ChatConversation } from "@/store/chat";

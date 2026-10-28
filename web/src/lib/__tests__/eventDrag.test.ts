@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "@/jmap/types";
 import { BIRTHDAY_ID_PREFIX } from "@/lib/birthdays";

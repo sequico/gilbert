@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import { plural, setCatalog } from "@/lib/i18n";
 import { catalog as uk } from "@/locales/uk";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildEmailObject, type Draft } from "@/store/compose";
 import { useMail } from "@/store/mail";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Where an opened contact lives: its id, and the account holding it.
  *

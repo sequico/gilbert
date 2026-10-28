@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Who may edit an event, and whether the reader is its organiser.
  *

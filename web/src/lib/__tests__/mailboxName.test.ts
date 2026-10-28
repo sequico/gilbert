@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import type { Mailbox } from "@/jmap/types";
 import { type Catalog, CONTEXT_SEPARATOR, setCatalog } from "@/lib/i18n";

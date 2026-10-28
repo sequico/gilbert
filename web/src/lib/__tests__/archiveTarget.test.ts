@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { Id, Mailbox } from "@/jmap/types";
 import { filedFolderOf } from "@/lib/archiveTarget";

@@ -156,8 +156,25 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     /*
-     * The default pool is not a placeholder: `vmThreads` was measured here and
-     * refused. It hands its files a `globalThis` where `window` cannot be
+     * **jsdom is the default, and a file that needs no DOM says so itself**, on
+     * its own first line:
+     *
+     *     // @vitest-environment node
+     *
+     * Creating a jsdom is 71% of this suite's time, and 139 of the 331 files never
+     * touch one: they are the pure logic — the shared rules in `src/lib`, the JMAP
+     * shapes, the store helpers that take their state as an argument. Each of them
+     * declaring it costs one line and skips the environment. Measured 2026-10-28:
+     * 473–477 s alone before, 275 s after, same 2522 tests green.
+     *
+     * The default stays the **permissive** one on purpose: a new file that forgets
+     * to declare an environment gets a DOM and works, instead of failing on
+     * `window is not defined` in a promise nobody awaited — and a file that
+     * declares `node` and then reaches for the DOM fails loudly, which is the
+     * point.
+     *
+     * The default pool is not a placeholder either: `vmThreads` was measured here
+     * and refused. It hands its files a `globalThis` where `window` cannot be
      * redefined and `sessionStorage`/`crypto.subtle` are missing, and the four
      * suites that build a DOM or use WebCrypto die on it (staleBuild,
      * smime/verify, crashRecovery, webpush — 46 tests). jsdom per file is the

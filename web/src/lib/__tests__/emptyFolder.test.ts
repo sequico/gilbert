@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { MailboxRole } from "@/jmap/types";
 import { canEmpty, emptyLabel } from "@/lib/emptyFolder";

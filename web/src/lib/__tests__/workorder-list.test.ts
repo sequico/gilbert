@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { WorkorderStepState, WorkorderSummary } from "@gilbert/shared/workorder";
 import { describe, expect, it } from "vitest";
 import { listEntryOf } from "@/lib/workorder";

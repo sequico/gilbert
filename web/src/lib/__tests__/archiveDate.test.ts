@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { archivePath, archiveSegments, groupByArchivePath } from "@/lib/archiveDate";
 

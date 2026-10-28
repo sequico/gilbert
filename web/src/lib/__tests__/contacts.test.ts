@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { ContactCard, JSContactMedia } from "@/jmap/types";
 import { contactFromAddress, contactPhoto, nameParts, withPhoto } from "../contacts";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { CAPABILITIES } from "@gilbert/shared/capabilities";
 import { describe, expect, it } from "vitest";
 import { CAP } from "@/jmap/client";

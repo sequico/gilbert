@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The two sentence builders, which had no tests while they were building
  * English by concatenation -- and no test would have caught the thing wrong

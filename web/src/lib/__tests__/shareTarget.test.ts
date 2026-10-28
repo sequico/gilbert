@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withBase } from "@/lib/basePath";
 import { collectShare, SHARE_MAX_AGE_MS, shareBody } from "@/lib/shareTarget";
