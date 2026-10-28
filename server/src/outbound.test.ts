@@ -204,7 +204,7 @@ test("a row is taken before it is dialled, and settling it records the call", as
     },
   );
   assert.equal(taken.status, 200, JSON.stringify(taken.body));
-  const claim = (taken.body?.row as Row).claim;
+  const claim = (taken.body?.row as Row | undefined)?.claim;
   assert.equal(claim?.by, "demo@example.com");
   assert.ok(
     claim && Date.parse(claim.until) > Date.now(),
