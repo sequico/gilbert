@@ -397,8 +397,11 @@ spent the provider's default budget before writing anything.
 - Every outward message creates **the draft the boundary names** and returns its
   id; no tool submits, and nothing on the run declares that one should.
 - Before a `done` is believed, its plan is read as evidence. A `done` with **no
-  finished step**, or with a refused step the run was not told about, is sent back
-  once with the gap named; a second one with nothing finished ends `refused`. A
+  finished step**, or with a refused **call** the run did not answer — the same verb
+  on the same object, done later, is the run answering itself — is sent back once
+  with the gap named; a second one with nothing finished ends `refused`. A step the
+  loop wrote (a refused answer it asked again for, its own check, the judge's
+  verdict) is not a call and never a gap. A
   `done` standing on a refused step **while a later step succeeded** is not caught
   mechanically: the **judge** is asked once on a suspect plan, in the provider's
   structured output, and its verdict is a step of the record. It reads the plan's
