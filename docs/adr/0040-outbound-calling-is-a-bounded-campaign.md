@@ -67,7 +67,7 @@ same list reused. The **do-not-call list** is the installation's own, durable an
 one for every group — the only list that lives on its own, because a promise not
 to call is not a campaign's to keep.
 
-### Four things, and nothing else
+### What a campaign is made of
 
 - a **campaign** — the root document. One sentence of purpose, the script it
   points at, the outcome vocabulary it admits, the window it runs in, and the
@@ -84,8 +84,8 @@ to call is not a campaign's to keep.
   that leaves through Gilbert's own surfaces, a calendar event for the
   appointment, a message to the receiving group, a file. It carries the row's
   outcome and note, who called and when, the discovered person and the routing
-  note that says who is competent for what. The product's job ends when the list
-  is closed and the subset is handed over.
+  note that says who is competent for what. The product's job ends when the
+  campaign closes and the subset has left.
 
 ### The laws this area is held to
 
