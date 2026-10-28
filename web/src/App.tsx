@@ -68,6 +68,9 @@ const KnowledgeView = lazyView(() =>
     default: m.KnowledgeView,
   })),
 );
+const TodayView = lazyView(() =>
+  import("@/views/outbound/TodayView").then((m) => ({ default: m.TodayView })),
+);
 const SettingsView = lazyView(() =>
   import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
 );
@@ -773,6 +776,9 @@ function AuthedApp() {
           </Route>
           <Route path="/files/:nodeId?">{(p) => <FilesView nodeId={p.nodeId} />}</Route>
           <Route path="/kb/:nodeId?">{(p) => <KnowledgeView nodeId={p.nodeId} />}</Route>
+          <Route path="/today">
+            <TodayView />
+          </Route>
           <Route path="/settings/:section?">
             {(p) => <SettingsView section={p.section} />}
           </Route>

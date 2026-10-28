@@ -11,6 +11,7 @@ import {
   Menu as MenuIcon,
   Moon,
   PenSquare,
+  Phone,
   Plus,
   RefreshCw,
   Settings,
@@ -114,7 +115,7 @@ interface Module {
 }
 
 /**
- * The five sections, written down once.
+ * The sections, written down once.
  *
  * Four things on this screen are a list of them: the drawer's compose button,
  * the module bar at the foot of the drawer, the phone's tab bar and the phone's
@@ -168,14 +169,20 @@ const MODULES: Module[] = [
     label: "KB",
     icon: BookOpen,
   },
+  {
+    id: "today",
+    href: "/today",
+    label: "Today",
+    icon: Phone,
+  },
 ];
 
 /**
  * The module a location's section belongs to, or `undefined` where there is
- * none — the settings and admin screens are not one of the five.
+ * none — the settings and admin screens are not one of them.
  *
  * Search is deliberately not a section of its own: it is mail, filtered, so the
- * five renderers agree about which module is current while it is open.
+ * renderers above agree about which module is current while it is open.
  */
 function currentModule(section: string): Module | undefined {
   if (section === "search") return MODULES[0];
