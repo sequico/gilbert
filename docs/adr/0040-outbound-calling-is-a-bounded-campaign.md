@@ -33,7 +33,8 @@ rather than before it.
 Gilbert already holds identity: a group's own contacts are JSContact cards in
 the group's account, with organizations, labelled phones, titles and roles, and
 relations between a person and the company they work at. What the installation
-does **not** hold is a relationship — the difference this area is built on.
+does **not** hold is a relationship, and that is the line this area must not
+cross.
 
 ## Decision
 
