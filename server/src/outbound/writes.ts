@@ -77,9 +77,9 @@ export interface ImportedList extends ImportPlan {
 /**
  * Read a pasted list into the campaign, writing what the plan decided.
  *
- * The do-not-call numbers arrive from the caller because they live in the Master's
- * account and this act is acting as a group: one read of the list, one plan, one
- * write per row it kept.
+ * The do-not-call numbers arrive from the caller rather than being read here,
+ * because the rule that decides what a line becomes is the only thing this act
+ * adds: one read of the list, one plan, one write per row it kept.
  */
 export async function importList(
   ctx: Ctx,

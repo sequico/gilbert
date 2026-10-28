@@ -87,20 +87,23 @@ async function readDoc<T>(
  * The read, the rule and the write are one attempt: a change somebody else made
  * in between is a state mismatch, and the retry reads the document as they left
  * it.
+ *
+ * `start` is what a document that is not there yet is: a refusal for a campaign
+ * or a row, which only exist once somebody wrote them, and the empty list for a
+ * document whose absence is its empty state.
  */
 async function mutateAt<T>(
   ctx: Ctx,
   accountId: string,
   path: string,
   isDoc: (value: unknown) => value is T,
-  missing: () => OutboundError,
+  start: () => T,
   mutate: (doc: T) => T,
   what: string,
 ): Promise<T> {
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const token = requireState(await appFolderState(ctx, accountId));
-    const doc = await readDoc(ctx, accountId, path, isDoc);
-    if (!doc) throw missing();
+    const doc = (await readDoc(ctx, accountId, path, isDoc)) ?? start();
     const next = mutate(doc);
     try {
       await writeAppFileAt(ctx, accountId, path, next, { ifInState: token });
@@ -230,7 +233,13 @@ export async function mutateCampaign(
     accountId,
     campaignPath(uid),
     isCampaignDoc,
-    () => new OutboundError("outbound_not_found", `No campaign "${uid}" is there.`, 404),
+    () => {
+      throw new OutboundError(
+        "outbound_not_found",
+        `No campaign "${uid}" is there.`,
+        404,
+      );
+    },
     mutate,
     `The campaign "${uid}"`,
   );
@@ -249,28 +258,42 @@ export async function mutateRow(
     accountId,
     rowPath(campaignUid, rowUid),
     isRowDoc,
-    () =>
-      new OutboundError(
+    () => {
+      throw new OutboundError(
         "outbound_not_found",
         `No row "${rowUid}" is in campaign "${campaignUid}".`,
         404,
-      ),
+      );
+    },
     mutate,
     `The row "${rowUid}"`,
   );
 }
 
-/** The installation's do-not-call list, or an empty one when none was written yet. */
-export async function readDoNotCall(ctx: Ctx, accountId: string): Promise<DoNotCallDoc> {
-  const doc = await readDoc(ctx, accountId, doNotCallPath(), isDoNotCallDoc);
-  return doc ?? { version: 1, numbers: [], updatedAt: new Date(0).toISOString() };
+/** A list nobody has written yet: the state the group starts from. */
+function emptyDoNotCall(): DoNotCallDoc {
+  return { version: 1, numbers: [], updatedAt: new Date(0).toISOString() };
 }
 
-/** Rewrite the do-not-call list. */
-export async function writeDoNotCall(
+/** The group's do-not-call list, or an empty one when none was written yet. */
+export async function readDoNotCall(ctx: Ctx, accountId: string): Promise<DoNotCallDoc> {
+  const doc = await readDoc(ctx, accountId, doNotCallPath(), isDoNotCallDoc);
+  return doc ?? emptyDoNotCall();
+}
+
+/** Change the group's do-not-call list under the compare-and-set. */
+export async function mutateDoNotCall(
   ctx: Ctx,
   accountId: string,
-  doc: DoNotCallDoc,
-): Promise<void> {
-  await writeWithRetry(ctx, accountId, doNotCallPath(), doc, "The do-not-call list");
+  mutate: (doc: DoNotCallDoc) => DoNotCallDoc,
+): Promise<DoNotCallDoc> {
+  return mutateAt(
+    ctx,
+    accountId,
+    doNotCallPath(),
+    isDoNotCallDoc,
+    emptyDoNotCall,
+    mutate,
+    "The do-not-call list",
+  );
 }

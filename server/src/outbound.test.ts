@@ -11,8 +11,9 @@ import { freePort, jsonCall, postWith } from "./testkit.js";
  * dropped. A row is taken before it is dialled, and settling it writes the call
  * into the row's own window.
  *
- * The do-not-call list is the installation's, so the import checks the numbers it
- * is about to write against the Master's own account — never against the group's.
+ * The do-not-call list is the group's, in the same account as the campaigns, so a
+ * group the installation's agent holds no grant on is not a group Today cannot
+ * work: nothing in this area reaches that agent at all.
  * Each test fails if the mechanism it names is removed.
  */
 
@@ -31,9 +32,6 @@ const GROUP = "team@example.org";
 
 const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
-const { signInAsMaster } = await import("./bootstrap.js");
-const { writeDoNotCall } = await import("./outbound/documents.js");
-const { doNotCallAccount } = await import("./outbound/scope.js");
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -60,12 +58,6 @@ after(() => {
 
 /** A second identity that is in no group, so the door can be shown refusing one. */
 const outsiderCall = jsonCall(app, HEADERS);
-
-const master = await signInAsMaster({
-  stalwartUrl: `http://127.0.0.1:${PORT}`,
-  masterAddress: "gilbert@example.com",
-  masterPassword: "gilbert-password",
-});
 
 interface Campaign {
   uid: string;
@@ -151,20 +143,40 @@ test("a caller outside the group reaches neither the list nor a write", async ()
   assert.equal(written.status, 403);
 });
 
-test("an import writes the rows it kept and counts every line it lost", async () => {
-  const list = await doNotCallAccount(master);
-  await writeDoNotCall(list.ctx, list.accountId, {
-    version: 1,
-    numbers: ["+393331234567"],
-    updatedAt: new Date().toISOString(),
+test("a number on the group's do-not-call list is written there, and bad ones are refused", async () => {
+  const added = await post("/api/outbound/do-not-call", {
+    group: GROUP,
+    number: "+39 333 123 4567",
   });
+  assert.equal(added.status, 200, JSON.stringify(added.body));
+  assert.deepEqual(added.body?.numbers, ["+393331234567"]);
 
+  const read = await call(`/api/outbound/do-not-call?group=${encodeURIComponent(GROUP)}`);
+  assert.deepEqual(read.body?.numbers, ["+393331234567"]);
+
+  const bad = await post("/api/outbound/do-not-call", {
+    group: GROUP,
+    number: "02 1234567",
+  });
+  assert.equal(
+    bad.status,
+    400,
+    "a number with no country is refused, not written as typed",
+  );
+  assert.equal(bad.body?.error, "no_country");
+  const after = await call(
+    `/api/outbound/do-not-call?group=${encodeURIComponent(GROUP)}`,
+  );
+  assert.deepEqual(after.body?.numbers, ["+393331234567"], "a refusal writes nothing");
+});
+
+test("an import writes the rows it kept and counts every line it lost", async () => {
   const campaign = await newCampaign("Import counts");
   const res = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
     group: GROUP,
     text: [
       "ACME, chiedi di Tizio, +39 02 1234567 int. 24",
-      "+39 333 1234567", // on the installation's do-not-call list
+      "+39 333 1234567", // on the group's do-not-call list
       "+39 02 1234567", // the same number as the first line
       "Milano, nessun numero",
     ].join("\n"),
@@ -175,7 +187,7 @@ test("an import writes the rows it kept and counts every line it lost", async ()
   assert.equal(
     res.body?.blocked,
     1,
-    "the do-not-call list is the installation's, and it is read",
+    "the group's do-not-call list is read by the import",
   );
   assert.deepEqual(res.body?.refused, [
     { line: "Milano, nessun numero", reason: "no_number" },
@@ -240,6 +252,24 @@ test("a row is taken before it is dialled, and settling it records the call", as
 
   const after = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
   assert.equal(after.length, 0, "a settled row leaves Today");
+});
+
+test("a number taken off the list is one the import may write again", async () => {
+  const removed = await post("/api/outbound/do-not-call", {
+    group: GROUP,
+    number: "+39 333 123 4567",
+    blocked: false,
+  });
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.deepEqual(removed.body?.numbers, []);
+
+  const campaign = await newCampaign("After the promise was lifted");
+  const res = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 333 1234567",
+  });
+  assert.equal(res.body?.added, 1);
+  assert.equal(res.body?.blocked, 0);
 });
 
 test("a campaign that was never created is refused by every act on it", async () => {

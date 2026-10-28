@@ -1,19 +1,26 @@
 /**
- * The outbound surfaces (ADR 0040): the campaigns of a group, its Today, and the
- * two acts a caller takes on a row.
+ * The outbound surfaces (ADR 0040): the campaigns of a group, its Today, its
+ * do-not-call list, and the two acts a caller takes on a row.
  *
  * Every handler resolves the group the caller names through `campaignAccount`,
- * which asks the caller's own session about membership before anything is read as
- * the Master; the do-not-call list is read from the Master's own account, because
- * it is the installation's and not a campaign's.
+ * which asks the caller's own session about membership and then acts as that
+ * caller: nothing here reaches the installation's agent, so a group the agent
+ * holds no grant on works like any other. Everything a handler touches — the
+ * campaigns, the rows and the do-not-call list — lives in that one group account.
  */
 
 import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
-import { listCampaigns, readDoNotCall, readRows } from "../outbound/documents.js";
+import {
+  listCampaigns,
+  mutateDoNotCall,
+  readDoNotCall,
+  readRows,
+} from "../outbound/documents.js";
 import { OutboundError } from "../outbound/errors.js";
+import { normaliseNumber } from "../outbound/phone.js";
 import { todayQueue } from "../outbound/queue.js";
-import { campaignAccount, doNotCallAccount } from "../outbound/scope.js";
+import { campaignAccount } from "../outbound/scope.js";
 import { createCampaign, importList, settle, take } from "../outbound/writes.js";
 import type { LiveSession } from "../sessions.js";
 import { isRecord } from "../shared/json.js";
@@ -155,8 +162,7 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
       const group = required(body.group, "group");
       const text = required(body.text, "text");
       const { ctx, accountId } = await campaignAccount(c.get("session"), group);
-      const list = await doNotCallAccount(c.get("session"));
-      const blocked = (await readDoNotCall(list.ctx, list.accountId)).numbers;
+      const blocked = (await readDoNotCall(ctx, accountId)).numbers;
       const imported = await importList(
         ctx,
         accountId,
@@ -173,6 +179,62 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         blocked: imported.blocked,
         refused: imported.refused,
       });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  api.get("/outbound/do-not-call", requireSession, async (c) => {
+    try {
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(c.req.query("group"), "group"),
+      );
+      const { numbers } = await readDoNotCall(ctx, accountId);
+      return c.json({ ok: true, numbers });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  /**
+   * Put one number on the group's do-not-call list, or take it off.
+   *
+   * The number is read the way every other arrival is read — one canonical
+   * E.164 form — because the list is matched against the rows by that string and
+   * by nothing else. A number the build cannot resolve is refused here rather
+   * than written as typed, which would be an entry the import could never match.
+   */
+  api.post("/outbound/do-not-call", requireSession, async (c) => {
+    try {
+      const body: unknown = await readJson(c);
+      if (!isRecord(body))
+        throw new OutboundError(
+          "bad_request",
+          "A do-not-call entry is described by a body.",
+          400,
+        );
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(body.group, "group"),
+      );
+      const number = normaliseNumber(required(body.number, "number"));
+      if (!number.ok) {
+        throw new OutboundError(
+          number.reason,
+          "That is not a number this build can resolve: write it with its country code.",
+          400,
+        );
+      }
+      const blocked = body.blocked !== false;
+      const doc = await mutateDoNotCall(ctx, accountId, (current) => ({
+        version: 1,
+        numbers: blocked
+          ? [...new Set([...current.numbers, number.e164])].sort()
+          : current.numbers.filter((entry) => entry !== number.e164),
+        updatedAt: new Date().toISOString(),
+      }));
+      return c.json({ ok: true, numbers: doc.numbers });
     } catch (err) {
       return outboundFailure(c, err);
     }
