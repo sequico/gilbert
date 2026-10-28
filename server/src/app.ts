@@ -22,6 +22,7 @@ import { registerIdentityRoutes } from "./routes/identities.js";
 import { registerInstallationRoutes } from "./routes/installation.js";
 import { registerKnowledgeRoutes } from "./routes/knowledge.js";
 import { registerMailRoutes } from "./routes/mail.js";
+import { registerOutboundRoutes } from "./routes/outbound.js";
 import type { Env } from "./routes/shared.js";
 import {
   bindSessions,
@@ -111,6 +112,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   registerIdentityRoutes(api);
   registerContactRoutes(api);
   registerKnowledgeRoutes(api);
+  registerOutboundRoutes(api);
   registerWorkorderRoutes(api);
   registerInstallationRoutes(api);
   registerMailRoutes(api);

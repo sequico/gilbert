@@ -1,0 +1,273 @@
+/**
+ * The outbound surfaces (ADR 0040): the campaigns of a group, its Today, and the
+ * two acts a caller takes on a row.
+ *
+ * Every handler resolves the group the caller names through `campaignAccount`,
+ * which asks the caller's own session about membership before anything is read as
+ * the Master; the do-not-call list is read from the Master's own account, because
+ * it is the installation's and not a campaign's.
+ */
+
+import { randomUUID } from "node:crypto";
+import type { Hono } from "hono";
+import { listCampaigns, readDoNotCall, readRows } from "../outbound/documents.js";
+import { OutboundError } from "../outbound/errors.js";
+import { todayQueue } from "../outbound/queue.js";
+import { campaignAccount, doNotCallAccount } from "../outbound/scope.js";
+import { createCampaign, importList, settle, take } from "../outbound/writes.js";
+import type { LiveSession } from "../sessions.js";
+import { isRecord } from "../shared/json.js";
+import type {
+  CampaignOutcome,
+  CampaignScriptRef,
+  CampaignWindow,
+} from "../shared/outbound.js";
+import type { Env } from "./shared.js";
+import { failureFor, readJson, requireSession } from "./shared.js";
+
+/** One string a body must carry, or a refusal that says which field. */
+function required(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new OutboundError("bad_request", `The field "${field}" is required.`, 400);
+  }
+  return value.trim();
+}
+
+/** One string a body may carry; absent and blank are the same absence. */
+function optional(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string")
+    throw new OutboundError("bad_request", `The field "${field}" is a string.`, 400);
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/** One instant a body may carry, or null: the same reading wherever a date is sent. */
+function instantOf(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+    throw new OutboundError(
+      "bad_request",
+      `The field "${field}" is an ISO instant or null.`,
+      400,
+    );
+  }
+  return value;
+}
+
+/** The outcomes a campaign admits, as the creation body states them. */
+function outcomesOf(value: unknown): CampaignOutcome[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new OutboundError("bad_request", "A campaign needs at least one outcome.", 400);
+  }
+  return value.map((entry) => {
+    if (
+      !isRecord(entry) ||
+      typeof entry.id !== "string" ||
+      typeof entry.label !== "string"
+    ) {
+      throw new OutboundError(
+        "bad_request",
+        "Each outcome needs an id and a label.",
+        400,
+      );
+    }
+    if (entry.id.trim() === "" || entry.label.trim() === "") {
+      throw new OutboundError(
+        "bad_request",
+        "An outcome's id and label cannot be empty.",
+        400,
+      );
+    }
+    return { id: entry.id.trim(), label: entry.label.trim() };
+  });
+}
+
+function scriptOf(value: unknown): CampaignScriptRef | null {
+  if (value === undefined || value === null) return null;
+  if (
+    !isRecord(value) ||
+    typeof value.nodeId !== "string" ||
+    typeof value.revision !== "string"
+  ) {
+    throw new OutboundError(
+      "bad_request",
+      "A script names the page and the revision it was read at.",
+      400,
+    );
+  }
+  return { nodeId: value.nodeId, revision: value.revision };
+}
+
+function windowOf(value: unknown): CampaignWindow {
+  if (value === undefined || value === null) return { from: null, to: null };
+  if (!isRecord(value))
+    throw new OutboundError("bad_request", "The window is a pair of dates.", 400);
+  return {
+    from: instantOf(value.from, "window.from"),
+    to: instantOf(value.to, "window.to"),
+  };
+}
+
+export function registerOutboundRoutes(api: Hono<Env>): void {
+  const outboundFailure = failureFor(OutboundError);
+
+  api.get("/outbound/campaigns", requireSession, async (c) => {
+    try {
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(c.req.query("group"), "group"),
+      );
+      const { docs, problems } = await listCampaigns(ctx, accountId);
+      return c.json({ ok: true, campaigns: docs, problems });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  api.post("/outbound/campaigns", requireSession, async (c) => {
+    try {
+      const body: unknown = await readJson(c);
+      if (!isRecord(body))
+        throw new OutboundError("bad_request", "A campaign is described by a body.", 400);
+      const group = required(body.group, "group");
+      const { ctx, accountId } = await campaignAccount(c.get("session"), group);
+      const campaign = await createCampaign(ctx, accountId, {
+        uid: randomUUID(),
+        purpose: required(body.purpose, "purpose"),
+        outcomes: outcomesOf(body.outcomes),
+        script: scriptOf(body.script),
+        window: windowOf(body.window),
+        createdBy: c.get("session").username,
+        now: new Date(),
+      });
+      return c.json({ ok: true, campaign });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  api.post("/outbound/campaigns/:uid/rows", requireSession, async (c) => {
+    try {
+      const body: unknown = await readJson(c);
+      if (!isRecord(body))
+        throw new OutboundError("bad_request", "An import is described by a body.", 400);
+      const group = required(body.group, "group");
+      const text = required(body.text, "text");
+      const { ctx, accountId } = await campaignAccount(c.get("session"), group);
+      const list = await doNotCallAccount(c.get("session"));
+      const blocked = (await readDoNotCall(list.ctx, list.accountId)).numbers;
+      const imported = await importList(
+        ctx,
+        accountId,
+        c.req.param("uid"),
+        text,
+        blocked,
+        new Date(),
+        randomUUID,
+      );
+      return c.json({
+        ok: true,
+        added: imported.rows.length,
+        duplicate: imported.duplicate,
+        blocked: imported.blocked,
+        refused: imported.refused,
+      });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  api.get("/outbound/today", requireSession, async (c) => {
+    try {
+      const session = c.get("session") as LiveSession;
+      const { ctx, accountId } = await campaignAccount(
+        session,
+        required(c.req.query("group"), "group"),
+      );
+      const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 20) || 20, 1), 50);
+      const { docs: campaigns, problems } = await listCampaigns(ctx, accountId);
+      const running = campaigns.filter((campaign) => campaign.state === "running");
+      const rows = [];
+      for (const campaign of running) {
+        const read = await readRows(ctx, accountId, campaign.uid);
+        problems.push(...read.problems);
+        rows.push(...read.docs);
+      }
+      const today = todayQueue(rows, {
+        caller: session.username,
+        now: new Date(),
+        limit,
+      });
+      const vocabularies: Record<
+        string,
+        { purpose: string; outcomes: CampaignOutcome[] }
+      > = {};
+      for (const campaign of running) {
+        vocabularies[campaign.uid] = {
+          purpose: campaign.purpose,
+          outcomes: campaign.outcomes,
+        };
+      }
+      return c.json({ ok: true, ...today, campaigns: vocabularies, problems });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  api.post("/outbound/campaigns/:uid/rows/:rowUid/take", requireSession, async (c) => {
+    try {
+      const body: unknown = await readJson(c);
+      if (!isRecord(body))
+        throw new OutboundError("bad_request", "A take names its group.", 400);
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(body.group, "group"),
+      );
+      const row = await take(
+        ctx,
+        accountId,
+        c.req.param("uid"),
+        c.req.param("rowUid"),
+        c.get("session").username,
+        new Date(),
+      );
+      return c.json({ ok: true, row });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  api.post("/outbound/campaigns/:uid/rows/:rowUid/settle", requireSession, async (c) => {
+    try {
+      const body: unknown = await readJson(c);
+      if (!isRecord(body))
+        throw new OutboundError(
+          "bad_request",
+          "A settlement is described by a body.",
+          400,
+        );
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(body.group, "group"),
+      );
+      const row = await settle(
+        ctx,
+        accountId,
+        c.req.param("uid"),
+        c.req.param("rowUid"),
+        {
+          outcome: required(body.outcome, "outcome"),
+          note: optional(body, "note"),
+          by: c.get("session").username,
+          at: new Date(),
+          cardUid: optional(body, "cardUid"),
+          nextCallAt: instantOf(body.nextCallAt, "nextCallAt"),
+        },
+      );
+      return c.json({ ok: true, row });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+}

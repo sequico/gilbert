@@ -207,6 +207,17 @@ export async function writeCampaign(
   );
 }
 
+/** Write one row as it stands. */
+export async function writeRow(ctx: Ctx, accountId: string, doc: RowDoc): Promise<void> {
+  await writeWithRetry(
+    ctx,
+    accountId,
+    rowPath(doc.campaignUid, doc.uid),
+    doc,
+    `The row "${doc.uid}"`,
+  );
+}
+
 /** Change one campaign under the compare-and-set. */
 export async function mutateCampaign(
   ctx: Ctx,
