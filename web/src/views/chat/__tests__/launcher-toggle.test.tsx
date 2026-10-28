@@ -80,6 +80,21 @@ describe("chat launcher toggle", () => {
     expect(useChat.getState().openAccountId).toBe("g1");
   });
 
+  it("opens on the group the reader is reading mail in, when it is one of them", async () => {
+    const FREIGHT: MailAccountInfo = { accountId: "g2", name: "Freight", kind: "group" };
+    useMail.setState({
+      mailAccounts: [GROUP, FREIGHT],
+      accountId: "g2",
+      ownAccountId: null,
+    });
+    await act(async () => {
+      root.render(<ChatLauncher />);
+    });
+    await click(launcher());
+    await settle();
+    expect(useChat.getState().openAccountId).toBe("g2");
+  });
+
   it("closes on a launcher click while open and stays closed", async () => {
     await click(launcher());
     await settle();
