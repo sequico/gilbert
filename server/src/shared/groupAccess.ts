@@ -19,7 +19,7 @@
  * standing at. That name travels as this value rather than inside a sentence,
  * so the sentence can be composed in the language the person reads.
  */
-export type GroupNeed = "labels" | "knowledge" | "agent documents";
+export type GroupNeed = "labels" | "knowledge" | "outbound" | "agent documents";
 
 /** The code a group the Master is not granted on travels as, on every surface. */
 export const GROUP_NOT_ACCESSIBLE = "group_not_accessible";

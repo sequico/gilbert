@@ -67,9 +67,9 @@ function buildCallingCodes(): { code: string; countries: CountryCode[] }[] {
 
 /** The digits of a raw entry, its extension, and whether it stated a country. */
 function readEntry(raw: string): { digits: string; extension: string | null; international: boolean } {
-  const marker = EXTENSION_MARKER.exec(raw);
-  const extension = marker ? marker[1].replace(DECORATION, "") : null;
-  const body = (marker ? raw.slice(0, marker.index) : raw).replace(DECORATION, "");
+  const match = EXTENSION_MARKER.exec(raw);
+  const extension = match?.[1] ? match[1].replace(DECORATION, "") : null;
+  const body = (match ? raw.slice(0, match.index) : raw).replace(DECORATION, "");
   if (body.startsWith("+")) return { digits: body.slice(1).replace(/\D/g, ""), extension, international: true };
   if (body.startsWith("00")) return { digits: body.slice(2).replace(/\D/g, ""), extension, international: true };
   return { digits: body.replace(/\D/g, ""), extension, international: false };
