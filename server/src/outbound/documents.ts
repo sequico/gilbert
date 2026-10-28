@@ -43,7 +43,15 @@ function writeFailed(what: string): OutboundError {
   );
 }
 
-/** Write one document under the compare-and-set, retried once. */
+/**
+ * Write one document under the compare-and-set, retried once.
+ *
+ * The token is taken before the write and never before a read: this is the
+ * create-or-replace case, where there is no document whose version the caller's
+ * decision depended on. `mutateAt` below is the other invariant and deliberately
+ * not folded into this one — there the token must come *before* the read, or a
+ * change that lands in between would be overwritten rather than refused.
+ */
 async function writeWithRetry(
   ctx: Ctx,
   accountId: string,

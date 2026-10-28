@@ -48,8 +48,17 @@ export type NormalisedNumber =
  */
 const EXTENSION_MARKER = /\s*(?:int(?:erno)?\.?|ext(?:ension)?\.?|x|#|;)\s*(\d[\d\s]*)$/i;
 
+/**
+ * What may decorate a number, stated once: the punctuation a person writes around
+ * digits, and the pattern that finds such a run inside a line of prose.
+ */
+const PUNCTUATION = "\\s\\u00a0().\\-/";
+
 /** Everything a phone number is allowed to be decorated with. */
-const DECORATION = /[\s\u00a0().\-/]/g;
+const DECORATION = new RegExp(`[${PUNCTUATION}]`, "g");
+
+/** A run of dialling characters long enough to be a number. */
+const CANDIDATE = new RegExp(`\\+?\\d[\\d${PUNCTUATION}]{5,}\\d`, "g");
 
 /** The calling codes, longest first, so `39` is tried before `3` would be. */
 const CALLING_CODES: readonly { code: string; countries: readonly CountryCode[] }[] =
@@ -82,6 +91,27 @@ function readEntry(raw: string): {
   if (body.startsWith("00"))
     return { digits: body.slice(2).replace(/\D/g, ""), extension, international: true };
   return { digits: body.replace(/\D/g, ""), extension, international: false };
+}
+
+/**
+ * The candidate number inside a line of prose.
+ *
+ * A pasted list is a mail as often as a spreadsheet — "ACME, ask for Tizio, 333
+ * 123 4567" — so a line is scanned for the one run that could be a number and the
+ * rest of the line is context. Longest wins, because a line carries dates and
+ * quantities too, and a number is the longest run of dialling characters.
+ */
+export function numberIn(line: string): string | null {
+  let best: string | null = null;
+  let bestDigits = 0;
+  for (const match of line.matchAll(CANDIDATE)) {
+    const digits = match[0].replace(/\D/g, "").length;
+    if (digits > bestDigits) {
+      best = match[0];
+      bestDigits = digits;
+    }
+  }
+  return best;
 }
 
 /**

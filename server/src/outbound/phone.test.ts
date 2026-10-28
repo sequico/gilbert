@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normaliseNumber } from "./phone.js";
+import { normaliseNumber, numberIn } from "./phone.js";
 
 test("an international number is reduced to E.164", () => {
   assert.deepEqual(normaliseNumber("+39 02 1234 567"), {
@@ -73,4 +73,10 @@ test("what is not a number is refused with its reason", () => {
     ok: false,
     reason: "invalid",
   });
+});
+
+test("the number is found inside a line of prose, and the prose is not swallowed", () => {
+  assert.equal(numberIn("ACME, chiedi di Tizio, +39 333 123 4567"), "+39 333 123 4567");
+  assert.equal(numberIn("Cliente dal 2019 — 02 1234567 — Milano"), "02 1234567");
+  assert.equal(numberIn("nessun numero qui"), null);
 });

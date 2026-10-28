@@ -13,6 +13,7 @@ const row = (over: Partial<RowDoc> = {}): RowDoc => ({
   e164: "+393331234567",
   extension: null,
   label: { company: null, name: null },
+  context: null,
   cardUid: null,
   state: "open",
   claim: null,

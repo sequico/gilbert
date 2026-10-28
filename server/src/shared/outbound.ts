@@ -159,6 +159,8 @@ export interface RowDoc {
   e164: string;
   extension: string | null;
   label: RowLabel;
+  /** The words the line carried around the number, as they arrived. */
+  context: string | null;
   /** The card this row calls, once one exists. */
   cardUid: string | null;
   state: RowState;
@@ -278,6 +280,7 @@ export function isRowDoc(value: unknown): value is RowDoc {
   if (!isE164(value.e164)) return false;
   if (!isNullableString(value.extension)) return false;
   if (!isLabel(value.label)) return false;
+  if (!isNullableString(value.context)) return false;
   if (!isNullableString(value.cardUid)) return false;
   if (!isRowState(value.state)) return false;
   if (!(value.claim === null || isClaim(value.claim))) return false;
