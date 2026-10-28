@@ -115,16 +115,17 @@ to call is not a campaign's to keep.
 - **A number has one form: E.164 and nothing else.** `+` and the country code
   followed by digits — fifteen at most — with no space, no punctuation, no
   extension, no national trunk prefix, no note: the canonical string is the
-  number's identity, and two rows that carry it are the same number however they
-  were written when they arrived. **The country lives in the number**, read against
-  one table of calling codes and the national lengths each of them has — never a
-  country chosen for the installation and never a group's default, because one
-  group calls Zambia, Rwanda and Tanzania while another calls China, Bulgaria and
-  Turkey, and the number is what says which.
-  Every other form is normalised on arrival — a leading code the table knows and a
-  length that country has, a national trunk prefix dropped, an extension and any
-  prose moved to the row's note — and a number the table cannot place is refused
-  and counted, never guessed and never stored half-written.
+  number's identity, so two rows that carry it are the same number however they
+  were written when they arrived.
+- **The country lives in the number.** One table of calling codes and the national
+  lengths each of them has — never a country chosen for the installation and never
+  a group's default, because one group calls Zambia, Rwanda and Tanzania while
+  another calls China, Bulgaria and Turkey, and the number is what says which. A
+  form that arrives without its `+` is read against that table; a leading code it
+  knows and a length that country has are normalised, a national trunk prefix is
+  dropped, an extension and any prose move to the row's note, and a number the
+  table cannot place is refused and counted, never guessed and never stored
+  half-written.
 - **The area is the agent's like the others.** Reading a card's calls is free;
   proposing the note a call leaves behind is a write, and only a group whose
   instruction declares the area may receive it.
@@ -143,9 +144,7 @@ may use, and the two registers never stand in for each other.
 
 The import normalises to the one canonical form, resolves against the group's
 cards and the installation's do-not-call list, and says its counts out loud —
-matched to a card, new, duplicated within the list, refused. A number the
-calling-code table cannot place is refused and counted, so nothing about the
-installation has to be chosen before a campaign can run.
+matched to a card, new, duplicated within the list, refused.
 
 Resolution by number wants an index the group keeps, because asking the mail
 server to find a card by phone is not the cheap read a hundred-row paste needs;
