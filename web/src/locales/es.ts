@@ -48,6 +48,13 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No row of this campaign ended that way.":
+      "Ninguna fila de esta campaña terminó así.",
+    "Script page, if the group has one": "Página del guion, si el grupo tiene una",
+    "No script": "Sin guion",
+    "Hand off the rows that ended this way": "Pasar las filas que terminaron así",
+    "Choose an outcome…": "Elige un resultado…",
+    "Save the file": "Guardar el archivo",
     "Close “{purpose}” and carry its open rows?":
       "¿Cerrar «{purpose}» y llevarse sus filas abiertas?",
     "Close “{purpose}”?": "¿Cerrar «{purpose}»?",

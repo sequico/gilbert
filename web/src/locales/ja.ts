@@ -47,6 +47,13 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No row of this campaign ended that way.":
+      "このキャンペーンでその結果になった行はありません。",
+    "Script page, if the group has one": "スクリプトのページ（あれば）",
+    "No script": "スクリプトなし",
+    "Hand off the rows that ended this way": "この結果で終わった行を引き渡す",
+    "Choose an outcome…": "結果を選択…",
+    "Save the file": "ファイルを保存",
     "Close “{purpose}” and carry its open rows?":
       "「{purpose}」を閉じて未処理の行を引き継ぎますか？",
     "Close “{purpose}”?": "「{purpose}」を閉じますか？",

@@ -24,6 +24,12 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No row of this campaign ended that way.": "Bu kampanyada o şekilde biten satır yok.",
+    "Script page, if the group has one": "Grup bir sayfa verirse, betik sayfası",
+    "No script": "Betik yok",
+    "Hand off the rows that ended this way": "Bu şekilde biten satırları devret",
+    "Choose an outcome…": "Bir sonuç seçin…",
+    "Save the file": "Dosyayı kaydet",
     "Close “{purpose}” and carry its open rows?":
       "“{purpose}” kapatılsın ve açık satırlar taşınsın mı?",
     "Close “{purpose}”?": "“{purpose}” kapatılsın mı?",

@@ -46,6 +46,12 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "No row of this campaign ended that way.": "这次活动没有以这种方式结束的行。",
+    "Script page, if the group has one": "脚本页面（如果群组有的话）",
+    "No script": "无脚本",
+    "Hand off the rows that ended this way": "移交以这种方式结束的行",
+    "Choose an outcome…": "选择结果…",
+    "Save the file": "保存文件",
     "Close “{purpose}” and carry its open rows?": "关闭「{purpose}」并带走未结的行？",
     "Close “{purpose}”?": "关闭「{purpose}」？",
     "The rows still open move to a new campaign with the same purpose and outcomes.":

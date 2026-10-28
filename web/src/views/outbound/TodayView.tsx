@@ -2,6 +2,7 @@ import { errorMessage } from "@gilbert/shared/errors";
 import type { CampaignOutcome, RowDoc } from "@gilbert/shared/outbound";
 import { Phone, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { downloadFile } from "@/lib/download";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
@@ -9,10 +10,14 @@ import {
   closeCampaign,
   createCampaign,
   fetchDoNotCall,
+  fetchRows,
+  fetchScript,
+  fetchScriptPages,
   fetchToday,
   type ImportReport,
   importRows,
   listCampaigns,
+  type ScriptPage,
   setDoNotCall,
   settleRow,
   type TodayBoard,
@@ -47,6 +52,9 @@ export function TodayView() {
   const [busy, setBusy] = useState(false);
   const [doNotCall, setDoNotCallNumbers] = useState<string[]>([]);
   const [findings, setFindings] = useState<CampaignFinding[]>([]);
+  const [pages, setPages] = useState<ScriptPage[]>([]);
+  /** The words the campaign of the row in hand pinned, if it pinned any. */
+  const [script, setScript] = useState<string | null>(null);
 
   // The group being worked: the one the caller chose, or the first they are in.
   const active = useMemo(
@@ -58,14 +66,16 @@ export function TodayView() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [queue, blocked, campaigns] = await Promise.all([
+      const [queue, blocked, campaigns, scriptPages] = await Promise.all([
         fetchToday(name),
         fetchDoNotCall(name),
         listCampaigns(name),
+        fetchScriptPages(name),
       ]);
       setBoard(queue);
       setDoNotCallNumbers(blocked);
       setFindings(campaigns.findings);
+      setPages(scriptPages);
     } catch (err) {
       setLoadError(errorMessage(err));
     } finally {
@@ -89,6 +99,9 @@ export function TodayView() {
     setError(null);
     try {
       setTaken(await takeRow(active, row.campaignUid, row.uid));
+      // The script the campaign pinned travels with the row: the same words were
+      // said to every number of this list (ADR 0040).
+      setScript(await fetchScript(active, row.campaignUid).catch(() => null));
     } catch (err) {
       setError(errorMessage(err));
       // Somebody else may have taken it while it was on screen.
@@ -112,6 +125,45 @@ export function TodayView() {
       setError(errorMessage(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * The handoff: the rows that ended with one outcome, as a file.
+   *
+   * What leaves carries what the record says it must — the number, who was spoken
+   * to, when, by whom, the outcome and the note — so the colleague receiving it
+   * does not have to ask the caller anything. It leaves as a file the caller
+   * saves, which is the one surface this build already has for a list leaving.
+   */
+  async function handOff(campaignUid: string, outcome: string) {
+    setError(null);
+    try {
+      const rows = (await fetchRows(active, campaignUid)).filter(
+        (row) => row.state === "done" && row.calls.at(-1)?.outcome === outcome,
+      );
+      if (rows.length === 0) {
+        setError(t("No row of this campaign ended that way."));
+        return;
+      }
+      const header = ["number", "extension", "context", "outcome", "note", "by", "at"];
+      const lines = rows.map((row) => {
+        const call = row.calls.at(-1);
+        return [
+          row.e164,
+          row.extension ?? "",
+          row.context ?? "",
+          call?.outcome ?? "",
+          call?.note ?? "",
+          call?.by ?? "",
+          call?.at ?? "",
+        ]
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(",");
+      });
+      downloadFile([header.join(","), ...lines].join("\n"), "text/csv", `${outcome}.csv`);
+    } catch (err) {
+      setError(errorMessage(err));
     }
   }
 
@@ -234,6 +286,7 @@ export function TodayView() {
                   <TakenRow
                     row={taken}
                     outcomes={board.campaigns[taken.campaignUid]?.outcomes ?? []}
+                    script={script}
                     busy={busy}
                     onSettle={(outcome) => void settle(taken, outcome)}
                   />
@@ -296,9 +349,11 @@ export function TodayView() {
 
           <StartList
             campaigns={board.campaigns}
+            pages={pages}
             busy={busy}
             onCreated={() => void refresh()}
             onClose={(uid, carry) => void close(uid, carry)}
+            onHandOff={(uid, outcome) => void handOff(uid, outcome)}
             group={active}
             onError={setError}
           />
@@ -315,11 +370,14 @@ export function TodayView() {
 function TakenRow({
   row,
   outcomes,
+  script,
   busy,
   onSettle,
 }: {
   row: RowDoc;
   outcomes: readonly CampaignOutcome[];
+  /** The words the campaign pinned, when it pinned any. */
+  script: string | null;
   busy: boolean;
   onSettle: (outcome: string) => void;
 }) {
@@ -342,6 +400,11 @@ function TakenRow({
           <Phone size={16} /> {t("Call")}
         </a>
       </p>
+      {script && (
+        <div className="hint" style={{ whiteSpace: "pre-wrap", marginBottom: 10 }}>
+          {script}
+        </div>
+      )}
       <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
         {outcomes.map((outcome) => (
           <button
@@ -386,18 +449,24 @@ function outcomesOf(text: string): CampaignOutcome[] {
 function StartList({
   group,
   campaigns,
+  pages,
   busy,
   onCreated,
   onClose,
+  onHandOff,
   onError,
 }: {
   group: string;
-  /** The running campaigns, by uid: the lists a paste can go into. */
-  campaigns: Record<string, { purpose: string }>;
+  /** The running campaigns, by uid: the lists a paste can go into, and their words. */
+  campaigns: Record<string, { purpose: string; outcomes: CampaignOutcome[] }>;
+  /** The group's knowledge pages: what a campaign may read aloud. */
+  pages: readonly ScriptPage[];
   busy: boolean;
   onCreated: () => void;
   /** Close the chosen campaign, carrying its open rows or not. */
   onClose: (uid: string, carry: boolean) => void;
+  /** The rows that ended with one outcome, as a file the caller keeps. */
+  onHandOff: (uid: string, outcome: string) => void;
   onError: (message: string | null) => void;
 }) {
   const [target, setTarget] = useState("");
@@ -405,22 +474,28 @@ function StartList({
   const [report, setReport] = useState<ImportReport | null>(null);
   const [purpose, setPurpose] = useState("");
   const [vocabulary, setVocabulary] = useState("");
+  const [page, setPage] = useState("");
+  const [outcome, setOutcome] = useState("");
   const [working, setWorking] = useState(false);
 
   const chosen = target || Object.keys(campaigns)[0] || "";
+  const chosenOutcomes = campaigns[chosen]?.outcomes ?? [];
 
   async function writeCampaign() {
     if (working) return;
     setWorking(true);
     onError(null);
     try {
+      const read = pages.find((entry) => entry.nodeId === page);
       const campaign = await createCampaign(
         group,
         purpose.trim(),
         outcomesOf(vocabulary),
+        read ? { nodeId: read.nodeId, revision: read.revision } : null,
       );
       setPurpose("");
       setVocabulary("");
+      setPage("");
       setTarget(campaign.uid);
       onCreated();
     } catch (err) {
@@ -478,6 +553,24 @@ function StartList({
           onChange={(e) => setVocabulary(e.target.value)}
         />
       </div>
+      {pages.length > 0 && (
+        <div className="field">
+          <label htmlFor="today-script">{t("Script page, if the group has one")}</label>
+          <select
+            id="today-script"
+            className="select"
+            value={page}
+            onChange={(e) => setPage(e.target.value)}
+          >
+            <option value="">{t("No script")}</option>
+            {pages.map((entry) => (
+              <option key={entry.nodeId} value={entry.nodeId}>
+                {entry.folder}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <p>
         <button
           className="btn"
@@ -522,6 +615,35 @@ function StartList({
           >
             {t("Close the campaign")}
           </button>
+        </div>
+      )}
+      {chosen && chosenOutcomes.length > 0 && (
+        <div className="field">
+          <label htmlFor="today-handoff">
+            {t("Hand off the rows that ended this way")}
+          </label>
+          <div className="row">
+            <select
+              id="today-handoff"
+              className="select"
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value)}
+            >
+              <option value="">{t("Choose an outcome…")}</option>
+              {chosenOutcomes.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn"
+              disabled={disabled || outcome === ""}
+              onClick={() => onHandOff(chosen, outcome)}
+            >
+              {t("Save the file")}
+            </button>
+          </div>
         </div>
       )}
 

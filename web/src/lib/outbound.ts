@@ -83,15 +83,47 @@ export async function closeCampaign(
   return { carried: res.carried ?? 0 };
 }
 
-/** Write a campaign for a purpose, with the outcomes its callers will choose. */
+/** A knowledge page a campaign may take its script from. */
+export interface ScriptPage {
+  nodeId: string;
+  /** The tier-relative folder path: the page as a reader names it. */
+  folder: string;
+  /** The revision in force, which a new campaign pins. */
+  revision: string;
+}
+
+/** The group's pages, with the revision each one is at. */
+export async function fetchScriptPages(group: string): Promise<ScriptPage[]> {
+  const res = await apiFetch<{ pages: ScriptPage[] }>(
+    `/api/outbound/script-pages?${groupQuery(group)}`,
+  );
+  return res.pages ?? [];
+}
+
+/** The words of the revision a campaign pinned, or null when the page is gone. */
+export async function fetchScript(
+  group: string,
+  campaignUid: string,
+): Promise<string | null> {
+  const res = await apiFetch<{ text: string | null }>(
+    `/api/outbound/campaigns/${encodeURIComponent(campaignUid)}/script?${groupQuery(group)}`,
+  );
+  return res.text;
+}
+
+/**
+ * Write a campaign for a purpose, with the outcomes its callers will choose and,
+ * when the group has a page for it, the script it reads aloud.
+ */
 export async function createCampaign(
   group: string,
   purpose: string,
   outcomes: CampaignOutcome[],
+  script: { nodeId: string; revision: string } | null = null,
 ): Promise<CampaignDoc> {
   const res = await apiFetch<{ campaign: CampaignDoc }>("/api/outbound/campaigns", {
     method: "POST",
-    body: JSON.stringify({ group, purpose, outcomes }),
+    body: JSON.stringify({ group, purpose, outcomes, script }),
   });
   return res.campaign;
 }
@@ -167,6 +199,14 @@ export async function fetchToday(group: string): Promise<TodayBoard> {
     campaigns: res.campaigns ?? {},
     problems: res.problems ?? [],
   };
+}
+
+/** Every row of a campaign, settled ones included. */
+export async function fetchRows(group: string, campaignUid: string): Promise<RowDoc[]> {
+  const res = await apiFetch<{ rows: RowDoc[] }>(
+    `/api/outbound/campaigns/${encodeURIComponent(campaignUid)}/rows?${groupQuery(group)}`,
+  );
+  return res.rows ?? [];
 }
 
 /** Take a row: the caller holds it until the claim lapses. */

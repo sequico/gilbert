@@ -23,10 +23,12 @@ import { OutboundError } from "../outbound/errors.js";
 import { normaliseNumber } from "../outbound/phone.js";
 import { todayQueue } from "../outbound/queue.js";
 import { campaignAccount } from "../outbound/scope.js";
+import { listScriptPages, readScript } from "../outbound/script.js";
 import {
   closeCampaign,
   createCampaign,
   importList,
+  openCampaign,
   settle,
   take,
 } from "../outbound/writes.js";
@@ -259,6 +261,56 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
       const cardUid = required(c.req.query("card"), "card");
       const { calls, trimmed } = await readCardCalls(ctx, accountId, cardUid);
       return c.json({ ok: true, calls, trimmed });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  /**
+   * The group's knowledge pages, as a campaign picks the one it reads aloud.
+   *
+   * The page's own revision travels with it, because that is what a campaign pins:
+   * a script is the words as they stood when the list started, never as somebody
+   * edited them on Wednesday.
+   */
+  api.get("/outbound/script-pages", requireSession, async (c) => {
+    try {
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(c.req.query("group"), "group"),
+      );
+      return c.json({ ok: true, pages: await listScriptPages(ctx, accountId) });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  /** Every row of a campaign, settled ones included: what a handoff is made of. */
+  api.get("/outbound/campaigns/:uid/rows", requireSession, async (c) => {
+    try {
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(c.req.query("group"), "group"),
+      );
+      const { docs, problems } = await readRows(ctx, accountId, c.req.param("uid"));
+      return c.json({ ok: true, rows: docs, problems });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  /** The words of the revision a campaign pinned, or null when the page is gone. */
+  api.get("/outbound/campaigns/:uid/script", requireSession, async (c) => {
+    try {
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(c.req.query("group"), "group"),
+      );
+      const campaign = await openCampaign(ctx, accountId, c.req.param("uid"));
+      return c.json({
+        ok: true,
+        text: await readScript(ctx, accountId, campaign.script),
+      });
     } catch (err) {
       return outboundFailure(c, err);
     }
