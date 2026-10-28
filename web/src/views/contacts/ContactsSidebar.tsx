@@ -138,6 +138,23 @@ export function ContactsSidebar() {
   const groups = groupMailboxAccounts(mailAccounts);
   const groupIds = new Set(groups.map((g) => g.accountId));
   /*
+   * The book a bulk action would act on, and whether it can be written.
+   *
+   * "All contacts" is not a book: an import files into the default one, and an
+   * export takes every book. A book of another account is written only where it
+   * says so -- a group's own directory does for its members, a colleague's share
+   * only if they opened it.
+   */
+  const selectedBook =
+    sel.bookId === "all"
+      ? undefined
+      : (contacts.books[sel.bookId] ??
+        contacts.sharedBooks.find((b) => b.book.id === sel.bookId)?.book);
+  const canImport =
+    sel.bookId === "all" ? own.length > 0 : Boolean(selectedBook?.myRights?.mayWrite ?? true);
+  const defaultBookId =
+    own.find((b) => b.isDefault)?.id ?? own[0]?.id ?? "all";
+  /*
    * The installation's directory (ADR 0019): one book, read by everyone and
    * never "added". It leads the Contacts list rather than sitting in "Shared
    * with me", because it is not somebody's share — it is the installation's —
@@ -432,6 +449,34 @@ export function ContactsSidebar() {
           ))}
         </>
       )}
+
+      {/* The two bulk actions, where they can be found at all: importing and
+          exporting lived only in the `…` of a book's row, and nobody opens a row
+          menu looking for a migration. They act on what is selected, the same way
+          the row menu does, and import is offered only where the book can be
+          written -- the book's own account may refuse even so, in its own words. */}
+      <div className="contacts-bulk">
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={!canImport}
+          onClick={() => {
+            importInto.current = sel.bookId === "all" ? defaultBookId : sel.bookId;
+            fileRef.current?.click();
+          }}
+        >
+          <Upload size={16} />
+          {t("Import contacts…")}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => onExport(sel.accountId ?? null, sel.bookId)}
+        >
+          <Download size={16} />
+          {sel.bookId === "all" ? t("Export all contacts") : t("Export address book")}
+        </button>
+      </div>
 
       <input
         ref={fileRef}

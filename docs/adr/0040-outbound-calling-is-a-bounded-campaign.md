@@ -66,15 +66,16 @@ handoff carries it, and does not invent it.
 
 A **campaign's list** is its rows: it never exists without the campaign that owns
 it, so re-running a list is a new campaign with the same file rather than the
-same list reused. The **do-not-call list** is the installation's own, durable and
-one for every group — the only list that lives on its own, because a promise not
-to call is not a campaign's to keep.
+same list reused. The **do-not-call list** is the installation's own — one
+document in the Master's account beside the installation's settings, durable and
+one for every group, and the only list that lives on its own, because a promise
+not to call is not a campaign's to keep.
 
 ### What a campaign is made of
 
-- a **campaign** — the root document. One sentence of purpose, the script it
-  points at, the outcome vocabulary it admits, the window it runs in, and the
-  group it belongs to. Closing a campaign is a state, not a deletion.
+- a **campaign** — the root document. One sentence of purpose, the revision of the
+  script it points at, the outcome vocabulary it admits, the window it runs in, and
+  the group it belongs to. Closing a campaign is a state, not a deletion.
 - a **row** — a part document of its own, so two members of the group write
   without touching each other. It carries the number to dial and, once a card
   exists for it, the card it calls; and its state, its owner and its next call. A
