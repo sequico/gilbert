@@ -95,7 +95,10 @@ describe("bulk import and export", () => {
 
   /* The sidebar re-asks the session for shares when it mounts, which replaces
      the books, so the state goes in after the render and not before. */
-  const mountSidebar = async (selection: { accountId: string | null; bookId: string }) => {
+  const mountSidebar = async (selection: {
+    accountId: string | null;
+    bookId: string;
+  }) => {
     await act(async () => {
       root.render(<ContactsSidebar />);
     });
