@@ -59,7 +59,7 @@ campaign, with which outcome and note — the card a caller opens in November
 carries what a colleague said in October. A call to a switchboard that named
 nobody is the company's own history until a person is attached to it.
 
-### Two lists, and they are not the same kind of thing
+### The two lists
 
 A **campaign's list** is its rows: it never exists without the campaign that owns
 it and never outlives it, so re-running a list is a new campaign with the same
@@ -67,7 +67,7 @@ file rather than the same list reused. The **do-not-call list** is the
 installation's own, durable and one for every group — the only list that lives on
 its own, because a promise not to call is not a campaign's to keep.
 
-### Four objects, and nothing else
+### Four things, and nothing else
 
 - a **campaign** — the root document. One sentence of purpose, the script it
   points at, the outcome vocabulary it admits, the window it runs in, and the
@@ -102,10 +102,9 @@ its own, because a promise not to call is not a campaign's to keep.
   ("appointment booked", "documents requested", "not the right material",
   "not interested"), because one central taxonomy would name one company's work
   and exclude the others'.
-- **The do-not-call list is the installation's, not the campaign's.** It is
-  checked against every number a card carries, not against the string that was
-  pasted: a person called twice by two teams is the failure this product cannot
-  afford.
+- **Every number a card carries is checked against the do-not-call list**, not
+  only the string that was pasted: a person called twice by two teams is the
+  failure this product cannot afford.
 - **A campaign starts from a file and is worked from a phone.** A hundred calls
   begin as a paste or a file, never as a form filled once per number, and the work
   happens on the screen in the caller's hand: the size of the list is why the
@@ -125,18 +124,16 @@ its own, because a promise not to call is not a campaign's to keep.
   Every other form is normalised on arrival — a leading code the table knows and a
   length that country has, a national trunk prefix dropped, an extension and any
   prose moved to the row's note — and a number the table cannot place is refused
-  and counted, never guessed and never stored half-written. The do-not-call list is
-  matched on that same string.
+  and counted, never guessed and never stored half-written.
 - **The area is the agent's like the others.** Reading a card's calls is free;
   proposing the note a call leaves behind is a write, and only a group whose
   instruction declares the area may receive it.
 
 **`gilbertoutbound` is a block for the same reason the other four are** — an
-area of the product with a boundary of its own — and what it does not hold is what
-already has an owner: the identity is Stalwart's, the access is the group's, the
-durable document is the `gilbert` app folder, the contact card is the mailer's,
-the model work is `gilbertagents`, and the pass that wakes a due list is
-`gilbertserver`.
+area of the product with a boundary of its own — and what it does not own already
+has an owner: the identity is Stalwart's, the access is the group's, the durable
+document is the `gilbert` app folder, the contact card is the mailer's, the model
+work is `gilbertagents`, and the pass that wakes a due list is `gilbertserver`.
 `README.md` defines the five blocks and this record does not restate the
 definitions. Its agent-facing name is `outbound`, the plain noun the rest of the
 area vocabulary uses: a block is how the product is divided, an area is what a run
