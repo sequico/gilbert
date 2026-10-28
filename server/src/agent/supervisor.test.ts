@@ -109,8 +109,8 @@ interface StandIn {
   stopped: boolean;
   /** Make the next `count` passes answer only when the supervisor aborts them. */
   hangNext: (count: number) => void;
-  /** The abort the last pass was handed, for the tests that give a pass up. */
-  signal: AbortSignal | undefined;
+  /** The abort each pass was handed, in the order they were asked. */
+  signals: Array<AbortSignal | undefined>;
   /** Whether the last pass ended because it was aborted. */
   aborted: boolean;
 }
@@ -127,7 +127,7 @@ function standInLoop(): StandIn {
     held: false,
     accounts: 1,
     stopped: false,
-    signal: undefined,
+    signals: [],
     aborted: false,
     failNext: (count: number, reason?: unknown) => {
       failures = count;
@@ -141,7 +141,7 @@ function standInLoop(): StandIn {
         state.passes += 1;
         active += 1;
         state.mostAtOnce = Math.max(state.mostAtOnce, active);
-        state.signal = signal;
+        state.signals.push(signal);
         state.aborted = false;
         if (hang > 0) {
           hang -= 1;
@@ -740,7 +740,12 @@ test("a pass that does not return is given up on, and the next one waits for it"
   // A watchdog is a wait measured in seconds: under a full suite this file shares
   // the machine with a dozen others, so the wait is given room rather than a margin.
   await waitFor(() => stand.aborted, 15_000);
-  assert.equal(stand.signal?.aborted, true, "the stuck pass was aborted");
+  /*
+   * The pass asked **first**, not the one after it: the supervisor's own kick
+   * starts the next pass as soon as this one ends, so the last signal seen is
+   * already a live one.
+   */
+  assert.equal(stand.signals[0]?.aborted, true, "the stuck pass was aborted");
   assert.match(
     lines.join("\n"),
     /had not returned in 1 second and was given up on/,
