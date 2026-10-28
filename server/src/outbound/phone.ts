@@ -25,7 +25,7 @@
  */
 
 import { type CountryCode, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
-
+import { isE164 } from "../shared/outbound.js";
 /** Why a shape could not become a number. A refusal is counted, never guessed. */
 export type NumberRefusal = "empty" | "no_country" | "invalid";
 
@@ -86,7 +86,8 @@ export function normaliseNumber(raw: string): NormalisedNumber {
 
   if (international) {
     const parsed = parsePhoneNumberFromString(`+${digits}`);
-    return parsed?.isValid() ? { ok: true, e164: parsed.number, extension } : { ok: false, reason: "invalid" };
+    if (!parsed?.isValid() || !isE164(parsed.number)) return { ok: false, reason: "invalid" };
+    return { ok: true, e164: parsed.number, extension };
   }
 
   // No country stated: the leading digits must name one, or the entry is not
@@ -97,18 +98,10 @@ export function normaliseNumber(raw: string): NormalisedNumber {
     if (!national) continue;
     for (const country of countries) {
       const parsed = parsePhoneNumberFromString(national, country);
-      if (parsed?.isValid() && parsed.countryCallingCode === code) return { ok: true, e164: parsed.number, extension };
+      if (parsed?.isValid() && parsed.countryCallingCode === code && isE164(parsed.number)) {
+        return { ok: true, e164: parsed.number, extension };
+      }
     }
   }
   return { ok: false, reason: "no_country" };
-}
-
-/**
- * How a number is written for a person to read.
- *
- * Display only: what is stored, compared and matched is always the canonical
- * string, so this can never become a second truth.
- */
-export function formatNumber(e164: string): string {
-  return parsePhoneNumberFromString(e164)?.formatInternational() ?? e164;
 }

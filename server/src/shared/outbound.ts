@@ -11,6 +11,8 @@
  * its campaign, and identity lives in the group's own contact cards.
  */
 
+import { isInstant, isRecord } from "./json.js";
+
 /** The folder every outbound document lives in, inside the account's app folder. */
 export const OUTBOUND_FOLDER = "outbound";
 
@@ -99,6 +101,22 @@ export function isRowState(value: unknown): value is RowState {
   return value === "open" || value === "done" || value === "dropped";
 }
 
+/**
+ * Whether a claim is still believed at `now`.
+ *
+ * The one definition, because two surfaces ask it: the queue decides what to
+ * offer and an act decides what it may touch, and two answers to "is this row
+ * taken" is how a row ends up in two places at once.
+ */
+export function claimIsLive(claim: RowClaim | null, now: Date): claim is RowClaim {
+  return claim !== null && Date.parse(claim.until) > now.getTime();
+}
+
+/** Whether somebody other than `caller` holds this row right now. */
+export function heldByOther(row: RowDoc, caller: string, now: Date): boolean {
+  return claimIsLive(row.claim, now) && row.claim.by !== caller;
+}
+
 /** Who is calling a row now, and until when the claim is believed. */
 export interface RowClaim {
   by: string;
@@ -156,16 +174,16 @@ export interface DoNotCallDoc {
   updatedAt: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || isString(value);
+}
+
+function isNullableInstant(value: unknown): value is string | null {
+  return value === null || isInstant(value);
 }
 
 function isOutcome(value: unknown): value is CampaignOutcome {
@@ -181,13 +199,13 @@ function isWindow(value: unknown): value is CampaignWindow {
 }
 
 function isClaim(value: unknown): value is RowClaim {
-  return isRecord(value) && isString(value.by) && isString(value.at) && isString(value.until);
+  return isRecord(value) && isString(value.by) && isInstant(value.at) && isInstant(value.until);
 }
 
 function isCall(value: unknown): value is RowCall {
   return (
     isRecord(value) &&
-    isString(value.at) &&
+    isInstant(value.at) &&
     isString(value.by) &&
     isString(value.outcome) &&
     isNullableString(value.note) &&
@@ -197,6 +215,17 @@ function isCall(value: unknown): value is RowCall {
 
 function isLabel(value: unknown): value is RowLabel {
   return isRecord(value) && isNullableString(value.company) && isNullableString(value.name);
+}
+
+/**
+ * Whether a string is a canonical number: `+`, a country code and digits.
+ *
+ * The one statement of the shape, read by the writer that produces a number
+ * (`outbound/phone.ts`) and by the validator that reads a stored one, so a row
+ * that is stored is a row every reader accepts.
+ */
+export function isE164(value: unknown): value is string {
+  return typeof value === "string" && /^\+[1-9]\d{6,14}$/.test(value);
 }
 
 /** Whether a campaign document is one this build can read. */
@@ -215,7 +244,7 @@ export function isCampaignDoc(value: unknown): value is CampaignDoc {
   }
   if (!isWindow(value.window)) return false;
   if (!isCampaignState(value.state)) return false;
-  return isString(value.createdAt) && isString(value.createdBy);
+  return isInstant(value.createdAt) && isString(value.createdBy);
 }
 
 /** Whether a row document is one this build can read. */
@@ -223,17 +252,17 @@ export function isRowDoc(value: unknown): value is RowDoc {
   if (!isRecord(value) || value.version !== 1) return false;
   if (!isString(value.uid) || value.uid === "") return false;
   if (!isString(value.campaignUid) || value.campaignUid === "") return false;
-  if (!isString(value.e164) || !/^\+[1-9]\d{6,14}$/.test(value.e164)) return false;
+  if (!isE164(value.e164)) return false;
   if (!isNullableString(value.extension)) return false;
   if (!isLabel(value.label)) return false;
   if (!isNullableString(value.cardUid)) return false;
   if (!isRowState(value.state)) return false;
   if (!(value.claim === null || isClaim(value.claim))) return false;
-  if (!isNullableString(value.nextCallAt)) return false;
+  if (!isNullableInstant(value.nextCallAt)) return false;
   if (!Array.isArray(value.calls) || !value.calls.every(isCall)) return false;
   if (value.calls.length > MAX_CALLS_KEPT) return false;
   if (typeof value.trimmed !== "number" || !Number.isInteger(value.trimmed) || value.trimmed < 0) return false;
-  return isString(value.createdAt);
+  return isInstant(value.createdAt);
 }
 
 /** Whether the installation's do-not-call document is one this build can read. */
@@ -242,7 +271,7 @@ export function isDoNotCallDoc(value: unknown): value is DoNotCallDoc {
   if (!Array.isArray(value.numbers) || !value.numbers.every((number) => isString(number) && number.startsWith("+"))) {
     return false;
   }
-  return isString(value.updatedAt);
+  return isInstant(value.updatedAt);
 }
 
 /**

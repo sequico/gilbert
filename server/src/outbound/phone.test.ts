@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatNumber, normaliseNumber } from "./phone.js";
+import { normaliseNumber } from "./phone.js";
 
 test("an international number is reduced to E.164", () => {
   assert.deepEqual(normaliseNumber("+39 02 1234 567"), { ok: true, e164: "+39021234567", extension: null });
@@ -42,11 +42,4 @@ test("what is not a number is refused with its reason", () => {
   assert.deepEqual(normaliseNumber("   "), { ok: false, reason: "empty" });
   assert.deepEqual(normaliseNumber("+39 000"), { ok: false, reason: "invalid" });
   assert.deepEqual(normaliseNumber("+39 333 123456789012"), { ok: false, reason: "invalid" });
-});
-
-test("a number shown to a person reads as a number, and never replaces it", () => {
-  const shown = formatNumber("+39021234567");
-  assert.ok(shown.startsWith("+39"));
-  assert.ok(shown.includes("02"));
-  assert.equal(formatNumber("not a number"), "not a number");
 });

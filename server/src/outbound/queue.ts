@@ -11,7 +11,7 @@
  * say how much is left, and "due today" is not the same number as "in Today".
  */
 
-import type { RowDoc } from "../shared/outbound.js";
+import { claimIsLive, heldByOther, type RowDoc } from "../shared/outbound.js";
 
 export interface TodayInput {
   /** Who is looking. */
@@ -33,15 +33,10 @@ export interface TodayResult {
   heldByOthers: number;
 }
 
-/** Whether a claim is still believed at `now`. */
-function heldAt(claim: RowDoc["claim"], now: Date): boolean {
-  return claim !== null && new Date(claim.until).getTime() > now.getTime();
-}
-
 /** Where a row falls in the order, lowest first. */
 function bandOf(row: RowDoc, caller: string, now: Date): number {
-  if (heldAt(row.claim, now) && row.claim?.by === caller) return 0; // started, finish it
-  if (row.nextCallAt !== null && new Date(row.nextCallAt).getTime() <= now.getTime()) return 1; // due
+  if (claimIsLive(row.claim, now) && row.claim.by === caller) return 0; // started, finish it
+  if (row.nextCallAt !== null && Date.parse(row.nextCallAt) <= now.getTime()) return 1; // due
   return 2; // free, no date
 }
 
@@ -53,7 +48,7 @@ export function todayQueue(rows: readonly RowDoc[], { caller, now, limit = 20 }:
 
   for (const row of rows) {
     if (row.state !== "open") continue;
-    if (heldAt(row.claim, now) && row.claim?.by !== caller) {
+    if (heldByOther(row, caller, now)) {
       heldByOthers += 1;
       continue;
     }
