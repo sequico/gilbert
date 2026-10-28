@@ -55,6 +55,14 @@ test("Received and Return-Path admit raw alone", async () => {
 test("a header with no rule of its own admits any form", async () => {
   const any = await read(["id", "header:X-Spam-Status:asText"]);
   assert.equal(any.name, "Email/get");
-  const list = await read(["id", "header:List-Unsubscribe:asRaw"]);
+});
+
+test("List-Unsubscribe is read as URLs, the form RFC 8621 gives it", async () => {
+  const list = await read(["id", "header:List-Unsubscribe:asURLs"]);
   assert.equal(list.name, "Email/get");
+  const rows = (list.args.list ?? []) as Array<Record<string, unknown>>;
+  const urls = rows
+    .map((one) => one["header:List-Unsubscribe:asURLs"])
+    .find((one) => one !== undefined && one !== null);
+  assert.ok(Array.isArray(urls), "the answer is a list, not a string");
 });

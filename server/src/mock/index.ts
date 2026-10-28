@@ -851,8 +851,11 @@ function addEmail(o: {
         ...attachments,
       ],
     },
-    "header:List-Unsubscribe:asRaw": o.from[1].includes("newsletter")
-      ? "<mailto:unsub@newsletter.example?subject=unsubscribe>, <https://newsletter.example/unsub>"
+    "header:List-Unsubscribe:asURLs": o.from[1].includes("newsletter")
+      ? [
+          "mailto:unsub@newsletter.example?subject=unsubscribe",
+          "https://newsletter.example/unsub",
+        ]
       : null,
     /*
      * The receiving server's own verdict on a delivered message, which the

@@ -241,14 +241,16 @@ export interface Email {
   headers?: EmailHeader[];
   // convenience header fetches
   /*
-   * The `:asRaw` form on three of these is not a preference: Stalwart 1.0
-   * checks a header property's requested form against the header's own kind and
-   * answers `invalidArguments` otherwise (`is_allowed_form`, `email/get.rs`).
-   * `List-Unsubscribe` (with the other `List-*` headers) admits URLs or raw, and
-   * `Return-Path` and `Received` admit raw alone — so `:asText` on any of them
+   * The form on each of these is not a preference: Stalwart 1.0 checks a header
+   * property's requested form against the header's own kind and answers
+   * `invalidArguments` otherwise (`is_allowed_form`, `email/get.rs`).
+   * `List-Unsubscribe` is an RFC 2369 header, and RFC 8621 §4.1.2.3 allows the
+   * Text form only for headers outside RFC 5322 and RFC 2369 — so 1.0 refuses
+   * `:asText` and answers the list as **URLs**, which is also the shape a reader
+   * wants. `Return-Path` and `Received` admit raw alone; `:asText` on any of them
    * fails the whole `Email/get`.
    */
-  "header:List-Unsubscribe:asRaw"?: string | null;
+  "header:List-Unsubscribe:asURLs"?: string[] | null;
   "header:List-Unsubscribe-Post:asText"?: string | null;
   "header:List-Id:asText"?: string | null;
   "header:Disposition-Notification-To:asAddresses"?: EmailAddress[] | null;
@@ -276,7 +278,7 @@ export interface Email {
  * have.
  */
 export const EMAIL_FULL_HEADER_PROPS = [
-  "header:List-Unsubscribe:asRaw",
+  "header:List-Unsubscribe:asURLs",
   "header:List-Unsubscribe-Post:asText",
   "header:List-Id:asText",
   "header:Disposition-Notification-To:asAddresses",

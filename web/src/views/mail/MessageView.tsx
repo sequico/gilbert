@@ -351,7 +351,7 @@ export const MessageView = memo(function MessageView({
       ),
     [e.attachments],
   );
-  const unsubscribe = e["header:List-Unsubscribe:asRaw"];
+  const unsubscribe = e["header:List-Unsubscribe:asURLs"];
   /* The agent's processing state on this message, and only on this message:
      the product's own vocabulary names it, the keyword says whether this one
      carries it. */
@@ -424,13 +424,10 @@ export const MessageView = memo(function MessageView({
   };
 
   const onUnsubscribe = async () => {
-    if (!unsubscribe) return;
-    // Raw, so a folded header arrives with its folding intact.
-    const urls = [...unsubscribe.matchAll(/<([^>]+)>/g)].map((m) =>
-      m[1]!.replace(/\s+/g, ""),
-    );
-    const mailto = urls.find((u) => u.startsWith("mailto:"));
-    const http = urls.find((u) => /^https?:/i.test(u));
+    if (!unsubscribe?.length) return;
+    // The server hands the list in the form the header means: URLs, not text.
+    const mailto = unsubscribe.find((u) => u.startsWith("mailto:"));
+    const http = unsubscribe.find((u) => /^https?:/i.test(u));
     if (mailto) {
       const fields = draftFromMailto(mailto);
       useCompose.getState().open({
@@ -1006,7 +1003,7 @@ export const MessageView = memo(function MessageView({
           {attachments.length > 0 && (
             <AttachmentList attachments={attachments} accountId={accountId} email={e} />
           )}
-          {unsubscribe && (
+          {unsubscribe?.length ? (
             <div className="unsubscribe-row">
               <span>{translate("This looks like a mailing list.")}</span>
               <button
@@ -1016,7 +1013,7 @@ export const MessageView = memo(function MessageView({
                 {translate("Unsubscribe")}
               </button>
             </div>
-          )}
+          ) : null}
         </>
       )}
       {addrMenu.node}
