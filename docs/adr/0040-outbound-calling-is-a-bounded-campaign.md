@@ -111,17 +111,22 @@ its own, because a promise not to call is not a campaign's to keep.
   checked against every number a card carries, not against the string that was
   pasted: a person called twice by two teams is the failure this product cannot
   afford.
+- **A campaign starts from a file and is worked from a phone.** A hundred calls
+  begin as a paste or a file, never as a form filled once per number, and the work
+  happens on the screen in the caller's hand: the size of the list is why the
+  first is true, and where the call is made is why the second is.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the conditional write and the lapsed lease the installation's
   own claim already uses (ADR 0032), one row at a time.
 - **A number has one form: E.164 and nothing else.** `+` and the country code
-  followed by digits, no space, no punctuation, no extension, no trunk zero, no
-  note: the canonical string is the number's identity, and two rows that carry it
-  are the same number however they were written when they arrived. **The country
-  lives in the number**, read against one table of calling codes and the national
-  lengths each of them has — never a country chosen for the installation and never
-  a group's default, because one group calls Zambia, Rwanda and Tanzania while
-  another calls China, Bulgaria and Turkey, and the number is what says which.
+  followed by digits — fifteen at most — with no space, no punctuation, no
+  extension, no national trunk prefix, no note: the canonical string is the
+  number's identity, and two rows that carry it are the same number however they
+  were written when they arrived. **The country lives in the number**, read against
+  one table of calling codes and the national lengths each of them has — never a
+  country chosen for the installation and never a group's default, because one
+  group calls Zambia, Rwanda and Tanzania while another calls China, Bulgaria and
+  Turkey, and the number is what says which.
   Every other form is normalised on arrival — a leading code the table knows and a
   length that country has, a trunk zero dropped, an extension and any prose moved
   to the row's note — and a number the table cannot place is refused and counted,
@@ -144,15 +149,11 @@ may use, and the two registers never stand in for each other.
 
 ## Consequences
 
-The import is the surface that decides adoption, not the tab: a hundred calls
-begin as a paste or a file, normalised to the one canonical form and resolved
-against the group's cards and the installation's do-not-call list, with the counts
-said out loud — matched to a card, new, duplicated within the list, refused. An
-import writes no card and no contact: it writes rows. A form filled once per
-number is a campaign nobody runs. A form that arrives without its `+` is read
-against that same table — a leading code it knows, a length that country has — so
-nothing about the installation has to be chosen before a campaign can run; a
-number the table cannot place is refused and counted.
+The import normalises to the one canonical form, resolves against the group's
+cards and the installation's do-not-call list, and says its counts out loud —
+matched to a card, new, duplicated within the list, refused. A number the
+calling-code table cannot place is refused and counted, so nothing about the
+installation has to be chosen before a campaign can run.
 
 Resolution by number wants an index the group keeps, because asking the mail
 server to find a card by phone is not the cheap read a hundred-row paste needs;
@@ -163,12 +164,7 @@ often than it is written, and a log that grows without limit turns opening a
 contact into a large read.
 
 The handoff must be takeable: copy, CSV or a message, with the discovered person
-and the routing note included, because a screened list the receiving team cannot
-consume is a campaign that produced nothing.
-
-The phone is the first screen, not a smaller version of a desktop one: a queue, a
-number, a script, three outcomes, the next call — and one more act, attaching the
-person the call discovered.
+and the routing note included.
 
 What the area cannot do without is an agent that reads a card it just did not
 write: a document cache that misses a replaced document makes the note proposed
