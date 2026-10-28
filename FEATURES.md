@@ -1182,10 +1182,30 @@ never named is refused, and a settled row leaves Today.
 ## A list
 
 A hundred calls begin as a paste, one entry per line, or as a campaign written with
-its purpose and its outcomes. Every line gives one row or one refusal, and the import
-says its counts out loud: added, already in the list, on the do-not-call list, and
-the lines it could not read. A number is found inside a line of prose and the prose
-is kept as the row's context; an extension leaves the number and stays beside it.
+its purpose, its outcomes and, when the group has one, the knowledge page it reads
+aloud. Every line gives one row or one refusal, and the import says its counts out
+loud: added, already in the list, matched to a card, on the do-not-call list, and the
+lines it could not read. A number is found inside a line of prose and the prose is
+kept as the row's context; an extension leaves the number and stays beside it.
+
+A number the group's cards already carry starts its row pointed at that card, and
+the first call to a number nobody knows creates the card — never an import, so a list
+nobody dialled leaves nothing behind.
+
+## The script
+
+A campaign pins one revision of a page of the group's knowledge base, and Today shows
+those words to the caller as the row is taken: two callers saying different things
+because somebody edited the page on Wednesday is what the pin prevents.
+
+## Closing, and the handoff
+
+A campaign past its window with rows still open is a finding Today reports, not a
+list that quietly stops existing. Closing it keeps the rows with the campaign, or
+carries the ones still open into a successor with the same purpose and outcomes.
+
+The rows that ended with one outcome leave as a file — the number, who was spoken to,
+when, by whom, the outcome and the note — saved by the caller to pass on.
 
 ## Numbers
 

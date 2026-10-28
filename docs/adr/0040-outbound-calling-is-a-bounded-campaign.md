@@ -11,12 +11,28 @@ door, the import, the do-not-call list and the two acts against the mock. The ar
 acts as the caller and never as the installation's agent, which is what lets a
 group that exists for outbound work alone be worked at all.
 
-Not built: the card created at the first call with the call log on it, the index
-the import resolves a number against, the script's revision, the window as an act,
-the handoff, and the `outbound` area of the agent's (`shared/areas.ts` still names
-none). Owed the live probe it depends on: a member of a group the installation's
-agent holds no grant on, reading and writing that group's outbound folder — the
-mock answers a member with full rights, so it cannot demonstrate that.
+A number the group's cards already carry is matched at the import through an index
+beside the campaigns, rebuilt whenever the card store's state has moved
+(`server/src/outbound/cards.ts`). The first call creates the card, carrying the
+number and the words the paste had about it, and writes the call into the card's own
+bounded window (`outbound/calls/<cardUid>.json`, drawn by
+`web/src/views/contacts/CardCalls.tsx` on the card). A campaign past its window with
+rows still open is a finding the campaign list reports, and closing is an act that
+either keeps the rows with the campaign or carries them into a successor
+(`closeCampaign`). A campaign pins the revision of its script and Today shows those
+words as a row is taken (`server/src/outbound/script.ts`). The handoff leaves as a
+file of the rows that ended with one outcome.
+
+Future improvements, named rather than left implicit: the handoff leaves as a file
+and nothing else, so an appointment in the calendar and a message to the receiving
+group are not built and are not owed by this record; and the area is not one of the
+agent's — `shared/areas.ts` names none of it, no instruction may declare it, and the
+agent neither reads a card's calls nor proposes a note. Each of those is a change
+with a record of its own if a group ever needs it.
+
+Owed the live probe it depends on: a member of a group the installation's agent
+holds no grant on, reading and writing that group's outbound folder — the mock
+answers a member with full rights, so it cannot demonstrate that.
 
 ## Context
 
@@ -43,10 +59,10 @@ cross.
 
 ## Decision
 
-**Outbound is the fifth block of the product — `gilbertoutbound` — and an area of
-the agent's** — `outbound` in the areas an instruction may declare, documents
+**Outbound is the fifth block of the product — `gilbertoutbound`** — documents
 inside the group's own app folder, and no second database, no second identity and
-no second permission model.
+no second permission model. It is nobody's area in the agent's vocabulary: the
+calls are made by people, and nothing here is a run's to propose.
 
 ### The directory is the group's contacts
 
@@ -92,12 +108,12 @@ that must never be called is entered once for each group that calls.
 - **Today** — not stored: the queue is the view of the rows that are mine or
   due, and it is where the work happens. The call is placed from the person's own
   phone.
-- a **handoff** — not an object: an outcome selects rows into a screened list
-  that leaves through Gilbert's own surfaces — a calendar event for the
-  appointment, a message to the receiving group, a file — carrying the row's
-  outcome and note, who called and when, the discovered person and the routing
-  note that says who is competent for what. The product's job ends when the
-  campaign closes and the subset has left.
+- a **handoff** — not an object: an outcome selects rows into a screened list that
+  leaves as a **file**, carrying the row's outcome and note, who called and when,
+  the discovered person and the routing note that says who is competent for what.
+  The product's job ends when the campaign closes and the subset has left; what the
+  receiving side does with the file is its own business, and this block drafts no
+  message and books no appointment.
 
 ### The laws this area is held to
 
@@ -151,19 +167,18 @@ that must never be called is entered once for each group that calls.
   saying different things because somebody edited the page on Wednesday is worse
   than a script that is a week old, and the page's own history says what was
   issued when.
-- **The area is the agent's like the others.** Reading a card's calls is free;
-  proposing the note a call leaves behind is a write, and only a group whose
-  instruction declares the area may receive it.
+- **The agent does not work this block.** A list is called by people, and the
+  vocabulary of a campaign — its purpose, its outcomes, the note a call leaves — is
+  theirs: no area of an instruction reaches a campaign, and reading a card's calls
+  is the reader's own membership, not a run's permission.
 
 **`gilbertoutbound` is a block for the same reason the other four are** — an
 area of the product with a boundary of its own — and what it does not own already
 has an owner: the identity is Stalwart's, the access is the group's, the durable
-document is the `gilbert` app folder, the contact card is the mailer's, the model
-work is `gilbertagents`, and the pass that wakes a due list is `gilbertserver`.
-`README.md` defines the five blocks and this record does not restate the
-definitions. Its agent-facing name is `outbound`, the plain noun the rest of the
-area vocabulary uses: a block is how the product is divided, an area is what a run
-may use, and the two registers never stand in for each other.
+document is the `gilbert` app folder, the contact card is the mailer's, and the pass
+that wakes a due list is `gilbertserver`. `README.md` defines the five blocks and
+this record does not restate the definitions. A block is how the product is divided;
+it is not an agent area, and this one is no exception.
 
 ## Consequences
 
@@ -184,7 +199,7 @@ writes only the canonical one, normalises a card's number when it touches it, an
 reports what it could not normalise instead of rewriting a contact's own data
 silently.
 
-What the area cannot do without is an agent that reads a card it just did not
-write: a document cache that misses a replaced document makes the note proposed
-after a call describe the call before it, so the freshness a document's own stamp
-carries is a prerequisite of this area rather than a refinement of it.
+What the area cannot do without is the freshness a document's own stamp carries:
+the index is rebuilt when the card store has moved, and the door acts as the caller
+whose session wrote the last thing read, so a stale read is a campaign that offers a
+number somebody has since written off.

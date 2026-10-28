@@ -399,12 +399,12 @@ is, not what a user sees.
 - **0040 — Outbound calling is a bounded campaign.**
   The fifth block, `gilbertoutbound`: a campaign of a group's own with its list,
   its rows as documents of their own (so two callers never collide), **Today** as
-  the queue of what is mine or due, and a handoff that leaves through a calendar
-  event, a message or a file. Identity is not rebuilt — it is the group's own
-  contact cards, created at the first call and never by an import — and the call
-  log sits on the person, or on the company when the person was not known: the row
-  dies with the campaign, what it learned does not. A number has one form, E.164;
-  one do-not-call list serves the installation, checked against every number a card
-  carries; a row is claimed before it is dialled; no stage, no value, no forecast,
-  no dialer, no telephony. **Not built, Proposed.**
+  the queue of what is mine or due, and a handoff that leaves as a file. Identity
+  is not rebuilt — it is the group's own contact cards, created at the first call
+  and never by an import — and the call log sits on the card the call reached: the
+  row dies with the campaign, what it learned does not. A number has one form,
+  E.164; the do-not-call list is the group's own, checked against every number a
+  card carries; a row is claimed before it is dialled; the area acts as the caller
+  and never as the installation's agent; no stage, no value, no forecast, no
+  dialer, no telephony. **Partly built, Proposed.**
 
