@@ -6,8 +6,8 @@ Implementation: Not built. No area, route, document or view of this area
 exists: `shared/areas.ts` names eight areas and `outbound` is not one of them,
 and the `gilbert` app folder holds no campaign, row or call log. The primitives
 the decision rests on are built and are named here: the app folder's
-documents (`server/src/appFolder.ts`), the group's contact cards (JSContact for
-`organizations`, labelled `phones`, `titles` and `relatedTo`), the workorder's
+documents (`server/src/appFolder.ts`), the group's contact cards
+(`web/src/jmap/types.ts`, `server/src/routes/contacts.ts`), the workorder's
 root, parts and states (`server/src/workorder/`, ADR 0036), the claim a document is
 taken with (`server/src/agent/claim.ts`, ADR 0032), the knowledge
 base's two tiers (`server/src/knowledge/scope.ts`), and the agent's declared
