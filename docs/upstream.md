@@ -177,17 +177,17 @@ moves the row.
 | `05f406b1` | CI / infra — not taken (GitHub Actions here) | 97% | ci: a cancelled GitHub run no longer reports failure to Gitea |
 | `7619777a` | docs/process — not taken (ours) | 96% | Docs: eleven languages, with Turkish contributed by Hakan Arslan |
 | `290cce57` | in | 95% | Keep an open message unread after Mark as unread |
-| `ef33c0b1` | settings load — not taken (this tree's settings-sync design already prevents the reported failure) | 95% | Finish the settings load when the tree remounts mid-load |
+| `ef33c0b1` | in (`fe4035f1`: one load per account, shared by every mount, so a remount mid-load cannot leave the pushes unarmed) | 95% | Finish the settings load when the tree remounts mid-load |
 | `4fe51f43` | CI / infra — not taken (GitHub Actions here) | 94% | ci: make the image digest artifacts re-runnable |
 | `1ebb1866` | process — not taken (upstream sends its issue reports to Gitea) | 92% | Send GitHub issue reports to Gitea |
 | `e9f8c7bb` | docs/process — not taken (ours) | 89% | docs: point issues and discussions at Gitea and the forum |
 | `13716952` | CI / infra — not taken (GitHub Actions here) | 89% | ci: run the github wait job on its own runner label |
 | `d9fd0225` | CI / infra — not taken (GitHub Actions here) | 88% | ci: build on GitHub via the mirror, switchable with BUILD_ON |
-| `a09bca80` | client UX — not taken (the composer's editor resizes images itself, so this is a second implementation) | 85% | Resize images in the composer |
+| `a09bca80` | not taken — Squire 2.4.10 resizes an image in the body itself (handles and arrow keys); what this tree adds is the `width` attribute such a width needs for desktop clients | 85% | Resize images in the composer |
 | `eeebfb5c` | CI / infra — not taken (GitHub Actions here) | 84% | ci: copy each release image to GHCR as a replica |
 | `8cb14571` | CI / infra — not taken (GitHub Actions here) | 83% | ci: copy each release to GitHub after the tag build |
 | `c725ba5c` | in (adapted to this tree's key set) | 39% | feat(i18n): add Turkish translation |
-| `d03a9595` | i18n — not taken (the strings belong to the image resize that was not taken) | 38% | Turkish: the three image size strings |
+| `d03a9595` | not taken (the strings belong to the resize Squire already draws, and its handles carry no labels) | 38% | Turkish: the three image size strings |
 | `22490d8` | in | 95% | Keep a narrow list's labels inside the row, on the sender's line |
 | `33dc8be` | in (adapted: the same rule moved Dutch too) | 64% | Turkish out of Beta: it comes from a native speaker |
 | `f8d282e` | in (adapted to this tree's send flow) | 90% | Never send a message twice; two small composer and sidebar fixes |
@@ -247,6 +247,16 @@ the row.
 | `3576e8e` | already ours — the mailbox is classified by the `Mailbox/get` probe (`web/src/lib/mailAccounts.ts`), the account switcher and the announcement of the reader's own mail while another mailbox is in view exist, and Stalwart does not deliver mail folder sharing | 91% | Open a group's mailbox, or folders someone shared, from the account menu |
 | `6e78d74` | in (adapted: the reader's own account's book, and nothing collected while a group mailbox is in view) | 90% | Save the people you write to as contacts |
 | `d2b3fda` | in (adapted: read in `lib/spamScore.ts`, beside the other headers the filter writes, and named as the spam filter's model rather than "the language model". The row in the message details is taken; the banner on mail in Junk is not, a Junk surface being a decision of its own) | 81% | Show the language model's opinion on a message |
+
+`upstream/main` has since moved to `ba68b4f1`, five work commits further:
+
+| upstream | disposition | overlap | subject |
+|---|---|---|---|
+| `a03abab3` | already ours — `dompurify` 3.4.17, `hono` 4.13.12, `vite` 6.4.5 and `vitest` 5.0.5, with `npm audit` at zero; upstream also moves Vite to 8, a major this tree has not taken | 91% | Update DOMPurify, hono, vite and vitest for security fixes |
+| `94ab1ffe` | in (`7b2825d0`: `header:List-Unsubscribe:asURLs`, the form RFC 8621 gives an RFC 2369 header, and the angle-bracket parser goes) | 50% | Fetch List-Unsubscribe as URLs, the form RFC 8621 gives it |
+| `b67889d5` | not taken (a CI job against real Stalwart; this repository's release pre-check is `check:ci`, and the live probes it owes are recorded on the ADRs) | 67% | CI: check the app's own requests against real Stalwart 0.16.27 and 1.0.0 |
+| `7f98b994` | not taken (CI: upstream's fallback runners, where this repository runs GitHub Actions) | 0% | CI fallback: the Stalwart compatibility job on Gitea's own runners |
+| `34d481bd` | not taken (`README.md` is this project's, and the Stalwart line it supports is stated there) | 100% | README: a Support section with the Stalwart versions ihasmail supports |
 
 ## Keeping it current
 
