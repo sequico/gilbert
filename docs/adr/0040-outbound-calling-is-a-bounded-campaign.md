@@ -19,9 +19,8 @@ Every company runs bounded outbound calling: a list of numbers, one reason to
 call it, a script, a handful of outcomes and a handoff. Booking appointments,
 qualifying a list for a sales team to work afterwards, asking suppliers for a
 quote, and proposing something to customers already known are the same
-operation under different words, and it is the one commercial activity that is
-an operation rather than a relationship: it starts, it runs for a window and it
-closes.
+operation under different words, and it is the commercial activity that behaves
+most like an operation: it starts, it runs for a window and it closes.
 
 The work is done by people who must know what was already said. A company is
 called for one thing in October and for another in November, by two colleagues,
@@ -53,11 +52,12 @@ somebody dials it, so a list of three hundred numbers never becomes three hundre
 entries in the group's address book and in every member's phone, and a list nobody
 dialled leaves nothing behind.
 
-**The call log lives on the person, and on the company when the person was not
-known.** Opening a card shows what was said to it: when, by whom, in which
-campaign, with which outcome and note — the card a caller opens in November
-carries what a colleague said in October. A call to a switchboard that named
-nobody is the company's own history until a person is attached to it.
+**The call log lives on the card of whoever was spoken to**, and on the company's
+own when the call named nobody: opening a card shows what was said to it — when,
+by whom, in which campaign, with which outcome and note — so the card a caller
+opens in November carries what a colleague said in October. A call to a
+switchboard that named nobody is the company's history until a person is attached
+to it.
 
 ### The two lists
 
@@ -105,10 +105,10 @@ its own, because a promise not to call is not a campaign's to keep.
 - **Every number a card carries is checked against the do-not-call list**, not
   only the string that was pasted: a person called twice by two teams is the
   failure this product cannot afford.
-- **A campaign starts from a file and is worked from a phone.** A hundred calls
-  begin as a paste or a file, never as a form filled once per number, and the work
-  happens on the screen in the caller's hand: the size of the list is why the
-  first is true, and where the call is made is why the second is.
+- **The list arrives by paste or file, and the work happens on a phone.** A
+  hundred calls begin as a paste or a file, never as a form filled once per
+  number, and the work happens on the screen in the caller's hand: the size of the
+  list is why the first is true, and where the call is made is why the second is.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the conditional write and the lapsed lease the installation's
   own claim already uses (ADR 0032), one row at a time.
