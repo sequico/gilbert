@@ -28,6 +28,8 @@ export interface TodayBoard {
 /** What a paste gave and what it lost, as the import route counts it. */
 export interface ImportReport {
   added: number;
+  /** Rows whose number a card of the group already carried. */
+  matched: number;
   duplicate: number;
   blocked: number;
   refused: { line: string; reason: string }[];
@@ -78,6 +80,7 @@ export async function importRows(
   );
   return {
     added: res.added ?? 0,
+    matched: res.matched ?? 0,
     duplicate: res.duplicate ?? 0,
     blocked: res.blocked ?? 0,
     refused: res.refused ?? [],

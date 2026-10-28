@@ -2575,6 +2575,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} matched a card": {
+      one: "{n} fila coincide con una ficha",
+      other: "{n} filas coinciden con una ficha",
+    },
     "{n} rows added": { one: "{n} fila añadida", other: "{n} filas añadidas" },
     "{n} already in the list": {
       one: "{n} ya en la lista",

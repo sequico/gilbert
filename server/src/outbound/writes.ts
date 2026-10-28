@@ -77,21 +77,22 @@ export interface ImportedList extends ImportPlan {
 /**
  * Read a pasted list into the campaign, writing what the plan decided.
  *
- * The do-not-call numbers arrive from the caller rather than being read here,
- * because the rule that decides what a line becomes is the only thing this act
- * adds: one read of the list, one plan, one write per row it kept.
+ * What the group already knows — the numbers it promised never to call, and the
+ * cards its numbers belong to — arrives from the caller rather than being read
+ * here, because the rule that decides what a line becomes is the only thing this
+ * act adds: one plan, one write per row it kept.
  */
 export async function importList(
   ctx: Ctx,
   accountId: string,
   campaignUid: string,
   text: string,
-  doNotCall: readonly string[],
+  known: { doNotCall: readonly string[]; cards: Readonly<Record<string, string>> },
   now: Date,
   newUid: () => string,
 ): Promise<ImportedList> {
   await openCampaign(ctx, accountId, campaignUid);
-  const plan = planImport({ campaignUid, text, doNotCall, now, newUid });
+  const plan = planImport({ campaignUid, text, ...known, now, newUid });
   for (const row of plan.rows) await writeRow(ctx, accountId, row);
   return { ...plan, campaignUid };
 }

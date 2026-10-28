@@ -6,9 +6,13 @@ const now = new Date("2026-10-28T10:00:00Z");
 let seq = 0;
 const newUid = () => `r${++seq}`;
 
-const plan = (text: string, doNotCall: string[] = []) => {
+const plan = (
+  text: string,
+  doNotCall: string[] = [],
+  cards: Record<string, string> = {},
+) => {
   seq = 0;
-  return planImport({ campaignUid: "c1", text, doNotCall, now, newUid });
+  return planImport({ campaignUid: "c1", text, doNotCall, cards, now, newUid });
 };
 
 test("each line becomes one row, with the words around its number kept", () => {
@@ -63,6 +67,15 @@ test("a row arrives open, unclaimed and with an empty window", () => {
   assert.deepEqual(row.calls, []);
   assert.equal(row.trimmed, 0);
   assert.equal(row.cardUid, null);
+});
+
+test("a number the group's cards carry becomes a row pointed at that card", () => {
+  const result = plan("+39 02 1234567\n+39 06 12345678", [], {
+    "+39021234567": "card-1",
+  });
+  assert.equal(result.matched, 1);
+  assert.equal(result.rows[0].cardUid, "card-1");
+  assert.equal(result.rows[1].cardUid, null);
 });
 
 test("blank lines are not lines", () => {

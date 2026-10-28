@@ -469,6 +469,8 @@ function StartList({
         <div className="hint">
           <p>
             {plural(report.added, { one: "{n} row added", other: "{n} rows added" })}
+            {report.matched > 0 &&
+              ` · ${plural(report.matched, { one: "{n} matched a card", other: "{n} matched a card" })}`}
             {report.duplicate > 0 &&
               ` · ${plural(report.duplicate, { one: "{n} already in the list", other: "{n} already in the list" })}`}
             {report.blocked > 0 &&

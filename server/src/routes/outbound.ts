@@ -11,6 +11,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
+import { readCardIndex } from "../outbound/cards.js";
 import {
   listCampaigns,
   mutateDoNotCall,
@@ -163,18 +164,20 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
       const text = required(body.text, "text");
       const { ctx, accountId } = await campaignAccount(c.get("session"), group);
       const blocked = (await readDoNotCall(ctx, accountId)).numbers;
+      const cards = await readCardIndex(ctx, accountId);
       const imported = await importList(
         ctx,
         accountId,
         c.req.param("uid"),
         text,
-        blocked,
+        { doNotCall: blocked, cards },
         new Date(),
         randomUUID,
       );
       return c.json({
         ok: true,
         added: imported.rows.length,
+        matched: imported.matched,
         duplicate: imported.duplicate,
         blocked: imported.blocked,
         refused: imported.refused,

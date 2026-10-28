@@ -2464,6 +2464,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} matched a card": {
+      one: "{n} 行与联系人匹配",
+      other: "{n} 行与联系人匹配",
+    },
     "{n} rows added": { one: "{n} 行已添加", other: "{n} 行已添加" },
     "{n} already in the list": {
       one: "{n} 条已在名单中",

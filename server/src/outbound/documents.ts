@@ -21,11 +21,14 @@ import {
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import {
   type CampaignDoc,
+  type CardIndexDoc,
   campaignFolderPath,
   campaignPath,
+  cardIndexPath,
   type DoNotCallDoc,
   doNotCallPath,
   isCampaignDoc,
+  isCardIndexDoc,
   isDoNotCallDoc,
   isRowDoc,
   type RowDoc,
@@ -268,6 +271,23 @@ export async function mutateRow(
     mutate,
     `The row "${rowUid}"`,
   );
+}
+
+/** The card index as it stands, or null when none was built yet. */
+export async function readCardIndexDoc(
+  ctx: Ctx,
+  accountId: string,
+): Promise<CardIndexDoc | null> {
+  return readDoc(ctx, accountId, cardIndexPath(), isCardIndexDoc);
+}
+
+/** Write the card index as it was just built. */
+export async function writeCardIndex(
+  ctx: Ctx,
+  accountId: string,
+  doc: CardIndexDoc,
+): Promise<void> {
+  await writeWithRetry(ctx, accountId, cardIndexPath(), doc, "The card index");
 }
 
 /** A list nobody has written yet: the state the group starts from. */

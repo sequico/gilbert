@@ -22,8 +22,11 @@ export const CAMPAIGN_FOLDER = "campaigns";
 /** A campaign's rows, one file each, in a folder of their own. */
 export const ROW_FOLDER = "rows";
 
-/** The installation's do-not-call list: one document, in the Master's account. */
+/** The group's do-not-call list: one document, beside the campaigns that honour it. */
 export const DO_NOT_CALL_FILE = "do-not-call.json";
+
+/** The numbers the group's cards carry, as one readable index (ADR 0040). */
+export const CARD_INDEX_FILE = "card-index.json";
 
 /** How many calls a row keeps before the oldest become a count. */
 export const MAX_CALLS_KEPT = 20;
@@ -48,9 +51,14 @@ export function rowFolderPath(campaignUid: string): string {
   return `${OUTBOUND_FOLDER}/${ROW_FOLDER}/${campaignUid}`;
 }
 
-/** The installation's do-not-call list, app-folder-relative. */
+/** The group's do-not-call list, app-folder-relative. */
 export function doNotCallPath(): string {
   return `${OUTBOUND_FOLDER}/${DO_NOT_CALL_FILE}`;
+}
+
+/** The card index, app-folder-relative. */
+export function cardIndexPath(): string {
+  return `${OUTBOUND_FOLDER}/${CARD_INDEX_FILE}`;
 }
 
 /** A campaign runs for a window and then is closed; closing is a state. */
@@ -174,11 +182,29 @@ export interface RowDoc {
   createdAt: string;
 }
 
-/** The installation's do-not-call numbers, canonical and unique. */
+/** The group's do-not-call numbers, canonical and unique. */
 export interface DoNotCallDoc {
   version: 1;
   numbers: string[];
   updatedAt: string;
+}
+
+/**
+ * The group's cards, by the number each one carries.
+ *
+ * A paste of a hundred lines must not ask the mail server for every card to find
+ * out which number it already knows, so the group keeps this index beside its
+ * campaigns. It is never a second truth: `cardState` is the card store's own state
+ * at the moment it was built, and a state that has moved makes it stale, so the
+ * next read rebuilds it from the cards themselves.
+ */
+export interface CardIndexDoc {
+  version: 1;
+  /** The account's `ContactCard` state when the index was built. */
+  cardState: string;
+  /** Canonical number → the card that carries it. */
+  cards: Record<string, string>;
+  builtAt: string;
 }
 
 function isString(value: unknown): value is string {
@@ -296,7 +322,19 @@ export function isRowDoc(value: unknown): value is RowDoc {
   return isInstant(value.createdAt);
 }
 
-/** Whether the installation's do-not-call document is one this build can read. */
+/** Whether the card index is one this build can read. */
+export function isCardIndexDoc(value: unknown): value is CardIndexDoc {
+  if (!isRecord(value) || value.version !== 1) return false;
+  if (!isString(value.cardState)) return false;
+  if (!isRecord(value.cards)) return false;
+  if (
+    !Object.entries(value.cards).every(([number, uid]) => isString(uid) && isE164(number))
+  )
+    return false;
+  return isInstant(value.builtAt);
+}
+
+/** Whether the group's do-not-call document is one this build can read. */
 export function isDoNotCallDoc(value: unknown): value is DoNotCallDoc {
   if (!isRecord(value) || value.version !== 1) return false;
   if (

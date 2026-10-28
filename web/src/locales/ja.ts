@@ -2550,6 +2550,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} matched a card": {
+      one: "{n} 行が連絡先と一致しました",
+      other: "{n} 行が連絡先と一致しました",
+    },
     "{n} rows added": { one: "{n} 行を追加しました", other: "{n} 行を追加しました" },
     "{n} already in the list": {
       one: "{n} 件は既にリストにあります",

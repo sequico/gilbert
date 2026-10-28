@@ -2468,6 +2468,10 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "{n} matched a card": {
+      one: "{n} satır bir kartla eşleşti",
+      other: "{n} satır bir kartla eşleşti",
+    },
     "{n} rows added": { one: "{n} satır eklendi", other: "{n} satır eklendi" },
     "{n} already in the list": {
       one: "{n} zaten listede",

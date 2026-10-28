@@ -30,16 +30,20 @@ export interface ImportPlan {
   refused: ImportRefusal[];
   /** Lines that repeated a number an earlier line of this paste already gave. */
   duplicate: number;
-  /** Lines whose number the installation's do-not-call list already holds. */
+  /** Lines whose number the group's do-not-call list already holds. */
   blocked: number;
+  /** Rows whose number a card of the group already carries. */
+  matched: number;
 }
 
 export interface ImportInput {
   campaignUid: string;
   /** The pasted text, one entry per line. */
   text: string;
-  /** The installation's do-not-call numbers, canonical. */
+  /** The group's do-not-call numbers, canonical. */
   doNotCall: readonly string[];
+  /** The group's cards by the number each carries: canonical number → card uid. */
+  cards: Readonly<Record<string, string>>;
   now: Date;
   /** Where a new row's uid comes from; injected so a test names its own. */
   newUid: () => string;
@@ -50,6 +54,7 @@ export function planImport({
   campaignUid,
   text,
   doNotCall,
+  cards,
   now,
   newUid,
 }: ImportInput): ImportPlan {
@@ -59,6 +64,7 @@ export function planImport({
   const blocked = new Set(doNotCall);
   let duplicate = 0;
   let blockedCount = 0;
+  let matched = 0;
 
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
@@ -84,6 +90,11 @@ export function planImport({
       continue;
     }
 
+    // A number the group already knows becomes a row pointed at its card, so the
+    // caller reads who they are about to speak to before the call, not after it.
+    const cardUid = cards[number.e164] ?? null;
+    if (cardUid) matched += 1;
+
     const label: RowLabel = { company: null, name: null };
     rows.push({
       version: 1,
@@ -93,7 +104,7 @@ export function planImport({
       extension: number.extension,
       label,
       context,
-      cardUid: null,
+      cardUid,
       state: "open",
       claim: null,
       nextCallAt: null,
@@ -103,5 +114,5 @@ export function planImport({
     });
   }
 
-  return { rows, refused, duplicate, blocked: blockedCount };
+  return { rows, refused, duplicate, blocked: blockedCount, matched };
 }

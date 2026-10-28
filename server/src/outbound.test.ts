@@ -32,6 +32,8 @@ const GROUP = "team@example.org";
 
 const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
+const { JMAP_CONTACTS, JmapClient } = await import("./jmap.js");
+const { fetchUpstreamSession } = await import("./upstream.js");
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -72,6 +74,7 @@ interface Row {
   e164: string;
   extension: string | null;
   context: string | null;
+  cardUid: string | null;
   state: string;
   claim: { by: string; until: string } | null;
   calls: { outcome: string; note: string | null; by: string }[];
@@ -270,6 +273,61 @@ test("a number taken off the list is one the import may write again", async () =
   });
   assert.equal(res.body?.added, 1);
   assert.equal(res.body?.blocked, 0);
+});
+
+test("a number a group's card already carries is matched at the import", async () => {
+  // The card is written the way the client writes one: a member's own JMAP
+  // session, in the group's own address book.
+  const authorization = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
+  const session = await fetchUpstreamSession(authorization, `http://127.0.0.1:${PORT}`);
+  const ctx = { authorization, session, username: "demo@example.com" };
+  const accountId = Object.entries(session.accounts).find(
+    ([, account]) => (account as { name?: string }).name === GROUP,
+  )?.[0];
+  assert.ok(accountId, "the member's session holds the group's account");
+
+  const client = new JmapClient(ctx);
+  const book = await client.call<{ created?: Record<string, { id?: unknown }> }>(
+    "AddressBook/set",
+    { accountId, create: { b: { name: "Outbound" } } },
+    [JMAP_CONTACTS],
+  );
+  const bookId = book.created?.b?.id as string | undefined;
+  assert.ok(bookId, "the group's address book is created");
+  await client.call(
+    "ContactCard/set",
+    {
+      accountId,
+      create: {
+        c: {
+          "@type": "Card",
+          version: "1.0",
+          addressBookIds: { [bookId]: true },
+          phones: { p1: { "@type": "Phone", number: "+39 02 7654321" } },
+        },
+      },
+    },
+    [JMAP_CONTACTS],
+  );
+
+  const campaign = await newCampaign("Matched to a card");
+  const res = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 02 7654321\n+39 06 12345678",
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body?.added, 2);
+  assert.equal(res.body?.matched, 1, "the index is built from the group's cards");
+
+  const rows = (await today()).filter((row) => row.campaignUid === campaign.uid);
+  const matched = rows.find((row) => row.e164 === "+39027654321");
+  assert.ok(matched, "the known number is a row");
+  assert.ok(matched.cardUid, "and it is pointed at the card that carries it");
+  assert.equal(
+    rows.find((row) => row.e164 === "+390612345678")?.cardUid,
+    null,
+    "a number no card carries stays a row with no card",
+  );
 });
 
 test("a campaign that was never created is refused by every act on it", async () => {
