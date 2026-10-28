@@ -40,17 +40,27 @@ the agent's** — `outbound` in the areas an instruction may declare, a document
 collection inside the group's own app folder, and no second database, no second
 identity and no second permission model.
 
+Two lists, and they are not the same kind of thing:
+
+- a **campaign's list** — the rows that belong to one campaign. A list never
+  exists without the campaign that owns it and never outlives it: re-running a
+  list is a new campaign with the same file, not the same list reused.
+- the **do-not-call list** — the installation's own, durable, one for every
+  group. It is the only list that lives on its own, and the reason is that a
+  promise not to call is not a campaign's to keep.
+
 Four objects, and nothing else:
 
 - a **campaign** — the root document. One sentence of purpose, the script it
   points at, the outcome vocabulary it admits, the window it runs in, and the
-  group it belongs to. Closing a campaign is a state, not a deletion.
+  group it belongs to. Its list is its rows and is not a document beside it.
+  Closing a campaign is a state, not a deletion.
 - a **row** — a part document of its own, so two members of the group write
   without touching each other. The number, the little identity needed not to
   mistake the person, its campaign, its owner, its state, its next call, and the
   calls it has taken inside a bounded window. No row outlives the campaign that
   created it.
-- a **session** — not stored: the queue is the view of the rows that are mine or
+- **Today** — not stored: the queue is the view of the rows that are mine or
   due, and it is where the work happens. The call is placed from the person's own
   phone; the product has no telephony and acquires none.
 - a **handoff** — not an object: an outcome selects rows into a screened list
@@ -68,9 +78,9 @@ The laws this area is held to:
   ("appointment booked", "documents requested", "not the right material",
   "not interested"), because one central taxonomy would name one company's work
   and exclude the others'.
-- **One list of numbers not to call, for the installation.** It is written by any
-  campaign and read by all of them: a person called twice by two teams because
-  each kept its own list is the failure this product cannot afford.
+- **The do-not-call list is the installation's, not the campaign's.** A person
+  called twice by two teams because each kept its own list is the failure this
+  product cannot afford.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the same act of taking a piece of work the workorder already
   knows.
@@ -84,8 +94,8 @@ surviving anagraphic record. A request for one of these is a request for a CRM,
 and the answer is the CRM the company already runs.
 
 **`gilbertoutbound` is a block for the same reason the other four are** — an
-area of the product with a boundary of its own — and it owns the campaign, the
-row, the session and the handoff, and nothing else: the identity is Stalwart's,
+area of the product with a boundary of its own — and it owns the campaign with
+its list, the row, **Today** and the handoff, and nothing else: the identity is Stalwart's,
 the access is the group's, the durable document is the `gilbert` app folder,
 the model work is `gilbertagents` and the pass that wakes a due list is
 `gilbertserver`'. `README.md` defines the five blocks and this record does not

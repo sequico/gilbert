@@ -400,8 +400,8 @@ is, not what a user sees.
   The fifth block, `gilbertoutbound`, and the one commercial activity that is an
   operation rather than a relationship:
   a campaign of a group's own, its rows as documents of their own (so two
-  callers never collide), a session that is only the queue of what is mine or
-  due, and a handoff that leaves through a calendar event, a message or a file.
+  callers never collide), **Today** as the queue of what is mine or due, and a
+  handoff that leaves through a calendar event, a message or a file.
   A row dies with the campaign — no customer master, no pipeline, no quote, no
   surviving anagraphic record; outcomes are named per campaign; one do-not-call
   list serves the installation; a row is claimed before its number is dialled;
