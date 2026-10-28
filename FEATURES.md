@@ -1153,6 +1153,61 @@ screen while the workorder itself, or its global checklist, is theirs to read.
 - **Not mail**: an email is not referenced and no mailbox is part of one.
 - **Not a folder tree**: membership and references decide what is in a workorder.
 
+# Outbound calling
+
+A **campaign** is one bounded list of calls a group makes: a purpose, the outcomes
+its callers choose from, a window, and its rows. It is the fifth block of the
+product, `gilbertoutbound` ([README.md](README.md)); the decision behind it is
+[ADR 0040](docs/adr/0040-outbound-calling-is-a-bounded-campaign.md), which also
+names what is still owed. It is not a CRM — no pipeline, no stage, no value, no
+owner of an account — and nothing here makes a call.
+
+## Today
+
+**Today** is the queue, in the module bar and on a phone's tab bar. It shows the rows
+of a group's running campaigns that are mine or due — mine first, then what is late,
+then what carried no date — with the counts beside them. A row another caller holds
+is not offered, and a claim that lapses comes back on its own.
+
+## A row, and the call
+
+**A row is taken before its number is dialled**, and taking it claims it for that
+caller for fifteen minutes: a list is never called twice at once, and a caller
+leaving the desk costs nothing. The number is a link the phone dials, because the
+product has no telephony. The row carries the words around its number in the paste
+that made it — "ACME, ask for Tizio" — so a caller reads them before dialling.
+Settling a row picks one of the campaign's own outcomes; an outcome the campaign
+never named is refused, and a settled row leaves Today.
+
+## A list
+
+A hundred calls begin as a paste, one entry per line, or as a campaign written with
+its purpose and its outcomes. Every line gives one row or one refusal, and the import
+says its counts out loud: added, already in the list, on the do-not-call list, and
+the lines it could not read. A number is found inside a line of prose and the prose
+is kept as the row's context; an extension leaves the number and stays beside it.
+
+## Numbers
+
+One form: **E.164** — a `+`, the country code and digits, and nothing else. Each
+number carries its own country: a form without the `+` is read against the world's
+calling codes, and a number that cannot be placed is refused and counted rather than
+guessed.
+
+## The do-not-call list
+
+The **group's own**, beside the campaigns that honour it: a number on it is never
+written into that group's lists, and the import counts what it left out. A number is
+added from Today, or lifted again, one canonical number at a time.
+
+## Who reaches a campaign
+
+A campaign lives in the group's own account and is reached by membership of that
+group, read live: a member removed from the group loses the list at once, a member
+added later finds it with nothing shared with them, and the installation's agent
+grants are not asked for — a group that exists only for outbound work is worked like
+any other.
+
 ---
 
 # The upstream client

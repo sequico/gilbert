@@ -2,16 +2,21 @@
 
 Status: Proposed
 
-Implementation: Not built. No area, route, document or view of this area
-exists: `shared/areas.ts` names eight areas and `outbound` is not one of them,
-and the `gilbert` app folder holds no campaign, row or call log. The primitives
-the decision rests on are built and are named here: the app folder's
-documents (`server/src/appFolder.ts`), the group's contact cards
-(`web/src/jmap/types.ts`, `server/src/routes/contacts.ts`), the workorder's
-root, parts and states (`server/src/workorder/`, ADR 0036), the claim a document is
-taken with (`server/src/agent/claim.ts`, ADR 0032), the knowledge
-base's two tiers (`server/src/knowledge/scope.ts`), and the agent's declared
-areas (ADR 0038).
+Implementation: Partly built. The documents, their paths and their validators
+are `server/src/shared/outbound.ts`; the one number form, the paste, the queue,
+the two acts on a row, the documents on disk and the group's door are
+`server/src/outbound/`, answered by `server/src/routes/outbound.ts` and drawn by
+`web/src/views/outbound/TodayView.tsx`; `server/src/outbound.test.ts` drives the
+door, the import, the do-not-call list and the two acts against the mock. The area
+acts as the caller and never as the installation's agent, which is what lets a
+group that exists for outbound work alone be worked at all.
+
+Not built: the card created at the first call with the call log on it, the index
+the import resolves a number against, the script's revision, the window as an act,
+the handoff, and the `outbound` area of the agent's (`shared/areas.ts` still names
+none). Owed the live probe it depends on: a member of a group the installation's
+agent holds no grant on, reading and writing that group's outbound folder — the
+mock answers a member with full rights, so it cannot demonstrate that.
 
 ## Context
 
@@ -66,10 +71,14 @@ handoff carries it, and does not invent it.
 
 A **campaign's list** is its rows: it never exists without the campaign that owns
 it, so re-running a list is a new campaign with the same file rather than the
-same list reused. The **do-not-call list** is the installation's own — one
-document in the Master's account beside the installation's settings, durable and
-one for every group, and the only list that lives on its own, because a promise
-not to call is not a campaign's to keep.
+same list reused. The **do-not-call list** is the group's own — one document in
+the group's account beside the campaigns that honour it, durable and shared by
+every campaign of that group, and the only list that lives on its own, because a
+promise not to call is not a campaign's to keep. It is not the installation's: a
+group exists for outbound work alone as often as not, and the installation's agent
+holds no grant on every group, so a list reached through it would be a promise
+some groups cannot keep. The cost is stated where the promise is made — a number
+that must never be called is entered once for each group that calls.
 
 ### What a campaign is made of
 
@@ -107,7 +116,9 @@ not to call is not a campaign's to keep.
   and exclude the others'.
 - **Every number a card carries is checked against the do-not-call list**, not
   only the string that was pasted: a person called twice by two teams is the
-  failure this product cannot afford.
+  failure this product cannot afford. The list is the group's, so the check happens
+  where the rows are written and never reaches another account: a number the group
+  was told never to call is never written into that group's campaigns.
 - **The list arrives by paste or file, and the work happens on a phone.** A
   hundred calls begin as a paste or a file, never as a form filled once per
   number, and the work happens on the screen in the caller's hand: the size of the
@@ -157,8 +168,8 @@ may use, and the two registers never stand in for each other.
 ## Consequences
 
 The import normalises to the one canonical form, resolves against the group's
-cards and the installation's do-not-call list, and says its counts out loud —
-matched to a card, new, duplicated within the list, refused.
+cards and its do-not-call list, and says its counts out loud — matched to a card,
+new, duplicated within the list, on the do-not-call list, refused.
 
 Resolution by number wants an index the group keeps in its own app folder, because
 asking the mail server to find a card by phone is not the cheap read a hundred-row
