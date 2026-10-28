@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normaliseNumber, numberIn } from "./phone.js";
+import { lineEntry, normaliseNumber } from "./phone.js";
 
 test("an international number is reduced to E.164", () => {
   assert.deepEqual(normaliseNumber("+39 02 1234 567"), {
@@ -75,8 +75,21 @@ test("what is not a number is refused with its reason", () => {
   });
 });
 
-test("the number is found inside a line of prose, and the prose is not swallowed", () => {
-  assert.equal(numberIn("ACME, chiedi di Tizio, +39 333 123 4567"), "+39 333 123 4567");
-  assert.equal(numberIn("Cliente dal 2019 — 02 1234567 — Milano"), "02 1234567");
-  assert.equal(numberIn("nessun numero qui"), null);
+test("the number is found inside a line of prose, and the prose becomes the context", () => {
+  assert.deepEqual(lineEntry("ACME, chiedi di Tizio, +39 333 123 4567"), {
+    entry: "+39 333 123 4567",
+    context: "ACME, chiedi di Tizio",
+  });
+  assert.deepEqual(lineEntry("Cliente dal 2019 — 02 1234567 — Milano"), {
+    entry: "02 1234567",
+    context: "Cliente dal 2019 — — Milano",
+  });
+  assert.deepEqual(lineEntry("nessun numero qui"), { entry: null, context: null });
+});
+
+test("an extension that follows the number inside a line belongs to the number", () => {
+  assert.deepEqual(lineEntry("ACME +39 02 1234567 int. 24"), {
+    entry: "+39 02 1234567 int. 24",
+    context: "ACME",
+  });
 });

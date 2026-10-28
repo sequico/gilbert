@@ -21,7 +21,8 @@
  * metadata: a hand-written table is the same data carrying our mistakes.
  *
  * An extension is not thrown away: it leaves the number and comes back beside
- * it, so a row can keep "int. 24" where a person reads it.
+ * it, so a row can keep "int. 24" where a person reads it — in a spreadsheet cell
+ * and inside a pasted sentence alike.
  */
 
 import {
@@ -31,6 +32,7 @@ import {
   parsePhoneNumberFromString,
 } from "libphonenumber-js";
 import { isE164 } from "../shared/outbound.js";
+
 /** Why a shape could not become a number. A refusal is counted, never guessed. */
 export type NumberRefusal = "empty" | "no_country" | "invalid";
 
@@ -39,26 +41,21 @@ export type NormalisedNumber =
   | { ok: false; reason: NumberRefusal };
 
 /**
- * The markers that end a number and begin what is written beside it.
- *
- * A list of numbers is written by people: `+39 02 1234567 int. 24`, `+39 333
- * 1234567 x24`, `#24`. The marker and what follows leave the digits and are kept
- * as the extension, because "chiedi dell'interno 24" is worth more than the
- * tidiness of dropping it.
- */
-const EXTENSION_MARKER = /\s*(?:int(?:erno)?\.?|ext(?:ension)?\.?|x|#|;)\s*(\d[\d\s]*)$/i;
-
-/**
  * What may decorate a number, stated once: the punctuation a person writes around
  * digits, and the pattern that finds such a run inside a line of prose.
  */
 const PUNCTUATION = "\\s\\u00a0().\\-/";
-
-/** Everything a phone number is allowed to be decorated with. */
 const DECORATION = new RegExp(`[${PUNCTUATION}]`, "g");
-
-/** A run of dialling characters long enough to be a number. */
 const CANDIDATE = new RegExp(`\\+?\\d[\\d${PUNCTUATION}]{5,}\\d`, "g");
+
+/**
+ * The marker that begins what is written beside a number, and the two ways it is
+ * read: at the end of an entry, and at the start of what follows a number inside a
+ * line. One source, so "int." means the same thing in both readers.
+ */
+const EXTENSION_SOURCE = "(?:int(?:erno)?\\.?|ext(?:ension)?\\.?|x|#|;)";
+const EXTENSION_IN_ENTRY = new RegExp(`\\s*${EXTENSION_SOURCE}\\s*(\\d[\\d\\s]*)$`, "i");
+const EXTENSION_AT_START = new RegExp(`^\\s*${EXTENSION_SOURCE}\\s*(\\d[\\d\\s]*)$`, "i");
 
 /** The calling codes, longest first, so `39` is tried before `3` would be. */
 const CALLING_CODES: readonly { code: string; countries: readonly CountryCode[] }[] =
@@ -77,31 +74,8 @@ function buildCallingCodes(): { code: string; countries: CountryCode[] }[] {
     .sort((a, b) => b.code.length - a.code.length);
 }
 
-/** The digits of a raw entry, its extension, and whether it stated a country. */
-function readEntry(raw: string): {
-  digits: string;
-  extension: string | null;
-  international: boolean;
-} {
-  const match = EXTENSION_MARKER.exec(raw);
-  const extension = match?.[1] ? match[1].replace(DECORATION, "") : null;
-  const body = (match ? raw.slice(0, match.index) : raw).replace(DECORATION, "");
-  if (body.startsWith("+"))
-    return { digits: body.slice(1).replace(/\D/g, ""), extension, international: true };
-  if (body.startsWith("00"))
-    return { digits: body.slice(2).replace(/\D/g, ""), extension, international: true };
-  return { digits: body.replace(/\D/g, ""), extension, international: false };
-}
-
-/**
- * The candidate number inside a line of prose.
- *
- * A pasted list is a mail as often as a spreadsheet — "ACME, ask for Tizio, 333
- * 123 4567" — so a line is scanned for the one run that could be a number and the
- * rest of the line is context. Longest wins, because a line carries dates and
- * quantities too, and a number is the longest run of dialling characters.
- */
-export function numberIn(line: string): string | null {
+/** The longest run of dialling characters in a line: the candidate number. */
+function numberIn(line: string): string | null {
   let best: string | null = null;
   let bestDigits = 0;
   for (const match of line.matchAll(CANDIDATE)) {
@@ -112,6 +86,22 @@ export function numberIn(line: string): string | null {
     }
   }
   return best;
+}
+
+/** The digits of a raw entry, its extension, and whether it stated a country. */
+function readEntry(raw: string): {
+  digits: string;
+  extension: string | null;
+  international: boolean;
+} {
+  const match = EXTENSION_IN_ENTRY.exec(raw);
+  const extension = match?.[1] ? match[1].replace(DECORATION, "") : null;
+  const body = (match ? raw.slice(0, match.index) : raw).replace(DECORATION, "");
+  if (body.startsWith("+"))
+    return { digits: body.slice(1).replace(/\D/g, ""), extension, international: true };
+  if (body.startsWith("00"))
+    return { digits: body.slice(2).replace(/\D/g, ""), extension, international: true };
+  return { digits: body.replace(/\D/g, ""), extension, international: false };
 }
 
 /**
@@ -148,4 +138,33 @@ export function normaliseNumber(raw: string): NormalisedNumber {
     }
   }
   return { ok: false, reason: "no_country" };
+}
+
+/**
+ * What one line of a pasted list gives: the entry to normalise, and the words that
+ * were around it.
+ *
+ * A line is prose as often as it is a cell — "ACME, chiedi di Tizio, +39 333 123
+ * 4567 int. 24" — so the number is found inside it and the extension that follows
+ * the number belongs to the number, while everything else is context the row
+ * keeps. Returning the entry rather than the number is what lets one reader own
+ * both halves: the caller normalises, and nothing is parsed twice.
+ */
+export function lineEntry(line: string): {
+  entry: string | null;
+  context: string | null;
+} {
+  const candidate = numberIn(line);
+  if (!candidate) return { entry: null, context: null };
+  const start = line.indexOf(candidate);
+  const after = line.slice(start + candidate.length);
+  const extension = EXTENSION_AT_START.exec(after);
+  const entry = extension ? `${candidate} ${extension[0].trim()}` : candidate;
+  const rest = `${line.slice(0, start)}${extension ? after.slice(extension[0].length) : after}`;
+  // One space between words, never three: the context is shown to a person, and a
+  // hole where the number was is not information.
+  const context = rest
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s,;:\-\u2014]+|[\s,;:\-\u2014]+$/g, "");
+  return { entry, context: context === "" ? null : context };
 }
