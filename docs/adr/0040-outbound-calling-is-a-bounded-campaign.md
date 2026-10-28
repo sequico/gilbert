@@ -8,7 +8,8 @@ and the `gilbert` app folder holds no campaign, row or call log. The primitives
 the decision rests on are built and are named in its Context: the app folder's
 documents (`server/src/appFolder.ts`), the group's contact cards (JSContact for
 `organizations`, labelled `phones`, `titles` and `relatedTo`), the workorder's
-root, parts, states and claim (`server/src/workorder/`, ADR 0036), the knowledge
+root, parts and states (`server/src/workorder/`, ADR 0036), the claim a document is
+taken with (`server/src/agent/claim.ts`, ADR 0032), the knowledge
 base's two tiers (`server/src/knowledge/scope.ts`), and the agent's declared
 areas (ADR 0038).
 
@@ -109,8 +110,8 @@ nobody is the company's own history until a person is attached to it.
   pasted: a person called twice by two teams is the failure this product cannot
   afford.
 - **A row is claimed before its number is dialled**, so a list is never called
-  twice at once — the same act of taking a piece of work the workorder already
-  knows.
+  twice at once — the conditional write and the lapsed lease the installation's
+  own claim already uses (ADR 0032), one row at a time.
 - **A number has one form: E.164 and nothing else.** `+` and the country code
   followed by digits, no space, no punctuation, no extension, no trunk zero, no
   note: the canonical string is the number's identity, and two rows that carry it
