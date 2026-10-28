@@ -470,10 +470,13 @@ export function ContactsSidebar() {
                 )
               }
             />
-            {/* Importing needs somewhere to put them. "All contacts" is not a
-                book, so it files into the default one, which is what the button
-                at the foot of the sidebar quietly did anyway. */}
-            {target.kind !== "shared" && (
+            {/* Importing needs somewhere to put them, and a book somebody else
+                shared read-only is not such a place. A group's own directory is:
+                its members write it, and a migration into it is the same import
+                as into one of your own. "All contacts" is not a book, so it files
+                into the default one, which is what the button at the foot of the
+                sidebar quietly did anyway. */}
+            {(target.kind !== "shared" || target.book.myRights?.mayWrite) && (
               <MenuItem
                 icon={<Upload size={16} />}
                 label={t("Import contacts…")}

@@ -114,6 +114,9 @@ to call is not a campaign's to keep.
   file is read by its columns; **a paste has none**, so it is read for the numbers
   in it — one row for each, the words around it kept as the row's own context —
   because the paste that starts a campaign is as often a mail as a spreadsheet.
+- **The window orders the work; it does not delete it.** A campaign past its window
+  with rows still open is a finding for the group that owns it — closed, extended,
+  or carried into the next campaign — never a list that quietly stops existing.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the conditional write and the lapsed lease the installation's
   own claim already uses (ADR 0032) — and a caller holds one row at a time.
@@ -156,9 +159,9 @@ The import normalises to the one canonical form, resolves against the group's
 cards and the installation's do-not-call list, and says its counts out loud —
 matched to a card, new, duplicated within the list, refused.
 
-Resolution by number wants an index the group keeps, because asking the mail
-server to find a card by phone is not the cheap read a hundred-row paste needs;
-the index is rebuilt from the cards and never becomes a second truth.
+Resolution by number wants an index the group keeps in its own app folder, because
+asking the mail server to find a card by phone is not the cheap read a hundred-row
+paste needs; it is rebuilt from the cards and never becomes a second truth.
 
 The call log is a bounded window per card: the most recent calls, and a count of
 the ones it trimmed. A card is read far more often than it is written, and a log

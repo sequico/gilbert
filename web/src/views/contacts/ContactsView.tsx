@@ -538,9 +538,19 @@ export function ContactsView({ id }: { id?: string }) {
 
   const importFile = async (f: File, intoBookId?: string) => {
     const target = intoBookId && intoBookId !== "all" ? intoBookId : bookId;
+    /*
+     * A destination is the reader's own book or one that lives in another
+     * account -- a group's directory, which its members write. Looked for in
+     * both, because importing into a group's book is the same import: the store
+     * resolves the account from the book it is given.
+     */
+    const sharedBook =
+      target !== "all"
+        ? contacts.sharedBooks.find((b) => b.book.id === target)?.book
+        : undefined;
     const book =
       target !== "all"
-        ? contacts.books[target]
+        ? (contacts.books[target] ?? sharedBook)
         : (books.find((b) => b.isDefault) ?? books[0]);
     if (!book) {
       toast.error(translate("Create an address book first"));
