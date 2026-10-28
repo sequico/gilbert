@@ -111,7 +111,7 @@ to call is not a campaign's to keep.
   list is why the first is true, and where the call is made is why the second is.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the conditional write and the lapsed lease the installation's
-  own claim already uses (ADR 0032), one row at a time.
+  own claim already uses (ADR 0032) — and a caller holds one row at a time.
 - **A number has one form: E.164 and nothing else.** `+` and the country code
   followed by digits — fifteen at most — with no space, no punctuation, no
   extension, no national trunk prefix, no note: the canonical string is the
@@ -151,9 +151,14 @@ Resolution by number wants an index the group keeps, because asking the mail
 server to find a card by phone is not the cheap read a hundred-row paste needs;
 the index is rebuilt from the cards and never becomes a second truth.
 
-The call log is a bounded window per card, oldest trimmed: a card is read far more
-often than it is written, and a log that grows without limit turns opening a
-contact into a large read.
+The call log is a bounded window per card: the most recent calls, and a count of
+the ones it trimmed. A card is read far more often than it is written, and a log
+that grows without limit turns opening a contact into a large read.
+
+A card outlives this area and may already carry a number in any form: outbound
+writes only the canonical one, normalises a card's number when it touches it, and
+reports what it could not normalise instead of rewriting a contact's own data
+silently.
 
 The handoff must be takeable: copy, CSV or a message, with the discovered person
 and the routing note included.
