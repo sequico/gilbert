@@ -21,8 +21,8 @@ import { refreshSettingsPolicy } from "@/lib/settingsPolicy";
 import {
   armSettingsSync,
   loadRemoteSettings,
+  loadSettingsOnce,
   queueSettingsPush,
-  settingsAlreadyLoadedFor,
   settingsSyncAvailable,
 } from "@/lib/settingsSync";
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
@@ -238,19 +238,22 @@ function AuthedApp() {
    */
   const [ready, setReady] = useState(() => settingsInHandFor(accountId));
   useEffect(() => {
-    if (settingsAlreadyLoadedFor(accountId)) {
-      applyLoginLanguage();
-      setReady(true);
-      return;
-    }
     let cancelled = false;
-    void (async () => {
+    /*
+     * Once per account, not once per mount: this subtree is keyed on the
+     * language version, so picking a language throws it away and builds it again.
+     * The load is also not this mount's to cancel — the settings file choosing a
+     * language remounts the tree midway through it, and a load cut off there never
+     * armed the pushes, so nothing changed afterwards was saved (issue #23).
+     * `loadSettingsOnce` runs it to the end and lets every mount wait on it.
+     */
+    void loadSettingsOnce(accountId, async (isCurrent) => {
       /* Before the account's own settings, so both the seeding below and the
          enforcement inside `hydrate` have something to apply. */
       await refreshSettingsPolicy();
-      if (cancelled) return;
+      if (!isCurrent()) return;
       const remote = await loadRemoteSettings();
-      if (cancelled) return;
+      if (!isCurrent()) return;
       /*
        * Seed only an account the server says has no settings file: a file that
        * is there and could not be read is not an empty account, and seeding it
@@ -294,7 +297,7 @@ function AuthedApp() {
       // The catalogue for whatever language that turned out to be. Hydrating
       // asks for it; this is waiting for the answer.
       await whenLanguageReady();
-      if (cancelled) return;
+      if (!isCurrent()) return;
       // Pushes were held back until now so they could not race the load. A
       // change made while it was in flight was kept, and goes out here.
       armSettingsSync();
@@ -306,12 +309,13 @@ function AuthedApp() {
        * triggers must not re-read the account's file over the pick.
        */
       applyLoginLanguage();
-      setReady(true);
       // No file yet — seed one from what this browser has, so the next device
       // to sign in starts from these rather than from the defaults.
       if (remote.kind === "absent" && settingsSyncAvailable())
         queueSettingsPush(syncedPart(useSettings.getState().settings));
-    })();
+    }).then(() => {
+      if (!cancelled) setReady(true);
+    });
     return () => {
       cancelled = true;
     };

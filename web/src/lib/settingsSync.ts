@@ -60,6 +60,10 @@ let inFlight: Promise<void> | null = null;
 /** Nothing is pushed before the first load has settled, or we would race it. */
 let armed = false;
 let loadedFor: string | null = null;
+/** The one load in flight for this account, shared by every mount that asks. */
+let loading: Promise<void> | null = null;
+/** Bumped by every new load and every sign-out; a load checks it is still the latest. */
+let generation = 0;
 let listenersBound = false;
 /** One toast per failing streak, not one per retry. */
 let warnedOfFailure = false;
@@ -151,30 +155,52 @@ async function readSettingsFile(
 }
 
 /**
- * Has this account's settings file already been read on this page load?
+ * Load this account's settings, once per page load, however many times the
+ * caller mounts.
  *
- * The subtree that does the reading is keyed on the language version and so
- * is deliberately remounted whenever somebody picks a language. The account
- * is claimed only once the read has actually settled (`armSettingsSync`), so
- * a remount that cancels a read still in flight is answered "not yet" and
- * reads again -- claiming at the start would let a cancelled read consume the
- * claim, after which the remount would skip the read entirely and never arm
- * sync for that session.
+ * The subtree that does the reading is keyed on the language version, so it is
+ * remounted whenever the language changes — including when the settings file
+ * itself picks one. Tying the load to a mount meant the remount cancelled it
+ * halfway: the new mount saw the account already claimed and skipped the load,
+ * and nothing armed the pushes, so every change made afterwards was silently
+ * dropped and reverted on the next reload (issue #23). The load belongs to the
+ * account, not to the mount: every mount waits on the same promise, and it runs
+ * to the end.
  *
+ * Re-reading on a remount is still wrong — it would apply a file written before
+ * the change and undo it — which is why the load is shared and not repeated.
+ *
+ * `isCurrent` turns false once the session that started the load signs out, so a
+ * load overtaken by a sign-out stops instead of applying stale settings.
  * Cleared by `stopSettingsSync`, so signing out and back in reads again.
  */
-export function settingsAlreadyLoadedFor(accountId: string | null | undefined): boolean {
-  if (!accountId) return true;
-  return loadedFor === accountId;
+export function loadSettingsOnce(
+  accountId: string | null | undefined,
+  load: (isCurrent: () => boolean) => Promise<void>,
+): Promise<void> {
+  if (!accountId) return Promise.resolve();
+  if (loadedFor === accountId && loading) return loading;
+  loadedFor = accountId;
+  const mine = ++generation;
+  /*
+   * A load that threw is not a load that happened: the account is unclaimed
+   * again so the next mount reads the file, and the caller is answered rather
+   * than left waiting — the tree shows itself on the values it has, the same
+   * way an unreadable file does.
+   */
+  loading = load(() => generation === mine).catch((err: unknown) => {
+    if (generation === mine) {
+      loadedFor = null;
+      loading = null;
+    }
+    console.warn("[gilbert] settings: the account's file was not loaded:", err);
+  });
+  return loading;
 }
 
 /** Allow pushes. Called once the first load has settled, either way. */
 export function armSettingsSync(): void {
   armed = true;
-  // The read that just settled is what this page load will trust; claim the
-  // account for it so a later remount does not read again.
-  const accountId = useSession.getState().accountId;
-  if (accountId && !loadedFor) loadedFor = accountId;
   bindFlushListeners();
   // A change made while the read was in flight has been waiting for this.
   if (pending) void flushSettingsPush();
@@ -184,6 +210,8 @@ export function armSettingsSync(): void {
 export function stopSettingsSync(): void {
   armed = false;
   loadedFor = null;
+  loading = null;
+  generation += 1;
   pending = null;
   if (timer !== null) {
     window.clearTimeout(timer);

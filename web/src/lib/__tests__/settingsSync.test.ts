@@ -19,8 +19,8 @@ import {
   armSettingsSync,
   flushSettingsPush,
   loadRemoteSettings,
+  loadSettingsOnce,
   queueSettingsPush,
-  settingsAlreadyLoadedFor,
   stopSettingsSync,
 } from "../settingsSync";
 
@@ -191,32 +191,56 @@ describe("a change made but not yet written up", () => {
     expect(merged.uiLanguage).toBe("en");
   });
 
-  it("claims the account only once the load has settled", () => {
+  it("runs one load per account, and a remount waits on it instead of reading again", async () => {
+    /*
+     * A remount while the read is in flight (picking a language unmounts the
+     * reading subtree) used to cancel it and leave the pushes unarmed, so every
+     * change made afterwards was dropped. The load belongs to the account now:
+     * both mounts wait on one promise, and it runs to the end.
+     */
     stopSettingsSync();
     useSession.setState({ accountId: "a1" });
-    // A mount starts the read...
-    expect(settingsAlreadyLoadedFor("a1")).toBe(false);
-    /*
-     * ...and a remount while it is still in flight (picking a language
-     * unmounts the reading subtree and cancels the first read) must not be
-     * told "already loaded": a claim consumed by a cancelled read made the
-     * remount skip the read and never arm sync for the session.
-     */
-    expect(settingsAlreadyLoadedFor("a1")).toBe(false);
-    // Only the read that actually settles claims the account.
-    armSettingsSync();
-    expect(settingsAlreadyLoadedFor("a1")).toBe(true);
-    // Signing out drops the claim, so signing back in reads the file rather
-    // than trusting whatever the previous session left behind.
+    let started = 0;
+    let finish: () => void = () => {};
+    const load = (isCurrent: () => boolean) => {
+      started += 1;
+      expect(isCurrent()).toBe(true);
+      return new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    };
+    const first = loadSettingsOnce("a1", load);
+    const remount = loadSettingsOnce("a1", load);
+    expect(started).toBe(1);
+    expect(remount).toBe(first);
+    finish();
+    await first;
+    expect(started).toBe(1);
+
+    // Signing out makes the load that was running stop applying anything.
     stopSettingsSync();
-    expect(settingsAlreadyLoadedFor("a1")).toBe(false);
+    useSession.setState({ accountId: "a1" });
+    let stillCurrent: (() => boolean) | null = null;
+    const third = loadSettingsOnce("a1", (isCurrent) => {
+      stillCurrent = isCurrent;
+      return Promise.resolve();
+    });
+    expect(stillCurrent!()).toBe(true);
     stopSettingsSync();
+    expect(stillCurrent!()).toBe(false);
+    await third;
     useSession.setState({ accountId: null });
   });
 
-  it("treats a missing account as already loaded, so nothing is fetched", () => {
-    expect(settingsAlreadyLoadedFor(null)).toBe(true);
-    expect(settingsAlreadyLoadedFor(undefined)).toBe(true);
+  it("treats a missing account as loaded, so nothing is fetched", async () => {
+    let called = false;
+    await loadSettingsOnce(null, async () => {
+      called = true;
+    });
+    await loadSettingsOnce(undefined, async () => {
+      called = true;
+    });
+    expect(called).toBe(false);
   });
 });
 
