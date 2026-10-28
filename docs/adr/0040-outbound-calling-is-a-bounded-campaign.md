@@ -84,7 +84,7 @@ its own, because a promise not to call is not a campaign's to keep.
   not a defect.
 - **Today** — not stored: the queue is the view of the rows that are mine or
   due, and it is where the work happens. The call is placed from the person's own
-  phone; the product has no telephony and acquires none.
+  phone.
 - a **handoff** — not an object: an outcome selects rows into a screened list
   that leaves through Gilbert's own surfaces, a calendar event for the
   appointment, a message to the receiving group, a file. It carries the row's
@@ -98,9 +98,11 @@ its own, because a promise not to call is not a campaign's to keep.
   item is bounded, the identity and the fact of the conversation are not — they
   are what makes the next campaign intelligent.
 - **The directory knows who someone is and what was said. It never decides what
-  to do.** No stage, no value, no forecast, no owner of an account, no follow-up
-  cadence, no quote, no product catalogue. A request for one of these is a
-  request for the CRM the company already runs.
+  to do, and nothing here makes a call.** No stage, no value, no forecast, no
+  owner of an account, no follow-up cadence, no pipeline, no quote, no invoice, no
+  product catalogue, no customer 360, no report suite; no dialer, no recording, no
+  telephony. A request for one of these is a request for the CRM the company
+  already runs, or for the phone in the caller's pocket.
 - **The vocabulary belongs to the campaign.** Outcomes are named per campaign
   ("appointment booked", "documents requested", "not the right material",
   "not interested"), because one central taxonomy would name one company's work
@@ -129,15 +131,12 @@ its own, because a promise not to call is not a campaign's to keep.
   proposing the note a call leaves behind is a write, and only a group whose
   instruction declares the area may receive it.
 
-Out of scope, and deliberately: dialers, telephony, recording, pipelines,
-quotes, invoices, product catalogues, a customer 360 and report suites.
-
 **`gilbertoutbound` is a block for the same reason the other four are** — an
-area of the product with a boundary of its own — and it owns the campaign with
-its list, the row, **Today**, the handoff and the call log, and nothing else: the
-identity is Stalwart's, the access is the group's, the durable document is the
-`gilbert` app folder, the contact card is the mailer's, the model work is
-`gilbertagents` and the pass that wakes a due list is `gilbertserver`'.
+area of the product with a boundary of its own — and what it does not hold is what
+already has an owner: the identity is Stalwart's, the access is the group's, the
+durable document is the `gilbert` app folder, the contact card is the mailer's,
+the model work is `gilbertagents`, and the pass that wakes a due list is
+`gilbertserver`.
 `README.md` defines the five blocks and this record does not restate the
 definitions. Its agent-facing name is `outbound`, the plain noun the rest of the
 area vocabulary uses: a block is how the product is divided, an area is what a run
