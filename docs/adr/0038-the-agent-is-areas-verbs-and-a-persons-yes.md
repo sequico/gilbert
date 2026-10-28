@@ -195,8 +195,8 @@ arrived; what was read becomes the evidence), **act** (the calls the answer need
 one, several, or the same twice in a turn, the wave the protocol allows), **report**
 (say in the conversation what was done or could not be, and end). The run ends when
 the report is written, whatever it has spent — and a run writes **one** report: a
-second `say` after the first landed is refused, and what is left to correct is said
-as the run's ending, not as another message. A plan with dependencies and branches
+second `say` after the first landed is refused, and what is left to correct stays on
+the run's record instead of becoming a second message. A plan with dependencies and branches
 stays available and is used **when the model judges the work needs it**.
 
 ### The turn's context is selected, not accumulated
