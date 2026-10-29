@@ -455,19 +455,23 @@ export function ContactsSidebar() {
           the row menu does, and import is offered only where the book can be
           written -- the book's own account may refuse even so, in its own words. */}
       <div className="contacts-bulk">
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={!canImport}
-          onClick={() => {
-            importInto.current = sel.bookId === "all" ? defaultBookId : sel.bookId;
-            importAccount.current = sel.accountId;
-            fileRef.current?.click();
-          }}
-        >
-          <Upload size={16} />
-          {t("Import contacts…")}
-        </button>
+        {/* Offered only where it can happen, as the row menu offers it: a book
+            the reader may not write is not a destination, and a control that is
+            drawn but dead says the opposite of what is true. */}
+        {canImport && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              importInto.current = sel.bookId === "all" ? defaultBookId : sel.bookId;
+              importAccount.current = sel.accountId;
+              fileRef.current?.click();
+            }}
+          >
+            <Upload size={16} />
+            {t("Import contacts…")}
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-sm"

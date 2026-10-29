@@ -1,6 +1,7 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import {
   ArrowLeft,
+  BookOpen,
   Building2,
   Cake,
   Calendar as CalIcon,
@@ -1170,17 +1171,18 @@ function AddToBookDialog({
       })}
     >
       {choices.length === 0 ? (
-        <p className="muted">{translate("There is no other book to add it to.")}</p>
+        <p className="hint">{translate("There is no other book to add it to.")}</p>
       ) : (
         choices.map((b) => (
           <button
             key={b.id}
             type="button"
-            className="btn btn-ghost"
+            className="menu-item"
             disabled={busy}
             onClick={() => void add(b)}
           >
-            {b.name}
+            <BookOpen size={16} />
+            <span className="grow truncate">{b.name}</span>
           </button>
         ))
       )}
