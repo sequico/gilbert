@@ -14,8 +14,13 @@
  * already taught the group who they are, and bare rows with the words the paste
  * carried where it has not — both states are worth having on screen.
  *
- * The numbers are written in E.164, the one form a row holds, and every one of
- * them is an Italian mobile or landline that libphonenumber reads as valid.
+ * **The demo is English.** Every name, company, role and number here is written
+ * in the language the demo speaks: a demo that mixes a translated interface with
+ * an Italian customer list reads as somebody's fixture, not as a product.
+ *
+ * The numbers are written in E.164, the one form a row holds, in the ranges the
+ * United Kingdom and the United States keep for drama use, which libphonenumber
+ * reads as valid and nobody can be called on.
  */
 
 import { APP_DOCUMENT_TYPE } from "../shared/appFolder.js";
@@ -74,7 +79,7 @@ interface Person {
   known: boolean;
 }
 
-/** The vocabulary every list of this demo shares, with two outcomes of its own. */
+/** The vocabulary every list of this demo shares. */
 const OUTCOMES: CampaignOutcome[] = [
   { id: "spoke", label: "Spoke" },
   { id: "no-answer", label: "No answer" },
@@ -95,7 +100,7 @@ interface List {
 const LISTS: List[] = [
   {
     key: "renewals",
-    purpose: "Rinnovi contratti 2027",
+    purpose: "2027 contract renewals",
     scriptTitle: "Renewal call",
     script: `Good morning, this is Gilbert — may I speak to the person who looks after
 the contract?
@@ -110,80 +115,80 @@ If they are not the right person, ask who owns the renewal and write the name
 in the note — that is what the next call starts from.`,
     people: [
       {
-        company: "Rossi Impianti Srl",
-        person: "Marco Rossi",
-        role: "Titolare",
-        e164: "+393332145567",
+        company: "Northwind Traders",
+        person: "Mark Turner",
+        role: "Owner",
+        e164: "+442079460101",
         known: true,
       },
       {
-        company: "Bianchi Logistica Spa",
-        person: "Elena Bianchi",
-        role: "Responsabile acquisti",
-        e164: "+393478821190",
+        company: "Blue Harbour Logistics",
+        person: "Helen Marsh",
+        role: "Procurement manager",
+        e164: "+442079460102",
         known: true,
       },
       {
-        company: "Officine Verdì",
-        person: "Paolo Verdì",
-        role: "Direttore tecnico",
-        e164: "+393204476621",
+        company: "Verdant Engineering",
+        person: "Paul Green",
+        role: "Technical director",
+        e164: "+442079460103",
         known: true,
       },
       {
-        company: "Cartaria del Nord",
-        person: "Sara Colombo",
-        role: "Acquisti",
-        e164: "+393357719082",
+        company: "Paper Mills Ltd",
+        person: "Sarah Coleman",
+        role: "Purchasing",
+        e164: "+442079460104",
         known: true,
       },
       {
-        company: "Tecnoimpianti Meridionali",
-        person: "Gennaro Esposito",
-        role: "Titolare",
-        e164: "+393485523318",
+        company: "Meridian Plant Hire",
+        person: "Gary Whitfield",
+        role: "Owner",
+        e164: "+442079460105",
         known: true,
       },
       {
-        company: "F.lli Marchetti",
-        person: "Luca Marchetti",
-        role: "Amministrazione",
-        e164: "+393406607745",
+        company: "Hartley Brothers",
+        person: "Luke Hartley",
+        role: "Accounts",
+        e164: "+442079460106",
         known: true,
       },
       {
-        company: "Vetreria San Marco",
-        person: "Chiara Basso",
-        role: "Ufficio acquisti",
-        e164: "+393339182264",
+        company: "St Mark's Glassworks",
+        person: "Claire Barton",
+        role: "Purchasing office",
+        e164: "+442079460107",
         known: true,
       },
       {
-        company: "Imballaggi Toscana",
-        person: "Andrea Fabbri",
-        role: "Responsabile produzione",
-        e164: "+393472204498",
+        company: "Eastfield Packaging",
+        person: "Andrew Fletcher",
+        role: "Production manager",
+        e164: "+442079460108",
         known: false,
       },
       {
-        company: "Molino Adriatico",
-        person: "Federica Neri",
-        role: "Acquisti",
-        e164: "+393209135570",
+        company: "Millbrook Grain",
+        person: "Fiona Nash",
+        role: "Purchasing",
+        e164: "+442079460109",
         known: false,
       },
       {
-        company: "Acciai Veneti",
-        person: "Stefano Rizzo",
-        role: "Direttore commerciale",
-        e164: "+393354028861",
+        company: "Northern Steel",
+        person: "Stephen Reid",
+        role: "Commercial director",
+        e164: "+442079460110",
         known: false,
       },
     ],
   },
   {
     key: "catalogue",
-    purpose: "Nuovo catalogo — lancio",
+    purpose: "New catalogue — launch",
     scriptTitle: "Launch call",
     script: `Good morning, this is Gilbert.
 
@@ -196,80 +201,80 @@ two product lines they would put on the shelf first. A dealer who names a line
 is a dealer worth calling again.`,
     people: [
       {
-        company: "Bricolage Centro",
-        person: "Martina Galli",
+        company: "City Hardware",
+        person: "Emma Collins",
         role: "Buyer",
-        e164: "+393401187732",
+        e164: "+441134960201",
         known: true,
       },
       {
-        company: "Casa & Giardino",
-        person: "Davide Fontana",
-        role: "Titolare",
-        e164: "+393335592210",
+        company: "Home & Garden Co.",
+        person: "David Foster",
+        role: "Owner",
+        e164: "+441144960202",
         known: true,
       },
       {
-        company: "Ferramenta Lombarda",
-        person: "Silvia Moretti",
-        role: "Responsabile",
-        e164: "+393473306678",
+        company: "Midland Tool Supply",
+        person: "Susan Moore",
+        role: "Manager",
+        e164: "+441614960211",
         known: true,
       },
       {
-        company: "Emporio del Legno",
-        person: "Giorgio Villa",
-        role: "Acquisti",
-        e164: "+393207714409",
+        company: "The Wood Store",
+        person: "George Hill",
+        role: "Purchasing",
+        e164: "+441164960204",
         known: true,
       },
       {
-        company: "Utensileria Padana",
-        person: "Laura Serra",
-        role: "Titolare",
-        e164: "+393356601123",
+        company: "Northern Hand Tools",
+        person: "Laura Bennett",
+        role: "Owner",
+        e164: "+441174960205",
         known: true,
       },
       {
-        company: "Colorificio Ligure",
-        person: "Matteo Bruno",
+        company: "Coast Paint Co.",
+        person: "Matthew Brooks",
         role: "Buyer",
-        e164: "+393402238890",
+        e164: "+441184960206",
         known: true,
       },
       {
-        company: "Serramenti Aurora",
-        person: "Anna De Luca",
-        role: "Ufficio tecnico",
-        e164: "+393487715534",
+        company: "Aurora Windows",
+        person: "Anna Delaney",
+        role: "Technical office",
+        e164: "+441214960207",
         known: true,
       },
       {
-        company: "Edilizia Sud",
-        person: "Vincenzo Greco",
-        role: "Titolare",
-        e164: "+393334409987",
+        company: "Southern Building Supplies",
+        person: "Vincent Gray",
+        role: "Owner",
+        e164: "+441314960208",
         known: false,
       },
       {
-        company: "Legnami Alpini",
-        person: "Elisa Conti",
-        role: "Acquisti",
-        e164: "+393471182245",
+        company: "Alpine Timber",
+        person: "Elaine Cook",
+        role: "Purchasing",
+        e164: "+441414960209",
         known: false,
       },
       {
-        company: "Casa Sicura Srl",
-        person: "Roberto Mancini",
-        role: "Direttore",
-        e164: "+393205527713",
+        company: "Safe Homes Ltd",
+        person: "Robert Mason",
+        role: "Director",
+        e164: "+441514960210",
         known: false,
       },
     ],
   },
   {
     key: "suppliers",
-    purpose: "Fornitori — richiesta preventivi",
+    purpose: "Suppliers — quote requests",
     scriptTitle: "Quote call",
     script: `Good morning, this is Gilbert.
 
@@ -281,73 +286,73 @@ Ask for a written quote by the end of the week, and for the name of whoever
 signs it — a quote that arrives without a name is a quote nobody can chase.`,
     people: [
       {
-        company: "Carta & Cartone Spa",
-        person: "Giulia Ferri",
-        role: "Ufficio commerciale",
-        e164: "+393357741120",
+        company: "Paper & Board Co.",
+        person: "Julia Fielding",
+        role: "Sales office",
+        e164: "+441614960301",
         known: true,
       },
       {
-        company: "Plastica Moderna",
-        person: "Alessandro Costa",
-        role: "Vendite",
-        e164: "+393408893312",
+        company: "Modern Plastics",
+        person: "Alex Cooper",
+        role: "Sales",
+        e164: "+441914960302",
         known: true,
       },
       {
-        company: "Metalli Uniti",
-        person: "Francesca Rinaldi",
-        role: "Commerciale",
-        e164: "+393336624478",
+        company: "United Metals",
+        person: "Frances Rudd",
+        role: "Sales",
+        e164: "+442890180303",
         known: true,
       },
       {
-        company: "Trasporti Veloci",
-        person: "Nicola Caruso",
-        role: "Logistica",
-        e164: "+393475512231",
+        company: "Swift Transport",
+        person: "Nicholas Carr",
+        role: "Logistics",
+        e164: "+442920180304",
         known: true,
       },
       {
-        company: "Chimica del Porto",
-        person: "Valeria Lombardi",
-        role: "Acquisti",
-        e164: "+393483309964",
+        company: "Harbour Chemicals",
+        person: "Valerie Lambert",
+        role: "Purchasing",
+        e164: "+441312960305",
         known: true,
       },
       {
-        company: "Elettroforniture Spa",
-        person: "Simone Barbieri",
-        role: "Vendite",
-        e164: "+393204477712",
+        company: "Electro Supply Ltd",
+        person: "Simon Barrett",
+        role: "Sales",
+        e164: "+441414960306",
         known: true,
       },
       {
-        company: "Sacchi Industriali",
-        person: "Marta Giordano",
-        role: "Commerciale",
-        e164: "+393352215589",
+        company: "Industrial Sacks",
+        person: "Martha Jordan",
+        role: "Sales",
+        e164: "+441514960307",
         known: true,
       },
       {
-        company: "Lavorazioni CNC",
-        person: "Fabio Martini",
-        role: "Titolare",
-        e164: "+393407743361",
+        company: "CNC Machining Ltd",
+        person: "Frank Martin",
+        role: "Owner",
+        e164: "+441614960308",
         known: false,
       },
       {
-        company: "Vernici Ecologiche",
-        person: "Ilaria Fontana",
-        role: "Ufficio tecnico",
-        e164: "+393331186623",
+        company: "Eco Paints",
+        person: "Irene Foster",
+        role: "Technical office",
+        e164: "+441914960309",
         known: false,
       },
       {
-        company: "Ricambi Auto Nord",
-        person: "Carlo Serra",
-        role: "Vendite",
-        e164: "+393476621189",
+        company: "Northern Auto Parts",
+        person: "Carl Sutton",
+        role: "Sales",
+        e164: "+441134960310",
         known: false,
       },
     ],
@@ -360,7 +365,7 @@ signs it — a quote that arrives without a name is a quote nobody can chase.`,
  */
 const CLOSED: List = {
   key: "september-fair",
-  purpose: "Fiera di settembre — appuntamenti",
+  purpose: "September fair — appointments",
   scriptTitle: "Fair follow-up",
   script: `Thank you for stopping at our stand.
 
@@ -372,38 +377,38 @@ If the visit is not wanted, ask whether the brochures arrived — that is the
 answer the next list works from.`,
   people: [
     {
-      company: "Gruppo Aldebaran",
-      person: "Roberto Salvi",
-      role: "Direttore acquisti",
-      e164: "+393337741120",
+      company: "Aldebaran Group",
+      person: "Robert Sallis",
+      role: "Purchasing director",
+      e164: "+441614960401",
       known: true,
     },
     {
-      company: "Metalwork Srl",
-      person: "Giovanna Pellegrini",
-      role: "Titolare",
-      e164: "+393471129983",
+      company: "Metalwork Ltd",
+      person: "Joanna Pemberton",
+      role: "Owner",
+      e164: "+441614960402",
       known: true,
     },
     {
-      company: "Nuova Elettrica",
-      person: "Pietro Sanna",
-      role: "Ufficio tecnico",
-      e164: "+393205561178",
+      company: "New Electric Co.",
+      person: "Peter Sanders",
+      role: "Technical office",
+      e164: "+441614960403",
       known: true,
     },
     {
-      company: "Il Ferramenta",
-      person: "Cristina Villa",
+      company: "The Tool Shop",
+      person: "Christine Vale",
       role: "Buyer",
-      e164: "+393356678812",
+      e164: "+441614960404",
       known: false,
     },
     {
-      company: "Tecnologie Applicate",
-      person: "Marco D'Amico",
-      role: "Amministratore",
-      e164: "+393402211348",
+      company: "Applied Technologies",
+      person: "Mark Dawson",
+      role: "Managing director",
+      e164: "+441614960405",
       known: false,
     },
   ],
@@ -470,8 +475,7 @@ export function demoOutboundNodes(input: OutboundSeedInput): OutboundSeed {
   nodes.push(node.dir("ob-root", groupAppFolder, OUTBOUND_FOLDER));
   nodes.push(node.dir("ob-campaigns", "ob-root", CAMPAIGN_FOLDER));
   nodes.push(node.dir("ob-rows", "ob-root", ROW_FOLDER));
-  // The scripts are the group's own knowledge pages, in the folder a reader finds
-  // them in.
+  // The scripts are the group's own knowledge pages, where a reader finds them.
   nodes.push(node.dir("ob-know", groupAppFolder, KNOWLEDGE_FOLDER));
 
   let page = 0;
@@ -542,6 +546,20 @@ export function demoOutboundNodes(input: OutboundSeedInput): OutboundSeed {
     };
   };
 
+  const cardOf = (list: List, person: Person, index: number): Obj => ({
+    id: `ob-card-${list.key}-${index + 1}`,
+    addressBookIds: { [book]: true },
+    "@type": "Card",
+    version: "1.0",
+    uid: `uid-ob-card-${list.key}-${index + 1}`,
+    kind: "individual",
+    name: { full: person.person },
+    organizations: { o1: { name: person.company } },
+    titles: { t1: { "@type": "Title", name: person.role } },
+    phones: { p1: { "@type": "Phone", number: person.e164 } },
+    updated: at,
+  });
+
   for (const list of LISTS) {
     const campaign = campaignFor(list, false);
     nodes.push(
@@ -555,32 +573,15 @@ export function demoOutboundNodes(input: OutboundSeedInput): OutboundSeed {
     );
 
     const rows: RowDoc[] = list.people.map((person, index) => {
-      const rowUid = `ob-row-${list.key}-${index + 1}`;
-      let cardUid: string | null = null;
-      if (person.known) {
-        cardUid = `ob-card-${list.key}-${index + 1}`;
-        cards.push({
-          id: cardUid,
-          addressBookIds: { [book]: true },
-          "@type": "Card",
-          version: "1.0",
-          uid: `uid-${cardUid}`,
-          kind: "individual",
-          name: { full: person.person },
-          organizations: { o1: { name: person.company } },
-          titles: { t1: { "@type": "Title", name: person.role } },
-          phones: { p1: { "@type": "Phone", number: person.e164 } },
-          updated: at,
-        } satisfies Obj);
-      }
+      if (person.known) cards.push(cardOf(list, person, index));
       return {
         version: 1,
-        uid: rowUid,
+        uid: `ob-row-${list.key}-${index + 1}`,
         campaignUid: campaign.uid,
         e164: person.e164,
         extension: null,
-        context: `${person.company}, chiedi di ${person.person.split(" ")[0]}`,
-        cardUid,
+        context: `${person.company}, ask for ${person.person.split(" ")[0]}`,
+        cardUid: person.known ? `ob-card-${list.key}-${index + 1}` : null,
         state: "open",
         claim: null,
         nextCallAt: null,
@@ -590,7 +591,13 @@ export function demoOutboundNodes(input: OutboundSeedInput): OutboundSeed {
       };
     });
     nodes.push(
-      node.json(`ob-rows-${list.key}`, "ob-rows", `${campaign.uid}.json`, { version: 1, rows }, group),
+      node.json(
+        `ob-rows-${list.key}`,
+        "ob-rows",
+        `${campaign.uid}.json`,
+        { version: 1, rows },
+        group,
+      ),
     );
   }
 
@@ -605,56 +612,47 @@ export function demoOutboundNodes(input: OutboundSeedInput): OutboundSeed {
       group,
     ),
   );
-  const closedRows: RowDoc[] = CLOSED.people.map((person, index) => ({
-    version: 1,
-    uid: `ob-row-${CLOSED.key}-${index + 1}`,
-    campaignUid: closed.uid,
-    e164: person.e164,
-    extension: null,
-    context: `${person.company}, chiedi di ${person.person.split(" ")[0]}`,
-    cardUid: person.known ? `ob-card-${CLOSED.key}-${index + 1}` : null,
-    state: "done",
-    claim: null,
-    nextCallAt: null,
-    calls: [
-      {
-        at,
-        by: author,
-        outcome: index % 3 === 0 ? "spoke" : index % 3 === 1 ? "no-answer" : "not-interested",
-        note:
-          index % 3 === 0
-            ? "Visit booked for the 12th"
-            : index % 3 === 1
-              ? null
-              : "Already supplied by another vendor",
-        cardUid: person.known ? `ob-card-${CLOSED.key}-${index + 1}` : null,
-      },
-    ],
-    trimmed: 0,
-    createdAt: at,
-  }));
-  for (const person of CLOSED.people) {
-    if (!person.known) continue;
-    const cardUid = `ob-card-${CLOSED.key}-${CLOSED.people.indexOf(person) + 1}`;
-    cards.push({
-      id: cardUid,
-      addressBookIds: { [book]: true },
-      "@type": "Card",
-      version: "1.0",
-      uid: `uid-${cardUid}`,
-      kind: "individual",
-      name: { full: person.person },
-      organizations: { o1: { name: person.company } },
-      titles: { t1: { "@type": "Title", name: person.role } },
-      phones: { p1: { "@type": "Phone", number: person.e164 } },
-      updated: at,
-    } satisfies Obj);
-  }
-  nodes.push(
-    node.json(`ob-rows-${CLOSED.key}`, "ob-rows", `${closed.uid}.json`, {
+  const closedRows: RowDoc[] = CLOSED.people.map((person, index) => {
+    if (person.known) cards.push(cardOf(CLOSED, person, index));
+    const outcome =
+      index % 3 === 0 ? "spoke" : index % 3 === 1 ? "no-answer" : "not-interested";
+    return {
       version: 1,
-      rows: closedRows,
-    }, group),
+      uid: `ob-row-${CLOSED.key}-${index + 1}`,
+      campaignUid: closed.uid,
+      e164: person.e164,
+      extension: null,
+      context: `${person.company}, ask for ${person.person.split(" ")[0]}`,
+      cardUid: person.known ? `ob-card-${CLOSED.key}-${index + 1}` : null,
+      state: "done",
+      claim: null,
+      nextCallAt: null,
+      calls: [
+        {
+          at,
+          by: author,
+          outcome,
+          note:
+            index % 3 === 0
+              ? "Visit booked for the 12th"
+              : index % 3 === 1
+                ? null
+                : "Already supplied by another vendor",
+          cardUid: person.known ? `ob-card-${CLOSED.key}-${index + 1}` : null,
+        },
+      ],
+      trimmed: 0,
+      createdAt: at,
+    };
+  });
+  nodes.push(
+    node.json(
+      `ob-rows-${CLOSED.key}`,
+      "ob-rows",
+      `${closed.uid}.json`,
+      { version: 1, rows: closedRows },
+      group,
+    ),
   );
 
   return { nodes, cards };
