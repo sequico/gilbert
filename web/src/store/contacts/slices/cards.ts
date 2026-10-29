@@ -530,9 +530,16 @@ export function cardsSlice(
         const card =
           target === own ? get().cards[id] : get().sharedCards[sharedKey(target, id)];
         const books = Object.keys(card?.addressBookIds ?? {});
-        if (fromBook && books.length > 1 && books.includes(fromBook))
+        /*
+         * Three cases, and the book decides all of them: filed here and
+         * elsewhere, the card leaves this book; filed only here, it goes; filed
+         * nowhere here, this deletion has nothing to say about it. Without a book
+         * -- a merge, the card on screen -- the card is the thing being deleted.
+         */
+        if (!fromBook) held.destroy.push(id);
+        else if (books.length > 1 && books.includes(fromBook))
           held.update[id] = { [`addressBookIds/${fromBook}`]: null };
-        else held.destroy.push(id);
+        else if (books.length === 1 && books[0] === fromBook) held.destroy.push(id);
         byAccount.set(target, held);
       }
       const gone: Id[] = [];
