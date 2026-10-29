@@ -1130,6 +1130,11 @@ export const catalog: Catalog = {
     "Contact created": "联系人已创建",
     "Contact moved": "联系人已移动",
     "Contact deleted": "联系人已删除",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "将从本通讯录中移除；仅在本通讯录中的联系人会被彻底删除。此操作无法撤销。",
+    "Removed from this address book": "已从本通讯录中移除",
+    "Removed {n} contact from this address book": "已从本通讯录中移除 {n} 个联系人",
+    "Removed {n} contacts from this address book": "已从本通讯录中移除 {n} 个联系人",
     "Contact saved": "联系人已保存",
     Copied: "已复制",
     "Could not cancel: {error}": "无法取消：{error}",
@@ -1159,6 +1164,8 @@ export const catalog: Catalog = {
     "Delete this event?": "删除此日程？",
     "Delete this identity?": "删除此发件身份？",
     "Delete {name}?": "删除 {name}？",
+    "It leaves this address book and stays in the others it is in.":
+      "该联系人将从此通讯录中移出，并保留在其所在的其他通讯录中。",
     Deleted: "已删除",
     "Deletes the whole series. This cannot be undone.": "删除整个系列。此操作无法撤销。",
     "Did you forget the attachment?": "您是不是忘了添加附件？",
@@ -1268,7 +1275,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "切换到{theme}",
     Template: "模板",
     "Template name": "模板名称",
-    "The contacts in it go too.": "其中的联系人也会一并删除。",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "仅在本通讯录中的联系人会被删除。同时位于其他通讯录的联系人只会从此通讯录中移除。",
     "The default identity is always offered when composing":
       "默认发件身份在写邮件时始终提供",
     "The new passwords don't match": "两次输入的新密码不一致",
@@ -1608,10 +1616,18 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "此操作无法撤销。",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "其中一个位于多个通讯录中，将从所有通讯录中删除。",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "其中 {n} 个位于多个通讯录中，将从所有通讯录中删除。",
     "Some could not be deleted: {error}": "部分无法删除：{error}",
     "It was not deleted": "未被删除",
     "Empty address book": "清空此通讯录",
     "There is nothing in it to delete": "其中没有可删除的内容",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
     "Empty “{name}”?": "清空“{name}”？",
     "Delete them": "删除",
     "Nothing was deleted": "未删除任何内容",

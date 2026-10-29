@@ -1161,6 +1161,12 @@ export const catalog: Catalog = {
     "Contact created": "Contacto creado",
     "Contact moved": "Contacto movido",
     "Contact deleted": "Contacto eliminado",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Se quitan de esta libreta; un contacto que solo está en ella se elimina. Esto no se puede deshacer.",
+    "Removed from this address book": "Quitado de esta libreta",
+    "Removed {n} contact from this address book": "{n} contacto quitado de esta libreta",
+    "Removed {n} contacts from this address book":
+      "{n} contactos quitados de esta libreta",
     "Contact saved": "Contacto guardado",
     Copied: "Copiado",
     "Could not cancel: {error}": "No se pudo cancelar: {error}",
@@ -1192,6 +1198,8 @@ export const catalog: Catalog = {
     "Delete this event?": "¿Eliminar este evento?",
     "Delete this identity?": "¿Eliminar esta identidad?",
     "Delete {name}?": "¿Eliminar {name}?",
+    "It leaves this address book and stays in the others it is in.":
+      "Sale de esta libreta y permanece en las demás en las que está.",
     Deleted: "Eliminado",
     "Deletes the whole series. This cannot be undone.":
       "Elimina la serie completa. No se puede deshacer.",
@@ -1311,7 +1319,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Cambiar a {theme}",
     Template: "Plantilla",
     "Template name": "Nombre de la plantilla",
-    "The contacts in it go too.": "También se eliminarán los contactos que contiene.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Se eliminan los contactos que solo están en ella. Los que también están en otra libreta solo se quitan de esta.",
     "The default identity is always offered when composing":
       "La identidad predeterminada siempre se ofrece al redactar",
     "The new passwords don't match": "Las contraseñas nuevas no coinciden",
@@ -1662,10 +1671,18 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Esto no se puede deshacer.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Uno de ellos está en más de una libreta y se elimina de todas.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} de ellos están en más de una libreta y se eliminan de todas.",
     "Some could not be deleted: {error}": "Algunos no se pudieron eliminar: {error}",
     "It was not deleted": "No se ha eliminado",
     "Empty address book": "Vaciar esta libreta de direcciones",
     "There is nothing in it to delete": "No hay nada dentro que eliminar",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} de ellos también está en otra libreta y solo se quitará de esta.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} de ellos también están en otras libretas y solo se quitarán de esta.",
     "Empty “{name}”?": "¿Vaciar «{name}»?",
     "Delete them": "Eliminarlos",
     "Nothing was deleted": "No se ha eliminado nada",

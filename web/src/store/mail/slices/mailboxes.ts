@@ -13,6 +13,7 @@ import { plural, t } from "@/lib/i18n";
 import { destroyRefusal, folderDestroyTakesMail, mayDestroy } from "@/lib/mailDelete";
 import { mailRouteAccount } from "@/lib/mailLink";
 import type { FolderRef } from "@/lib/sieveFolders";
+import { bySortOrder } from "@/lib/sortOrder";
 import { toast } from "@/ui/toast";
 import { useSieve } from "../../sieve";
 import { deleteContext } from "../context";
@@ -234,7 +235,7 @@ export function mailboxesSlice(
     childrenOf(parentId) {
       return Object.values(get().mailboxes)
         .filter((m) => (m.parentId ?? null) === parentId)
-        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+        .sort(bySortOrder);
     },
 
     descendantMailboxIds(mailboxId) {

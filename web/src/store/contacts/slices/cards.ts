@@ -1,7 +1,13 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { ref } from "@gilbert/shared/jmapQuery";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
-import { chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
+import {
+  batchedSet,
+  chunk,
+  client,
+  JmapMethodError,
+  setErrorMessage,
+} from "@/jmap/client";
 import type {
   ChangesResponse,
   ContactCard,
@@ -18,7 +24,7 @@ import {
   refuseDirectoryWrite,
 } from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
-import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
+import { accountOf, accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
 import { useSession } from "../../session";
 import { accountOfBook, sessionEpoch } from "../shared";
 import type { ContactsGet, ContactsSet, ContactsState } from "../types";
@@ -269,10 +275,12 @@ export function cardsSlice(
     cardsIn(accountId) {
       const own = get().accountId;
       if (!accountId || accountId === own) return Object.values(get().cards);
-      const prefix = `${accountId}:`;
-      return Object.entries(get().sharedCards)
-        .filter(([key]) => key.startsWith(prefix))
-        .map(([, card]) => card);
+      return (
+        Object.entries(get().sharedCards)
+          // The key's own reader, not a prefix written out again: one format.
+          .filter(([key]) => accountOf(key) === accountId)
+          .map(([, card]) => card)
+      );
     },
 
     /*
@@ -324,7 +332,14 @@ export function cardsSlice(
         card.accountId === own || !card.accountId
           ? get().cards[card.id]
           : get().sharedCards[sharedKey(card.accountId, card.id)];
-      const books = { ...(held?.addressBookIds ?? {}) };
+      /*
+       * Nothing in hand means nothing to add to: the map would be built from an
+       * empty set and the write would carry one id, which *moves* the card out of
+       * the books it is in. Loud instead -- the card is always in the store by the
+       * time a row is drawn, so a miss is a caller's mistake.
+       */
+      if (!held) throw new Error("That contact is not in this account");
+      const books = { ...(held.addressBookIds ?? {}) };
       if (books[bookId]) return;
       books[bookId] = true;
       await get().updateCard(card, { addressBookIds: books });
@@ -499,44 +514,66 @@ export function cardsSlice(
      * what went is remembered per account, which is also what says where each one
      * leaves the cache from.
      */
-    async destroyCards(cards) {
+    async destroyCards(cards, fromBook) {
       const own = get().accountId;
       /*
        * Every card is named by the account it lives in as well as its id. An id
        * alone is not an address: the reader's own card and a group's can carry the
        * same one, and a bare id resolves to the reader's own -- so destroying the
        * group's card would take the reader's own with it.
+       *
+       * With `fromBook`, the deletion is the book's: a card filed in more than one
+       * book loses that one and stays where else it is, and only a card that is
+       * here alone is destroyed. Without it -- the merge's absorbed card, the one
+       * on screen -- the card itself goes, which is what those two mean.
        */
-      const byAccount = new Map<Id, Id[]>();
+      const byAccount = new Map<Id, { destroy: Id[]; update: Record<Id, unknown> }>();
       for (const { id, accountId } of cards) {
         const target = accountId ?? own;
         if (!target) continue;
         // The directory is not a JMAP account: its cards leave the list through
         // the administration route, never a `ContactCard/set` at the sentinel.
         refuseDirectoryWrite(target);
-        const held = byAccount.get(target);
-        if (held) held.push(id);
-        else byAccount.set(target, [id]);
+        const held = byAccount.get(target) ?? { destroy: [], update: {} };
+        const card =
+          target === own ? get().cards[id] : get().sharedCards[sharedKey(target, id)];
+        const books = Object.keys(card?.addressBookIds ?? {});
+        /*
+         * Three cases, and the book decides all of them: filed here and
+         * elsewhere, the card leaves this book; filed only here, it goes; filed
+         * nowhere here, this deletion has nothing to say about it. Without a book
+         * -- a merge, the card on screen -- the card is the thing being deleted.
+         */
+        if (!fromBook) held.destroy.push(id);
+        else if (books.length > 1 && books.includes(fromBook))
+          held.update[id] = { [`addressBookIds/${fromBook}`]: null };
+        else if (books.length === 1 && books[0] === fromBook) held.destroy.push(id);
+        byAccount.set(target, held);
       }
       const gone: Id[] = [];
       const goneByAccount = new Map<Id, Id[]>();
+      const unfiledByAccount = new Map<Id, Id[]>();
+      let unfiled = 0;
       let refused: SetError | undefined;
       try {
-        for (const [accountId, part] of byAccount)
-          for (const batch of chunk(part, client.maxObjectsInSet)) {
-            const res = await client.call<SetResponse>("ContactCard/set", {
-              accountId,
-              destroy: batch,
-            });
-            const destroyed = res.destroyed ?? [];
-            if (destroyed.length) {
-              gone.push(...destroyed);
-              const went = goneByAccount.get(accountId);
-              if (went) went.push(...destroyed);
-              else goneByAccount.set(accountId, [...destroyed]);
-            }
-            refused ??= Object.values(res.notDestroyed ?? {})[0];
+        for (const [accountId, part] of byAccount) {
+          const res = await batchedSet<ContactCard>({
+            method: "ContactCard",
+            accountId,
+            update: part.update,
+            destroy: part.destroy,
+          });
+          if (res.destroyed.length) {
+            gone.push(...res.destroyed);
+            goneByAccount.set(accountId, res.destroyed);
           }
+          const left = Object.keys(part.update);
+          if (left.length) {
+            unfiled += left.length;
+            unfiledByAccount.set(accountId, left);
+          }
+          refused ??= res.refused;
+        }
       } finally {
         if (gone.length)
           set((s) => {
@@ -549,11 +586,32 @@ export function cardsSlice(
               }
             return { cards, sharedCards };
           });
+        /*
+         * A card taken out of one book is still here: its membership is patched
+         * in place, so the list it was just removed from stops drawing it without
+         * a second round trip. Only the book named is dropped -- any other book
+         * keeps its place in the card.
+         */
+        if (unfiled && fromBook)
+          set((s) => {
+            const cards = { ...s.cards };
+            const sharedCards = { ...s.sharedCards };
+            for (const [accountId, ids] of unfiledByAccount)
+              for (const id of ids) {
+                const key = accountId === own ? id : sharedKey(accountId, id);
+                const map = accountId === own ? cards : sharedCards;
+                const card = map[key];
+                if (!card) continue;
+                const { [fromBook]: _gone, ...rest } = card.addressBookIds ?? {};
+                map[key] = { ...card, addressBookIds: rest };
+              }
+            return { cards, sharedCards };
+          });
       }
       /* Answered rather than thrown. A refusal that took half the selection with
          it still deleted the other half, and an error that says only "it failed"
          sends somebody looking for contacts that are already gone. */
-      return { destroyed: gone.length, refused };
+      return { destroyed: gone.length, unfiled, refused };
     },
   };
 }

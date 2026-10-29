@@ -1884,8 +1884,9 @@ JMAP Contacts and JSContact.
 - **Search** across name, address, organisation and notes, in one book or all.
 - **vCard import** through `ContactCard/parse` (a file of any number of cards), and
   **export** of one card, a whole book, or everything as `.vcf`. Both are at the foot
-  of the books, named for what is selected, and offered on any book the reader may
-  write — a group's own directory included, because a member writes it.
+  of the books, named for what is selected: import appears only on a book the reader
+  may write — a group's own directory included, because a member writes it — while
+  export is offered on any book, a share opened read-only included.
 - **A contact can belong to several books of its account** without being copied:
   *Add to another book…* on a row files it into one more and keeps the one it is
   in, up to the server's ten. Membership is the card's own (`addressBookIds`, RFC
@@ -1900,8 +1901,10 @@ JMAP Contacts and JSContact.
 - **Re-importing updates rather than duplicates.** A vCard is recognised by its
   UID, an LDIF entry by its distinguished name. The card already here is merged
   with the file's version — what the file carries wins, what it does not mention is
-  left alone. Matching is per address book. An entry no longer recognisable is
-  imported again and counted.
+  left alone. Matching is **per address book, and never across books**: a contact
+  filed in another book is imported again rather than silently joined to it, because
+  the file says nothing about which books its author meant. An entry no longer
+  recognisable is imported again and counted.
 - **Directory lookup** through `Principal/query`. **Recent recipients** are kept on
   the device, and only on a device you said was yours.
 - Contacts in a shared book you have added — or in any book of a group you belong

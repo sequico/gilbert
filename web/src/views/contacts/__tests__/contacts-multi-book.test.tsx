@@ -92,7 +92,12 @@ describe("a contact in more than one book", () => {
         recent: [],
       });
       useMail.setState({
-        mailAccounts: [{ accountId: "own", name: "me@example.org", kind: "own" }],
+        mailAccounts: [
+          { accountId: "own", name: "me@example.org", kind: "own" },
+          // The group's account, so its books and cards are part of what the
+          // view draws under All contacts.
+          { accountId: "grp", name: "freight@example.org", kind: "group" },
+        ],
       });
     });
     await act(async () => {
@@ -169,5 +174,52 @@ describe("a contact in more than one book", () => {
     ).c1;
     // The whole map: one id alone would move the card instead of adding.
     expect(update?.addressBookIds).toEqual({ b1: true, b2: true });
+  });
+
+  it("offers no menu on a card the reader may not write", async () => {
+    await arrange();
+    // A card in a book shared read-only: nothing in the menu could be written,
+    // so there is no menu -- where before this action, the right-click only
+    // existed for an administrator and a read-only card never reached it.
+    await act(async () => {
+      useContacts.setState({
+        sharedBooks: [
+          {
+            accountId: "grp",
+            accountName: "freight@example.org",
+            book: book("g1", "Freight", false),
+          },
+        ],
+        sharedCards: {
+          "grp:c2": {
+            id: "c2",
+            uid: "u-c2",
+            kind: "individual",
+            name: { full: "Grace Locked" },
+            emails: {},
+            addressBookIds: { g1: true },
+          } as unknown as ContactCard,
+        },
+      });
+    });
+    const sharedRow = [...host.querySelectorAll(".contact-row")].find((r) =>
+      (r.textContent ?? "").includes("Grace Locked"),
+    );
+    expect(sharedRow).toBeDefined();
+    await act(async () => {
+      sharedRow!.dispatchEvent(
+        new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+      );
+    });
+    expect([...document.querySelectorAll(".menu-item")]).toEqual([]);
+  });
+
+  it("refuses to file a card it cannot see, rather than move it out of every book", async () => {
+    await arrange();
+    // No card in the store: the map would be empty and the write would carry one
+    // id, which this server reads as "move". It throws instead.
+    await expect(
+      useContacts.getState().addCardToBook({ id: "nope", accountId: null }, "b2"),
+    ).rejects.toThrow();
   });
 });

@@ -1160,6 +1160,11 @@ export const catalog: Catalog = {
     "Contact created": "Contato criado",
     "Contact moved": "Contato movido",
     "Contact deleted": "Contato excluído",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Eles são removidos desta agenda; um contato que só está nela é excluído. Isso não pode ser desfeito.",
+    "Removed from this address book": "Removido desta agenda",
+    "Removed {n} contact from this address book": "{n} contato removido desta agenda",
+    "Removed {n} contacts from this address book": "{n} contatos removidos desta agenda",
     "Contact saved": "Contato salvo",
     Copied: "Copiado",
     "Could not cancel: {error}": "Não foi possível cancelar: {error}",
@@ -1191,6 +1196,8 @@ export const catalog: Catalog = {
     "Delete this event?": "Excluir este evento?",
     "Delete this identity?": "Excluir esta identidade?",
     "Delete {name}?": "Excluir {name}?",
+    "It leaves this address book and stays in the others it is in.":
+      "Ele sai desta agenda e permanece nas outras em que está.",
     Deleted: "Excluído",
     "Deletes the whole series. This cannot be undone.":
       "Exclui a série inteira. Isso não pode ser desfeito.",
@@ -1310,7 +1317,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Mudar para {theme}",
     Template: "Modelo",
     "Template name": "Nome do modelo",
-    "The contacts in it go too.": "Os contatos dentro dele também serão excluídos.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Os contatos que só estão nela são excluídos. Os que também estão em outra agenda são apenas removidos desta.",
     "The default identity is always offered when composing":
       "A identidade padrão é sempre oferecida ao escrever",
     "The new passwords don't match": "As novas senhas não coincidem",
@@ -1665,10 +1673,18 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Isso não pode ser desfeito.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Um deles está em mais de uma agenda e será excluído de todas.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} deles estão em mais de uma agenda e serão excluídos de todas.",
     "Some could not be deleted: {error}": "Alguns não puderam ser excluídos: {error}",
     "It was not deleted": "Não foi excluído",
     "Empty address book": "Esvaziar este catálogo de endereços",
     "There is nothing in it to delete": "Não há nada nele para excluir",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} deles também está em outra agenda e será removido apenas desta.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} deles também estão em outras agendas e serão removidos apenas desta.",
     "Empty “{name}”?": "Esvaziar “{name}”?",
     "Delete them": "Excluir todos",
     "Nothing was deleted": "Nada foi excluído",

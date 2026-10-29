@@ -88,9 +88,7 @@ export function RecipientPicker({
       b.book.isSubscribed ||
       addedShares.has(sharedKey(b.accountId, b.book.id)),
   );
-  const ownBooks = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const ownBooks = contacts.booksOf(contacts.accountId);
 
   const rows = useMemo(() => {
     const out: Row[] = [];

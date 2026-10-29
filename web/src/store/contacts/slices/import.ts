@@ -124,6 +124,18 @@ async function writeCards(
 }
 
 /**
+ * The account a book lives in, for a write that named the book.
+ *
+ * The caller's answer when it has one -- a row knows the account it came from,
+ * and the id alone is two books as soon as a group and the reader both have one
+ * (this server mints them two characters long) -- and the lookup when it has
+ * none, which is the case for a caller holding nothing but an id.
+ */
+function accountFor(get: ContactsGet, bookId: Id, named?: Id | null): Id | null {
+  return named ?? accountOfBook(bookId, get().books, get().accountId, get().sharedBooks);
+}
+
+/**
  * vCard and LDIF files filed into a book.
  *
  * A slice of the contacts store: the state is assembled in `../index`, and this
@@ -134,13 +146,8 @@ export function importSlice(
   get: ContactsGet,
 ): Pick<ContactsState, "importVCard" | "importLdif"> {
   return {
-    async importVCard(text, addressBookId) {
-      const accountId = accountOfBook(
-        addressBookId,
-        get().books,
-        get().accountId,
-        get().sharedBooks,
-      );
+    async importVCard(text, addressBookId, intoAccountId) {
+      const accountId = accountFor(get, addressBookId, intoAccountId);
       if (!accountId) throw new Error("That address book is not available");
       const up = await client.upload(
         accountId,
@@ -226,13 +233,8 @@ export function importSlice(
      * goes to the server is finished cards. That is the whole difference between
      * the two imports; from `ContactCard/set` down they are the same.
      */
-    async importLdif(text, addressBookId) {
-      const accountId = accountOfBook(
-        addressBookId,
-        get().books,
-        get().accountId,
-        get().sharedBooks,
-      );
+    async importLdif(text, addressBookId, intoAccountId) {
+      const accountId = accountFor(get, addressBookId, intoAccountId);
       if (!accountId) throw new Error("That address book is not available");
       /* The record and not just the card: the `dn` is the entry's identity and
          `cardFromLdif` deliberately does not carry it into the card. */

@@ -30,7 +30,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { mayAdminister } from "@/lib/administer";
 import { appNameFor } from "@/lib/brand";
 import { EVENTS } from "@/lib/events";
@@ -262,13 +262,26 @@ export function AppShell({ children }: { children: ReactNode }) {
    */
   const action = mod ? mod.action : MODULES[0]!.action;
   /*
-   * Where the shield takes the reader back to: the section that was open
-   * before the last jump into /admin. Remembered on the click that leaves
-   * it -- the shield is the way back too, and "back" means "where I was",
-   * not a hard-coded section. After a reload inside /admin the memory is
-   * gone and the shield falls back to Mail, the home section.
+   * Where the two toggles in the chrome take the reader back to: the shield for
+   * /admin and the account menu's entry for /settings. Each section that opens is
+   * also the one that closes, and "closed" means where the reader was -- so the
+   * memory is the last address that was *not* that section, kept in step with the
+   * location rather than written on the click that left it. Every way in answers
+   * the same (a click, the `g k` shortcut, a link from another screen), a reader
+   * moving between the section's own pages is not sent to one of them, and the
+   * query travels with the address: a search is somewhere they may leave from.
+   * A reload inside either section leaves nothing to remember, and it falls back
+   * to Mail, the home section.
    */
-  const adminBackTo = useRef("/mail");
+  const backTo = useRef({ admin: "/mail", settings: "/mail" });
+  const search = useSearch();
+  useEffect(() => {
+    const here = `${location}${search ? `?${search}` : ""}`;
+    // Each memory skips only its own section: leaving Settings for Admin and
+    // coming back is a return to Admin, not to the screen before it.
+    if (section !== "admin") backTo.current.admin = here;
+    if (section !== "settings") backTo.current.settings = here;
+  }, [location, search, section]);
 
   useGlobalShortcuts({
     onHelp: () => setHelpOpen(true),
@@ -385,26 +398,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-current={section === "admin" ? "page" : undefined}
               onClick={() => {
                 if (section === "admin") {
-                  navigate(adminBackTo.current);
+                  navigate(backTo.current.admin);
                   return;
                 }
-                adminBackTo.current = location;
                 navigate("/admin");
               }}
             >
               <Shield size={21} />
             </button>
           )}
-          {/* `hide-mobile`: the account menu beside it already carries
-              Settings, and a phone's bar has no room for both. */}
-          <Link
-            href="/settings"
-            className={`icon-btn hide-mobile ${section === "settings" ? "active" : ""}`}
-            aria-label={t("Settings")}
-            title={t("Settings")}
-          >
-            <Settings size={21} />
-          </Link>
+          {/* Settings is not in this bar: it is in the account menu beside these,
+              where it also toggles (see what leaves the section). A second gear
+              here was the same entry twice. */}
           <button
             className="icon-btn"
             style={{ width: "auto", padding: "0 2px", borderRadius: 999 }}
@@ -451,7 +456,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <MenuItem
               icon={<Settings size={16} />}
               label={t("Settings")}
-              onClick={() => navigate("/settings")}
+              active={section === "settings"}
+              onClick={() => {
+                // The same entry closes the section it opened, and returns to
+                // where the reader was rather than to a fixed screen.
+                if (section === "settings") navigate(backTo.current.settings);
+                else navigate("/settings");
+              }}
             />
             {/*
               The install/update command, on a phone only: a desktop browser

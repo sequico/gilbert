@@ -442,6 +442,13 @@ export const catalog: Catalog = {
     "Contact card": "Kişi kartı",
     "Contact created": "Kişi oluşturuldu",
     "Contact deleted": "Kişi silindi",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Bu adres defterinden çıkarılırlar; yalnızca burada olan bir kişi tamamen silinir. Bu geri alınamaz.",
+    "Removed from this address book": "Bu adres defterinden çıkarıldı",
+    "Removed {n} contact from this address book":
+      "{n} kişi bu adres defterinden çıkarıldı",
+    "Removed {n} contacts from this address book":
+      "{n} kişi bu adres defterinden çıkarıldı",
     "Contact moved": "Kişi taşındı",
     "Contact options": "Kişi seçenekleri",
     "Contact saved": "Kişi kaydedildi",
@@ -569,6 +576,8 @@ export const catalog: Catalog = {
     "Delete this message": "Bu iletiyi sil",
     "Delete {identity}?": "{identity} silinsin mi?",
     "Delete {name}?": "{name} silinsin mi?",
+    "It leaves this address book and stays in the others it is in.":
+      "Bu adres defterinden çıkar ve bulunduğu diğer defterlerde kalır.",
     "Delete “{name}”?": "“{name}” silinsin mi?",
     "Delete?": "Silinsin mi?",
     Deleted: "Silindi",
@@ -1696,7 +1705,8 @@ export const catalog: Catalog = {
     "The certificate is not valid yet.": "Sertifika henüz geçerli değil.",
     "The colour palette (Gilbert's own or one of the shipped ones).":
       "Renk paleti (Gilbert'in kendisi ya da sunulanlardan biri).",
-    "The contacts in it go too.": "İçindeki kişiler de silinecektir.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Yalnızca burada olan kişiler silinir. Başka bir adres defterinde de olanlar yalnızca buradan çıkarılır.",
     "The default identity is always offered when composing":
       "İleti oluştururken varsayılan kimlik her zaman sunulur",
     "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
@@ -1753,6 +1763,10 @@ export const catalog: Catalog = {
     "Then nothing": "Ardından hiçbiri",
     "There is no preview for this kind of file.": "Bu tür dosya için önizleme yok.",
     "There is nothing in it to delete": "İçinde silinecek bir şey yok",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} tanesi başka bir adres defterinde de var ve yalnızca buradan çıkarılacak.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} tanesi başka adres defterlerinde de var ve yalnızca buradan çıkarılacak.",
     "There is nothing in it to export": "Dışa aktarılacak bir içerik yok",
     "There is nowhere else to move it.": "Taşınacak başka bir yer yok.",
     "There is nowhere to save files to.": "Dosyaların kaydedileceği bir yer yok.",
@@ -1786,6 +1800,10 @@ export const catalog: Catalog = {
     "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
       "Bu tarayıcı artık bu cihazdaki bildirimler için bir yanıt tutmuyor, dolayısıyla hiçbiri gösterilemez. Bir anahtarı kapatıp yeniden açmak izni ister.",
     "This cannot be undone.": "Bu işlem geri alınamaz.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Bunlardan biri birden fazla adres defterinde ve hepsinden silinecek.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "Bunlardan {n} tanesi birden fazla adres defterinde ve hepsinden silinecek.",
     "This conversation no longer exists.": "Bu yazışma artık yok.",
     "This date cannot be changed on its own": "Bu tarih tek başına değiştirilemez",
     "This file is not UTF-8 text, so editing it here would corrupt it — download it instead.":

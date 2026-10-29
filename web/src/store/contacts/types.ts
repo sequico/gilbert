@@ -130,6 +130,22 @@ export interface ContactsState {
   cardWritable(card: ContactCard, heldIn?: Id | null): boolean;
   /** The account holding an address book, null when it is not the reader's own. */
   accountOfBook(bookId: Id): Id | null;
+  /**
+   * The book with that id, in the account that owns it.
+   *
+   * The account is half the address: a book id is unique inside its account and
+   * nowhere else, so the id alone describes two books as soon as a group's "b"
+   * and the reader's own "b" exist. Callers that hold a row already know which
+   * account it came from, and hand it over rather than let the lookup prefer the
+   * reader's own copy.
+   */
+  bookIn(accountId: Id | null, bookId: Id): AddressBook | null;
+  /**
+   * Every book of one account, in the order it is read: the reader's own, or the
+   * books of an account that shared them. Empty when that account holds none the
+   * store has loaded.
+   */
+  booksOf(accountId: Id | null): AddressBook[];
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
   /**
    * The addresses behind a group, whichever surface asked (ADR 0003).
@@ -230,7 +246,19 @@ export interface ContactsState {
    * A selection may span accounts, so the calls are grouped by the one holding
    * each card and the count is what the server confirmed across them.
    */
-  destroyCards(cards: CardAddress[]): Promise<{ destroyed: number; refused?: SetError }>;
+  /**
+   * Destroy cards, or -- when `fromBook` is given -- take them out of that one
+   * book.
+   *
+   * The book's deletion removes a membership from a card filed in more than one
+   * book and destroys only a card that lives there alone, the rule emptying a
+   * book already follows. Without it the card itself goes, which is what a merge
+   * of two says and what the card on screen says.
+   */
+  destroyCards(
+    cards: CardAddress[],
+    fromBook?: Id,
+  ): Promise<{ destroyed: number; unfiled: number; refused?: SetError }>;
   /**
    * Empty an address book: everything filed in it, gone.
    *
@@ -267,10 +295,19 @@ export interface ContactsState {
    */
   updateBook(id: Id, patch: Partial<AddressBook>, accountId?: Id | null): Promise<void>;
   destroyBook(id: Id, accountId?: Id | null): Promise<void>;
-  /** Import vCards, updating any whose UID this book already holds rather than duplicating it. */
+  /**
+   * Import vCards, updating any whose UID this book already holds rather than
+   * duplicating it.
+   *
+   * `accountId` names the account the book lives in when it is not the reader's
+   * own. Passed rather than looked up: a book's id is unique inside its account
+   * only, so a group's "b" and the reader's "b" are two books, and the lookup
+   * prefers the reader's.
+   */
   importVCard(
     text: string,
     addressBookId: Id,
+    accountId?: Id | null,
   ): Promise<{ created: number; updated: number; alike: number }>;
   /**
    * Import an address book in LDIF, read against Mozilla's schema.
@@ -285,6 +322,7 @@ export interface ContactsState {
   importLdif(
     text: string,
     addressBookId: Id,
+    accountId?: Id | null,
   ): Promise<{ created: number; updated: number; alike: number }>;
   loadPrincipals(): Promise<void>;
   suggest(query: string, limit?: number): Promise<Suggestion[]>;

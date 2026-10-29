@@ -159,7 +159,7 @@ describe("importing an LDIF bigger than the server will take at once", () => {
   it("splits it into calls the server will accept, and files all of it", async () => {
     const sets = server({ max: MAX });
     await expect(
-      useContacts.getState().importLdif(ldifOf(1200), "book1"),
+      useContacts.getState().importLdif(ldifOf(1200), "book1", "a1"),
     ).resolves.toEqual({ created: 1200, updated: 0, alike: 0 });
     expect(sizes(sets)).toEqual([500, 500, 200]);
   });
@@ -168,14 +168,14 @@ describe("importing an LDIF bigger than the server will take at once", () => {
     client.session!.capabilities[CAP.core] = { maxObjectsInGet: 40, maxObjectsInSet: 40 };
     const sets = server({ max: 40 });
     await expect(
-      useContacts.getState().importLdif(ldifOf(100), "book1"),
+      useContacts.getState().importLdif(ldifOf(100), "book1", "a1"),
     ).resolves.toEqual({ created: 100, updated: 0, alike: 0 });
     expect(sizes(sets)).toEqual([40, 40, 20]);
   });
 
   it("keeps every entry distinct across the split", async () => {
     const sets = server({ max: MAX });
-    await useContacts.getState().importLdif(ldifOf(600), "book1");
+    await useContacts.getState().importLdif(ldifOf(600), "book1", "a1");
     const names = sets.flatMap((s) =>
       Object.values(s.create!).map((c) => (c.name as { full: string }).full),
     );
@@ -187,14 +187,14 @@ describe("importing an LDIF bigger than the server will take at once", () => {
   it("says how much got in when a later batch fails, rather than only that it failed", async () => {
     server({ max: MAX, failOn: 2 });
     await expect(
-      useContacts.getState().importLdif(ldifOf(1200), "book1"),
+      useContacts.getState().importLdif(ldifOf(1200), "book1", "a1"),
     ).rejects.toThrow(/1000 of 1200/);
   });
 
   it("passes the server's own words through when the very first batch fails", async () => {
     server({ max: MAX, failOn: 0 });
     await expect(
-      useContacts.getState().importLdif(ldifOf(1200), "book1"),
+      useContacts.getState().importLdif(ldifOf(1200), "book1", "a1"),
     ).rejects.toThrow(/roof fell in/);
   });
 });

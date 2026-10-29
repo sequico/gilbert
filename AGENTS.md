@@ -1,5 +1,12 @@
 # Gilbert — working law for this repository
 
+> **Gates are never run on your own initiative** (owner rule, 29 Oct 2026). Tests, typecheck, lint,
+> build, a `check:*` script, a full or partial suite run only when (a) the owner asks for it in that
+> turn, (b) the project's own commit procedure requires it, (c) the push procedure requires it (the
+> gate before a push), or (d) the release procedure requires it. Running one "to be sure", "to check
+> the fix", "while I am here", or because you judge it useful is a defect: ask the owner once instead
+> of running it. Reading the code and the review judge a change; a suite does not.
+
 ## Repository map
 
 npm workspaces: the root coordinates, the two packages hold the code.

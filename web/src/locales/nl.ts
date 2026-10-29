@@ -1151,6 +1151,13 @@ export const catalog: Catalog = {
     "Contact created": "Contact aangemaakt",
     "Contact moved": "Contact verplaatst",
     "Contact deleted": "Contact verwijderd",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Ze worden uit dit adresboek verwijderd; een contact dat er alleen in staat wordt verwijderd. Dit kan niet ongedaan worden gemaakt.",
+    "Removed from this address book": "Uit dit adresboek verwijderd",
+    "Removed {n} contact from this address book":
+      "{n} contact uit dit adresboek verwijderd",
+    "Removed {n} contacts from this address book":
+      "{n} contacten uit dit adresboek verwijderd",
     "Contact saved": "Contact opgeslagen",
     Copied: "Gekopieerd",
     "Could not cancel: {error}": "Annuleren mislukt: {error}",
@@ -1181,6 +1188,8 @@ export const catalog: Catalog = {
     "Delete this event?": "Deze afspraak verwijderen?",
     "Delete this identity?": "Deze afzender verwijderen?",
     "Delete {name}?": "{name} verwijderen?",
+    "It leaves this address book and stays in the others it is in.":
+      "Het contact verlaat dit adresboek en blijft in de andere adresboeken waarin het staat.",
     Deleted: "Verwijderd",
     "Deletes the whole series. This cannot be undone.":
       "Verwijdert de hele reeks. Dit kan niet ongedaan worden gemaakt.",
@@ -1300,7 +1309,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Overschakelen naar {theme}",
     Template: "Sjabloon",
     "Template name": "Sjabloonnaam",
-    "The contacts in it go too.": "De contacten erin gaan mee.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Contacten die er alleen in staan worden verwijderd. Contacten die ook in een ander adresboek staan, worden alleen hieruit verwijderd.",
     "The default identity is always offered when composing":
       "De standaardafzender wordt altijd aangeboden bij het opstellen",
     "The new passwords don't match": "De nieuwe wachtwoorden komen niet overeen",
@@ -1653,11 +1663,19 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Dit kan niet ongedaan worden gemaakt.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Een ervan staat in meer dan één adresboek en wordt uit alle verwijderd.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} ervan staan in meer dan één adresboek en worden uit alle verwijderd.",
     "Some could not be deleted: {error}":
       "Sommige konden niet worden verwijderd: {error}",
     "It was not deleted": "Het is niet verwijderd",
     "Empty address book": "Dit adresboek leegmaken",
     "There is nothing in it to delete": "Er staat niets in om te verwijderen",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} ervan staat ook in een ander adresboek en wordt alleen uit dit verwijderd.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} ervan staan ook in andere adresboeken en worden alleen uit dit verwijderd.",
     "Empty “{name}”?": "„{name}” leegmaken?",
     "Delete them": "Verwijderen",
     "Nothing was deleted": "Er is niets verwijderd",

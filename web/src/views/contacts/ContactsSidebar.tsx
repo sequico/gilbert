@@ -25,6 +25,7 @@ import { EVENTS } from "@/lib/events";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { refreshSharesInto } from "@/lib/sharedCollections";
+import { bySortOrder } from "@/lib/sortOrder";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
@@ -56,9 +57,9 @@ export function ContactsSidebar() {
      they are asked for by event rather than reaching across into it. What has
      changed is that the event now names the book, instead of meaning "whatever
      is selected". */
-  const onImport = (file: File, bookId: string) =>
+  const onImport = (file: File, bookId: string, accountId: string | null = null) =>
     window.dispatchEvent(
-      new CustomEvent(EVENTS.contactsImport, { detail: { file, bookId } }),
+      new CustomEvent(EVENTS.contactsImport, { detail: { file, bookId, accountId } }),
     );
   const onExport = (accountId: string | null, bookId: string) =>
     window.dispatchEvent(
@@ -92,12 +93,15 @@ export function ContactsSidebar() {
    * menu item reaches it through this -- the same arrangement the calendar's
    * iCAL import uses, which is the point of #224.
    *
-   * The book is remembered separately because opening the picker closes the
-   * menu, and `target` goes with it: by the time a file comes back there would
-   * be nothing left saying which book it was chosen for.
+   * The destination is remembered because opening the picker closes the menu,
+   * and `target` goes with it: by the time a file comes back there would be
+   * nothing left saying which book it was chosen for. Both halves of the
+   * address in one value, because a book is its account and its id -- an id
+   * alone names a book inside its account and nowhere else -- and two refs
+   * would be two places to forget one of them.
    */
   const fileRef = useRef<HTMLInputElement>(null);
-  const importInto = useRef<string | null>(null);
+  const importInto = useRef<{ bookId: string; accountId: string | null } | null>(null);
   const openMenu = (e: React.MouseEvent, t: MenuTarget) => {
     e.stopPropagation();
     e.preventDefault();
@@ -119,9 +123,7 @@ export function ContactsSidebar() {
 
   if (!contacts.available) return null;
 
-  const own = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const own = contacts.booksOf(contacts.accountId);
   const sel = contacts.selection;
   const isOn = (accountId: string | null, bookId: string) =>
     sel.accountId === accountId && sel.bookId === bookId;
@@ -146,10 +148,7 @@ export function ContactsSidebar() {
    * only if they opened it.
    */
   const selectedBook =
-    sel.bookId === "all"
-      ? undefined
-      : (contacts.books[sel.bookId] ??
-        contacts.sharedBooks.find((b) => b.book.id === sel.bookId)?.book);
+    sel.bookId === "all" ? null : contacts.bookIn(sel.accountId, sel.bookId);
   const canImport =
     sel.bookId === "all"
       ? own.length > 0
@@ -185,8 +184,7 @@ export function ContactsSidebar() {
     .sort(
       (a, b) =>
         (groupRank.get(a.accountId) ?? 0) - (groupRank.get(b.accountId) ?? 0) ||
-        a.book.sortOrder - b.book.sortOrder ||
-        a.book.name.localeCompare(b.book.name),
+        bySortOrder(a.book, b.book),
     );
   /* Shared rows, used under a group's section and in the read-only area for
      shares that are not a group. Keying is the caller's job. */
@@ -457,18 +455,25 @@ export function ContactsSidebar() {
           the row menu does, and import is offered only where the book can be
           written -- the book's own account may refuse even so, in its own words. */}
       <div className="contacts-bulk">
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={!canImport}
-          onClick={() => {
-            importInto.current = sel.bookId === "all" ? defaultBookId : sel.bookId;
-            fileRef.current?.click();
-          }}
-        >
-          <Upload size={16} />
-          {t("Import contacts…")}
-        </button>
+        {/* Offered only where it can happen, as the row menu offers it: a book
+            the reader may not write is not a destination, and a control that is
+            drawn but dead says the opposite of what is true. */}
+        {canImport && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              importInto.current = {
+                bookId: sel.bookId === "all" ? defaultBookId : sel.bookId,
+                accountId: sel.accountId,
+              };
+              fileRef.current?.click();
+            }}
+          >
+            <Upload size={16} />
+            {t("Import contacts…")}
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-sm"
@@ -487,7 +492,7 @@ export function ContactsSidebar() {
         onChange={(e) => {
           const f = e.target.files?.[0];
           const into = importInto.current;
-          if (f && into) onImport(f, into);
+          if (f && into) onImport(f, into.bookId, into.accountId);
           e.target.value = "";
         }}
       />
@@ -527,7 +532,10 @@ export function ContactsSidebar() {
                 icon={<Upload size={16} />}
                 label={t("Import contacts…")}
                 onClick={() => {
-                  importInto.current = target.kind === "all" ? "all" : target.book.id;
+                  importInto.current = {
+                    bookId: target.kind === "all" ? "all" : target.book.id,
+                    accountId: target.kind === "shared" ? target.accountId : null,
+                  };
                   fileRef.current?.click();
                 }}
               />
@@ -616,20 +624,36 @@ export function ContactsSidebar() {
               icon={<Eraser size={16} />}
               label={t("Empty address book")}
               onClick={async () => {
-                const n = Object.values(contacts.cards).filter(
+                const inBook = Object.values(contacts.cards).filter(
                   (c) => c.addressBookIds?.[menuBook.id],
-                ).length;
+                );
+                const n = inBook.length;
                 if (!n) {
                   toast.error(t("There is nothing in it to delete"));
                   return;
                 }
+                /* The cards this book shares with another leave it and live on:
+                   the same fact the toast repeats afterwards, said before the
+                   click. */
+                const several = inBook.filter(
+                  (c) => Object.keys(c.addressBookIds ?? {}).length > 1,
+                ).length;
                 if (
                   !(await confirmDialog({
                     title: t("Empty “{name}”?", { name: menuBook.name }),
-                    message: plural(n, {
-                      one: "{n} contact will be deleted. This cannot be undone.",
-                      other: "{n} contacts will be deleted. This cannot be undone.",
-                    }),
+                    message: several
+                      ? `${plural(n, {
+                          one: "{n} contact will be deleted. This cannot be undone.",
+                          other: "{n} contacts will be deleted. This cannot be undone.",
+                        })} ${plural(several, {
+                          one: "{n} of them is also in another address book, and will only be removed from this one.",
+                          other:
+                            "{n} of them are also in other address books, and will only be removed from this one.",
+                        })}`
+                      : plural(n, {
+                          one: "{n} contact will be deleted. This cannot be undone.",
+                          other: "{n} contacts will be deleted. This cannot be undone.",
+                        }),
                     confirmLabel: t("Delete them"),
                     danger: true,
                   }))
@@ -680,7 +704,9 @@ export function ContactsSidebar() {
                 if (
                   !(await confirmDialog({
                     title: t("Delete “{name}”?", { name: menuBook.name }),
-                    message: t("The contacts in it go too."),
+                    message: t(
+                      "The contacts filed only in it are deleted. Any that are also in another address book leave this one.",
+                    ),
                     confirmLabel: t("Delete"),
                     danger: true,
                   }))

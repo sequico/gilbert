@@ -1154,6 +1154,13 @@ export const catalog: Catalog = {
     "Contact created": "Контакт создан",
     "Contact moved": "Контакт перемещён",
     "Contact deleted": "Контакт удалён",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Они будут удалены из этой адресной книги; контакт, который есть только в ней, будет удалён полностью. Это нельзя отменить.",
+    "Removed from this address book": "Удалено из этой адресной книги",
+    "Removed {n} contact from this address book":
+      "{n} контакт удалён из этой адресной книги",
+    "Removed {n} contacts from this address book":
+      "{n} контактов удалено из этой адресной книги",
     "Contact saved": "Контакт сохранён",
     Copied: "Скопировано",
     "Could not cancel: {error}": "Не удалось отменить: {error}",
@@ -1184,6 +1191,8 @@ export const catalog: Catalog = {
     "Delete this event?": "Удалить это событие?",
     "Delete this identity?": "Удалить этот профиль отправителя?",
     "Delete {name}?": "Удалить {name}?",
+    "It leaves this address book and stays in the others it is in.":
+      "Контакт будет удалён из этой адресной книги и останется в остальных, где он есть.",
     Deleted: "Удалено",
     "Deletes the whole series. This cannot be undone.":
       "Удаляет всю серию. Отменить это будет нельзя.",
@@ -1302,7 +1311,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Переключить на {theme}",
     Template: "Шаблон",
     "Template name": "Название шаблона",
-    "The contacts in it go too.": "Контакты внутри тоже будут удалены.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Контакты, которые есть только в ней, будут удалены. Те, что есть и в другой адресной книге, будут удалены только из этой.",
     "The default identity is always offered when composing":
       "Профиль по умолчанию всегда предлагается при написании",
     "The new passwords don't match": "Новые пароли не совпадают",
@@ -1652,10 +1662,18 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Это действие нельзя отменить.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Один из них есть в нескольких адресных книгах и будет удалён из всех.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} из них есть в нескольких адресных книгах и будут удалены из всех.",
     "Some could not be deleted: {error}": "Некоторые не удалось удалить: {error}",
     "It was not deleted": "Контакт не был удалён",
     "Empty address book": "Очистить эту адресную книгу",
     "There is nothing in it to delete": "В ней нечего удалять",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} из них есть и в другой адресной книге и будет удалён только из этой.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} из них есть и в других адресных книгах и будут удалены только из этой.",
     "Empty “{name}”?": "Очистить «{name}»?",
     "Delete them": "Удалить их",
     "Nothing was deleted": "Ничего не удалено",

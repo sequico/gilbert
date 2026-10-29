@@ -1,6 +1,7 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import {
   ArrowLeft,
+  BookOpen,
   Building2,
   Cake,
   Calendar as CalIcon,
@@ -50,6 +51,7 @@ import {
   memberCards,
   sortKey,
   toVCard,
+  vCardFileName,
 } from "@/lib/contacts";
 import { formatDate, formatDateLong } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
@@ -215,10 +217,16 @@ export function ContactsView({ id }: { id?: string }) {
      * book it acts on instead of meaning "whatever the list is showing" -- the
      * ambiguity behind #174. They are opened from a book's own menu, which is
      * where that book is chosen.
+     *
+     * An import carries the account too: a book's id is unique inside its own
+     * account and nowhere else, and this server's ids are two characters long, so
+     * the same id names a book in the reader's account and in a group's at once.
      */
     const onImport = (ev: Event) => {
-      const d = (ev as CustomEvent<{ file: File; bookId: string }>).detail;
-      if (d?.file) void importFile(d.file, d.bookId);
+      const d = (
+        ev as CustomEvent<{ file: File; bookId: string; accountId?: string | null }>
+      ).detail;
+      if (d?.file) void importFile(d.file, d.bookId, d.accountId ?? null);
     };
     const onExport = (ev: Event) => {
       const d = (ev as CustomEvent<{ accountId: string | null; bookId: string }>).detail;
@@ -437,9 +445,7 @@ export function ContactsView({ id }: { id?: string }) {
   const selectedReadOnly = selected
     ? !contacts.cardWritable(selected, selectedAccountId)
     : false;
-  const books = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const books = contacts.booksOf(contacts.accountId);
   const groups = useMemo(() => {
     const out: Array<{
       letter: string;
@@ -540,24 +546,34 @@ export function ContactsView({ id }: { id?: string }) {
       toast.error(translate("There is nothing in it to export"));
       return;
     }
-    downloadFile(cards.map(toVCard).join(""), "text/vcard", "contacts.vcf");
+    downloadFile(
+      cards.map(toVCard).join(""),
+      "text/vcard",
+      vCardFileName(
+        book === "all"
+          ? translate("Contacts")
+          : (contacts.bookIn(accountId, book)?.name ?? ""),
+        "contacts",
+      ),
+    );
   };
 
-  const importFile = async (f: File, intoBookId?: string) => {
+  const importFile = async (
+    f: File,
+    intoBookId?: string,
+    intoAccountId?: string | null,
+  ) => {
     const target = intoBookId && intoBookId !== "all" ? intoBookId : bookId;
     /*
-     * A destination is the reader's own book or one that lives in another
-     * account -- a group's directory, which its members write. Looked for in
-     * both, because importing into a group's book is the same import: the store
-     * resolves the account from the book it is given.
+     * A destination is a book, and a book is its account and its id: the account
+     * the caller named, or the reader's own. Resolved once, by the store, because
+     * a book's id is unique inside its account and this server mints them two
+     * characters long -- "b" is one book here and another in a group.
      */
-    const sharedBook =
-      target !== "all"
-        ? contacts.sharedBooks.find((b) => b.book.id === target)?.book
-        : undefined;
+    const intoAccount = intoAccountId ?? contacts.accountId;
     const book =
       target !== "all"
-        ? (contacts.books[target] ?? sharedBook)
+        ? contacts.bookIn(intoAccount, target)
         : (books.find((b) => b.isDefault) ?? books[0]);
     if (!book) {
       toast.error(translate("Create an address book first"));
@@ -572,8 +588,8 @@ export function ContactsView({ id }: { id?: string }) {
        * the name is the least reliable thing about it.
        */
       const { created, updated, alike } = /^\s*BEGIN:VCARD/im.test(text)
-        ? await contacts.importVCard(text, book.id)
-        : await contacts.importLdif(text, book.id);
+        ? await contacts.importVCard(text, book.id, intoAccount)
+        : await contacts.importLdif(text, book.id, intoAccount);
       /*
        * The counts kept apart, as the calendar import keeps them. "Imported 3
        * contacts" over a file of two hundred reads as a failure when the other
@@ -680,10 +696,31 @@ export function ContactsView({ id }: { id?: string }) {
             r.id === address.id && (r.accountId ?? null) === (address.accountId ?? null),
         ),
     );
+    /*
+     * A card filed in several books goes from all of them: `destroy` takes the
+     * object, and the books are only a membership inside it. Said when it is true
+     * rather than always, because a sentence about a case that cannot happen here
+     * is noise, and said instead of silently taking a card out of a book nobody
+     * pointed at.
+     */
+    const inSeveral = pickedItems.filter(
+      (i) => Object.keys(i.card.addressBookIds ?? {}).length > 1,
+    ).length;
     if (
       !(await confirmDialog({
         title: plural(n, { one: "Delete {n} contact?", other: "Delete {n} contacts?" }),
-        message: translate("This cannot be undone."),
+        message:
+          bookId !== "all"
+            ? translate(
+                "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.",
+              )
+            : inSeveral
+              ? `${translate("This cannot be undone.")} ${plural(inSeveral, {
+                  one: "One of them is in more than one address book, and is deleted from all of them.",
+                  other:
+                    "{n} of them are in more than one address book, and are deleted from all of them.",
+                })}`
+              : translate("This cannot be undone."),
         confirmLabel: translate("Delete"),
         danger: true,
       }))
@@ -693,7 +730,16 @@ export function ContactsView({ id }: { id?: string }) {
       /* What the server confirmed, not what was asked. A refusal that took
          half of them still deleted the other half, and saying "it failed"
          sends you looking for contacts that are already gone. */
-      const { destroyed, refused } = await contacts.destroyCards(pickedRefs);
+      /*
+       * In a book, the deletion is that book's: a card also filed elsewhere
+       * leaves this book and stays where it is. Under "All contacts" there is no
+       * book to leave, so the card itself goes.
+       */
+      const inBook = bookId === "all" ? undefined : bookId;
+      const { destroyed, unfiled, refused } = await contacts.destroyCards(
+        pickedRefs,
+        inBook,
+      );
       clearPicked();
       if (destroyed)
         toast.success(
@@ -701,6 +747,14 @@ export function ContactsView({ id }: { id?: string }) {
             one: "Deleted {n} contact",
             other: "Deleted {n} contacts",
           }),
+        );
+      if (unfiled)
+        toast.show(
+          plural(unfiled, {
+            one: "Removed {n} contact from this address book",
+            other: "Removed {n} contacts from this address book",
+          }),
+          { duration: 9000 },
         );
       if (refused)
         toast.error(
@@ -897,7 +951,8 @@ export function ContactsView({ id }: { id?: string }) {
                        * (ADR 0019).
                        */
                       onContextMenu={
-                        cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID
+                        cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID &&
+                        contacts.cardWritable(c, cardAccountId)
                           ? (e) => openMenuAt(e, c, cardAccountId)
                           : undefined
                       }
@@ -990,6 +1045,7 @@ export function ContactsView({ id }: { id?: string }) {
             card={selected}
             accountId={selectedAccountId}
             readOnly={selectedReadOnly}
+            bookId={bookId === "all" ? undefined : bookId}
             onBack={() => navigate("/contacts")}
             onEdit={() => {
               setEditing(selected);
@@ -1129,16 +1185,12 @@ function AddToBookDialog({
 }) {
   const contacts = useContacts();
   const inBook = card.addressBookIds ?? {};
-  const sameAccount: AddressBook[] =
-    accountId && accountId !== contacts.accountId
-      ? contacts.sharedBooks.filter((b) => b.accountId === accountId).map((b) => b.book)
-      : Object.values(contacts.books);
-  const choices = sameAccount
+  const choices = contacts
+    .booksOf(accountId ?? contacts.accountId)
     .filter((b) => !inBook[b.id])
     // A book the reader may not write is a destination the server refuses; the
     // list says nothing about it rather than offering it and failing.
-    .filter((b) => b.myRights?.mayWrite ?? true)
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    .filter((b) => b.myRights?.mayWrite ?? true);
   const [busy, setBusy] = useState(false);
 
   const add = async (book: AddressBook) => {
@@ -1165,17 +1217,18 @@ function AddToBookDialog({
       })}
     >
       {choices.length === 0 ? (
-        <p className="muted">{translate("There is no other book to add it to.")}</p>
+        <p className="hint">{translate("There is no other book to add it to.")}</p>
       ) : (
         choices.map((b) => (
           <button
             key={b.id}
             type="button"
-            className="btn btn-ghost"
+            className="menu-item"
             disabled={busy}
             onClick={() => void add(b)}
           >
-            {b.name}
+            <BookOpen size={16} />
+            <span className="grow truncate">{b.name}</span>
           </button>
         ))
       )}
@@ -1217,19 +1270,14 @@ function MoveContactDialog({
      account and one of the reader's own can carry the same id, and an id lookup
      answers with the reader's own. */
   const fromAccount = accountId ?? contacts.accountId;
-  const ownBooks = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const ownBooks = contacts.booksOf(contacts.accountId);
   /* The groups, each with its own books: a book nobody's member could write is
      still listed, and the server refuses it in its own words rather than the
      picker hiding a destination that exists. */
   const groups = groupMailboxAccounts(mailAccounts).map((g) => ({
     accountId: g.accountId,
     accountName: g.name,
-    books: contacts.sharedBooks
-      .filter((b) => b.accountId === g.accountId)
-      .map((b) => b.book)
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+    books: contacts.booksOf(g.accountId),
   }));
   const elsewhere = fromAccount !== contacts.accountId;
 
@@ -1310,12 +1358,19 @@ function ContactDetail({
   card: c,
   accountId,
   readOnly,
+  bookId,
   onBack,
   onEdit,
   narrow,
   onEmail,
 }: {
   card: ContactCard;
+  /**
+   * The book the reader is looking at, when it is one book rather than "All
+   * contacts": deleting from there leaves that book, and only a card filed here
+   * alone is destroyed.
+   */
+  bookId?: string;
   /**
    * The account holding this card, half of its address -- null for the reader's
    * own. Told rather than looked up: a card of a group's book and one of the
@@ -1370,11 +1425,7 @@ function ContactDetail({
         <button
           className="btn btn-sm"
           onClick={() => {
-            downloadFile(
-              toVCard(c),
-              "text/vcard",
-              `${name.replace(/[^\w.-]+/g, "_")}.vcf`,
-            );
+            downloadFile(toVCard(c), "text/vcard", vCardFileName(name));
           }}
         >
           <Download size={14} /> {translate("vCard")}
@@ -1387,15 +1438,27 @@ function ContactDetail({
               if (
                 await confirmDialog({
                   title: translate("Delete {name}?", { name }),
+                  /* Inside a book, a card filed elsewhere leaves it rather than
+                     going: said before the click, as the list's own confirmation
+                     says it. */
+                  message:
+                    bookId !== "all" && Object.keys(c.addressBookIds ?? {}).length > 1
+                      ? translate(
+                          "It leaves this address book and stays in the others it is in.",
+                        )
+                      : undefined,
                   confirmLabel: translate("Delete"),
                   danger: true,
                 })
               ) {
                 try {
-                  const { destroyed, refused } = await contacts.destroyCards([
-                    { id: c.id, accountId },
-                  ]);
-                  if (!destroyed) {
+                  /* The book the reader is in, as the list's Delete is: a card
+                     also filed elsewhere leaves this book rather than going. */
+                  const { destroyed, unfiled, refused } = await contacts.destroyCards(
+                    [{ id: c.id, accountId }],
+                    bookId,
+                  );
+                  if (!destroyed && !unfiled) {
                     toast.error(
                       refused
                         ? setErrorMessage(refused)
@@ -1403,7 +1466,11 @@ function ContactDetail({
                     );
                     return;
                   }
-                  toast.success(translate("Contact deleted"));
+                  toast.success(
+                    destroyed
+                      ? translate("Contact deleted")
+                      : translate("Removed from this address book"),
+                  );
                   navigate("/contacts");
                 } catch (err) {
                   toast.error(errorMessage(err));

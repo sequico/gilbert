@@ -1148,6 +1148,13 @@ export const catalog: Catalog = {
     "Contact created": "Контакт створено",
     "Contact moved": "Контакт переміщено",
     "Contact deleted": "Контакт видалено",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Їх буде вилучено з цієї адресної книги; контакт, який є лише в ній, буде видалено повністю. Це не можна скасувати.",
+    "Removed from this address book": "Вилучено з цієї адресної книги",
+    "Removed {n} contact from this address book":
+      "{n} контакт вилучено з цієї адресної книги",
+    "Removed {n} contacts from this address book":
+      "{n} контактів вилучено з цієї адресної книги",
     "Contact saved": "Контакт збережено",
     Copied: "Скопійовано",
     "Could not cancel: {error}": "Не вдалося скасувати: {error}",
@@ -1178,6 +1185,8 @@ export const catalog: Catalog = {
     "Delete this event?": "Видалити цю подію?",
     "Delete this identity?": "Видалити цей профіль відправника?",
     "Delete {name}?": "Видалити {name}?",
+    "It leaves this address book and stays in the others it is in.":
+      "Контакт вийде з цієї адресної книги та залишиться в інших, де він є.",
     Deleted: "Видалено",
     "Deletes the whole series. This cannot be undone.":
       "Видаляє всю серію. Це не можна буде скасувати.",
@@ -1297,7 +1306,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Перемкнути на {theme}",
     Template: "Шаблон",
     "Template name": "Назва шаблону",
-    "The contacts in it go too.": "Контакти всередині теж буде видалено.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Контакти, які є лише в ній, буде видалено. Ті, що є і в іншій адресній книзі, буде вилучено лише з цієї.",
     "The default identity is always offered when composing":
       "Профіль за умовчанням завжди пропонується під час написання",
     "The new passwords don't match": "Нові паролі не збігаються",
@@ -1645,10 +1655,18 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Цю дію не можна скасувати.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Один із них є в кількох адресних книгах і буде вилучений з усіх.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} із них є в кількох адресних книгах і будуть вилучені з усіх.",
     "Some could not be deleted: {error}": "Деякі не вдалося видалити: {error}",
     "It was not deleted": "Контакт не було видалено",
     "Empty address book": "Очистити цю адресну книгу",
     "There is nothing in it to delete": "У ній немає чого видаляти",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} із них є і в іншій адресній книзі та буде вилучений лише з цієї.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} із них є і в інших адресних книгах та будуть вилучені лише з цієї.",
     "Empty “{name}”?": "Очистити «{name}»?",
     "Delete them": "Видалити їх",
     "Nothing was deleted": "Нічого не видалено",
