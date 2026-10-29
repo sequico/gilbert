@@ -74,8 +74,22 @@ export const catalog: Catalog = {
       "Una lista appartiene a un gruppo, e non sei ancora in nessuno. Quando un gruppo ti aggiunge, le sue campagne e la sua lista sono qui.",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "Le chiamate che questa lista aspetta. Prendi una riga, chiama il numero dal tuo telefono, poi di' com'è andata.",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} in scadenza · {ahead} più avanti · {held} in mano a un altro chiamante",
+    "{due} to call": "{due} da chiamare",
+    "{ahead} later": "{ahead} più avanti",
+    "{held} in another caller's hands": "{held} in mano ad altri",
+    "Settle the row in hand or put it back before taking another.":
+      "Chiudi la riga che hai in mano o rimettila prima di prenderne un'altra.",
+    "How it went": "Com'è andata",
+    "Call recorded": "Chiamata registrata",
+    "Wants a quote for January": "Chiede un preventivo per gennaio",
+    "“{purpose}” is closed": "«{purpose}» è chiusa",
+    "{n} row carried into a new campaign": "{n} riga portata in una nuova campagna",
+    "{n} rows carried into a new campaign": "{n} righe portate in una nuova campagna",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "Quando la lista è finita, chiudila — portando le righe ancora aperte in una nuova campagna — oppure consegna a un collega le righe finite in un certo modo.",
+    "No number blocked": "Nessun numero bloccato",
+    "A number entered here is never written into this group's lists.":
+      "Un numero inserito qui non finisce mai nelle liste di questo gruppo.",
     Queue: "Coda",
     "Nothing left to call": "Non resta niente da chiamare",
     "Every open row is done, due later, or in another caller's hands.":

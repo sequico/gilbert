@@ -92,8 +92,22 @@ export const catalog: Catalog = {
       "Een lijst hoort bij een groep, en je zit nog in geen enkele. Zodra een groep je toevoegt, staan zijn campagnes en zijn lijst hier.",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "De gesprekken waar deze lijst op wacht. Neem een rij, bel het nummer vanaf je eigen telefoon en zeg daarna hoe het ging.",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} te doen · {ahead} later · {held} bij een andere beller",
+    "{due} to call": "{due} te bellen",
+    "{ahead} later": "{ahead} later",
+    "{held} in another caller's hands": "{held} bij een ander",
+    "Settle the row in hand or put it back before taking another.":
+      "Rond de rij in je hand af of leg hem terug voordat je een andere neemt.",
+    "How it went": "Hoe het ging",
+    "Call recorded": "Gesprek vastgelegd",
+    "Wants a quote for January": "Wil een offerte voor januari",
+    "“{purpose}” is closed": "‘{purpose}’ is gesloten",
+    "{n} row carried into a new campaign": "{n} rij overgedragen aan een nieuwe campagne",
+    "{n} rows carried into a new campaign": "{n} rijen overgedragen aan een nieuwe campagne",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "Als de lijst klaar is, sluit je hem — de nog open rijen gaan naar een nieuwe campagne — of geef je de rijen die op één manier eindigden aan een collega.",
+    "No number blocked": "Geen nummer geblokkeerd",
+    "A number entered here is never written into this group's lists.":
+      "Een hier ingevoerd nummer komt nooit in de lijsten van deze groep.",
     Queue: "Wachtrij",
     "Nothing left to call": "Niets meer om te bellen",
     "Every open row is done, due later, or in another caller's hands.":

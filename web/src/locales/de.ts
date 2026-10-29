@@ -104,8 +104,22 @@ export const catalog: Catalog = {
       "Eine Liste gehört zu einer Gruppe, und Sie sind noch in keiner. Sobald eine Gruppe Sie aufnimmt, sind ihre Kampagnen und ihre Liste hier.",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "Die Anrufe, auf die diese Liste wartet. Nehmen Sie eine Zeile, rufen Sie die Nummer von Ihrem eigenen Telefon aus an und sagen Sie dann, wie es gelaufen ist.",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} fällig · {ahead} später · {held} bei einem anderen Anrufer",
+    "{due} to call": "{due} anzurufen",
+    "{ahead} later": "{ahead} später",
+    "{held} in another caller's hands": "{held} bei anderen",
+    "Settle the row in hand or put it back before taking another.":
+      "Schließen oder legen Sie die Zeile in Ihrer Hand zurück, bevor Sie eine andere nehmen.",
+    "How it went": "Wie es lief",
+    "Call recorded": "Anruf gespeichert",
+    "Wants a quote for January": "Möchte ein Angebot für Januar",
+    "“{purpose}” is closed": "„{purpose}“ ist geschlossen",
+    "{n} row carried into a new campaign": "{n} Zeile in eine neue Kampagne übernommen",
+    "{n} rows carried into a new campaign": "{n} Zeilen in eine neue Kampagne übernommen",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "Wenn die Liste erledigt ist, schließen Sie sie — die offenen Zeilen wandern in eine neue Kampagne — oder übergeben Sie die Zeilen mit einem bestimmten Ergebnis an eine Kollegin.",
+    "No number blocked": "Keine Nummer blockiert",
+    "A number entered here is never written into this group's lists.":
+      "Eine hier eingetragene Nummer wird nie in die Listen dieser Gruppe geschrieben.",
     Queue: "Warteschlange",
     "Nothing left to call": "Nichts mehr anzurufen",
     "Every open row is done, due later, or in another caller's hands.":

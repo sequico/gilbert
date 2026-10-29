@@ -93,8 +93,22 @@ export const catalog: Catalog = {
       "名单属于某个群组，而你还不在任何群组中。群组把你加入后，它的活动名单就在这里。",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "这份名单在等的电话。领取一行，用自己的手机拨打号码，然后记录结果。",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} 条到期 · {ahead} 条稍后 · {held} 条在他人手中",
+    "{due} to call": "待致电 {due} 个",
+    "{ahead} later": "稍后 {ahead} 个",
+    "{held} in another caller's hands": "他人持有 {held} 个",
+    "Settle the row in hand or put it back before taking another.":
+      "请先处理或放回手中的行，再取下一行。",
+    "How it went": "结果如何",
+    "Call recorded": "通话已记录",
+    "Wants a quote for January": "想要一月份的报价",
+    "“{purpose}” is closed": "{purpose}已关闭",
+    "{n} row carried into a new campaign": "{n} 行已转入新活动",
+    "{n} rows carried into a new campaign": "{n} 行已转入新活动",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "名单完成后关闭它（未结的行会转入新活动），或把以某种结果结束的行交给同事。",
+    "No number blocked": "没有已屏蔽的号码",
+    "A number entered here is never written into this group's lists.":
+      "在此输入的号码永远不会写入本群组的名单。",
     Queue: "队列",
     "Nothing left to call": "没有需要致电的了",
     "Every open row is done, due later, or in another caller's hands.":

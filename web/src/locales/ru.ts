@@ -99,8 +99,22 @@ export const catalog: Catalog = {
       "Список принадлежит группе, а вы пока ни в одной не состоите. Как только группа добавит вас, её кампании и её список будут здесь.",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "Звонки, которых ждёт этот список. Возьмите строку, позвоните по номеру со своего телефона и скажите, как всё прошло.",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} к сроку · {ahead} позже · {held} у другого звонящего",
+    "{due} to call": "{due} набрать",
+    "{ahead} later": "{ahead} позже",
+    "{held} in another caller's hands": "{held} у другого",
+    "Settle the row in hand or put it back before taking another.":
+      "Закройте строку в руках или верните её, прежде чем брать другую.",
+    "How it went": "Как прошло",
+    "Call recorded": "Звонок записан",
+    "Wants a quote for January": "Просит смету на январь",
+    "“{purpose}” is closed": "«{purpose}» закрыта",
+    "{n} row carried into a new campaign": "{n} строка перенесена в новую кампанию",
+    "{n} rows carried into a new campaign": "{n} строк перенесено в новую кампанию",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "Когда список закончен, закройте его — открытые строки перейдут в новую кампанию — или передайте коллеге строки с определённым исходом.",
+    "No number blocked": "Нет заблокированных номеров",
+    "A number entered here is never written into this group's lists.":
+      "Номер, введённый здесь, никогда не попадает в списки этой группы.",
     Queue: "Очередь",
     "Nothing left to call": "Звонить больше некому",
     "Every open row is done, due later, or in another caller's hands.":

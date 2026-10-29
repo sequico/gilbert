@@ -72,8 +72,22 @@ export const catalog: Catalog = {
       "Bir liste bir gruba aittir ve henüz hiçbir grupta değilsiniz. Bir grup sizi eklediğinde kampanyaları ve listesi burada olur.",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "Bu listenin beklediği aramalar. Bir satır alın, numarayı kendi telefonunuzdan arayın, sonra nasıl geçtiğini söyleyin.",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} sırada · {ahead} ileride · {held} başka bir arayanda",
+    "{due} to call": "{due} aranacak",
+    "{ahead} later": "{ahead} sonra",
+    "{held} in another caller's hands": "{held} başkasında",
+    "Settle the row in hand or put it back before taking another.":
+      "Başka bir satır almadan önce elinizdeki satırı kapatın ya da geri koyun.",
+    "How it went": "Nasıl geçti",
+    "Call recorded": "Arama kaydedildi",
+    "Wants a quote for January": "Ocak için teklif istiyor",
+    "“{purpose}” is closed": "“{purpose}” kapatıldı",
+    "{n} row carried into a new campaign": "{n} satır yeni bir kampanyaya taşındı",
+    "{n} rows carried into a new campaign": "{n} satır yeni bir kampanyaya taşındı",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "Liste bittiğinde kapatın — açık satırlar yeni bir kampanyaya taşınır — ya da belirli bir sonuçla biten satırları bir iş arkadaşına devredin.",
+    "No number blocked": "Engellenen numara yok",
+    "A number entered here is never written into this group's lists.":
+      "Buraya girilen bir numara bu grubun listelerine asla yazılmaz.",
     Queue: "Kuyruk",
     "Nothing left to call": "Arayacak bir şey kalmadı",
     "Every open row is done, due later, or in another caller's hands.":

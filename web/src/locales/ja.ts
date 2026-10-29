@@ -96,8 +96,22 @@ export const catalog: Catalog = {
       "リストはグループのもので、まだどのグループにも入っていません。グループがあなたを追加すると、そのキャンペーンとリストがここに表示されます。",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "このリストが待っている電話です。行を取得し、ご自分の電話から番号にかけ、結果を記録してください。",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} 件が期限 · {ahead} 件が後日 · {held} 件が他の発信者の手元",
+    "{due} to call": "{due} 件の発信",
+    "{ahead} later": "{ahead} 件は後日",
+    "{held} in another caller's hands": "{held} 件は他の担当者",
+    "Settle the row in hand or put it back before taking another.":
+      "別の行を取る前に、手元の行を完了するか戻してください。",
+    "How it went": "結果",
+    "Call recorded": "通話を記録しました",
+    "Wants a quote for January": "1月の見積もりを希望",
+    "“{purpose}” is closed": "「{purpose}」は終了しました",
+    "{n} row carried into a new campaign": "{n} 行を新しいキャンペーンへ引き継ぎました",
+    "{n} rows carried into a new campaign": "{n} 行を新しいキャンペーンへ引き継ぎました",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "リストが終わったら閉じてください（未完了の行は新しいキャンペーンへ引き継げます）。または、特定の結果で終わった行を同僚に渡せます。",
+    "No number blocked": "ブロックした番号はありません",
+    "A number entered here is never written into this group's lists.":
+      "ここに入力した番号がこのグループのリストに書き込まれることはありません。",
     Queue: "キュー",
     "Nothing left to call": "かける相手が残っていません",
     "Every open row is done, due later, or in another caller's hands.":

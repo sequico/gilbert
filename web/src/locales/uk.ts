@@ -93,8 +93,22 @@ export const catalog: Catalog = {
       "Список належить групі, а ви ще не в жодній. Щойно група додасть вас, її кампанії та її список будуть тут.",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "Дзвінки, на які чекає цей список. Візьміть рядок, зателефонуйте на номер зі свого телефону, потім скажіть, як усе минуло.",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} до строку · {ahead} пізніше · {held} у іншого телефонуючого",
+    "{due} to call": "{due} набрати",
+    "{ahead} later": "{ahead} пізніше",
+    "{held} in another caller's hands": "{held} у іншого",
+    "Settle the row in hand or put it back before taking another.":
+      "Закрийте рядок у руках або поверніть його, перш ніж брати інший.",
+    "How it went": "Як минуло",
+    "Call recorded": "Дзвінок записано",
+    "Wants a quote for January": "Просить кошторис на січень",
+    "“{purpose}” is closed": "«{purpose}» закрито",
+    "{n} row carried into a new campaign": "{n} рядок перенесено в нову кампанію",
+    "{n} rows carried into a new campaign": "{n} рядків перенесено в нову кампанію",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "Коли список завершено, закрийте його — відкриті рядки перейдуть у нову кампанію — або передайте колезі рядки з певним результатом.",
+    "No number blocked": "Жодного заблокованого номера",
+    "A number entered here is never written into this group's lists.":
+      "Номер, введений тут, ніколи не потрапляє до списків цієї групи.",
     Queue: "Черга",
     "Nothing left to call": "Більше нема кому телефонувати",
     "Every open row is done, due later, or in another caller's hands.":

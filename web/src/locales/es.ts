@@ -97,8 +97,22 @@ export const catalog: Catalog = {
       "Una lista pertenece a un grupo, y todavía no estás en ninguno. Cuando un grupo te añada, sus campañas y su lista estarán aquí.",
     "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.":
       "Las llamadas que esta lista espera. Toma una fila, llama al número desde tu propio teléfono y luego di cómo fue.",
-    "{due} due · {ahead} ahead · {held} with another caller":
-      "{due} pendientes · {ahead} más adelante · {held} en manos de otro llamante",
+    "{due} to call": "{due} por llamar",
+    "{ahead} later": "{ahead} más adelante",
+    "{held} in another caller's hands": "{held} en manos de otro",
+    "Settle the row in hand or put it back before taking another.":
+      "Cierra la fila que tienes en la mano o devuélvela antes de tomar otra.",
+    "How it went": "Cómo fue",
+    "Call recorded": "Llamada registrada",
+    "Wants a quote for January": "Quiere un presupuesto para enero",
+    "“{purpose}” is closed": "«{purpose}» está cerrada",
+    "{n} row carried into a new campaign": "{n} fila trasladada a una nueva campaña",
+    "{n} rows carried into a new campaign": "{n} filas trasladadas a una nueva campaña",
+    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
+      "Cuando la lista esté terminada, ciérrala —las filas aún abiertas pasan a una nueva campaña— o entrega a un colega las filas que terminaron de una manera.",
+    "No number blocked": "Ningún número bloqueado",
+    "A number entered here is never written into this group's lists.":
+      "Un número introducido aquí nunca se escribe en las listas de este grupo.",
     Queue: "Cola",
     "Nothing left to call": "No queda nada por llamar",
     "Every open row is done, due later, or in another caller's hands.":
