@@ -505,6 +505,8 @@ export const catalog: Catalog = {
     "Export all contacts": "Експортувати всі контакти",
     "Export address book": "Експортувати цю адресну книгу",
     "Import contacts…": "Імпортувати контакти…",
+    "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
+      "Імпорт до адресної книги групи чи каталогу інсталяції та експорт із них виконує лише адміністратор інсталяції.",
     "Contact options": "Параметри контактів",
     "Address book options": "Параметри адресної книги",
     "Email group": "Написати групі",

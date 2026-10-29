@@ -26,6 +26,29 @@ export function isGlobalContactsBook(book: Pick<AddressBook, "id">): boolean {
 }
 
 /**
+ * Whether a book is a **shared collection**: the installation's directory, or a
+ * book of a group the reader belongs to.
+ *
+ * Moving contacts in or out of one of those is an installation administrator's
+ * (owner decision, 2026-10-29). The answer is asked twice — where the menu draws
+ * the two commands, and where they run — so a second entry point cannot reach
+ * one without it. A book of another account counts as one until the mail probe
+ * has classified the groups, because an unclassified account may be one.
+ */
+export function isSharedCollectionBook(spec: {
+  bookId: string;
+  accountId: string | null;
+  /** The groups the reader belongs to, as the mail probe classified them. */
+  groups: ReadonlySet<string>;
+  /** Whether that probe has answered; until it has, nothing is classified. */
+  groupsKnown: boolean;
+}): boolean {
+  if (isGlobalContactsBook({ id: spec.bookId })) return true;
+  if (!spec.accountId) return false;
+  return !spec.groupsKnown || spec.groups.has(spec.accountId);
+}
+
+/**
  * The human label of a card field: its own label, or the contexts/features that
  * type it ("mobile", "work"). One rule, so a number reads the same in Contacts
  * and in the phone's list.

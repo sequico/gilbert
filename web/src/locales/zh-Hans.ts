@@ -497,6 +497,12 @@ export const catalog: Catalog = {
     "Export all contacts": "导出所有联系人",
     "Export address book": "导出此通讯录",
     "Import contacts…": "导入联系人…",
+    "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
+      "只有安装管理员才能导入或导出群组的通讯录和安装目录。",
+    "Last edited {date} by {who}": "最后由 {who} 编辑于 {date}",
+    "Restore this revision?": "恢复此修订版本？",
+    "It replaces the draft with this revision. Nothing already issued changes.":
+      "它将用此修订版本替换草稿。已发布的内容不会改变。",
     "Contact options": "联系人选项",
     "Address book options": "通讯录选项",
     "Email group": "给该群组写邮件",

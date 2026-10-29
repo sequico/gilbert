@@ -1,6 +1,8 @@
+import type { GlobalContactInput } from "@gilbert/shared/globalContacts";
 import { batchedSet, chunk, client, setErrorMessage } from "@/jmap/client";
 import type { ContactCard, GetResponse, Id, QueryResponse, SetError } from "@/jmap/types";
 import { contactDisplayName } from "@/lib/contacts";
+import { saveGlobalContact } from "@/lib/globalContactsAdmin";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
 import { cardFromLdif } from "@/lib/mozillaAb";
 import { accountOfBook } from "../shared";
@@ -133,6 +135,51 @@ async function writeCards(
  */
 function accountFor(get: ContactsGet, bookId: Id, named?: Id | null): Id | null {
   return named ?? accountOfBook(bookId, get().books, get().accountId, get().sharedBooks);
+}
+
+/**
+ * The cards a file holds, parsed with no destination.
+ *
+ * vCard goes through `ContactCard/parse`, which is a server method: it is given
+ * the reader's own account to upload the file to, because that is the one
+ * account every session has. LDIF has no server-side parser and is read here,
+ * exactly as the LDIF import reads it.
+ */
+async function cardsInFile(
+  ownAccountId: Id | null,
+  text: string,
+): Promise<Partial<ContactCard>[]> {
+  if (!/^\s*BEGIN:VCARD/im.test(text)) {
+    return parseLdif(text).flatMap((rec) => {
+      const card = cardFromLdif(rec);
+      return card ? [card] : [];
+    });
+  }
+  if (!ownAccountId) throw new Error("Your own account could not be read");
+  const up = await client.upload(
+    ownAccountId,
+    new Blob([text], { type: "text/vcard" }),
+    { type: "text/vcard" },
+  );
+  const parsed = await client.call<{
+    parsed?: Record<string, Partial<ContactCard>[] | Partial<ContactCard>>;
+  }>("ContactCard/parse", { accountId: ownAccountId, blobIds: [up.blobId] });
+  const entry = parsed.parsed?.[up.blobId];
+  if (!entry) return [];
+  return Array.isArray(entry) ? entry : [entry];
+}
+
+/** One parsed card in the directory's small shape (ADR 0019). */
+function directoryInput(card: Partial<ContactCard>): GlobalContactInput {
+  return {
+    name: contactDisplayName(card as ContactCard).trim(),
+    emails: Object.values(card.emails ?? {}).flatMap((e) =>
+      e.address ? [e.address] : [],
+    ),
+    phones: Object.values(card.phones ?? {}).flatMap((p) => (p.number ? [p.number] : [])),
+    organization: Object.values(card.organizations ?? {})[0]?.name ?? "",
+    notes: Object.values(card.notes ?? {})[0]?.note ?? "",
+  };
 }
 
 /**
@@ -305,6 +352,30 @@ export function importSlice(
         if (accountId === get().accountId) await get().syncCards();
         else await get().reloadShared();
       }
+    },
+
+    /*
+     * The directory, whose cards are not JMAP cards (ADR 0019).
+     *
+     * It is read through a route and written only through the administration's
+     * route, so a file is parsed with no destination and every named entry is
+     * saved as the directory's own shape, one card at a time — that route takes
+     * one card, and this is a migration, not a keystroke. An entry with no name
+     * is counted out: the directory lists contacts by name, and a nameless one
+     * would land where nobody can find it.
+     */
+    async importIntoDirectory(text) {
+      const cards = await cardsInFile(get().accountId, text);
+      const inputs = cards.map(directoryInput).filter((card) => card.name);
+      if (!inputs.length)
+        throw new Error(
+          cards.length
+            ? "none of its entries has a name, and the directory lists contacts by name"
+            : "it has no contacts in it",
+        );
+      for (const card of inputs) await saveGlobalContact(null, card);
+      await get().reloadShared();
+      return { created: inputs.length };
     },
   };
 }

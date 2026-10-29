@@ -848,6 +848,8 @@ export const catalog: Catalog = {
       "İmzalardaki görseller bu hesapta bulunmayan Dosyalar özelliğini gerektirir.",
     "Immediately when opened": "Açıldığında hemen",
     "Import contacts…": "Kişileri içe aktar…",
+    "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
+      "Bir grubun adres defterine veya kurulumun dizinine içe aktarma ya da bunlardan dışa aktarma yalnızca kurulum yöneticisi tarafından yapılır.",
     "Import iCAL file…": "iCAL dosyasını içe aktar…",
     "Import settings": "Ayarları içe aktar",
     Important: "Önemli",

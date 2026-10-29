@@ -1,4 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   ArrowLeft,
   BookOpen,
@@ -48,6 +49,7 @@ import {
   contactFieldLabel,
   contactPhoto,
   formatAddressLines,
+  isSharedCollectionBook,
   memberCards,
   sortKey,
   toVCard,
@@ -64,6 +66,7 @@ import { useMayMoveContact } from "@/lib/useMayMoveContact";
 import { useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 import { confirmDialog, Dialog } from "@/ui/dialog";
 import { Avatar, Empty, Spinner, useIsNarrow } from "@/ui/misc";
@@ -165,6 +168,10 @@ export function ContactsView({ id }: { id?: string }) {
    * flag moves rather than being read once when the view mounted.
    */
   const mayMove = useMayMoveContact();
+  /* The installation administrator's marker, as the import and export rule
+     reads it (`isSharedCollectionBook`): subscribed, so the answer follows the
+     session rather than the mount. */
+  const isAdmin = useSession((s) => sessionIsAdmin(s.session));
   const openCompose = useCompose((s) => s.open);
   /*
    * Ticked rows, and the last one ticked so a shift-click has something to
@@ -249,6 +256,14 @@ export function ContactsView({ id }: { id?: string }) {
     () => groupMailboxAccounts(mailAccounts),
     [mailAccounts],
   );
+  /* The same classifier's answer as a set, and whether it has answered at all:
+     what tells a group's book from a colleague's share when import and export
+     are guarded (`isSharedCollectionBook`). */
+  const groupIds = useMemo(
+    () => new Set(groupCardAccounts.map((group) => group.accountId)),
+    [groupCardAccounts],
+  );
+  const groupsKnown = mailAccounts.length > 0;
   /*
    * **All contacts**: the reader's own cards, the installation's directory and
    * the cards of every group they belong to. A group's books need nobody to add
@@ -530,6 +545,33 @@ export function ContactsView({ id }: { id?: string }) {
    * reads the set the list itself draws (`allCards`): the reader's own cards and
    * every group's, so exporting everything exports what "everything" shows.
    */
+  /*
+   * Whether this reader may move contacts in or out of the book named.
+   *
+   * The rule is `isSharedCollectionBook`'s, asked here as well as where the menu
+   * draws the commands (ADR 0013): a group's book and the installation's
+   * directory are an installation administrator's, everything else is the
+   * reader's own. A refusal is a sentence, never a silent no-op.
+   */
+  const mayMoveInOrOut = (accountId: string | null, book: string): boolean => {
+    if (
+      isAdmin ||
+      !isSharedCollectionBook({
+        bookId: book,
+        accountId,
+        groups: groupIds,
+        groupsKnown,
+      })
+    )
+      return true;
+    toast.error(
+      translate(
+        "Only an installation administrator imports into or exports a group's address book or the installation's directory.",
+      ),
+    );
+    return false;
+  };
+
   const cardsOf = (accountId: string | null, book: string) => {
     if (accountId) {
       return contacts
@@ -541,6 +583,7 @@ export function ContactsView({ id }: { id?: string }) {
   };
 
   const exportBook = (accountId: string | null, book: string) => {
+    if (!mayMoveInOrOut(accountId, book)) return;
     const cards = cardsOf(accountId, book);
     if (!cards.length) {
       toast.error(translate("There is nothing in it to export"));
@@ -579,8 +622,24 @@ export function ContactsView({ id }: { id?: string }) {
       toast.error(translate("Create an address book first"));
       return;
     }
+    if (!mayMoveInOrOut(intoAccount, book.id)) return;
     try {
       const text = await f.text();
+      /*
+       * The installation's directory is not a JMAP account: it is written
+       * through the administration's route, one card at a time (ADR 0019), so
+       * the file takes that path instead of the card writer the books use.
+       */
+      if (intoAccount === GLOBAL_CONTACTS_ACCOUNT_ID) {
+        const { created } = await contacts.importIntoDirectory(text);
+        toast.success(
+          plural(created, {
+            one: "Imported {n} contact",
+            other: "Imported {n} contacts",
+          }),
+        );
+        return;
+      }
       /*
        * Which format, decided by what is in the file rather than by what it is
        * called. A vCard says so on its first line; an address book exported as

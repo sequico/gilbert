@@ -518,6 +518,8 @@ export const catalog: Catalog = {
     "Export all contacts": "Alle Kontakte exportieren",
     "Export address book": "Dieses Adressbuch exportieren",
     "Import contacts…": "Kontakte importieren…",
+    "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
+      "Nur ein Installationsadministrator importiert in das Adressbuch einer Gruppe oder in das Verzeichnis der Installation hinein oder exportiert daraus.",
     "Contact options": "Kontaktoptionen",
     "Address book options": "Adressbuchoptionen",
     "Email group": "Gruppe anschreiben",

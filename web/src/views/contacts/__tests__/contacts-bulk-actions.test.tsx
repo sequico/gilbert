@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AddressBook } from "@/jmap/types";
 import { EVENTS } from "@/lib/events";
+import { GLOBAL_CONTACTS_ACCOUNT_ID } from "@/lib/globalContactsAdmin";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
@@ -230,6 +231,7 @@ describe("import and export from a book's menu", () => {
   });
 
   it("imports into a group's own book like one of yours", async () => {
+    asAdmin(true);
     arrange({ accountId: "freight", bookId: "fb" });
     const importVCard = vi
       .spyOn(useContacts.getState(), "importVCard")
@@ -247,5 +249,53 @@ describe("import and export from a book's menu", () => {
     });
     await act(async () => {});
     expect(importVCard).toHaveBeenCalledWith(expect.any(String), "fb", "freight");
+  });
+
+  it("imports into the directory through the administration's route", async () => {
+    asAdmin(true);
+    arrange({ accountId: "master", bookId: "global-contacts" });
+    const intoDirectory = vi
+      .spyOn(useContacts.getState(), "importIntoDirectory")
+      .mockResolvedValue({ created: 1 });
+    await act(async () => {
+      root.render(<ContactsView />);
+    });
+    const file = new File(["BEGIN:VCARD\nEND:VCARD\n"], "c.vcf", { type: "text/vcard" });
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(EVENTS.contactsImport, {
+          detail: {
+            file,
+            bookId: "global-contacts",
+            accountId: GLOBAL_CONTACTS_ACCOUNT_ID,
+          },
+        }),
+      );
+    });
+    await act(async () => {});
+    // Not the card writer: the directory is not a JMAP account (ADR 0019).
+    expect(intoDirectory).toHaveBeenCalledWith("BEGIN:VCARD\nEND:VCARD\n");
+  });
+
+  it("refuses a member's import into a group's book", async () => {
+    asAdmin(false);
+    arrange({ accountId: "freight", bookId: "fb" });
+    const importVCard = vi
+      .spyOn(useContacts.getState(), "importVCard")
+      .mockResolvedValue({ created: 1, updated: 0, alike: 0 });
+    await act(async () => {
+      root.render(<ContactsView />);
+    });
+    const file = new File(["BEGIN:VCARD\nEND:VCARD\n"], "c.vcf", { type: "text/vcard" });
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(EVENTS.contactsImport, {
+          detail: { file, bookId: "fb", accountId: "freight" },
+        }),
+      );
+    });
+    await act(async () => {});
+    // The rule is asked where the action runs, not only where the menu draws it.
+    expect(importVCard).not.toHaveBeenCalled();
   });
 });

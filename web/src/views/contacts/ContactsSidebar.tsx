@@ -20,7 +20,7 @@ import {
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
-import { isGlobalContactsBook } from "@/lib/contacts";
+import { isGlobalContactsBook, isSharedCollectionBook } from "@/lib/contacts";
 import { EVENTS } from "@/lib/events";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -114,14 +114,6 @@ export function ContactsSidebar() {
     setTarget(t);
     menu.openAt(e.clientX, e.clientY);
   };
-  /*
-   * Whether a row is a **shared collection** — a group's book, or the
-   * installation's directory. Moving contacts in or out of one of those is an
-   * administrator's, so the two commands are drawn and disabled for everybody
-   * else: the capability is visible, and whose it is.
-   */
-  const isControlled = (t: MenuTarget) =>
-    t.kind === "global" || (t.kind === "shared" && groupIds.has(t.accountId));
   const [share, setShare] = useState<AddressBook | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const menu = useMenu();
@@ -148,6 +140,23 @@ export function ContactsSidebar() {
      stays in the read-only area below. */
   const groups = groupMailboxAccounts(mailAccounts);
   const groupIds = new Set(groups.map((g) => g.accountId));
+  /** Whether the mail probe has classified the groups yet. */
+  const groupsKnown = mailAccounts.length > 0;
+  /*
+   * Whether a row is a **shared collection** — a group's book, or the
+   * installation's directory. `isSharedCollectionBook` is the rule, asked here
+   * to draw the two commands and to disable them for whoever does not hold
+   * them: the capability is visible, and whose it is.
+   */
+  const isControlled = (t: MenuTarget) =>
+    t.kind === "global" ||
+    (t.kind === "shared" &&
+      isSharedCollectionBook({
+        bookId: t.book.id,
+        accountId: t.accountId,
+        groups: groupIds,
+        groupsKnown,
+      }));
   /*
    * The installation's directory (ADR 0019): one book, read by everyone and
    * never "added". It leads the Contacts list rather than sitting in "Shared

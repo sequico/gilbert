@@ -324,6 +324,15 @@ export interface ContactsState {
     addressBookId: Id,
     accountId?: Id | null,
   ): Promise<{ created: number; updated: number; alike: number }>;
+  /**
+   * Import a vCard or an LDIF file into the installation's directory.
+   *
+   * The directory is not a JMAP account: it is written through the
+   * administration's route one card at a time (ADR 0019), so the file is parsed
+   * without a destination and every named entry is saved as the directory's own
+   * shape. Entries with no name cannot be listed and are counted out.
+   */
+  importIntoDirectory(text: string): Promise<{ created: number }>;
   loadPrincipals(): Promise<void>;
   suggest(query: string, limit?: number): Promise<Suggestion[]>;
   addRecent(addrs: EmailAddress[]): void;

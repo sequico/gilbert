@@ -1898,7 +1898,11 @@ JMAP Contacts and JSContact.
   **directory** are shared collections: both commands there are an administrator's,
   drawn for everybody and disabled for whoever does not hold them. On a book of
   your own, or a colleague's share, import appears only where the book can be
-  written — a share opened read-only offers export and nothing else.
+  written — a share opened read-only offers export and nothing else. The
+  installation's directory is not a mail account: its import runs through the
+  administration's route, one card at a time (ADR 0019), while a book's goes
+  through the mail server's own parser. The rule is asked again where the two
+  actions run, so no second entry point can reach a shared collection without it.
 - **A contact can belong to several books of its account** without being copied:
   *Add to another book…* on a row files it into one more and keeps the one it is
   in, up to the server's ten. Membership is the card's own (`addressBookIds`, RFC
