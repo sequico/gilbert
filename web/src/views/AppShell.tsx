@@ -252,34 +252,26 @@ export function AppShell({ children }: { children: ReactNode }) {
    */
   const action = mod ? mod.action : MODULES[0]!.action;
   /*
-   * Where the shield takes the reader back to: the section that was open
-   * before the last jump into /admin. Remembered on the click that leaves
-   * it -- the shield is the way back too, and "back" means "where I was",
-   * not a hard-coded section. After a reload inside /admin the memory is
-   * gone and the shield falls back to Mail, the home section.
+   * Where the two toggles in the chrome take the reader back to: the shield for
+   * /admin and the account menu's entry for /settings. Each section that opens is
+   * also the one that closes, and "closed" means where the reader was -- so the
+   * memory is the last address that was *not* that section, kept in step with the
+   * location rather than written on the click that left it. Every way in answers
+   * the same (a click, the `g k` shortcut, a link from another screen), a reader
+   * moving between the section's own pages is not sent to one of them, and the
+   * query travels with the address: a search is somewhere they may leave from.
+   * A reload inside either section leaves nothing to remember, and it falls back
+   * to Mail, the home section.
    */
-  const adminBackTo = useRef("/mail");
-  /*
-   * Where the account menu's Settings entry takes the reader back to. It is a
-   * toggle rather than a link: the entry that opens the section is the entry
-   * that closes it, and "closed" means where the reader was, as the shield does
-   * for /admin.
-   *
-   * Remembered from the location itself rather than on the click that leaves it,
-   * so every way into Settings answers the same -- the menu's entry, the `g k`
-   * shortcut, a link from another screen -- and a reader who moves between the
-   * section's pages is not sent to one of them. It is the address, query and all,
-   * because a search is somewhere a reader may leave from. A reload inside
-   * Settings leaves nothing to remember, and it falls back to Mail.
-   */
-  const settingsBackTo = useRef("/mail");
-  const settingsFromSearch = useSearch();
+  const backTo = useRef({ admin: "/mail", settings: "/mail" });
+  const search = useSearch();
   useEffect(() => {
-    // The query as well as the path: a search is a place the reader may leave
-    // from, and coming back to its results without the words is not coming back.
-    if (section !== "settings")
-      settingsBackTo.current = `${location}${settingsFromSearch ? `?${settingsFromSearch}` : ""}`;
-  }, [location, settingsFromSearch, section]);
+    const here = `${location}${search ? `?${search}` : ""}`;
+    // Each memory skips only its own section: leaving Settings for Admin and
+    // coming back is a return to Admin, not to the screen before it.
+    if (section !== "admin") backTo.current.admin = here;
+    if (section !== "settings") backTo.current.settings = here;
+  }, [location, search, section]);
 
   useGlobalShortcuts({
     onHelp: () => setHelpOpen(true),
@@ -396,10 +388,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-current={section === "admin" ? "page" : undefined}
               onClick={() => {
                 if (section === "admin") {
-                  navigate(adminBackTo.current);
+                  navigate(backTo.current.admin);
                   return;
                 }
-                adminBackTo.current = location;
                 navigate("/admin");
               }}
             >
@@ -459,7 +450,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => {
                 // The same entry closes the section it opened, and returns to
                 // where the reader was rather than to a fixed screen.
-                if (section === "settings") navigate(settingsBackTo.current);
+                if (section === "settings") navigate(backTo.current.settings);
                 else navigate("/settings");
               }}
             />
