@@ -52,20 +52,17 @@ export interface CampaignFinding {
   open: number;
 }
 
-/** The group's campaigns, what could not be read, and what needs a decision. */
+/** The group's campaigns, and what needs a decision. */
 export async function listCampaigns(group: string): Promise<{
   campaigns: CampaignDoc[];
-  problems: string[];
   findings: CampaignFinding[];
 }> {
   const res = await apiFetch<{
     campaigns: CampaignDoc[];
-    problems: string[];
     findings: CampaignFinding[];
   }>(`/api/outbound/campaigns?${groupQuery(group)}`);
   return {
     campaigns: res.campaigns ?? [],
-    problems: res.problems ?? [],
     findings: res.findings ?? [],
   };
 }

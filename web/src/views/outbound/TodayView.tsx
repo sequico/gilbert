@@ -23,6 +23,7 @@ import {
 } from "@/lib/outbound";
 import { useMail } from "@/store/mail";
 import { activeGroupName, useOutbound } from "@/store/outbound";
+import { DateTimeField } from "@/ui/datefield";
 import { confirmDialog } from "@/ui/dialog";
 import { LoadState } from "@/ui/LoadState";
 import { Empty } from "@/ui/misc";
@@ -53,6 +54,9 @@ export function TodayView({ section }: { section?: string }) {
   const [pages, setPages] = useState<ScriptPage[]>([]);
   /** The words the campaign of the row in hand pinned, if it pinned any. */
   const [script, setScript] = useState<string | null>(null);
+  /** What the call in hand said, and when to call again if it stays open. */
+  const [note, setNote] = useState("");
+  const [nextCall, setNextCall] = useState("");
 
   // The group being worked, and the pane this route names.
   const active = activeGroupName(groups, group);
@@ -61,7 +65,12 @@ export function TodayView({ section }: { section?: string }) {
   // campaigns: the counts and the words beside it are about the same rows.
   const queue = board?.queue ?? [];
 
-  async function load(name: string) {
+  /**
+   * Everything this section shows, read as one act: the queue, the numbers it
+   * honours and the pages it may read aloud. The campaigns belong to the store the
+   * tree reads, and the store answers both callers with one read.
+   */
+  async function read(name: string) {
     setLoading(true);
     setLoadError(null);
     try {
@@ -78,23 +87,14 @@ export function TodayView({ section }: { section?: string }) {
     } finally {
       setLoading(false);
     }
+    void loadCampaigns(name).catch(() => {});
   }
 
   useEffect(() => {
     if (!active) return;
     setTaken(null);
-    void load(active);
-    // The campaigns belong to the store the tree reads, and the store answers both
-    // callers with one read.
-    void loadCampaigns(active).catch(() => {});
-  }, [active, campaign, loadCampaigns]);
-
-  /** Read the queue again, and the campaign list with it: a settled row moves both. */
-  async function refresh() {
-    if (!active) return;
-    setBoard(await fetchToday(active, campaign));
-    void loadCampaigns(active).catch(() => {});
-  }
+    void read(active);
+  }, [active, campaign]);
 
   async function take(row: RowDoc) {
     if (busy) return;
@@ -102,13 +102,16 @@ export function TodayView({ section }: { section?: string }) {
     setError(null);
     try {
       setTaken(await takeRow(active, row.campaignUid, row.uid));
+      // A row in hand starts with nothing said and no date: both belong to this call.
+      setNote("");
+      setNextCall("");
       // The script the campaign pinned travels with the row: the same words were
       // said to every number of this list (ADR 0040).
       setScript(await fetchScript(active, row.campaignUid).catch(() => null));
     } catch (err) {
       setError(errorMessage(err));
       // Somebody else may have taken it while it was on screen.
-      await refresh().catch(() => {});
+      void read(active);
     } finally {
       setBusy(false);
     }
@@ -178,11 +181,11 @@ export function TodayView({ section }: { section?: string }) {
    * carrying moves the still-open ones into a new campaign with the same purpose.
    */
   async function close(uid: string, carry: boolean) {
-    const campaign = board?.campaigns[uid]?.purpose ?? "";
+    const purpose = board?.campaigns[uid]?.purpose ?? "";
     const agreed = await confirmDialog({
       title: carry
-        ? t("Close “{purpose}” and carry its open rows?", { purpose: campaign })
-        : t("Close “{purpose}”?", { purpose: campaign }),
+        ? t("Close “{purpose}” and carry its open rows?", { purpose })
+        : t("Close “{purpose}”?", { purpose }),
       message: carry
         ? t(
             "The rows still open move to a new campaign with the same purpose and outcomes.",
@@ -196,7 +199,9 @@ export function TodayView({ section }: { section?: string }) {
     try {
       await closeCampaign(active, uid, carry);
       setTaken(null);
-      await load(active);
+      // The campaign leaves the tree as it closes, and the queue with it: the read
+      // below asks for the list as the server now holds it.
+      await read(active);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -209,9 +214,16 @@ export function TodayView({ section }: { section?: string }) {
     setBusy(true);
     setError(null);
     try {
-      await settleRow(active, row.campaignUid, row.uid, { outcome });
+      await settleRow(active, row.campaignUid, row.uid, {
+        outcome,
+        note: note.trim() || null,
+        // A date keeps the row open until then; no date settles it.
+        nextCallAt: nextCall ? new Date(nextCall).toISOString() : null,
+      });
       setTaken(null);
-      await refresh();
+      setNote("");
+      setNextCall("");
+      await read(active);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -236,7 +248,7 @@ export function TodayView({ section }: { section?: string }) {
     <div>
       <LoadState
         loadError={loadError}
-        reload={() => void load(active)}
+        reload={() => void read(active)}
         loading={loading && !board}
       />
 
@@ -259,7 +271,13 @@ export function TodayView({ section }: { section?: string }) {
             })}
           </p>
 
-          {error && <div className="error-box">{error}</div>}
+          {board.problems.length > 0 && (
+            <div className="warn-box">
+              {board.problems.map((problem) => (
+                <p key={problem}>{problem}</p>
+              ))}
+            </div>
+          )}
 
           <section>
             {queue.length === 0 && !taken ? (
@@ -274,6 +292,10 @@ export function TodayView({ section }: { section?: string }) {
                     outcomes={board.campaigns[taken.campaignUid]?.outcomes ?? []}
                     script={script}
                     busy={busy}
+                    note={note}
+                    onNote={setNote}
+                    nextCall={nextCall}
+                    onNextCall={setNextCall}
                     onSettle={(outcome) => void settle(taken, outcome)}
                   />
                 )}
@@ -354,7 +376,7 @@ export function TodayView({ section }: { section?: string }) {
             campaigns={board.campaigns}
             pages={pages}
             busy={busy}
-            onCreated={() => void refresh()}
+            onCreated={() => void read(active)}
             onClose={(uid, carry) => void close(uid, carry)}
             onHandOff={(uid, outcome) => void handOff(uid, outcome)}
             group={active}
@@ -375,6 +397,10 @@ function TakenRow({
   outcomes,
   script,
   busy,
+  note,
+  onNote,
+  nextCall,
+  onNextCall,
   onSettle,
 }: {
   row: RowDoc;
@@ -382,6 +408,11 @@ function TakenRow({
   /** The words the campaign pinned, when it pinned any. */
   script: string | null;
   busy: boolean;
+  note: string;
+  onNote: (note: string) => void;
+  /** "YYYY-MM-DDTHH:MM", or "" when the call settles the row. */
+  nextCall: string;
+  onNextCall: (nextCall: string) => void;
   onSettle: (outcome: string) => void;
 }) {
   return (
@@ -408,6 +439,28 @@ function TakenRow({
           {script}
         </div>
       )}
+      <div className="field">
+        <label htmlFor="today-note">{t("What was said")}</label>
+        <input
+          id="today-note"
+          className="input"
+          value={note}
+          disabled={busy}
+          onChange={(e) => onNote(e.target.value)}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="today-next-call">{t("Call again")}</label>
+        <DateTimeField
+          id="today-next-call"
+          value={nextCall}
+          disabled={busy}
+          onChange={onNextCall}
+        />
+        <p className="hint">
+          {t("A date keeps the row open until then; leaving it empty settles the row.")}
+        </p>
+      </div>
       <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
         {outcomes.map((outcome) => (
           <button
@@ -689,8 +742,8 @@ function StartList({
                 })}
               </p>
               <ul>
-                {report.refused.map((entry) => (
-                  <li key={entry.line}>
+                {report.refused.map((entry, index) => (
+                  <li key={`${index}-${entry.line}`}>
                     {entry.line} —{" "}
                     {t(REFUSAL_LABELS[entry.reason] ?? "This line could not be read")}
                   </li>

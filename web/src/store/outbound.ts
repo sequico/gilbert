@@ -21,8 +21,6 @@ interface OutboundState {
   campaigns: CampaignDoc[];
   /** The campaigns past their window with work still open. */
   findings: CampaignFinding[];
-  /** Documents that are there and cannot be read. */
-  problems: string[];
   selectGroup: (group: string) => void;
   filterCampaign: (campaign: string) => void;
   /** Read the group's campaigns again. A failed read leaves the last one standing. */
@@ -40,20 +38,25 @@ export const useOutbound = create<OutboundState>((set) => ({
   campaign: "",
   campaigns: [],
   findings: [],
-  problems: [],
   // A campaign belongs to one group, so moving group drops the filter with it and
   // the list of the group being left is not left on screen.
-  selectGroup: (group) =>
-    set({ group, campaign: "", campaigns: [], findings: [], problems: [] }),
+  selectGroup: (group) => set({ group, campaign: "", campaigns: [], findings: [] }),
   filterCampaign: (campaign) => set({ campaign }),
   load: async (group) => {
     if (reading?.group === group) return reading.promise;
     const promise = listCampaigns(group).then((answer) => {
-      set({
+      const running = new Set(
+        answer.campaigns
+          .filter((entry) => entry.state === "running")
+          .map((entry) => entry.uid),
+      );
+      // A campaign that closed leaves the tree, and a filter still naming it would
+      // leave the queue asking for a list nobody works any more.
+      set((now) => ({
         campaigns: answer.campaigns,
         findings: answer.findings,
-        problems: answer.problems,
-      });
+        campaign: now.campaign !== "" && !running.has(now.campaign) ? "" : now.campaign,
+      }));
     });
     reading = { group, promise };
     try {
