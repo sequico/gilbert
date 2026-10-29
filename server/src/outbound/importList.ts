@@ -107,7 +107,8 @@ function csvHeader(first: string): CsvHeader | null {
   const fields = csvFields(first).map((field) => field.trim().toLowerCase());
   const at: Partial<Record<CsvColumn, number>> = {};
   for (const column of Object.keys(CSV_COLUMNS) as CsvColumn[]) {
-    const found = fields.findIndex((field) => CSV_COLUMNS[column].includes(field));
+    const names: readonly string[] = CSV_COLUMNS[column];
+    const found = fields.findIndex((field) => names.includes(field));
     if (found >= 0) at[column] = found;
   }
   return at.phone === undefined ? null : { at };
