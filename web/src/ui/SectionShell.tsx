@@ -116,7 +116,7 @@ export function SectionShell({
         )}
         {footer}
       </nav>
-      <div className="settings-content">
+      <div className="content-pane settings-content">
         {backHref && (
           <button
             className="btn btn-ghost btn-sm"

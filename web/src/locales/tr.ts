@@ -81,8 +81,10 @@ export const catalog: Catalog = {
     "Call recorded": "Arama kaydedildi",
     "Wants a quote for January": "Ocak için teklif istiyor",
     "“{purpose}” is closed": "“{purpose}” kapatıldı",
-    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
-      "Liste bittiğinde kapatın — açık satırlar yeni bir kampanyaya taşınır — ya da belirli bir sonuçla biten satırları bir iş arkadaşına devredin.",
+    "The list": "Liste",
+    "Continue this call": "Bu aramaya devam et",
+    "The numbers": "Numaralar",
+    "Closing and handoff": "Kapatma ve devir",
     "No number blocked": "Engellenen numara yok",
     "A number entered here is never written into this group's lists.":
       "Buraya girilen bir numara bu grubun listelerine asla yazılmaz.",

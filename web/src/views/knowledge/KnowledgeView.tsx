@@ -440,7 +440,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
           editor paints, in reading and in editing alike -- lines up with the
           title, the tags and the actions instead of running to the pane's
           edges. */}
-      <div className="files-scroll" style={{ marginTop: 20, padding: "0 16px" }}>
+      <div className="files-scroll content-pane">
         {isTemplate ? (
           /* A checklist template is its rules, not prose: the builder authors
              them and the surface renders them (ADR 0026). */

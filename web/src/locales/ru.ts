@@ -108,8 +108,10 @@ export const catalog: Catalog = {
     "Call recorded": "Звонок записан",
     "Wants a quote for January": "Просит смету на январь",
     "“{purpose}” is closed": "«{purpose}» закрыта",
-    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
-      "Когда список закончен, закройте его — открытые строки перейдут в новую кампанию — или передайте коллеге строки с определённым исходом.",
+    "The list": "Список",
+    "Continue this call": "Продолжить этот звонок",
+    "The numbers": "Номера",
+    "Closing and handoff": "Закрытие и передача",
     "No number blocked": "Нет заблокированных номеров",
     "A number entered here is never written into this group's lists.":
       "Номер, введённый здесь, никогда не попадает в списки этой группы.",

@@ -305,7 +305,7 @@ export function TodayView({ section }: { section?: string }) {
 
   if (groups.length === 0) {
     return (
-      <div>
+      <div className="content-pane">
         <h1>{t("Today")}</h1>
         <Empty icon={<Phone size={22} />} title={t("No group to call for")}>
           {t(
@@ -317,7 +317,7 @@ export function TodayView({ section }: { section?: string }) {
   }
 
   return (
-    <div>
+    <div className="content-pane">
       <LoadState
         loadError={loadError}
         reload={() => void read(active)}
@@ -335,12 +335,14 @@ export function TodayView({ section }: { section?: string }) {
             )}
           </p>
 
-          <p className="hint">
-            {t("{due} to call", { due: board.due })}
-            {board.upcoming > 0 && ` · ${t("{ahead} later", { ahead: board.upcoming })}`}
-            {board.heldByOthers > 0 &&
-              ` · ${t("{held} in another caller's hands", { held: board.heldByOthers })}`}
-          </p>
+          {board.due + board.upcoming + board.heldByOthers > 0 && (
+            <p className="hint">
+              {t("{due} to call", { due: board.due })}
+              {board.upcoming > 0 && ` · ${t("{ahead} later", { ahead: board.upcoming })}`}
+              {board.heldByOthers > 0 &&
+                ` · ${t("{held} in another caller's hands", { held: board.heldByOthers })}`}
+            </p>
+          )}
 
           {taken && (
             <p className="hint">
@@ -415,7 +417,10 @@ export function TodayView({ section }: { section?: string }) {
                             disabled={busy || taken !== null}
                             onClick={() => void take(row)}
                           >
-                            {t("Take this row")}
+                            {/* A row this caller still holds offers to be picked up
+                                again, not taken: a reload forgets the row in hand, the
+                                claim on the server does not. */}
+                            {row.claim ? t("Continue this call") : t("Take this row")}
                           </button>
                         </p>
                       </div>
@@ -523,7 +528,7 @@ function TakenRow({
   onRelease: () => void;
 }) {
   return (
-    <div className="card" style={{ borderColor: "var(--accent)" }}>
+    <div className="card" style={{ borderLeft: "3px solid var(--accent)" }}>
       <div className="card-head">
         <h3>{row.e164}</h3>
         {row.extension && (
@@ -747,7 +752,8 @@ function StartList({
   const disabled = working || busy;
 
   return (
-    <section style={{ marginTop: 24 }}>
+    <section>
+      <h2>{t("The list")}</h2>
       <p className="hint">
         {t(
           "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.",
@@ -817,6 +823,7 @@ function StartList({
 
       {campaigns.length > 0 && (
         <>
+          <h2>{t("The numbers")}</h2>
           <div className="field">
             <label htmlFor="today-campaign">{t("Into which campaign")}</label>
             <select
@@ -904,11 +911,7 @@ function StartList({
 
           {/* Closing and handing off act on a list that already exists, so they come
               after the list has been written and filled — never between the two. */}
-          <p className="hint" style={{ marginTop: 24 }}>
-            {t(
-              "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.",
-            )}
-          </p>
+          <h2>{t("Closing and handoff")}</h2>
           {open && (
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
               {/* Carrying the open rows is the usual end of a list; closing them away

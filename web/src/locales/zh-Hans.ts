@@ -102,8 +102,10 @@ export const catalog: Catalog = {
     "Call recorded": "通话已记录",
     "Wants a quote for January": "想要一月份的报价",
     "“{purpose}” is closed": "{purpose}已关闭",
-    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
-      "名单完成后关闭它（未结的行会转入新活动），或把以某种结果结束的行交给同事。",
+    "The list": "名单",
+    "Continue this call": "继续此通话",
+    "The numbers": "号码",
+    "Closing and handoff": "关闭与移交",
     "No number blocked": "没有已屏蔽的号码",
     "A number entered here is never written into this group's lists.":
       "在此输入的号码永远不会写入本群组的名单。",

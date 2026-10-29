@@ -35,6 +35,13 @@ spelling of the same action is that defect wearing a costume**.
   **not both for the same weight**, destructive as `.btn-danger` and set apart
   from the group. Sizes `.btn-sm` / `.btn-lg`; icon-only is `.icon-btn`
   (`.sm`, `.xs`). An icon-only control carries a `title` and an `aria-label`.
+- **A page** (`.content-pane`): the one column a section that is a *page* rather
+  than a set of panes draws its content in — padded from the window's edge
+  (24/32 desktop, 16 on a phone), one rhythm for its `h1`, its `h2` and its
+  `lead`, and it is what scrolls in the main column. Settings' column is
+  `.content-pane.settings-content` (its own max width); the Knowledge reader and
+  Outbound's panes use it as it is. A page that pads itself is a second
+  visual language.
 - **Icons**: lucide only, one meaning per glyph across the app (a folder for
   "put it in Files", an arrow-into-tray for "put it on this machine"; never an
   arrow pointing up for a save). Sizes 14 (inside a button or a row), 16–18

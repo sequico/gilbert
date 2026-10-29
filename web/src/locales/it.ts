@@ -83,8 +83,10 @@ export const catalog: Catalog = {
     "Call recorded": "Chiamata registrata",
     "Wants a quote for January": "Chiede un preventivo per gennaio",
     "“{purpose}” is closed": "«{purpose}» è chiusa",
-    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
-      "Quando la lista è finita, chiudila — portando le righe ancora aperte in una nuova campagna — oppure consegna a un collega le righe finite in un certo modo.",
+    "The list": "La lista",
+    "Continue this call": "Riprendi questa chiamata",
+    "The numbers": "I numeri",
+    "Closing and handoff": "Chiusura e consegna",
     "No number blocked": "Nessun numero bloccato",
     "A number entered here is never written into this group's lists.":
       "Un numero inserito qui non finisce mai nelle liste di questo gruppo.",

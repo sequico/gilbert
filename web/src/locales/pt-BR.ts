@@ -109,8 +109,10 @@ export const catalog: Catalog = {
     "Call recorded": "Ligação registrada",
     "Wants a quote for January": "Quer um orçamento para janeiro",
     "“{purpose}” is closed": "“{purpose}” está fechada",
-    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
-      "Quando a lista estiver pronta, feche-a — as linhas ainda abertas vão para uma nova campanha — ou entregue a um colega as linhas que terminaram de um jeito.",
+    "The list": "A lista",
+    "Continue this call": "Continuar esta ligação",
+    "The numbers": "Os números",
+    "Closing and handoff": "Fechamento e entrega",
     "No number blocked": "Nenhum número bloqueado",
     "A number entered here is never written into this group's lists.":
       "Um número digitado aqui nunca é escrito nas listas deste grupo.",

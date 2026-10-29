@@ -105,8 +105,10 @@ export const catalog: Catalog = {
     "Call recorded": "通話を記録しました",
     "Wants a quote for January": "1月の見積もりを希望",
     "“{purpose}” is closed": "「{purpose}」は終了しました",
-    "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
-      "リストが終わったら閉じてください（未完了の行は新しいキャンペーンへ引き継げます）。または、特定の結果で終わった行を同僚に渡せます。",
+    "The list": "リスト",
+    "Continue this call": "この通話を続ける",
+    "The numbers": "番号",
+    "Closing and handoff": "終了と引き渡し",
     "No number blocked": "ブロックした番号はありません",
     "A number entered here is never written into this group's lists.":
       "ここに入力した番号がこのグループのリストに書き込まれることはありません。",
