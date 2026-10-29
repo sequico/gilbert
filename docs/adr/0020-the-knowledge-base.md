@@ -4,9 +4,14 @@ Status: Accepted
 
 Implementation: Built. The article shape, the storage layout, the
 validators and the lifecycle arithmetic are one definition
-(`server/src/shared/knowledge.ts`); the Master-owned write door and its
+(`server/src/shared/knowledge.ts`); the write door and its
 `/api/knowledge/*` routes are `server/src/knowledgeAdmin.ts` and
-`server/src/routes/knowledge.ts`; the company KB is created at boot and read through the
+`server/src/routes/knowledge.ts`; a group's KB is written with the member's own
+session (`server/src/knowledge/scope.ts` `groupKnowledgeAccount`). **Owed:** a
+live probe that a member's own session — not the installation's agent — creates
+and writes a group's `gilbert/knowledge` on Stalwart: the mock answers FileNode
+per account and not per principal, so it proves the path and not the grant.
+The company KB is created at boot and read through the
 route (`server/src/index.ts`, `GET /api/knowledge/company/…`); the client reads
 and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
@@ -246,18 +251,19 @@ Calendar, Contacts and Files** in the module bar — and not a folder inside Fil
 | --- | --- | --- |
 | Owner | the **Master** account (the installation) | the **group** account |
 | Who reads | everyone (through the route, as the Master) | members (membership is the grant) |
-| Who writes | **administrators** create, rename, move and delete pages and folders; every member and every agent write the **draft** | administrators the same in a group; members and the group's agent write the draft |
+| Who writes | administrators create, rename, move and delete pages and folders; every member and every agent write the **draft** | every member and the group's agent: create, rename, reorder and move pages and folders, and write the **draft**; deleting or retiring one is an administrator's |
 | Who approves | **administrators only** | **administrators only** |
 | Created | at boot, as `ensureGlobalContacts` is | on first use, as `gilbert/chat` is |
 | Store | `gilbert/knowledge/…` in the Master | `gilbert/knowledge/…` in the group |
 | Access | the server route, as the Master (not a security boundary) | the reader's own JMAP session |
 
 The two are the **same documents and the same surface**; only the owning account
-differs. Both are **written** through the server route that acts as the Master
-(Q1); they differ only in how a reader reaches them — the company KB through the
-route that acts as the Master, because a reader is not a member of the Master's
-account, a group's through the reader's own session, because membership reaches
-it. The
+differs. Both are written through the server route, each with the session that
+owns the documents: the company's as the Master (Q1), because a reader is not a
+member of the Master's account and the route is how every account reaches it; a
+group's with the member's own session, because membership reaches it — so the
+installation's agent needs no grant on a group to let its members work there,
+and a draft records the member who last changed it. The
 surface lists **Company** first, then one section per group the reader is in —
 the contact sidebar's shape (Global contacts above the reader's books and the
 groups').
@@ -272,11 +278,14 @@ below.
   and agents alike write and modify the same draft — multi-edit by everybody —
   rather than opening a competing draft of their own. A second intent is an edit
   of that draft, not a second document.
-- **Creating, renaming, moving and deleting a page or a folder is an
-  administrator's.** The shape of the tree is the installation's decision; the
-  route refuses those writes for anybody else. A member's write is the **draft**
-  of a page that already exists — there is no member-made page outside the
-  administrator who made it and the approval that issues it.
+- **The shape of a group's tree is its members'.** Creating, renaming, moving,
+  reordering and restoring a page or a folder in a group's KB is what being a
+  member of that group means (`gilbert-groups`), and the write is made with the
+  member's own session — the installation's agent needs no grant on the group.
+  In the **company** KB the same writes are an administrator's: the tree is the
+  installation's, its documents live in the Master's account, and the route
+  refuses those writes for anybody else. **Deleting** a page or a folder, in
+  either tier, is an administrator's (ADR 0013).
 - **A change request carries who asked for it.** The request that produces a
   change — a person's instruction or a plan — names the requester, and that
   attribution is shown only to them; a paragraph edited inside the one shared
@@ -291,9 +300,9 @@ below.
 - **Only an administrator approves.** Administrators are the single approval
   level. No member, and no agent, ever approves an article. The approver a
   revision records, and the instant of approval, are taken from the session the
-  server authenticated and never from the request: the Master is the writer of
-  every KB document (Q1), so the document is the only place an administrator can
-  be named.
+  server authenticated and never from the request, so a group's revision names
+  the administrator who approved it even though a member writes that group's
+  documents.
 - **Approval issues the draft as a revision, with an effective instant.** The
   administrator approves and states the instant the revision takes effect — a
   UTC instant, shown in each reader's own timezone. An instant already passed
@@ -503,19 +512,19 @@ does this is a *document controller*, and it is where the KB earns its keep.
 Every question this record opened is settled below, with what the owner decided.
 The record is **Accepted**.
 
-1. **Who writes the company KB, and through which door?** — **Settled.** Every
-   member and every agent writes and edits drafts, and only an administrator
-   approves. Every **write** goes through a **server route that acts as the
-   Master**: the route is the one place that knows whether the caller is an
-   administrator — the live `requireAdmin` gate, which re-reads the account's own
-   permissions on every call — which is what an approval is gated on, and it is
-   the same door the workorder surface uses (ADR 0024). The company KB
-   is **read** through the route that acts as the Master — a reader is not a
-   member of the Master's account, and a `shareWith` naming every account cannot
+1. **Who writes a KB, and through which door?** — **Settled.** Every member and
+   every agent writes and edits drafts, and only an administrator approves.
+   Every **write** goes through the `/api/knowledge/*` route, with the session
+   that owns the documents: the **company's** as the Master, because a reader is
+   not a member of the Master's account, and the route is also where an approval
+   is gated — the live `requireAdmin` gate, which re-reads the account's own
+   permissions on every call. A **group's** with the member's own session, so the
+   installation's agent needs no grant on the group, and the shape of the tree
+   is the members' (the table above). The company KB is **read** through the
+   route that acts as the Master — a `shareWith` naming every account cannot
    work (Stalwart caps a share at 10 principals per item, live-probed; ADR
    0019), so the route is how every account reaches the folder. A
-   group's KB is read with the reader's own session, membership being the grant
-   (the table above).
+   group's KB is read with the reader's own session, membership being the grant.
 2. **Where does the company KB live — hidden or visible?** — **Settled: hidden.**
    `gilbert/knowledge` inside the app folder — the Master's account for the
    company's KB and each account's own for a group's — the app folder's name

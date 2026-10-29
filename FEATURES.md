@@ -974,13 +974,19 @@ Search looks across the pages' text. A reference to a page points at the page's
 A page holds one **draft** at a time, and everyone who can read it edits that same
 draft — there are no competing drafts to merge.
 
-- **Only an administrator creates, renames, moves, reorders and deletes pages and
-  folders.** The shape of the tree is the installation's.
+- **In a group's KB the tree is the members'**: any member of the group creates,
+  renames, reorders, moves and restores pages and folders, and the write is made
+  with that member's own session — it does not depend on the installation's agent
+  being a member. In the **company** KB those same writes are an administrator's.
+- **Only an administrator deletes or retires** a page or a folder, in either tier.
 - **Only an administrator approves.** Approving turns the draft into a numbered
   **revision** and states the instant it takes effect, shown in each reader's own
   timezone. An instant already passed puts it in force at once; a future one leaves
   it **pending**, with the revision before it still in force until then. A page
   never approved is not yet in force.
+- **A draft says who changed it last**: the page shows the member and the instant
+  of its last edit, taken from the session that wrote it and never from the
+  request.
 - **Nothing issued is edited in place.** The revision a new approval replaces stays
   readable as **superseded**, and the page's **History** holds every revision.
   Restoring an older one opens a new draft, approved again.

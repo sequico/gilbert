@@ -40,7 +40,7 @@ the end** of the probe — code reading it early (boot races) must wait for
 that single transition, and only while it is still empty. Every probed
 mailbox is a group, whatever its name: there is no name-based exclusion left.
 
-## Per-feature map (state 2026-09-18)
+## Per-feature map (state 2026-10-29)
 
 - **Calendars**: the pattern-setter. `store/calendar/`
   `createCalendar(data, accountId?)` — omit for your own, pass the group
@@ -79,6 +79,15 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   each member adding the book** — membership is the subscription
   (`store/contacts/slices/sharing.ts` `loadShared`, which also loads for group accounts).
   Cards load by page up to 5 000 per account; `loadShared` is single-flight.
+- **Knowledge base (ADR 0020)**: a group's KB lives in `gilbert/knowledge` in the
+  group's account and is written with the member's **own** session — creating,
+  renaming, reordering, moving and restoring a page or a folder, and the one
+  shared draft, are every member's; approving, and deleting or retiring a page,
+  are an installation administrator's. Nothing there depends on the
+  installation's agent being a member of the group
+  (`server/src/knowledge/scope.ts` `groupKnowledgeAccount`), and the draft
+  records the member who last wrote it. The company KB is the Master's, written
+  as the Master, and an administrator's throughout.
 - **Chat (ADR 0004)**: one JSON node per message in `gilbert/chat` and one
   read marker per member in `gilbert/chat-state`, both in the group account,
   pushed by FileNode state changes (`lib/chat.ts`, `store/chat.ts`).
