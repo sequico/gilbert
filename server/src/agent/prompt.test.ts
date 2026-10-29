@@ -76,6 +76,25 @@ test("the case the account holds is in the turn, names only", () => {
 });
 
 /**
+ * A base that holds none leaves its block out rather than announcing an empty
+ * one: the turn says what a case has, and nothing about what it does not.
+ */
+test("a base with no pages leaves its block out of the turn", () => {
+  const prompt = stepData({
+    woke: "mail created: m-1",
+    plan: [],
+    prose: {},
+    case: { pages: [], place: ["MS2/"] },
+  } as StepQuestion);
+
+  assert.ok(
+    !prompt.includes("The knowledge base holds these pages"),
+    "no block for a base that holds none",
+  );
+  assert.match(prompt, /This group's Files, two levels deep/, "the place is still drawn");
+});
+
+/**
  * The message the change carried is in the working turn as data: the pass already
  * read it to decide, so the turn does not spend its first step on `read` (ADR 0038).
  */

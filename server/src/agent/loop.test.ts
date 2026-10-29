@@ -1603,9 +1603,14 @@ test("the case opens the turn: what the account holds, names only", async () => 
   assert.ok(turn, "the working turn was made");
   const place = turn.user.split("This group's Files, two levels deep")[1];
   assert.ok(place, "the turn carries the shape of the group's Files");
+  /*
+   * The demo's group holds its campaign scripts as knowledge pages, so the turn
+   * names them. That a base holding none leaves its block out is
+   * `prompt.test.ts`'s, where the question can carry no pages.
+   */
   assert.ok(
-    !turn.user.includes("The knowledge base holds these pages"),
-    "and says nothing about a base that holds none",
+    turn.user.includes("The knowledge base holds these pages"),
+    "and names the pages the base holds",
   );
 });
 

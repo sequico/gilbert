@@ -100,8 +100,11 @@ async function newCampaign(purpose: string): Promise<Campaign> {
 }
 
 /** The rows Today offers, with the campaign each belongs to. */
-async function today(): Promise<Row[]> {
-  const res = await call(`/api/outbound/today?group=${encodeURIComponent(GROUP)}`);
+async function today(campaignUid?: string): Promise<Row[]> {
+  const scope = campaignUid ? `&campaign=${encodeURIComponent(campaignUid)}` : "";
+  const res = await call(
+    `/api/outbound/today?group=${encodeURIComponent(GROUP)}${scope}`,
+  );
   assert.equal(res.status, 200, JSON.stringify(res.body));
   return (res.body?.queue ?? []) as Row[];
 }
@@ -233,7 +236,7 @@ test("an import writes the rows it kept and counts every line it lost", async ()
     { line: "Milano, nessun numero", reason: "no_number" },
   ]);
 
-  const rows = (await today()).filter((row) => row.campaignUid === campaign.uid);
+  const rows = await today(campaign.uid);
   assert.equal(rows.length, 1);
   assert.equal(at(rows, 0).e164, "+39021234567");
   assert.equal(at(rows, 0).extension, "24");
@@ -256,7 +259,7 @@ test("a row is taken before it is dialled, and settling it records the call", as
     group: GROUP,
     text: "+39 06 1234567",
   });
-  const [row] = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  const [row] = await today(campaign.uid);
   assert.ok(row, "the imported row is in Today");
 
   const taken = await post(
@@ -300,7 +303,7 @@ test("a row is taken before it is dialled, and settling it records the call", as
     [{ outcome: "spoke", note: "Chiede un preventivo", by: "demo@example.com" }],
   );
 
-  const after = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  const after = await today(campaign.uid);
   assert.equal(after.length, 0, "a settled row leaves Today");
 });
 
@@ -310,7 +313,7 @@ test("a caller holds one row of a list at a time", async () => {
     group: GROUP,
     text: "+39 071 123456\n+39 071 654321",
   });
-  const rows = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  const rows = await today(campaign.uid);
   assert.equal(rows.length, 2, "both lines are rows of this campaign");
   const [one, two] = [at(rows, 0), at(rows, 1)];
 
@@ -342,7 +345,7 @@ test("a row taken by mistake goes back to the list", async () => {
     group: GROUP,
     text: "+39 0721 123456",
   });
-  const [row] = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  const [row] = await today(campaign.uid);
   assert.ok(row);
 
   const taken = await post(
@@ -362,7 +365,7 @@ test("a row taken by mistake goes back to the list", async () => {
     "the row is nobody's again",
   );
 
-  const back = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  const back = await today(campaign.uid);
   assert.equal(back.length, 1, "and it is offered to whoever is calling");
   assert.equal(at(back, 0).claim, null);
 
@@ -437,7 +440,7 @@ test("a number a group's card already carries is matched at the import", async (
   assert.equal(res.body?.added, 2);
   assert.equal(res.body?.matched, 1, "the index is built from the group's cards");
 
-  const rows = (await today()).filter((row) => row.campaignUid === campaign.uid);
+  const rows = await today(campaign.uid);
   const matched = rows.find((row) => row.e164 === "+39027654321");
   assert.ok(matched, "the known number is a row");
   assert.ok(matched.cardUid, "and it is pointed at the card that carries it");
@@ -526,7 +529,7 @@ test("the first call creates the card, and the call stays on it", async () => {
     group: GROUP,
     text: "+39 055 1234567",
   });
-  const [row] = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  const [row] = await today(campaign.uid);
   assert.ok(row);
   assert.equal(
     row.cardUid,
@@ -585,7 +588,7 @@ test("closing a campaign keeps it, and carrying moves the rows still open", asyn
   assert.equal(campaigns.find((entry) => entry.uid === campaign.uid)?.state, "closed");
   assert.ok(campaigns.some((entry) => entry.uid === successor.uid));
 
-  const carried = (await today()).filter((row) => row.campaignUid === successor.uid);
+  const carried = await today(successor.uid);
   assert.equal(carried.length, 2, "the rows still open work in the new campaign");
   assert.deepEqual(
     at(carried, 0).calls,
