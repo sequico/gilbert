@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { Ctx } from "./appFolder.js";
+import type { KnowledgeDraft } from "./shared/knowledge.js";
 import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
@@ -32,6 +33,7 @@ const { createApp, useDurableSessions } = await import("./app.js");
 const { fileChildren, FILENODE_CAP, findAppFileAt, findFolderPath, writeAppFile } =
   await import("./appFolder.js");
 const { clientOf } = await import("./util.js");
+const { draftConflict } = await import("./knowledge/errors.js");
 const { signInAsMaster } = await import("./bootstrap.js");
 const {
   readArticle: readArticleDoor,
@@ -719,4 +721,38 @@ test("a save refuses to replace an article document it cannot read", async () =>
   assert.equal(mock.uploads.count, uploaded, "nothing was uploaded to replace it with");
   const after = await findAppFileAt(ctx, where.accountId, path);
   assert.equal(after.file?.blobId, "no-such-blob", "the document is where it was");
+});
+
+/*
+ * A save retries when the *account's* state token moved under it, because a chat
+ * message or another article moves it for everybody. The same retry must not
+ * write over a save of this article: `draftConflict` is the decision that tells
+ * the two apart, and `writeDraft` and `restoreArticle` both ask it.
+ */
+test("a retry that finds the draft moved is refused, never written over", () => {
+  const draft = (by: string, at: string): KnowledgeDraft => ({
+    v: 1,
+    id: "d1",
+    title: "T",
+    tags: [],
+    blocks: [],
+    text: "",
+    created: { by: "a@example.com", at: "2026-01-01T00:00:00.000Z" },
+    updated: { by, at },
+  });
+
+  assert.equal(draftConflict(null, null), null, "no draft is no move");
+  assert.equal(
+    draftConflict(draft("a@example.com", "T1"), draft("a@example.com", "T1")),
+    null,
+    "an unrelated write leaves the draft where it was",
+  );
+  const moved = draftConflict(draft("a@example.com", "T1"), draft("b@example.com", "T2"));
+  assert.equal(moved?.code, "draft_changed");
+  assert.equal(moved?.status, 409);
+  assert.equal(
+    draftConflict(null, draft("a@example.com", "T1"))?.code,
+    "draft_changed",
+    "a draft that appeared where there was none is somebody's save too",
+  );
 });

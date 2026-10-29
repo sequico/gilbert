@@ -57,7 +57,7 @@ import {
   stateAfterApproval,
 } from "../shared/knowledge.js";
 import { asDraft, asState, titleFor } from "./documents.js";
-import { KnowledgeAdminError, requireState } from "./errors.js";
+import { draftConflict, KnowledgeAdminError, requireState } from "./errors.js";
 import { highestRevisionNumber, revisionsExist } from "./reads.js";
 import { knowledgeFolder, tierAccount } from "./scope.js";
 import {
@@ -353,6 +353,13 @@ export async function writeDraft(spec: {
 }): Promise<KnowledgeSummary> {
   const { ctx, accountId, article, input, by } = spec;
   const articlePath = articlePathOf(article);
+  /*
+   * The draft the first attempt read. A retry is for an unrelated write that
+   * moved the account's token; if this article's draft moved too, somebody saved
+   * the page meanwhile and the caller's copy would drop their words
+   * (`draftConflict`).
+   */
+  let firstDraft: KnowledgeDraft | null = null;
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     await ensureFolderPath(ctx, accountId, articlePath);
     const state = requireState(await appFolderState(ctx, accountId));
@@ -390,6 +397,11 @@ export async function writeDraft(spec: {
         "This article's own documents could not be read as this build's, so nothing was saved — writing here would have treated it as new and dropped its revision history. Try again.",
         502,
       );
+    if (attempt === 0) firstDraft = existingDraft;
+    else {
+      const conflict = draftConflict(firstDraft, existingDraft);
+      if (conflict) throw conflict;
+    }
     const now = new Date().toISOString();
     const id = existingDraft?.id ?? existingState?.id ?? knowledgeId();
     const created = existingDraft?.created ?? existingState?.created ?? { by, at: now };
@@ -458,6 +470,9 @@ export async function writeDraft(spec: {
           after = next;
         },
       });
+      // This attempt's own draft is the baseline a retry compares against: a
+      // state write that lost its race is this save's own, not somebody else's.
+      firstDraft = draft;
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: after,
       });
@@ -663,6 +678,9 @@ export async function restoreArticle(
     );
   await ensureFolderPath(ctx, accountId, articlePath);
   const by = admin.username;
+  // The draft the first attempt read: a restore that retries because the
+  // account's token moved must not write over a save somebody made meanwhile.
+  let firstDraft: KnowledgeDraft | null = null;
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the documents, as `saveDraft` reads it: a token
     // read after them is still valid while the documents it would be compared
@@ -680,6 +698,11 @@ export async function restoreArticle(
         "That article is retired and kept on record, so it is not restored into a draft.",
         409,
       );
+    if (attempt === 0) firstDraft = existingDraft;
+    else {
+      const conflict = draftConflict(firstDraft, existingDraft);
+      if (conflict) throw conflict;
+    }
     const now = new Date().toISOString();
     const id = existingDraft?.id ?? existingState?.id ?? rev.id;
     const created = existingDraft?.created ?? existingState?.created ?? rev.created;
@@ -726,6 +749,9 @@ export async function restoreArticle(
           after = next;
         },
       });
+      // This attempt's own draft is the baseline a retry compares against: a
+      // state write that lost its race is this restore's own, not a save's.
+      firstDraft = draft;
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: after,
       });
