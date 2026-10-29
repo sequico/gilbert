@@ -338,7 +338,8 @@ export function TodayView({ section }: { section?: string }) {
           {board.due + board.upcoming + board.heldByOthers > 0 && (
             <p className="hint">
               {t("{due} to call", { due: board.due })}
-              {board.upcoming > 0 && ` · ${t("{ahead} later", { ahead: board.upcoming })}`}
+              {board.upcoming > 0 &&
+                ` · ${t("{ahead} later", { ahead: board.upcoming })}`}
               {board.heldByOthers > 0 &&
                 ` · ${t("{held} in another caller's hands", { held: board.heldByOthers })}`}
             </p>
