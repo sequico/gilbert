@@ -29,7 +29,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { mayAdminister } from "@/lib/administer";
 import { appNameFor } from "@/lib/brand";
 import { EVENTS } from "@/lib/events";
@@ -268,13 +268,18 @@ export function AppShell({ children }: { children: ReactNode }) {
    * Remembered from the location itself rather than on the click that leaves it,
    * so every way into Settings answers the same -- the menu's entry, the `g k`
    * shortcut, a link from another screen -- and a reader who moves between the
-   * section's pages is not sent to one of them. A reload inside Settings leaves
-   * nothing to remember, and it falls back to Mail, the home section.
+   * section's pages is not sent to one of them. It is the address, query and all,
+   * because a search is somewhere a reader may leave from. A reload inside
+   * Settings leaves nothing to remember, and it falls back to Mail.
    */
   const settingsBackTo = useRef("/mail");
+  const settingsFromSearch = useSearch();
   useEffect(() => {
-    if (section !== "settings") settingsBackTo.current = location;
-  }, [location, section]);
+    // The query as well as the path: a search is a place the reader may leave
+    // from, and coming back to its results without the words is not coming back.
+    if (section !== "settings")
+      settingsBackTo.current = `${location}${settingsFromSearch ? `?${settingsFromSearch}` : ""}`;
+  }, [location, settingsFromSearch, section]);
 
   useGlobalShortcuts({
     onHelp: () => setHelpOpen(true),
