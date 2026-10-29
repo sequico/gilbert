@@ -65,7 +65,12 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   installation administrator's: both commands are drawn in that book's menu and
   disabled for a member (`ContactsSidebar`, `isControlled`), and the same rule
   guards the action where it runs (`isSharedCollectionBook`, asked by
-  `ContactsView`'s import and export) — a rule the client keeps, not a boundary.
+  `ContactsView`'s import and export). For a group's book that is a rule the
+  client keeps, not a boundary — the server lets a member write it; for the
+  installation's **directory** it is also a boundary, because the route that
+  writes it (`/api/admin/global-contacts`) refuses an administrator it does not
+  find. A mail probe that never answers leaves every other account's book
+  counting as a shared collection, which is the safe side of that guess.
   **Global contacts is not one of these**: it is one Master-owned book read
   through a server route, the installation's rather than a group's, and it
   gets no per-group section and no per-group copy (`gilbert-global-contacts`).

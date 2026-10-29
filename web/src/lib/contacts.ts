@@ -33,7 +33,8 @@ export function isGlobalContactsBook(book: Pick<AddressBook, "id">): boolean {
  * (owner decision, 2026-10-29). The answer is asked twice — where the menu draws
  * the two commands, and where they run — so a second entry point cannot reach
  * one without it. A book of another account counts as one until the mail probe
- * has classified the groups, because an unclassified account may be one.
+ * has classified the groups, because an unclassified account may be one; a probe
+ * that never answers leaves it that way, which is the safe side of the guess.
  */
 export function isSharedCollectionBook(spec: {
   bookId: string;
