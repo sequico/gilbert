@@ -800,7 +800,11 @@ function StartList({
         <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           {/* Carrying the open rows is the usual end of a list; closing them away is
               the exception, so it is the one drawn as the quieter action. */}
-          <button className="btn" disabled={disabled} onClick={() => onClose(chosen, true)}>
+          <button
+            className="btn"
+            disabled={disabled}
+            onClick={() => onClose(chosen, true)}
+          >
             {t("Close it and carry the open rows")}
           </button>
           <button

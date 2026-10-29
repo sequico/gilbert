@@ -462,7 +462,9 @@ test("a card carrying a listed number blocks its other numbers too", async () =>
     { accountId, ids: null, properties: ["id"] },
     [JMAP_CONTACTS],
   );
-  const bookId = (books.list ?? []).find((book) => typeof book.id === "string")?.id;
+  const bookId = (books.list ?? []).find((book) => typeof book.id === "string")?.id as
+    | string
+    | undefined;
   assert.ok(bookId, "the group has an address book by now");
   await client.call(
     "ContactCard/set",
