@@ -5,6 +5,7 @@ import type { AddressBook } from "@/jmap/types";
 import { EVENTS } from "@/lib/events";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { ContactsSidebar } from "../ContactsSidebar";
 import { ContactsView } from "../ContactsView";
 
@@ -14,9 +15,10 @@ import { ContactsView } from "../ContactsView";
  * Importing and exporting, and into what.
  *
  * Both are a book's own commands: they live in the row's menu and nowhere else,
- * so the account and the book are the row that was right-clicked — a group's
- * own directory takes an import like any other, and the action runs in that
- * group.
+ * so the account and the book are the row that was opened. A group's book and
+ * the installation's directory are a shared collection, and moving contacts in
+ * or out of one is an administrator's — drawn for everybody, and disabled for
+ * whoever does not hold it.
  */
 
 const book = (id: string, name: string, mayWrite = true) =>
@@ -47,14 +49,19 @@ const arrange = (selection: { accountId: string | null; bookId: string }) => {
     error: null,
     sharedBooks: [
       {
+        accountId: "master",
+        accountName: "gilbert@example.org",
+        book: book("global-contacts", "Global contacts"),
+      },
+      {
         accountId: "freight",
         accountName: "freight@example.org",
         book: book("fb", "Freight directory"),
       },
       {
-        accountId: "freight",
-        accountName: "freight@example.org",
-        book: book("ro", "Read only", false),
+        accountId: "grace",
+        accountName: "grace@example.org",
+        book: { ...book("ro", "Grace book", false), isSubscribed: true },
       },
     ],
     sharedCards: {},
@@ -62,6 +69,10 @@ const arrange = (selection: { accountId: string | null; bookId: string }) => {
     selection,
   });
 };
+
+/** The administrator's marker, as the session store answers it. */
+const asAdmin = (on: boolean) =>
+  useSession.setState({ session: on ? ({ gilbert: { isAdmin: true } } as never) : null });
 
 describe("import and export from a book's menu", () => {
   let host: HTMLDivElement;
@@ -79,7 +90,9 @@ describe("import and export from a book's menu", () => {
     );
 
   const openMenuOf = async (name: string) => {
-    const more = row(name)?.querySelector<HTMLButtonElement>(".nav-more");
+    const more = row(name)?.querySelector<HTMLButtonElement>(
+      '[aria-label="Address book options"]',
+    );
     expect(more, `the row of "${name}" carries a menu`).toBeTruthy();
     await act(async () => {
       more!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -103,6 +116,7 @@ describe("import and export from a book's menu", () => {
       root.unmount();
     });
     vi.restoreAllMocks();
+    asAdmin(false);
     host.remove();
     document.body.innerHTML = "";
     vi.unstubAllGlobals();
@@ -128,6 +142,7 @@ describe("import and export from a book's menu", () => {
   });
 
   it("runs a group's export in that group's account", async () => {
+    asAdmin(true);
     const heard = vi.fn();
     window.addEventListener(EVENTS.contactsExport, heard);
     await mountSidebar({ accountId: "me", bookId: "mine" });
@@ -145,6 +160,7 @@ describe("import and export from a book's menu", () => {
   });
 
   it("runs a group's import into that group's book", async () => {
+    asAdmin(true);
     const heard = vi.fn();
     window.addEventListener(EVENTS.contactsImport, heard);
     await mountSidebar({ accountId: "me", bookId: "mine" });
@@ -169,15 +185,51 @@ describe("import and export from a book's menu", () => {
     window.removeEventListener(EVENTS.contactsImport, heard);
   });
 
-  it("offers no import on a book the reader may not write", async () => {
+  it("draws a group's commands and dims them for a member", async () => {
+    asAdmin(false);
     await mountSidebar({ accountId: "me", bookId: "mine" });
-    await openMenuOf("Read only");
-    expect(item("Import contacts…")).toBeUndefined();
-    // The book can still be exported: reading it is what the share granted.
-    expect(item("Export address book")).toBeTruthy();
+    await openMenuOf("Freight directory");
+    expect(item("Export address book")?.disabled).toBe(true);
+    expect(item("Import contacts…")?.disabled).toBe(true);
   });
 
-  it("imports into a group's own book, which is the same import as one of yours", async () => {
+  it("draws the directory's menu for everybody, dimmed for a member", async () => {
+    asAdmin(false);
+    await mountSidebar({ accountId: "me", bookId: "mine" });
+    await openMenuOf("Global contacts");
+    expect(item("Export address book")?.disabled).toBe(true);
+    expect(item("Import contacts…")?.disabled).toBe(true);
+  });
+
+  it("gives the directory's commands to an administrator", async () => {
+    asAdmin(true);
+    const heard = vi.fn();
+    window.addEventListener(EVENTS.contactsExport, heard);
+    await mountSidebar({ accountId: "me", bookId: "mine" });
+    await openMenuOf("Global contacts");
+    const exportItem = item("Export address book")!;
+    expect(exportItem.disabled).toBe(false);
+    expect(item("Import contacts…")?.disabled).toBe(false);
+    await act(async () => {
+      exportItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({
+      accountId: "master",
+      bookId: "global-contacts",
+    });
+    window.removeEventListener(EVENTS.contactsExport, heard);
+  });
+
+  it("keeps the import out of a share that grants no write", async () => {
+    asAdmin(true);
+    await mountSidebar({ accountId: "me", bookId: "mine" });
+    await openMenuOf("Grace book");
+    // Reading it is what the share granted, so exporting is still offered.
+    expect(item("Export address book")?.disabled).toBe(false);
+    expect(item("Import contacts…")?.disabled).toBe(true);
+  });
+
+  it("imports into a group's own book like one of yours", async () => {
     arrange({ accountId: "freight", bookId: "fb" });
     const importVCard = vi
       .spyOn(useContacts.getState(), "importVCard")

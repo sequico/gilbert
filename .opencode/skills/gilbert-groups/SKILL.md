@@ -61,7 +61,10 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 - **Address books**: same shape — `store/contacts/slices/books.ts`
   `createBook(name, accountId?)`; `ContactsSidebar` lists every group's books
   together under **Group contacts**, each naming its group on hover, with the
-  same **+** on the section.
+  same **+** on the section. Importing into or exporting a group's book is an
+  installation administrator's: both commands are drawn in that book's menu and
+  disabled for a member (`ContactsSidebar`, `isControlled`) — a rule the client
+  keeps, not a boundary.
   **Global contacts is not one of these**: it is one Master-owned book read
   through a server route, the installation's rather than a group's, and it
   gets no per-group section and no per-group copy (`gilbert-global-contacts`).

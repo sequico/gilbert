@@ -84,7 +84,8 @@ export function ContactsSidebar() {
   type MenuTarget =
     | { kind: "all" }
     | { kind: "own"; book: AddressBook }
-    | { kind: "shared"; accountId: string; book: AddressBook };
+    | { kind: "shared"; accountId: string; book: AddressBook }
+    | { kind: "global"; accountId: string; book: AddressBook };
   const [target, setTarget] = useState<MenuTarget | null>(null);
   const menuBook = target && target.kind === "own" ? target.book : null;
   /*
@@ -113,6 +114,14 @@ export function ContactsSidebar() {
     setTarget(t);
     menu.openAt(e.clientX, e.clientY);
   };
+  /*
+   * Whether a row is a **shared collection** — a group's book, or the
+   * installation's directory. Moving contacts in or out of one of those is an
+   * administrator's, so the two commands are drawn and disabled for everybody
+   * else: the capability is visible, and whose it is.
+   */
+  const isControlled = (t: MenuTarget) =>
+    t.kind === "global" || (t.kind === "shared" && groupIds.has(t.accountId));
   const [share, setShare] = useState<AddressBook | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const menu = useMenu();
@@ -283,6 +292,7 @@ export function ContactsSidebar() {
           className={`nav-item ${isOn(accountId, book.id) ? "active" : ""}`}
           onClick={() => contacts.select({ accountId, bookId: book.id })}
           title={t("{name} — shared with everyone", { name: book.name })}
+          onContextMenu={(e) => openMenuAt(e, { kind: "global", accountId, book })}
         >
           <Globe size={17} />
           <span className="grow truncate">{book.name}</span>
@@ -301,6 +311,16 @@ export function ContactsSidebar() {
               <Pencil size={14} />
             </button>
           )}
+          {/* Importing and exporting the directory are an administrator's; the
+              menu is drawn for everybody so the commands are seen where they
+              live, and disabled for whoever does not hold them. */}
+          <button
+            className="icon-btn xs nav-more"
+            onClick={(e) => openMenu(e, { kind: "global", accountId, book })}
+            aria-label={t("Address book options")}
+          >
+            <MoreVertical size={14} />
+          </button>
         </div>
       ))}
       <div
@@ -456,7 +476,9 @@ export function ContactsSidebar() {
         {target && (
           <>
             {/* Exporting is the one thing every row can do -- your own books,
-                somebody else's, and the whole lot together. */}
+                somebody else's, and the whole lot together -- except a group's
+                book and the installation's directory, which are an
+                administrator's. */}
             <MenuItem
               icon={<Download size={16} />}
               label={
@@ -464,32 +486,40 @@ export function ContactsSidebar() {
                   ? t("Export all contacts")
                   : t("Export address book")
               }
+              disabled={isControlled(target) && !isAdmin}
               onClick={() =>
                 onExport(
-                  target.kind === "shared" ? target.accountId : null,
+                  target.kind === "shared" || target.kind === "global"
+                    ? target.accountId
+                    : null,
                   target.kind === "all" ? "all" : target.book.id,
                 )
               }
             />
-            {/* Importing needs somewhere to put them, and a book somebody else
-                shared read-only is not such a place. A group's own directory is:
-                its members write it, and a migration into it is the same import
-                as into one of your own. "All contacts" is not a book, so it files
-                into the default one, which is what the button at the foot of the
-                sidebar quietly did anyway. */}
-            {(target.kind !== "shared" || target.book.myRights?.mayWrite) && (
-              <MenuItem
-                icon={<Upload size={16} />}
-                label={t("Import contacts…")}
-                onClick={() => {
-                  importInto.current = {
-                    bookId: target.kind === "all" ? "all" : target.book.id,
-                    accountId: target.kind === "shared" ? target.accountId : null,
-                  };
-                  fileRef.current?.click();
-                }}
-              />
-            )}
+            {/* Importing needs somewhere to put them. It is always drawn, and
+                disabled rather than hidden where the row is not the reader's to
+                write: a group's book and the directory are an administrator's,
+                and a book somebody shared read-only is nobody's to fill. "All
+                contacts" files into the default book, which is what the menu
+                means by it. */}
+            <MenuItem
+              icon={<Upload size={16} />}
+              label={t("Import contacts…")}
+              disabled={
+                (isControlled(target) && !isAdmin) ||
+                (target.kind === "shared" && !target.book.myRights?.mayWrite)
+              }
+              onClick={() => {
+                importInto.current = {
+                  bookId: target.kind === "all" ? "all" : target.book.id,
+                  accountId:
+                    target.kind === "shared" || target.kind === "global"
+                      ? target.accountId
+                      : null,
+                };
+                fileRef.current?.click();
+              }}
+            />
             {target.kind === "shared" && (
               <>
                 {/* A group's own directory is renamed by its members here, and

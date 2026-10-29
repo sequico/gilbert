@@ -1894,9 +1894,11 @@ JMAP Contacts and JSContact.
   **export** of one card, a whole book, or everything as `.vcf`. Both are a book's
   own commands, in the menu of the row they act on — right-click or the row's `…`
   — and each names the account and the book of that row, so a group's import runs
-  in the group the menu was opened on. Import appears only on a book the reader
-  may write — a group's own directory included, because a member writes it — while
-  export is offered on any row, a share opened read-only included.
+  in the group the menu was opened on. A **group's book** and the installation's
+  **directory** are shared collections: both commands there are an administrator's,
+  drawn for everybody and disabled for whoever does not hold them. On a book of
+  your own, or a colleague's share, import appears only where the book can be
+  written — a share opened read-only offers export and nothing else.
 - **A contact can belong to several books of its account** without being copied:
   *Add to another book…* on a row files it into one more and keeps the one it is
   in, up to the server's ten. Membership is the card's own (`addressBookIds`, RFC
