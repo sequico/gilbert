@@ -170,9 +170,9 @@ other:
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.
 - **gilbertoutbound** — outbound calling: a group's campaign with its script, its
-  outcomes and its list, a row that is a document of its own and dies with the
-  campaign, and a screened list that leaves as a file. Designed by
-  [ADR 0040](docs/adr/0040-outbound-calling-is-a-bounded-campaign.md); partly built.
+  outcomes and its list, the rows that live in that list and die with the campaign,
+  and a screened list that leaves as a file. Designed by
+  [ADR 0040](docs/adr/0040-outbound-calling-is-a-bounded-campaign.md).
 
 *Server* is the word worth pinning down: **Stalwart** is the mail server that
 holds every durable byte, and **gilbertserver** is this product's own Node

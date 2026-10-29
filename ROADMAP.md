@@ -226,8 +226,8 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
 - **Outbound calling neither drafts a message nor books an appointment.** A handoff
   leaves as a file of the rows that ended with one outcome, and that is the only
-  form: an event in the calendar for an appointment, and a message to the receiving
-  group, are not built. The block is not an area of the agent's either — no
-  instruction reaches a campaign, no run reads a card's calls, and no run proposes a
-  note. [ADR 0040](docs/adr/0040-outbound-calling-is-a-bounded-campaign.md) names
-  both as future improvements.
+  form: an event in the calendar for an appointment, a message to the receiving
+  group, and a file chosen and read by its columns are not built. The block is not
+  an area of the agent's either — no instruction reaches a campaign, no run reads a
+  card's calls, and no run proposes a note. [ADR 0040](docs/adr/0040-outbound-calling-is-a-bounded-campaign.md)
+  names them as future improvements.

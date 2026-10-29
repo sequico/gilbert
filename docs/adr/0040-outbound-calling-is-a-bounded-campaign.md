@@ -2,9 +2,9 @@
 
 Status: Proposed
 
-Implementation: Partly built. The documents, their paths and their validators
+Implementation: Built. The documents, their paths and their validators
 are `server/src/shared/outbound.ts`; the one number form, the paste, the queue,
-the two acts on a row, the documents on disk and the group's door are
+the acts on a row, the documents on disk and the group's door are
 `server/src/outbound/`, answered by `server/src/routes/outbound.ts` and drawn by
 `web/src/views/outbound/TodayView.tsx`; `server/src/outbound.test.ts` drives the
 door, the import, the do-not-call list and the acts on a row against the mock. The area
@@ -30,12 +30,13 @@ file of the rows that ended with one outcome.
 
 Future improvements, named rather than left implicit: the handoff leaves as a file
 and nothing else, so an appointment in the calendar and a message to the receiving
-group are not built and are not owed by this record; a file is not chosen and read
-by its columns — a list is pasted, and a spreadsheet arrives as the text it was
-copied from; and the area is not one of the
-agent's — `shared/areas.ts` names none of it, no instruction may declare it, and the
-agent neither reads a card's calls nor proposes a note. Each of those is a change
+group are not built; and a file is not chosen and read by its columns — a list is
+pasted, and a spreadsheet arrives as the text it was copied from. Each is a change
 with a record of its own if a group ever needs it.
+
+The area is not one of the agent's, and that is a decision rather than an omission:
+`shared/areas.ts` names none of it, no instruction may declare it, and the agent
+neither reads a card's calls nor proposes a note.
 
 It rests on one fact about the mail server, and the owner of the installations this
 runs on states it: a member's own session reads and writes a group's folder, whether

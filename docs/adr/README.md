@@ -397,14 +397,15 @@ is, not what a user sees.
   Proposed** (`shared/chat.ts`, `agent/tools/chat.ts`, `lib/agentRefs.ts`,
   `views/chat/ChatPanel.tsx`).
 - **0040 — Outbound calling is a bounded campaign.**
-  The fifth block, `gilbertoutbound`: a campaign of a group's own with its list,
-  its rows as documents of their own (so two callers never collide), **Today** as
-  the queue of what is mine or due, and a handoff that leaves as a file. Identity
-  is not rebuilt — it is the group's own contact cards, created at the first call
-  and never by an import — and the call log sits on the card the call reached: the
-  row dies with the campaign, what it learned does not. A number has one form,
-  E.164; the do-not-call list is the group's own, checked against every number a
-  card carries; a row is claimed before it is dialled; the area acts as the caller
-  and never as the installation's agent; no stage, no value, no forecast, no
-  dialer, no telephony. **Partly built, Proposed.**
+  The fifth block, `gilbertoutbound`: a campaign of a group's own with its list as
+  one document of the campaign, **Today** as the queue of what is mine or due drawn a
+  page at a time, and a handoff that leaves as a file. Identity is not rebuilt — it
+  is the group's own contact cards, created at the first call and never by an import
+  — and the call log sits on the card the call reached: the row dies with the
+  campaign, what it learned does not. A number has one form, E.164; the do-not-call
+  list is the group's own, checked against every number a card carries; a row is
+  claimed before it is dialled, given back if taken by mistake, and two callers of a
+  list are a compare-and-set apart; the area acts as the caller and never as the
+  installation's agent; no stage, no value, no forecast, no dialer, no telephony.
+  **Built, Proposed.**
 
