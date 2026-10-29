@@ -2425,7 +2425,8 @@ export const catalog: Catalog = {
     "Approved {date} by {who}": "{who} が {date} に承認",
     "Last edited {date} by {who}": "最終編集 {date}（{who}）",
     "Restore this revision?": "このリビジョンを復元しますか？",
-    "It replaces the draft with this revision. Nothing already issued changes.": "下書きがこのリビジョンに置き換わります。発行済みの内容は変わりません。",
+    "It replaces the draft with this revision. Nothing already issued changes.":
+      "下書きがこのリビジョンに置き換わります。発行済みの内容は変わりません。",
     "In force from {date}": "{date} から発効",
     "This account is not set up for file storage.":
       "このアカウントはファイル保存用に設定されていません。",

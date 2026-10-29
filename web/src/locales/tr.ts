@@ -2346,7 +2346,8 @@ export const catalog: Catalog = {
     "Approved {date} by {who}": "{who} tarafından {date} tarihinde onaylandı",
     "Last edited {date} by {who}": "Son düzenleme {date}, {who}",
     "Restore this revision?": "Bu revizyon geri yüklensin mi?",
-    "It replaces the draft with this revision. Nothing already issued changes.": "Taslağı bu revizyonla değiştirir. Yayımlanmış olan hiçbir şey değişmez.",
+    "It replaces the draft with this revision. Nothing already issued changes.":
+      "Taslağı bu revizyonla değiştirir. Yayımlanmış olan hiçbir şey değişmez.",
     "In force from {date}": "{date} tarihinden itibaren yürürlükte",
     "This account is not set up for file storage.":
       "Bu hesap dosya depolama için ayarlanmamış.",

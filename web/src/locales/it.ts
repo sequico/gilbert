@@ -3397,7 +3397,8 @@ export const catalog: Catalog = {
     "Approved {date} by {who}": "Approvato il {date} da {who}",
     "Last edited {date} by {who}": "Ultima modifica il {date} da {who}",
     "Restore this revision?": "Ripristinare questa revisione?",
-    "It replaces the draft with this revision. Nothing already issued changes.": "Sostituisce la bozza con questa revisione. Nulla di già emesso cambia.",
+    "It replaces the draft with this revision. Nothing already issued changes.":
+      "Sostituisce la bozza con questa revisione. Nulla di già emesso cambia.",
     "In force from {date}": "In vigore dal {date}",
     // ── Invitations, labels, account capabilities ──────────────────────
     "This invitation could not be read.": "Non è stato possibile leggere questo invito.",

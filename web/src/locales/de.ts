@@ -2486,7 +2486,8 @@ export const catalog: Catalog = {
     "Approved {date} by {who}": "Genehmigt am {date} von {who}",
     "Last edited {date} by {who}": "Zuletzt bearbeitet am {date} von {who}",
     "Restore this revision?": "Diese Revision wiederherstellen?",
-    "It replaces the draft with this revision. Nothing already issued changes.": "Sie ersetzt den Entwurf durch diese Revision. Bereits erteilte Revisionen bleiben unverändert.",
+    "It replaces the draft with this revision. Nothing already issued changes.":
+      "Sie ersetzt den Entwurf durch diese Revision. Bereits erteilte Revisionen bleiben unverändert.",
     "In force from {date}": "In Kraft seit {date}",
     "This account is not set up for file storage.":
       "Dieses Konto ist nicht für die Dateispeicherung eingerichtet.",

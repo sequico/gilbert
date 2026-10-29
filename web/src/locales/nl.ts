@@ -2430,7 +2430,8 @@ export const catalog: Catalog = {
     "Approved {date} by {who}": "Goedgekeurd op {date} door {who}",
     "Last edited {date} by {who}": "Laatst bewerkt op {date} door {who}",
     "Restore this revision?": "Deze revisie herstellen?",
-    "It replaces the draft with this revision. Nothing already issued changes.": "Het vervangt de conceptversie door deze revisie. Niets van wat al is uitgegeven verandert.",
+    "It replaces the draft with this revision. Nothing already issued changes.":
+      "Het vervangt de conceptversie door deze revisie. Niets van wat al is uitgegeven verandert.",
     "In force from {date}": "Van kracht vanaf {date}",
     "This account is not set up for file storage.":
       "Dit account is niet ingericht voor bestandsopslag.",
