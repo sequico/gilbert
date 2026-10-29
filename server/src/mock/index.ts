@@ -21,6 +21,7 @@ import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, NO_HOLD, undoStatusOf } from "./futurerelease.js";
 import { demoSeedNodes } from "./knowledgeSeed.js";
+import { demoOutboundNodes } from "./outboundSeed.js";
 import {
   eventGetView,
   expandOccurrences,
@@ -2277,6 +2278,22 @@ const demoSeed = demoSeedNodes({
 agentFileNodes.push(...demoSeed.master);
 groupFileNodes.push(...demoSeed.group);
 group2FileNodes.push(...demoSeed.group2);
+
+/*
+ * The demo's outbound lists (see `outboundSeed.ts`): three campaigns being worked
+ * and the one that has been closed, each a list with the script its callers read,
+ * and the cards the calls have already created for the people they reached.
+ */
+const demoOutbound = demoOutboundNodes({
+  putBlob,
+  at: new Date(now()).toISOString(),
+  group: GROUP_ACCOUNT,
+  groupAppFolder: GROUP_APP_FOLDER,
+  book: "gab1",
+  author: USER,
+});
+groupFileNodes.push(...demoOutbound.nodes);
+groupCards.push(...demoOutbound.cards);
 function fr() {
   return {
     mayRead: true,
