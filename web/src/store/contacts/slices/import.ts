@@ -363,7 +363,10 @@ export function importSlice(
      * saved as the directory's own shape, one card at a time — that route takes
      * one card, and this is a migration, not a keystroke. An entry with no name
      * is counted out: the directory lists contacts by name, and a nameless one
-     * would land where nobody can find it.
+     * would land where nobody can find it. A card it already holds is not
+     * matched — the directory's entries carry no uid, and a match on a name and
+     * an address is the guess the book import refuses to merge on — so the same
+     * file imported twice adds its entries twice.
      */
     async importIntoDirectory(text) {
       const cards = await cardsInFile(get().accountId, text);

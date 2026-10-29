@@ -1920,7 +1920,10 @@ JMAP Contacts and JSContact.
   left alone. Matching is **per address book, and never across books**: a contact
   filed in another book is imported again rather than silently joined to it, because
   the file says nothing about which books its author meant. An entry no longer
-  recognisable is imported again and counted.
+  recognisable is imported again and counted. The installation's directory is
+  the one exception: its cards carry no uid, so importing the same file into it
+  twice adds the entries again — the directory names its contacts and does not
+  identify them.
 - **Directory lookup** through `Principal/query`. **Recent recipients** are kept on
   the device, and only on a device you said was yours.
 - Contacts in a shared book you have added — or in any book of a group you belong
