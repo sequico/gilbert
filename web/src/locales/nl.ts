@@ -504,7 +504,6 @@ export const catalog: Catalog = {
     "Import contacts…": "Contacten importeren…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
       "Alleen een installatiebeheerder importeert in of exporteert uit het adresboek van een groep of de map van de installatie.",
-    "Contact options": "Contactopties",
     "Address book options": "Adresboekopties",
     "Email group": "Groep e-mailen",
     "Email everyone": "Iedereen e-mailen",

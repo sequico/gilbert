@@ -507,7 +507,6 @@ export const catalog: Catalog = {
     "Import contacts…": "連絡先をインポート…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
       "グループのアドレス帳やインストールのディレクトリへのインポートと、そこからのエクスポートは、インストール管理者のみが行えます。",
-    "Contact options": "連絡先のオプション",
     "Address book options": "アドレス帳のオプション",
     "Email group": "グループにメール",
     "Email everyone": "全員にメール",

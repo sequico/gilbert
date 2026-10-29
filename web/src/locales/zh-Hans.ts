@@ -502,7 +502,6 @@ export const catalog: Catalog = {
     "Restore this revision?": "恢复此修订版本？",
     "It replaces the draft with this revision. Nothing already issued changes.":
       "它将用此修订版本替换草稿。已发布的内容不会改变。",
-    "Contact options": "联系人选项",
     "Address book options": "通讯录选项",
     "Email group": "给该群组写邮件",
     "Email everyone": "给所有人写邮件",
