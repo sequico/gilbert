@@ -32,6 +32,19 @@ export function responseOf(responses: MethodCall[], callId: string): MethodCall 
 }
 
 /**
+ * The element a test has just asserted is there.
+ *
+ * Strict indexing reads every `list[i]` as possibly absent — right for a server,
+ * noise for a test that asserted the length one line above: this states it once
+ * and hands the element back.
+ */
+export function at<T>(list: readonly T[], index: number): T {
+  const value = list[index];
+  assert.ok(value !== undefined, `expected an element at ${index}`);
+  return value;
+}
+
+/**
  * One JMAP method call, posted at a mock's `/jmap/` with a Basic credential and
  * the capabilities a suite speaks. A suite differs from another in those three
  * alone, so it builds its own `jmap` out of this one.

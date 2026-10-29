@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { at } from "../testkit.js";
 import {
   type CampaignDoc,
   campaignPath,
@@ -146,8 +147,8 @@ test("a call that fills the window drops the oldest and counts it", () => {
   });
   const next = withCall(full, { ...call, note: "the new one" });
   assert.equal(next.calls.length, MAX_CALLS_KEPT);
-  assert.equal(next.calls[next.calls.length - 1].note, "the new one");
-  assert.equal(next.calls[0].note, "call 1");
+  assert.equal(at(next.calls, next.calls.length - 1).note, "the new one");
+  assert.equal(at(next.calls, 0).note, "call 1");
   assert.equal(next.trimmed, 4);
 });
 

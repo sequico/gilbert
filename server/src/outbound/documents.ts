@@ -333,12 +333,11 @@ export async function mutateRow(
     isRowsDoc,
     () => ({ version: 1, rows: [] }),
     (doc) => {
-      const index = doc.rows.findIndex((row) => row.uid === rowUid);
-      if (index < 0) throw rowMissing(campaignUid, rowUid);
-      changed = mutate(doc.rows[index]);
-      const rows = doc.rows.slice();
-      rows[index] = changed;
-      return { ...doc, rows };
+      const current = doc.rows.find((row) => row.uid === rowUid);
+      if (!current) throw rowMissing(campaignUid, rowUid);
+      const next = mutate(current);
+      changed = next;
+      return { ...doc, rows: doc.rows.map((row) => (row.uid === rowUid ? next : row)) };
     },
     `The list of campaign "${campaignUid}"`,
     ROWS_ATTEMPTS,

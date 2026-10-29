@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort, jsonCall, postWith } from "./testkit.js";
+import { at, freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
  * Outbound calling (ADR 0040), end to end against the mock.
@@ -235,9 +235,9 @@ test("an import writes the rows it kept and counts every line it lost", async ()
 
   const rows = (await today()).filter((row) => row.campaignUid === campaign.uid);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].e164, "+39021234567");
-  assert.equal(rows[0].extension, "24");
-  assert.equal(rows[0].context, "ACME, chiedi di Tizio");
+  assert.equal(at(rows, 0).e164, "+39021234567");
+  assert.equal(at(rows, 0).extension, "24");
+  assert.equal(at(rows, 0).context, "ACME, chiedi di Tizio");
 
   // The list the campaign already holds is part of what a paste is read against: a
   // sheet imported twice adds nothing the second time.
@@ -312,15 +312,16 @@ test("a caller holds one row of a list at a time", async () => {
   });
   const rows = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
   assert.equal(rows.length, 2, "both lines are rows of this campaign");
+  const [one, two] = [at(rows, 0), at(rows, 1)];
 
   const first = await post(
-    `/api/outbound/campaigns/${campaign.uid}/rows/${rows[0].uid}/take`,
+    `/api/outbound/campaigns/${campaign.uid}/rows/${one.uid}/take`,
     { group: GROUP },
   );
   assert.equal(first.status, 200, JSON.stringify(first.body));
 
   const second = await post(
-    `/api/outbound/campaigns/${campaign.uid}/rows/${rows[1].uid}/take`,
+    `/api/outbound/campaigns/${campaign.uid}/rows/${two.uid}/take`,
     { group: GROUP },
   );
   assert.equal(second.status, 409, "the second row waits until the first is settled");
@@ -329,7 +330,7 @@ test("a caller holds one row of a list at a time", async () => {
   // The row already in my hand is not a second hand: asking for it again is the
   // same claim renewed, which is what a refreshed screen does.
   const again = await post(
-    `/api/outbound/campaigns/${campaign.uid}/rows/${rows[0].uid}/take`,
+    `/api/outbound/campaigns/${campaign.uid}/rows/${one.uid}/take`,
     { group: GROUP },
   );
   assert.equal(again.status, 200, JSON.stringify(again.body));
@@ -363,7 +364,7 @@ test("a row taken by mistake goes back to the list", async () => {
 
   const back = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
   assert.equal(back.length, 1, "and it is offered to whoever is calling");
-  assert.equal(back[0].claim, null);
+  assert.equal(at(back, 0).claim, null);
 
   // A second release has nothing to give back.
   const again = await post(
@@ -550,8 +551,8 @@ test("the first call creates the card, and the call stays on it", async () => {
   assert.equal(log.status, 200, JSON.stringify(log.body));
   const calls = (log.body?.calls ?? []) as Array<{ outcome: string; by: string }>;
   assert.equal(calls.length, 1, "the call is on the card, not only on the row");
-  assert.equal(calls[0].outcome, "no_answer");
-  assert.equal(calls[0].by, "demo@example.com");
+  assert.equal(at(calls, 0).outcome, "no_answer");
+  assert.equal(at(calls, 0).by, "demo@example.com");
 
   // The card exists in the group's address book, which is what the index reads: a
   // second paste of the same number is matched without anything else being written.
@@ -586,7 +587,11 @@ test("closing a campaign keeps it, and carrying moves the rows still open", asyn
 
   const carried = (await today()).filter((row) => row.campaignUid === successor.uid);
   assert.equal(carried.length, 2, "the rows still open work in the new campaign");
-  assert.deepEqual(carried[0].calls, [], "and start with an empty window of their own");
+  assert.deepEqual(
+    at(carried, 0).calls,
+    [],
+    "and start with an empty window of their own",
+  );
 
   const refused = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
     group: GROUP,

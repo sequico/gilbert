@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { RowDoc } from "../shared/outbound.js";
+import { at } from "../testkit.js";
 import { todayQueue } from "./queue.js";
 
 const now = new Date("2026-10-28T10:00:00Z");
@@ -41,7 +42,7 @@ test("a row I have started comes first, so I can finish it", () => {
   const started = row({ uid: "started", claim: claim("sam", "2026-10-28T10:15:00Z") });
   const late = row({ uid: "late", nextCallAt: "2026-10-28T08:00:00Z" });
   const { queue } = todayQueue([late, started], { caller: "sam", now });
-  assert.equal(queue[0].uid, "started");
+  assert.equal(at(queue, 0).uid, "started");
 });
 
 test("a row another caller holds is not offered, and is counted", () => {

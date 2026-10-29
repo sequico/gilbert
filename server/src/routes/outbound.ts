@@ -133,7 +133,11 @@ function windowOf(value: unknown): CampaignWindow {
   // A window that ends before it starts is a campaign nobody can work and a finding
   // that says nothing: refused where it is written, not discovered later.
   if (from !== null && to !== null && Date.parse(from) > Date.parse(to)) {
-    throw new OutboundError("bad_request", "A campaign cannot end before it starts.", 400);
+    throw new OutboundError(
+      "bad_request",
+      "A campaign cannot end before it starts.",
+      400,
+    );
   }
   return { from, to };
 }

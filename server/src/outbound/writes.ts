@@ -8,7 +8,6 @@
  */
 
 import type { Ctx } from "../appFolder.js";
-import { claimIsLive } from "../shared/outbound.js";
 import type {
   CampaignDoc,
   CampaignOutcome,
@@ -16,6 +15,7 @@ import type {
   CampaignWindow,
   RowDoc,
 } from "../shared/outbound.js";
+import { claimIsLive } from "../shared/outbound.js";
 import { createCardFor } from "./cards.js";
 import {
   appendCardCall,
@@ -27,7 +27,7 @@ import {
   readRows,
   writeCampaign,
 } from "./documents.js";
-import { OutboundError, campaignMissing, rowMissing } from "./errors.js";
+import { campaignMissing, OutboundError, rowMissing } from "./errors.js";
 import { type ImportPlan, planImport } from "./importList.js";
 import {
   releaseRow,

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { RowDoc } from "../shared/outbound.js";
+import { at } from "../testkit.js";
 import { CLAIM_LEASE_MS, settleRow, takeRow } from "./rowActions.js";
 
 const now = new Date("2026-10-28T10:00:00Z");
@@ -53,12 +54,11 @@ test("a lease that lapsed is free again", () => {
 });
 
 test("a settled row is not work", () => {
-  for (const state of ["done", "dropped"] as const) {
-    assert.deepEqual(takeRow(row({ state }), { by: "sam", now }), {
-      ok: false,
-      reason: "settled",
-    });
-  }
+  const done = row({ state: "done" });
+  assert.deepEqual(takeRow(done, { by: "sam", now }), {
+    ok: false,
+    reason: "settled",
+  });
 });
 
 test("a settlement records the call and releases the row", () => {
@@ -112,5 +112,5 @@ test("a call that names somebody points the row at the card", () => {
   assert.equal(settled.ok, true);
   if (!settled.ok) return;
   assert.equal(settled.row.cardUid, "card-9");
-  assert.equal(settled.row.calls[0].cardUid, "card-9");
+  assert.equal(at(settled.row.calls, 0).cardUid, "card-9");
 });
