@@ -38,11 +38,7 @@ import {
   STATE_FILE,
 } from "../shared/knowledge.js";
 import type { CampaignDoc, CampaignOutcome, RowDoc } from "../shared/outbound.js";
-import {
-  CAMPAIGN_FOLDER,
-  OUTBOUND_FOLDER,
-  ROW_FOLDER,
-} from "../shared/outbound.js";
+import { CAMPAIGN_FOLDER, OUTBOUND_FOLDER, ROW_FOLDER } from "../shared/outbound.js";
 import type { Obj } from "./types.js";
 
 type PutBlob = (accountId: string, data: string | Buffer, type: string) => string;

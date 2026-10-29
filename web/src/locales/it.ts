@@ -744,7 +744,6 @@ export const catalog: Catalog = {
     "All contacts is a view, not an address book: export one of its books instead.":
       "Tutti i contatti è una vista, non una rubrica: esporta una delle sue rubriche.",
 
-
     "Address book options": "Opzioni rubrica",
 
     "Email group": "Scrivi al gruppo",

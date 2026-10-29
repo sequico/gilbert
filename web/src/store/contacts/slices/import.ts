@@ -157,11 +157,9 @@ async function cardsInFile(
     });
   }
   if (!ownAccountId) throw new Error("Your own account could not be read");
-  const up = await client.upload(
-    ownAccountId,
-    new Blob([text], { type: "text/vcard" }),
-    { type: "text/vcard" },
-  );
+  const up = await client.upload(ownAccountId, new Blob([text], { type: "text/vcard" }), {
+    type: "text/vcard",
+  });
   const parsed = await client.call<{
     parsed?: Record<string, Partial<ContactCard>[] | Partial<ContactCard>>;
   }>("ContactCard/parse", { accountId: ownAccountId, blobIds: [up.blobId] });
@@ -399,7 +397,9 @@ export function importSlice(
             : errorMessage(err),
         );
       } finally {
-        await get().reloadShared().catch(() => undefined);
+        await get()
+          .reloadShared()
+          .catch(() => undefined);
       }
       return { created };
     },
