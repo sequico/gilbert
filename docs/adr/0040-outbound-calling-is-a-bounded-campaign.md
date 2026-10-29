@@ -30,9 +30,11 @@ agent's — `shared/areas.ts` names none of it, no instruction may declare it, a
 agent neither reads a card's calls nor proposes a note. Each of those is a change
 with a record of its own if a group ever needs it.
 
-Owed the live probe it depends on: a member of a group the installation's agent
-holds no grant on, reading and writing that group's outbound folder — the mock
-answers a member with full rights, so it cannot demonstrate that.
+It rests on one fact about the mail server, and the owner of the installations this
+runs on states it: a member's own session reads and writes a group's folder, whether
+or not the installation's agent was ever given that group. The mock cannot
+demonstrate it — it answers a member with full rights — so nothing here is claimed on
+the mock's authority, and the door needs no agent grant to be correct.
 
 ## Context
 
