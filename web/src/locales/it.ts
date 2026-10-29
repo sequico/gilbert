@@ -1683,6 +1683,10 @@ export const catalog: Catalog = {
     "Contact moved": "Contatto spostato",
 
     "Contact deleted": "Contatto eliminato",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.": "Vengono tolti da questa rubrica; un contatto che è solo qui viene eliminato. Questo non può essere annullato.",
+    "Removed from this address book": "Tolto da questa rubrica",
+    "Removed {n} contact from this address book": "{n} contatto tolto da questa rubrica",
+    "Removed {n} contacts from this address book": "{n} contatti tolti da questa rubrica",
 
     "Contact saved": "Contatto salvato",
     Copied: "Copiato",

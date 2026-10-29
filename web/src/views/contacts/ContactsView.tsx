@@ -705,13 +705,18 @@ export function ContactsView({ id }: { id?: string }) {
     if (
       !(await confirmDialog({
         title: plural(n, { one: "Delete {n} contact?", other: "Delete {n} contacts?" }),
-        message: inSeveral
-          ? `${translate("This cannot be undone.")} ${plural(inSeveral, {
-              one: "One of them is in more than one address book, and is deleted from all of them.",
-              other:
-                "{n} of them are in more than one address book, and are deleted from all of them.",
-            })}`
-          : translate("This cannot be undone."),
+        message:
+          bookId !== "all"
+            ? translate(
+                "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.",
+              )
+            : inSeveral
+              ? `${translate("This cannot be undone.")} ${plural(inSeveral, {
+                  one: "One of them is in more than one address book, and is deleted from all of them.",
+                  other:
+                    "{n} of them are in more than one address book, and are deleted from all of them.",
+                })}`
+              : translate("This cannot be undone."),
         confirmLabel: translate("Delete"),
         danger: true,
       }))
@@ -721,7 +726,16 @@ export function ContactsView({ id }: { id?: string }) {
       /* What the server confirmed, not what was asked. A refusal that took
          half of them still deleted the other half, and saying "it failed"
          sends you looking for contacts that are already gone. */
-      const { destroyed, refused } = await contacts.destroyCards(pickedRefs);
+      /*
+       * In a book, the deletion is that book's: a card also filed elsewhere
+       * leaves this book and stays where it is. Under "All contacts" there is no
+       * book to leave, so the card itself goes.
+       */
+      const inBook = bookId === "all" ? undefined : bookId;
+      const { destroyed, unfiled, refused } = await contacts.destroyCards(
+        pickedRefs,
+        inBook,
+      );
       clearPicked();
       if (destroyed)
         toast.success(
@@ -729,6 +743,14 @@ export function ContactsView({ id }: { id?: string }) {
             one: "Deleted {n} contact",
             other: "Deleted {n} contacts",
           }),
+        );
+      if (unfiled)
+        toast.show(
+          plural(unfiled, {
+            one: "Removed {n} contact from this address book",
+            other: "Removed {n} contacts from this address book",
+          }),
+          { duration: 9000 },
         );
       if (refused)
         toast.error(
@@ -1409,10 +1431,13 @@ function ContactDetail({
                 })
               ) {
                 try {
-                  const { destroyed, refused } = await contacts.destroyCards([
-                    { id: c.id, accountId },
-                  ]);
-                  if (!destroyed) {
+                  /* The book the reader is in, as the list's Delete is: a card
+                     also filed elsewhere leaves this book rather than going. */
+                  const { destroyed, unfiled, refused } = await contacts.destroyCards(
+                    [{ id: c.id, accountId }],
+                    bookId === "all" ? undefined : bookId,
+                  );
+                  if (!destroyed && !unfiled) {
                     toast.error(
                       refused
                         ? setErrorMessage(refused)
@@ -1420,7 +1445,11 @@ function ContactDetail({
                     );
                     return;
                   }
-                  toast.success(translate("Contact deleted"));
+                  toast.success(
+                    destroyed
+                      ? translate("Contact deleted")
+                      : translate("Removed from this address book"),
+                  );
                   navigate("/contacts");
                 } catch (err) {
                   toast.error(errorMessage(err));

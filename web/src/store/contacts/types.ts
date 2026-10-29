@@ -246,7 +246,19 @@ export interface ContactsState {
    * A selection may span accounts, so the calls are grouped by the one holding
    * each card and the count is what the server confirmed across them.
    */
-  destroyCards(cards: CardAddress[]): Promise<{ destroyed: number; refused?: SetError }>;
+  /**
+   * Destroy cards, or -- when `fromBook` is given -- take them out of that one
+   * book.
+   *
+   * The book's deletion removes a membership from a card filed in more than one
+   * book and destroys only a card that lives there alone, the rule emptying a
+   * book already follows. Without it the card itself goes, which is what a merge
+   * of two says and what the card on screen says.
+   */
+  destroyCards(
+    cards: CardAddress[],
+    fromBook?: Id,
+  ): Promise<{ destroyed: number; unfiled: number; refused?: SetError }>;
   /**
    * Empty an address book: everything filed in it, gone.
    *
