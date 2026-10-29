@@ -574,9 +574,9 @@ The record is **Accepted**.
 13. **Real-time co-editing now or later?** — **Settled: later.** v1 saves the whole
     draft under `ifInState` with an honest conflict path, and says so on screen —
     a retry that finds the page's own draft moved is refused (`draft_changed`)
-    rather than written over; the CRDT endpoint (Hocuspocus) and its
-    checkpointing into Stalwart are the
-    phase after. It is load-bearing: the single shared draft is multi-edited by
+    rather than written over. The CRDT endpoint (Hocuspocus) and its
+    checkpointing into Stalwart are the phase after. It is load-bearing: the
+    single shared draft is multi-edited by
     everyone, so concurrent edits are the normal case, not the exception.
 14. **Search index** — **Settled.** Lazy rebuild over the pages' `text` for v1; a
     cached document only if a real KB proves slow.

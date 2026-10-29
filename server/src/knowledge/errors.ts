@@ -1,9 +1,10 @@
 /**
  * The knowledge base's own refusals.
  *
- * Every refusal a KB caller reads is a `KnowledgeAdminError`, and every
- * conditional write takes its FileNode state token through `requireState`.
- * Both live here so the modules beside this one share one type.
+ * Every refusal a KB caller reads is a `KnowledgeAdminError`, every conditional
+ * write takes its FileNode state token through `requireState`, and the refusal a
+ * retry carries when the article's own draft moved under it is `draftConflict`.
+ * All three live here so the modules beside this one share one type.
  */
 
 import { stateRefuser } from "../adminSession.js";
