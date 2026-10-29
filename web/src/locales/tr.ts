@@ -446,7 +446,6 @@ export const catalog: Catalog = {
       "Bu adres defterinden çıkarılırlar; yalnızca burada olan bir kişi tamamen silinir. Bu geri alınamaz.",
     "Removed from this address book": "Bu adres defterinden çıkarıldı",
     "Contact moved": "Kişi taşındı",
-    "Contact options": "Kişi seçenekleri",
     "Contact saved": "Kişi kaydedildi",
     Contacts: "Kişiler",
     "Contacts are not available": "Kişiler kullanılamıyor",
