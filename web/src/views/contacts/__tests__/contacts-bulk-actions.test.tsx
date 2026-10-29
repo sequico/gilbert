@@ -129,6 +129,12 @@ describe("bulk import and export", () => {
     window.removeEventListener(EVENTS.contactsExport, heard);
   });
 
+  it("offers no import on a book the reader may not write", async () => {
+    await mountSidebar({ accountId: "freight", bookId: "ro" });
+    // The book can still be exported: reading it is what the share granted.
+    expect(labels()).toEqual(["Export address book"]);
+  });
+
   it("imports into a group's own book, which is the same import as one of yours", async () => {
     arrange({ accountId: "freight", bookId: "fb" });
     const importVCard = vi
