@@ -1160,8 +1160,7 @@ its callers choose from, a window, and its rows. It is the fifth block of the
 product, `gilbertoutbound` ([README.md](README.md)); the decision behind it is
 [ADR 0040](docs/adr/0040-outbound-calling-is-a-bounded-campaign.md), which also
 names what is a future improvement. It is not a CRM — no pipeline, no stage, no
-value, no
-owner of an account — and nothing here makes a call.
+value, no owner of an account — and nothing here makes a call.
 
 ## The section, and Today
 
