@@ -140,6 +140,12 @@ export interface ContactsState {
    * reader's own copy.
    */
   bookIn(accountId: Id | null, bookId: Id): AddressBook | null;
+  /**
+   * Every book of one account, in the order it is read: the reader's own, or the
+   * books of an account that shared them. Empty when that account holds none the
+   * store has loaded.
+   */
+  booksOf(accountId: Id | null): AddressBook[];
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
   /**
    * The addresses behind a group, whichever surface asked (ADR 0003).

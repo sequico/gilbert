@@ -16,9 +16,8 @@ export function VCardCard({ part, accountId }: { part: EmailBodyPart; accountId:
     setBusy(true);
     try {
       const text = await client.fetchBlobText(accountId, part.blobId!, "text/vcard");
-      const book =
-        Object.values(contacts.books).find((b) => b.isDefault) ??
-        Object.values(contacts.books)[0];
+      const books = contacts.booksOf(contacts.accountId);
+      const book = books.find((b) => b.isDefault) ?? books[0];
       if (!book) throw new Error("No address book available");
       const { created, updated } = await contacts.importVCard(
         text,

@@ -22,6 +22,7 @@ import {
   restoreBookPlaceOn,
   sessionEpoch,
 } from "../shared";
+import { bySortOrder } from "@/lib/sortOrder";
 import type { ContactsGet, ContactsSet, ContactsState } from "../types";
 
 /**
@@ -53,6 +54,7 @@ export function booksSlice(
   | "updateBook"
   | "destroyBook"
   | "bookIn"
+  | "booksOf"
 > {
   return {
     async init() {
@@ -396,6 +398,15 @@ export function booksSlice(
         get().sharedBooks.find((b) => b.accountId === accountId && b.book.id === bookId)
           ?.book ?? null
       );
+    },
+
+    booksOf(accountId) {
+      const own = get().accountId;
+      if (!accountId || accountId === own) return Object.values(get().books).sort(bySortOrder);
+      return get()
+        .sharedBooks.filter((b) => b.accountId === accountId)
+        .map((b) => b.book)
+        .sort(bySortOrder);
     },
 
     async destroyBook(id, accountId) {

@@ -142,7 +142,7 @@ export function ContactEditor({
     const bookId =
       firstId ??
       defaultBookId ??
-      (!firstId && accountId === own ? (Object.values(contacts.books)[0]?.id ?? "") : "");
+      (!firstId && accountId === own ? (contacts.booksOf(own)[0]?.id ?? "") : "");
     return { accountId: accountId || own, bookId };
   });
   /*
@@ -177,7 +177,7 @@ export function ContactEditor({
     !card.id || mayMove || accountId === (sourceAccountId ?? own);
   const books = [
     ...(mayFileInto(own)
-      ? Object.values(contacts.books).map((b) => ({
+      ? contacts.booksOf(own).map((b) => ({
           accountId: own,
           id: b.id,
           name: b.name,

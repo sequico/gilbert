@@ -38,7 +38,7 @@ export function useAddressMenu() {
 
   const close = () => setMenu(null);
   const known = menu ? contacts.lookupByEmail(menu.address.email) : undefined;
-  const books = Object.values(contacts.books);
+  const books = contacts.booksOf(contacts.accountId);
   const defaultBookId = (books.find((b) => b.isDefault) ?? books[0])?.id ?? null;
 
   const node: ReactNode = (

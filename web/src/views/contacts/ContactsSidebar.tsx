@@ -123,7 +123,7 @@ export function ContactsSidebar() {
 
   if (!contacts.available) return null;
 
-  const own = Object.values(contacts.books).sort(bySortOrder);
+  const own = contacts.booksOf(contacts.accountId);
   const sel = contacts.selection;
   const isOn = (accountId: string | null, bookId: string) =>
     sel.accountId === accountId && sel.bookId === bookId;
