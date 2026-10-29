@@ -309,6 +309,11 @@ export interface KnowledgeTierView {
   group: string | null;
   /** Whether the caller is an installation administrator (approval's gate). */
   canApprove: boolean;
+  /**
+   * Whether the reader shapes this tier's tree: a group's belongs to its
+   * members, the company's to an administrator.
+   */
+  canEdit: boolean;
   articles: KnowledgeSummary[];
 }
 

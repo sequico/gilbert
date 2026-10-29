@@ -1,20 +1,16 @@
 /**
  * Where a tier's knowledge base lives.
  *
- * The company tier is the Master's own account and its KB folder; a group's
- * tier is a non-personal account the Master holds, reached by the caller's
- * membership. Both resolve to the account and folder every other module here
+ * The company tier is the Master's own account and its KB folder, written as
+ * the Master because a reader holds nothing of that account. A group's tier is
+ * a non-personal account the caller is a member of, written with the caller's
+ * own session. Both resolve to the account and folder every other module here
  * reads and writes through.
  */
 
-import {
-  groupNotGrantedRefuser,
-  openMasterAccount,
-  openMasterSession,
-} from "../adminSession.js";
+import { openMasterAccount } from "../adminSession.js";
 import { type Ctx, ensureFolderPath } from "../appFolder.js";
 import { memberGroupAccess } from "../groupAccess.js";
-import { groupAccountId } from "../identityAdmin.js";
 import type { LiveSession } from "../sessions.js";
 import {
   KNOWLEDGE_FOLDER,
@@ -23,9 +19,6 @@ import {
 } from "../shared/knowledge.js";
 import { isGroupAccountRecord } from "../shared/sessionAccount.js";
 import { KnowledgeAdminError } from "./errors.js";
-
-/** The refusal a group the Master's own session does not hold carries, in the KB's error. */
-const groupNotGranted = groupNotGrantedRefuser(KnowledgeAdminError);
 
 /* ------------------------------------------------------------------ */
 /* Where a tier's knowledge base lives                                 */
@@ -80,14 +73,15 @@ export async function companyKnowledgeAccount(
 }
 
 /**
- * The group tier: membership is checked against the caller's **own** session
- * first, then the group's KB is written as the Master.
+ * The group tier: the caller's membership is the grant, and the group's KB is
+ * written with the caller's own session.
  *
  * The membership read is the member door's own (`memberGroupAccess`), forced
- * live so a member removed from the group loses access at once. A refusal
- * keeps the denial's code and answers 403. Only then is the Master's session
- * opened; the group must be in it too, or the agent lacks the grant and nothing
- * can be written.
+ * live so a member removed from the group loses access at once; its answer is
+ * both the account the group's documents live in and the session that reaches
+ * them. A refusal keeps the denial's code and answers 403. Nothing here acts as
+ * the Master: the installation's agent needs no grant on the group, and the
+ * draft records the member who wrote it as its last change.
  */
 export async function groupKnowledgeAccount(
   admin: LiveSession,
@@ -100,18 +94,10 @@ export async function groupKnowledgeAccount(
       `The knowledge base of "${group.trim() || group}" is out of reach: you may not be a member of that group, or the mail server did not answer about it.`,
       403,
     );
-  const ctx = await openMasterSession(
-    admin,
-    "the knowledge base",
-    (code, message, status) => new KnowledgeAdminError(code, message, status),
-  );
-  const accountId = groupAccountId(ctx, group);
-  if (!accountId)
-    throw groupNotGranted(group.trim() || group, "its knowledge base cannot be written");
   // The group's KB is reached by membership, never a share (`gilbert-groups`);
   // only the folder is made, on first use.
-  const folderId = await knowledgeFolder(ctx, accountId);
-  return { ctx, accountId, folderId };
+  const folderId = await knowledgeFolder(access.ctx, access.accountId);
+  return { ctx: access.ctx, accountId: access.accountId, folderId };
 }
 
 /** Which tier a target names, with the account and KB folder resolved. */
@@ -133,9 +119,9 @@ export async function tierAccount(
 
 /**
  * The scope is a fact about the owning account, not a parameter: the company KB
- * is the session's own personal account, a group's is a non-personal one the
- * Master holds (ADR 0020's two tiers). `readArticle` therefore derives it the
- * same way `groupKnowledgeAccount` finds the group.
+ * is the Master's own personal account, a group's is a non-personal one the
+ * caller is a member of (ADR 0020's two tiers). `readArticle` therefore derives
+ * it the same way `groupKnowledgeAccount` finds the group.
  */
 export function scopeOfAccount(ctx: Ctx, accountId: string): KnowledgeScope {
   const account = ctx.session.accounts?.[accountId] as

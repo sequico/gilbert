@@ -1,17 +1,17 @@
 /**
- * The knowledge base's Master-owned write door (ADR 0020).
+ * The knowledge base's write door (ADR 0020).
  *
  * The KB is a tree of articles under `gilbert/knowledge` in an account's own
  * app folder: the company's in the Master's account, a group's in the group's.
- * Every **write** goes through this module, which acts as the Master — the
- * installation's agent credential, or impersonation from the caller's session —
- * because a reader's own session holds nothing of the Master's account. The
- * company KB is **read** through the same door, as a server route: a `shareWith`
- * cannot name every account (Stalwart caps a share at 10 principals per item),
- * so the route, and not a share, is how every account reaches the folder. A
- * group's KB is read with the member's own session (membership is the grant)
- * and written here so that both tiers share one lifecycle, one shape and one
- * approval gate.
+ * A **write** is made with the session that owns the documents where there is
+ * one, and the company tier is the exception: a reader's own session holds
+ * nothing of the Master's account, so the company's is written as the Master
+ * (the installation's agent credential, or impersonation from the caller's
+ * session) and **read** through the same door as a server route — a `shareWith`
+ * cannot name every account (Stalwart caps a share at 10 principals per item).
+ * A group's KB is reached by membership, and written with the member's own
+ * session, so the installation's agent needs no grant on the group and the
+ * draft records who last changed it.
  *
  * The durable shape, the validators and the lifecycle arithmetic live in
  * `@gilbert/shared/knowledge`; this module only resolves which account and

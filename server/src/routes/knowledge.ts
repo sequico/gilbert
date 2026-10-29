@@ -1,9 +1,9 @@
 /**
  * The knowledge base (ADR 0020): the company tier, read and written as the
- * Master, and the group tier a member reaches.
+ * Master, and the group tier a member reads and writes with their own session.
  */
 
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import {
   approveArticle,
   companyArticle,
@@ -78,6 +78,23 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     if (group) target.group = group;
     if (folder) target.folder = folder;
     return target;
+  };
+
+  /**
+   * The shape of a group's tree is its members' (`gilbert-groups`): creating,
+   * creating a folder, renaming, moving, reordering and restoring in a group's
+   * KB is what membership gives, and the write is made with the member's own
+   * session. Approval and dealing with a page for good stay an administrator's
+   * (ADR 0020, ADR 0013), on `requireAdmin`. The company tier is an
+   * administration write throughout, on the same door as every other admin
+   * route.
+   */
+  const adminUnlessGroup = async (
+    c: Context<Env>,
+    target: KnowledgeTarget,
+  ): Promise<Response | null> => {
+    if (target.scope === "group") return null;
+    return await enforceAdmin(c);
   };
 
   /** A tag that is not text is a body that does not fit, not a tag to drop. */
@@ -235,7 +252,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }
   });
 
-  api.post("/knowledge/create", requireSession, requireAdmin, async (c) => {
+  api.post("/knowledge/create", requireSession, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -245,6 +262,9 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       checklist?: unknown;
     }>(c);
     try {
+      const target = knowledgeTarget(body);
+      const refusal = await adminUnlessGroup(c, target);
+      if (refusal) return refusal;
       const parentFolder = body?.parentFolder;
       const rawChecklist = body?.checklist ?? null;
       // A create refuses a malformed definition rather than silently making an
@@ -256,7 +276,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
         );
       const summary = await createArticle(
         c.get("session"),
-        knowledgeTarget(body),
+        target,
         typeof body?.title === "string" ? body.title : "",
         typeof parentFolder === "string" && parentFolder.trim()
           ? parentFolder.trim()
@@ -279,16 +299,11 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }>(c);
     try {
       const target = knowledgeTarget(body);
-      // The company tier is an administration write. Writing the draft of a
-      // page that exists is what a member may do on a group's base, so this one
-      // shared write cannot carry `requireAdmin`; the company scope is gated
-      // here on the same door as every other admin route. The rest of a group's
-      // tier — rename, approve, delete, folder, reorder, move — is an
-      // administrator's, and carries `requireAdmin` like every other mutation.
-      if (target.scope !== "group") {
-        const refusal = await enforceAdmin(c);
-        if (refusal) return refusal;
-      }
+      // The company tier is an administration write; in a group's tier a
+      // member's write is the draft of a page that exists, so that one shared
+      // write cannot carry `requireAdmin`.
+      const refusal = await adminUnlessGroup(c, target);
+      if (refusal) return refusal;
       const summary = await saveDraft(
         c.get("session"),
         target,
@@ -301,7 +316,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }
   });
 
-  api.post("/knowledge/rename", requireSession, requireAdmin, async (c) => {
+  api.post("/knowledge/rename", requireSession, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -309,9 +324,12 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       title?: unknown;
     }>(c);
     try {
+      const target = knowledgeTarget(body);
+      const refusal = await adminUnlessGroup(c, target);
+      if (refusal) return refusal;
       const summary = await renameArticle(
         c.get("session"),
-        knowledgeTarget(body),
+        target,
         bodyFolder(body),
         typeof body?.title === "string" ? body.title : "",
       );
@@ -321,7 +339,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }
   });
 
-  api.post("/knowledge/restore", requireSession, requireAdmin, async (c) => {
+  api.post("/knowledge/restore", requireSession, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -329,9 +347,12 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       revision?: unknown;
     }>(c);
     try {
+      const target = knowledgeTarget(body);
+      const refusal = await adminUnlessGroup(c, target);
+      if (refusal) return refusal;
       const summary = await restoreArticle(
         c.get("session"),
-        knowledgeTarget(body),
+        target,
         bodyFolder(body),
         typeof body?.revision === "string" ? body.revision : "",
       );
@@ -379,7 +400,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }
   });
 
-  api.post("/knowledge/folder", requireSession, requireAdmin, async (c) => {
+  api.post("/knowledge/folder", requireSession, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -387,10 +408,13 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       parentFolder?: unknown;
     }>(c);
     try {
+      const target = knowledgeTarget(body);
+      const refusal = await adminUnlessGroup(c, target);
+      if (refusal) return refusal;
       const parentFolder = body?.parentFolder;
       const summary = await createFolder(
         c.get("session"),
-        knowledgeTarget(body),
+        target,
         typeof body?.name === "string" ? body.name : "",
         typeof parentFolder === "string" && parentFolder.trim()
           ? parentFolder.trim()
@@ -402,7 +426,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }
   });
 
-  api.post("/knowledge/reorder", requireSession, requireAdmin, async (c) => {
+  api.post("/knowledge/reorder", requireSession, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -412,6 +436,8 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }>(c);
     try {
       const target = knowledgeTarget(body);
+      const refusal = await adminUnlessGroup(c, target);
+      if (refusal) return refusal;
       /*
        * A family renumbered at once. A drop orders two neighbours by their
        * midpoint, and the fractional gap runs out of precision after enough
@@ -432,8 +458,8 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
         /*
          * The tier is resolved once for the family: every item is the same
          * account, and resolving it per row would pay a live membership probe
-         * and a Master session for each sibling. The writes stay independent
-         * (each has its own compare-and-set), which is the point of the batch.
+         * and a session for each sibling. The writes stay independent (each has
+         * its own compare-and-set), which is the point of the batch.
          */
         const tier = await tierAccount(c.get("session"), target);
         const by = c.get("session").username;
@@ -468,7 +494,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     }
   });
 
-  api.post("/knowledge/move", requireSession, requireAdmin, async (c) => {
+  api.post("/knowledge/move", requireSession, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -476,10 +502,13 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       parentFolder?: unknown;
     }>(c);
     try {
+      const target = knowledgeTarget(body);
+      const refusal = await adminUnlessGroup(c, target);
+      if (refusal) return refusal;
       const parentFolder = body?.parentFolder;
       const summary = await moveArticle(
         c.get("session"),
-        knowledgeTarget(body),
+        target,
         bodyFolder(body),
         typeof parentFolder === "string" && parentFolder.trim()
           ? parentFolder.trim()

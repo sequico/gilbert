@@ -1,10 +1,11 @@
 /**
  * The editors and the lifecycle writes.
  *
- * Every write goes through this module, which acts as the Master because a
- * reader's own session holds nothing of the Master's account: a create, a
- * save, an approval, a restore, a rename, a reorder, a move, a folder and a
- * delete. The compare-and-set shape is the same in all of them.
+ * Every write goes through this module: a create, a save, an approval, a
+ * restore, a rename, a reorder, a move, a folder and a delete. The session that
+ * makes them is the tier's own — a group's with the member writing, the
+ * company's as the Master, because a reader holds nothing of that account. The
+ * compare-and-set shape is the same in all of them.
  */
 
 import {
@@ -539,9 +540,8 @@ export async function approveArticle(
     revision,
     rev: revNumber,
     effectiveAt: when,
-    // The administrator's own address, not the Master's: the door writes as the
-    // Master, whose username is the installation's agent, and an approval the
-    // agent signed would be exactly the separation ADR 0020 exists to keep.
+    // The administrator's own address, never the installation's: an approval
+    // the agent signed would be exactly the separation ADR 0020 exists to keep.
     approvedBy: admin.username,
     approvedAt: now,
     title: draft.title,
