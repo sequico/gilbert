@@ -47,24 +47,28 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Every row on this page is skipped.": "このページの行はすべてスキップされました。",
-    "Number": "番号",
-    "Campaign": "キャンペーン",
-    "Take": "取得",
-    "Skip": "スキップ",
+    Number: "番号",
+    Campaign: "キャンペーン",
+    Take: "取得",
+    Skip: "スキップ",
     "“{outcome}” — when to call again?": "「{outcome}」— 次はいつかけますか？",
     "In an hour": "1時間後",
     "In three hours": "3時間後",
-    "Tomorrow": "明日",
+    Tomorrow: "明日",
     "Close the row": "行を閉じる",
     "Or a day of my own": "自分で日付を選ぶ",
-    "Reschedule": "再設定",
+    Reschedule: "再設定",
     "Import a CSV": "CSVを読み込む",
     "Download the template": "テンプレートをダウンロード",
-    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — 番号は取り込み時に正規化され、同じリストを二度取り込んでも何も増えません。",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.":
+      "company, person, role, phone — 番号は取り込み時に正規化され、同じリストを二度取り込んでも何も増えません。",
     "Start a campaign": "キャンペーンを始める",
-    "Start a campaign, give it its script and outcomes, then import a list.": "キャンペーンを作り、スクリプトと結果を決めてから、リストを取り込んでください。",
-    "Settle the row in hand or release it before taking another.": "別の行を取る前に、手元の行を閉じるか解放してください。",
-    "Close it from the campaigns, with or without carrying the rows still open.": "キャンペーンから閉じてください。開いている行を引き継ぐかどうかを選べます。",
+    "Start a campaign, give it its script and outcomes, then import a list.":
+      "キャンペーンを作り、スクリプトと結果を決めてから、リストを取り込んでください。",
+    "Settle the row in hand or release it before taking another.":
+      "別の行を取る前に、手元の行を閉じるか解放してください。",
+    "Close it from the campaigns, with or without carrying the rows still open.":
+      "キャンペーンから閉じてください。開いている行を引き継ぐかどうかを選べます。",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "前回の通話：{when} · {outcome}",
     "No list yet": "まだリストがありません",
@@ -129,7 +133,8 @@ export const catalog: Catalog = {
     "The number does not say which country it is in": "番号から国が分かりません",
     "No country uses this number": "この番号を使う国はありません",
     "The line is empty": "行が空です",
-    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "キャンペーンは、目的、スクリプト、発信者が選ぶ結果、そして取り込まれたリストです。",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.":
+      "キャンペーンは、目的、スクリプト、発信者が選ぶ結果、そして取り込まれたリストです。",
     Purpose: "目的",
     "Renewals, October": "更新、10月",
     "Outcomes, one per line": "結果（1行に1件）",

@@ -44,24 +44,28 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Every row on this page is skipped.": "Elke rij op deze pagina is overgeslagen.",
-    "Number": "Nummer",
-    "Campaign": "Campagne",
-    "Take": "Overnemen",
-    "Skip": "Overslaan",
+    Number: "Nummer",
+    Campaign: "Campagne",
+    Take: "Overnemen",
+    Skip: "Overslaan",
     "“{outcome}” — when to call again?": "‘{outcome}’ — wanneer opnieuw bellen?",
     "In an hour": "Over een uur",
     "In three hours": "Over drie uur",
-    "Tomorrow": "Morgen",
+    Tomorrow: "Morgen",
     "Close the row": "Rij sluiten",
     "Or a day of my own": "Of een eigen dag",
-    "Reschedule": "Opnieuw plannen",
+    Reschedule: "Opnieuw plannen",
     "Import a CSV": "CSV importeren",
     "Download the template": "Sjabloon downloaden",
-    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — het nummer wordt bij de import genormaliseerd, en een lijst die je twee keer importeert voegt de tweede keer niets toe.",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.":
+      "company, person, role, phone — het nummer wordt bij de import genormaliseerd, en een lijst die je twee keer importeert voegt de tweede keer niets toe.",
     "Start a campaign": "Campagne starten",
-    "Start a campaign, give it its script and outcomes, then import a list.": "Start een campagne, geef hem zijn script en uitkomsten, en importeer daarna een lijst.",
-    "Settle the row in hand or release it before taking another.": "Sluit of geef de rij in je hand vrij voordat je een andere neemt.",
-    "Close it from the campaigns, with or without carrying the rows still open.": "Sluit hem vanuit de campagnes, met of zonder de open rijen.",
+    "Start a campaign, give it its script and outcomes, then import a list.":
+      "Start een campagne, geef hem zijn script en uitkomsten, en importeer daarna een lijst.",
+    "Settle the row in hand or release it before taking another.":
+      "Sluit of geef de rij in je hand vrij voordat je een andere neemt.",
+    "Close it from the campaigns, with or without carrying the rows still open.":
+      "Sluit hem vanuit de campagnes, met of zonder de open rijen.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Laatste gesprek: {when} · {outcome}",
     "No list yet": "Nog geen lijst",
@@ -126,7 +130,8 @@ export const catalog: Catalog = {
       "Het nummer zegt niet in welk land het ligt",
     "No country uses this number": "Geen land gebruikt dit nummer",
     "The line is empty": "De regel is leeg",
-    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Een campagne is een doel, zijn script, de uitkomsten die bellers kiezen en de geïmporteerde lijst.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.":
+      "Een campagne is een doel, zijn script, de uitkomsten die bellers kiezen en de geïmporteerde lijst.",
     Purpose: "Doel",
     "Renewals, October": "Verlengingen, oktober",
     "Outcomes, one per line": "Uitkomsten, één per regel",

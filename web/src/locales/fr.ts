@@ -52,25 +52,30 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    "Every row on this page is skipped.": "Toutes les lignes de cette page ont été passées.",
-    "Number": "Numéro",
-    "Campaign": "Campagne",
-    "Take": "Prendre",
-    "Skip": "Passer",
+    "Every row on this page is skipped.":
+      "Toutes les lignes de cette page ont été passées.",
+    Number: "Numéro",
+    Campaign: "Campagne",
+    Take: "Prendre",
+    Skip: "Passer",
     "“{outcome}” — when to call again?": "« {outcome} » — quand rappeler ?",
     "In an hour": "Dans une heure",
     "In three hours": "Dans trois heures",
-    "Tomorrow": "Demain",
+    Tomorrow: "Demain",
     "Close the row": "Clore la ligne",
     "Or a day of my own": "Ou un jour à moi",
-    "Reschedule": "Replanifier",
+    Reschedule: "Replanifier",
     "Import a CSV": "Importer un CSV",
     "Download the template": "Télécharger le modèle",
-    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — le numéro est normalisé à l'import, et une liste importée deux fois n'ajoute rien la seconde fois.",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.":
+      "company, person, role, phone — le numéro est normalisé à l'import, et une liste importée deux fois n'ajoute rien la seconde fois.",
     "Start a campaign": "Commencer une campagne",
-    "Start a campaign, give it its script and outcomes, then import a list.": "Commencez une campagne, donnez-lui son script et ses résultats, puis importez une liste.",
-    "Settle the row in hand or release it before taking another.": "Clôturez ou libérez la ligne en main avant d'en prendre une autre.",
-    "Close it from the campaigns, with or without carrying the rows still open.": "Fermez-la depuis les campagnes, avec ou sans les lignes encore ouvertes.",
+    "Start a campaign, give it its script and outcomes, then import a list.":
+      "Commencez une campagne, donnez-lui son script et ses résultats, puis importez une liste.",
+    "Settle the row in hand or release it before taking another.":
+      "Clôturez ou libérez la ligne en main avant d'en prendre une autre.",
+    "Close it from the campaigns, with or without carrying the rows still open.":
+      "Fermez-la depuis les campagnes, avec ou sans les lignes encore ouvertes.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Dernier appel : {when} · {outcome}",
     "No list yet": "Pas encore de liste",
@@ -136,7 +141,8 @@ export const catalog: Catalog = {
       "Le numéro ne dit pas dans quel pays il se trouve",
     "No country uses this number": "Aucun pays n'utilise ce numéro",
     "The line is empty": "La ligne est vide",
-    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Une campagne, c'est un objectif, son script, les résultats que ses appelants choisiront et la liste importée.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.":
+      "Une campagne, c'est un objectif, son script, les résultats que ses appelants choisiront et la liste importée.",
     Purpose: "Objectif",
     "Renewals, October": "Renouvellements, octobre",
     "Outcomes, one per line": "Résultats, un par ligne",

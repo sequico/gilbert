@@ -46,24 +46,28 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Every row on this page is skipped.": "本页的所有行都已跳过。",
-    "Number": "号码",
-    "Campaign": "活动",
-    "Take": "领取",
-    "Skip": "跳过",
+    Number: "号码",
+    Campaign: "活动",
+    Take: "领取",
+    Skip: "跳过",
     "“{outcome}” — when to call again?": "“{outcome}” — 何时再拨？",
     "In an hour": "一小时后",
     "In three hours": "三小时后",
-    "Tomorrow": "明天",
+    Tomorrow: "明天",
     "Close the row": "结束此行",
     "Or a day of my own": "或指定日期",
-    "Reschedule": "重新安排",
+    Reschedule: "重新安排",
     "Import a CSV": "导入 CSV",
     "Download the template": "下载模板",
-    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — 号码在导入时会被规范化，同一份名单导入两次第二次不会新增任何内容。",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.":
+      "company, person, role, phone — 号码在导入时会被规范化，同一份名单导入两次第二次不会新增任何内容。",
     "Start a campaign": "开始一个活动",
-    "Start a campaign, give it its script and outcomes, then import a list.": "创建一个活动，给它脚本和结果，然后导入名单。",
-    "Settle the row in hand or release it before taking another.": "在取下一行之前，结束或释放手中的行。",
-    "Close it from the campaigns, with or without carrying the rows still open.": "在活动中关闭它，可带走也可不带走未结的行。",
+    "Start a campaign, give it its script and outcomes, then import a list.":
+      "创建一个活动，给它脚本和结果，然后导入名单。",
+    "Settle the row in hand or release it before taking another.":
+      "在取下一行之前，结束或释放手中的行。",
+    "Close it from the campaigns, with or without carrying the rows still open.":
+      "在活动中关闭它，可带走也可不带走未结的行。",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "上次通话：{when} · {outcome}",
     "No list yet": "还没有名单",
@@ -126,7 +130,8 @@ export const catalog: Catalog = {
     "The number does not say which country it is in": "号码没有说明是哪个国家",
     "No country uses this number": "没有国家使用这个号码",
     "The line is empty": "这一行是空的",
-    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "活动就是目的、脚本、致电者将选择的结果，以及导入的名单。",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.":
+      "活动就是目的、脚本、致电者将选择的结果，以及导入的名单。",
     Purpose: "目的",
     "Renewals, October": "续约，十月",
     "Outcomes, one per line": "结果，每行一个",

@@ -24,24 +24,28 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Every row on this page is skipped.": "Bu sayfadaki tüm satırlar atlandı.",
-    "Number": "Numara",
-    "Campaign": "Kampanya",
-    "Take": "Al",
-    "Skip": "Atla",
+    Number: "Numara",
+    Campaign: "Kampanya",
+    Take: "Al",
+    Skip: "Atla",
     "“{outcome}” — when to call again?": "“{outcome}” — ne zaman tekrar aranacak?",
     "In an hour": "Bir saat sonra",
     "In three hours": "Üç saat sonra",
-    "Tomorrow": "Yarın",
+    Tomorrow: "Yarın",
     "Close the row": "Satırı kapat",
     "Or a day of my own": "Ya da kendi günüm",
-    "Reschedule": "Yeniden planla",
+    Reschedule: "Yeniden planla",
     "Import a CSV": "CSV içe aktar",
     "Download the template": "Şablonu indir",
-    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — numara içe aktarılırken normalleştirilir ve iki kez aktarılan liste ikinci kez hiçbir şey eklemez.",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.":
+      "company, person, role, phone — numara içe aktarılırken normalleştirilir ve iki kez aktarılan liste ikinci kez hiçbir şey eklemez.",
     "Start a campaign": "Kampanya başlat",
-    "Start a campaign, give it its script and outcomes, then import a list.": "Bir kampanya başlatın, betiğini ve sonuçlarını verin, ardından bir liste aktarın.",
-    "Settle the row in hand or release it before taking another.": "Başka bir satır almadan önce elinizdeki satırı kapatın ya da bırakın.",
-    "Close it from the campaigns, with or without carrying the rows still open.": "Kampanyalardan kapatın; açık satırları taşıyıp taşımamayı siz seçin.",
+    "Start a campaign, give it its script and outcomes, then import a list.":
+      "Bir kampanya başlatın, betiğini ve sonuçlarını verin, ardından bir liste aktarın.",
+    "Settle the row in hand or release it before taking another.":
+      "Başka bir satır almadan önce elinizdeki satırı kapatın ya da bırakın.",
+    "Close it from the campaigns, with or without carrying the rows still open.":
+      "Kampanyalardan kapatın; açık satırları taşıyıp taşımamayı siz seçin.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Son arama: {when} · {outcome}",
     "No list yet": "Henüz liste yok",
@@ -106,7 +110,8 @@ export const catalog: Catalog = {
       "Numara hangi ülkede olduğunu söylemiyor",
     "No country uses this number": "Bu numarayı hiçbir ülke kullanmıyor",
     "The line is empty": "Satır boş",
-    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Bir kampanya; bir amaç, betiği, arayanların seçeceği sonuçlar ve içe aktarılan listedir.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.":
+      "Bir kampanya; bir amaç, betiği, arayanların seçeceği sonuçlar ve içe aktarılan listedir.",
     Purpose: "Amaç",
     "Renewals, October": "Yenilemeler, Ekim",
     "Outcomes, one per line": "Sonuçlar, satır başına bir tane",

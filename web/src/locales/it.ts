@@ -25,24 +25,28 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Every row on this page is skipped.": "Ogni riga di questa pagina è saltata.",
-    "Number": "Numero",
-    "Campaign": "Campagna",
-    "Take": "Prendi",
-    "Skip": "Salta",
+    Number: "Numero",
+    Campaign: "Campagna",
+    Take: "Prendi",
+    Skip: "Salta",
     "“{outcome}” — when to call again?": "«{outcome}» — quando richiamare?",
     "In an hour": "Tra un'ora",
     "In three hours": "Tra tre ore",
-    "Tomorrow": "Domani",
+    Tomorrow: "Domani",
     "Close the row": "Chiudi la riga",
     "Or a day of my own": "O un giorno a scelta",
-    "Reschedule": "Riprogramma",
+    Reschedule: "Riprogramma",
     "Import a CSV": "Importa un CSV",
     "Download the template": "Scarica il modello",
-    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — il numero viene normalizzato all'ingresso, e una lista importata due volte non aggiunge nulla la seconda.",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.":
+      "company, person, role, phone — il numero viene normalizzato all'ingresso, e una lista importata due volte non aggiunge nulla la seconda.",
     "Start a campaign": "Avvia una campagna",
-    "Start a campaign, give it its script and outcomes, then import a list.": "Avvia una campagna, dalle script ed esiti, poi importa una lista.",
-    "Settle the row in hand or release it before taking another.": "Chiudi la riga che hai in mano o rilasciala prima di prenderne un'altra.",
-    "Close it from the campaigns, with or without carrying the rows still open.": "Chiudila dalle campagne, portando o no le righe ancora aperte.",
+    "Start a campaign, give it its script and outcomes, then import a list.":
+      "Avvia una campagna, dalle script ed esiti, poi importa una lista.",
+    "Settle the row in hand or release it before taking another.":
+      "Chiudi la riga che hai in mano o rilasciala prima di prenderne un'altra.",
+    "Close it from the campaigns, with or without carrying the rows still open.":
+      "Chiudila dalle campagne, portando o no le righe ancora aperte.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Ultima chiamata: {when} · {outcome}",
     "No list yet": "Ancora nessuna lista",
@@ -107,7 +111,8 @@ export const catalog: Catalog = {
     "The number does not say which country it is in": "Il numero non dice in che paese è",
     "No country uses this number": "Nessun paese usa questo numero",
     "The line is empty": "La riga è vuota",
-    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Una campagna è uno scopo, il suo script, gli esiti che i chiamanti sceglieranno e la lista importata.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.":
+      "Una campagna è uno scopo, il suo script, gli esiti che i chiamanti sceglieranno e la lista importata.",
     Purpose: "Scopo",
     "Renewals, October": "Rinnovi, ottobre",
     "Outcomes, one per line": "Esiti, uno per riga",

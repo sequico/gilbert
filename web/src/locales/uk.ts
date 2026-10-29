@@ -44,24 +44,28 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Every row on this page is skipped.": "Усі рядки на цій сторінці пропущено.",
-    "Number": "Номер",
-    "Campaign": "Кампанія",
-    "Take": "Взяти",
-    "Skip": "Пропустити",
+    Number: "Номер",
+    Campaign: "Кампанія",
+    Take: "Взяти",
+    Skip: "Пропустити",
     "“{outcome}” — when to call again?": "«{outcome}» — коли передзвонити?",
     "In an hour": "Через годину",
     "In three hours": "Через три години",
-    "Tomorrow": "Завтра",
+    Tomorrow: "Завтра",
     "Close the row": "Закрити рядок",
     "Or a day of my own": "Або свій день",
-    "Reschedule": "Перенести",
+    Reschedule: "Перенести",
     "Import a CSV": "Імпортувати CSV",
     "Download the template": "Завантажити шаблон",
-    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — номер нормалізується під час імпорту, і список, імпортований двічі, вдруге нічого не додає.",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.":
+      "company, person, role, phone — номер нормалізується під час імпорту, і список, імпортований двічі, вдруге нічого не додає.",
     "Start a campaign": "Почати кампанію",
-    "Start a campaign, give it its script and outcomes, then import a list.": "Почніть кампанію, задайте їй сценарій та результати, потім імпортуйте список.",
-    "Settle the row in hand or release it before taking another.": "Закрийте або відпустіть рядок у руках, перш ніж брати інший.",
-    "Close it from the campaigns, with or without carrying the rows still open.": "Закрийте її з кампаній — з перенесенням відкритих рядків або без.",
+    "Start a campaign, give it its script and outcomes, then import a list.":
+      "Почніть кампанію, задайте їй сценарій та результати, потім імпортуйте список.",
+    "Settle the row in hand or release it before taking another.":
+      "Закрийте або відпустіть рядок у руках, перш ніж брати інший.",
+    "Close it from the campaigns, with or without carrying the rows still open.":
+      "Закрийте її з кампаній — з перенесенням відкритих рядків або без.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Останній дзвінок: {when} · {outcome}",
     "No list yet": "Списку ще немає",
@@ -127,7 +131,8 @@ export const catalog: Catalog = {
       "За номером не зрозуміти, у якій він країні",
     "No country uses this number": "Жодна країна не використовує цей номер",
     "The line is empty": "Рядок порожній",
-    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Кампанія — це мета, її сценарій, результати, які оберуть телефонуючі, та імпортований список.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.":
+      "Кампанія — це мета, її сценарій, результати, які оберуть телефонуючі, та імпортований список.",
     Purpose: "Мета",
     "Renewals, October": "Продовження, жовтень",
     "Outcomes, one per line": "Результати, по одному в рядку",
