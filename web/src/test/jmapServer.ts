@@ -87,25 +87,48 @@ export interface JmapFake {
  * a set or a query. It is deliberately not a claim about the server — the only
  * field it takes from the call is the account the question was asked about.
  */
-const emptyResult = (call: JmapCall): Record<string, unknown> => ({
+/**
+ * A method that answers "what changed since this state", whose three lists are
+ * always present in a Changes response and are **id arrays**, not the maps a
+ * `Set` answers with.
+ *
+ * The grab-bag default below carries a `Set`'s `created`/`updated` maps, and a
+ * suite that never registers `ContactCard/changes` used to receive those for a
+ * Changes call: the store then crashed reading a list of ids out of an object.
+ * A fake that stands in for the server answers like one.
+ */
+const changesResult = (call: JmapCall): Record<string, unknown> => ({
   accountId: call.args.accountId ?? "a1",
-  state: "1",
-  oldState: "1",
+  oldState: call.args.sinceState ?? "1",
   newState: "2",
-  list: [],
-  notFound: [],
-  ids: [],
-  total: 0,
-  queryState: "q",
-  position: 0,
-  canCalculateChanges: false,
-  created: {},
-  updated: {},
+  hasMoreChanges: false,
+  created: [],
+  updated: [],
   destroyed: [],
-  notCreated: {},
-  notUpdated: {},
-  notDestroyed: {},
 });
+
+const emptyResult = (call: JmapCall): Record<string, unknown> =>
+  call.method.endsWith("/changes")
+    ? changesResult(call)
+    : {
+        accountId: call.args.accountId ?? "a1",
+        state: "1",
+        oldState: "1",
+        newState: "2",
+        list: [],
+        notFound: [],
+        ids: [],
+        total: 0,
+        queryState: "q",
+        position: 0,
+        canCalculateChanges: false,
+        created: {},
+        updated: {},
+        destroyed: [],
+        notCreated: {},
+        notUpdated: {},
+        notDestroyed: {},
+      };
 
 /**
  * Install a fake JMAP envelope as the global `fetch`.

@@ -562,16 +562,29 @@ export function cardsSlice(
             accountId,
             update: part.update,
             destroy: part.destroy,
+            /*
+             * What each batch landed is recorded as it lands, not read off the
+             * call's answer: a later batch that fails never returns, and the
+             * cards the earlier ones took are still gone. A list that kept them
+             * would offer to delete contacts the server no longer has.
+             */
+            onBatch: (landed) => {
+              if (landed.destroyed.length) {
+                gone.push(...landed.destroyed);
+                goneByAccount.set(accountId, [
+                  ...(goneByAccount.get(accountId) ?? []),
+                  ...landed.destroyed,
+                ]);
+              }
+              if (landed.updated.length) {
+                unfiled += landed.updated.length;
+                unfiledByAccount.set(accountId, [
+                  ...(unfiledByAccount.get(accountId) ?? []),
+                  ...landed.updated,
+                ]);
+              }
+            },
           });
-          if (res.destroyed.length) {
-            gone.push(...res.destroyed);
-            goneByAccount.set(accountId, res.destroyed);
-          }
-          const left = Object.keys(part.update);
-          if (left.length) {
-            unfiled += left.length;
-            unfiledByAccount.set(accountId, left);
-          }
           refused ??= res.refused;
         }
       } finally {

@@ -840,7 +840,10 @@ interface BatchedSetResult {
  * thrown as it came, for a caller that answers instead of throwing.
  *
  * `onSettled` is told how much landed whenever the loop ends, thrown or not,
- * for a caller that has to show a partial write either way.
+ * for a caller that has to show a partial write either way. `onBatch` is told
+ * the same per batch, with the ids: a caller that removes what landed from a
+ * list it is holding needs to know *which*, and a later batch failing must not
+ * take the earlier ones' names with it.
  */
 export async function batchedSet<T>(opts: {
   /** The object type, not the call: `ContactCard` goes out as `ContactCard/set`. */
@@ -853,6 +856,8 @@ export async function batchedSet<T>(opts: {
   extra?: Record<string, unknown>;
   noun?: string;
   onSettled?: (written: number) => void;
+  /** What one batch landed, as it lands: created count, updated and destroyed ids. */
+  onBatch?: (landed: { created: number; updated: Id[]; destroyed: Id[] }) => void;
 }): Promise<BatchedSetResult> {
   const { method, accountId, create = {}, update = {}, destroy = [], extra, noun } = opts;
   const work = [
@@ -884,6 +889,11 @@ export async function batchedSet<T>(opts: {
       created += Object.keys(res.created ?? {}).length;
       updated += Object.keys(res.updated ?? {}).length;
       gone.push(...(res.destroyed ?? []));
+      opts.onBatch?.({
+        created: Object.keys(res.created ?? {}).length,
+        updated: Object.keys(res.updated ?? {}),
+        destroyed: res.destroyed ?? [],
+      });
       refused ??=
         Object.values(res.notCreated ?? {})[0] ??
         Object.values(res.notUpdated ?? {})[0] ??
