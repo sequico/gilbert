@@ -140,10 +140,12 @@ describe("bulk import and export", () => {
     const file = new File(["BEGIN:VCARD\nEND:VCARD\n"], "c.vcf", { type: "text/vcard" });
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent(EVENTS.contactsImport, { detail: { file, bookId: "fb" } }),
+        new CustomEvent(EVENTS.contactsImport, {
+          detail: { file, bookId: "fb", accountId: "freight" },
+        }),
       );
     });
     await act(async () => {});
-    expect(importVCard).toHaveBeenCalledWith(expect.any(String), "fb");
+    expect(importVCard).toHaveBeenCalledWith(expect.any(String), "fb", "freight");
   });
 });

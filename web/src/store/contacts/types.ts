@@ -267,10 +267,19 @@ export interface ContactsState {
    */
   updateBook(id: Id, patch: Partial<AddressBook>, accountId?: Id | null): Promise<void>;
   destroyBook(id: Id, accountId?: Id | null): Promise<void>;
-  /** Import vCards, updating any whose UID this book already holds rather than duplicating it. */
+  /**
+   * Import vCards, updating any whose UID this book already holds rather than
+   * duplicating it.
+   *
+   * `accountId` names the account the book lives in when it is not the reader's
+   * own. Passed rather than looked up: a book's id is unique inside its account
+   * only, so a group's "b" and the reader's "b" are two books, and the lookup
+   * prefers the reader's.
+   */
   importVCard(
     text: string,
     addressBookId: Id,
+    accountId?: Id | null,
   ): Promise<{ created: number; updated: number; alike: number }>;
   /**
    * Import an address book in LDIF, read against Mozilla's schema.
@@ -285,6 +294,7 @@ export interface ContactsState {
   importLdif(
     text: string,
     addressBookId: Id,
+    accountId?: Id | null,
   ): Promise<{ created: number; updated: number; alike: number }>;
   loadPrincipals(): Promise<void>;
   suggest(query: string, limit?: number): Promise<Suggestion[]>;

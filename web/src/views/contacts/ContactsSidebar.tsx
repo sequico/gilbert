@@ -56,9 +56,9 @@ export function ContactsSidebar() {
      they are asked for by event rather than reaching across into it. What has
      changed is that the event now names the book, instead of meaning "whatever
      is selected". */
-  const onImport = (file: File, bookId: string) =>
+  const onImport = (file: File, bookId: string, accountId: string | null = null) =>
     window.dispatchEvent(
-      new CustomEvent(EVENTS.contactsImport, { detail: { file, bookId } }),
+      new CustomEvent(EVENTS.contactsImport, { detail: { file, bookId, accountId } }),
     );
   const onExport = (accountId: string | null, bookId: string) =>
     window.dispatchEvent(
@@ -98,6 +98,9 @@ export function ContactsSidebar() {
    */
   const fileRef = useRef<HTMLInputElement>(null);
   const importInto = useRef<string | null>(null);
+  /* The account that book lives in: an id names a book inside its own account
+     and nowhere else. Null for the reader's own. */
+  const importAccount = useRef<string | null>(null);
   const openMenu = (e: React.MouseEvent, t: MenuTarget) => {
     e.stopPropagation();
     e.preventDefault();
@@ -148,8 +151,11 @@ export function ContactsSidebar() {
   const selectedBook =
     sel.bookId === "all"
       ? undefined
-      : (contacts.books[sel.bookId] ??
-        contacts.sharedBooks.find((b) => b.book.id === sel.bookId)?.book);
+      : sel.accountId && sel.accountId !== contacts.accountId
+        ? contacts.sharedBooks.find(
+            (b) => b.accountId === sel.accountId && b.book.id === sel.bookId,
+          )?.book
+        : contacts.books[sel.bookId];
   const canImport =
     sel.bookId === "all"
       ? own.length > 0
@@ -463,6 +469,7 @@ export function ContactsSidebar() {
           disabled={!canImport}
           onClick={() => {
             importInto.current = sel.bookId === "all" ? defaultBookId : sel.bookId;
+            importAccount.current = sel.accountId;
             fileRef.current?.click();
           }}
         >
@@ -487,7 +494,7 @@ export function ContactsSidebar() {
         onChange={(e) => {
           const f = e.target.files?.[0];
           const into = importInto.current;
-          if (f && into) onImport(f, into);
+          if (f && into) onImport(f, into, importAccount.current);
           e.target.value = "";
         }}
       />
@@ -528,6 +535,7 @@ export function ContactsSidebar() {
                 label={t("Import contacts…")}
                 onClick={() => {
                   importInto.current = target.kind === "all" ? "all" : target.book.id;
+                  importAccount.current = target.kind === "shared" ? target.accountId : null;
                   fileRef.current?.click();
                 }}
               />

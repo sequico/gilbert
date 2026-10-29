@@ -134,13 +134,18 @@ export function importSlice(
   get: ContactsGet,
 ): Pick<ContactsState, "importVCard" | "importLdif"> {
   return {
-    async importVCard(text, addressBookId) {
-      const accountId = accountOfBook(
-        addressBookId,
-        get().books,
-        get().accountId,
-        get().sharedBooks,
-      );
+    async importVCard(text, addressBookId, intoAccountId) {
+      /*
+       * The account the book lives in. A book's id is unique inside its own
+       * account and nowhere else -- this server mints them two characters long --
+       * so a caller that knows the book is another account's says so, and the
+       * lookup (which prefers the reader's own book of that id) is the fallback.
+       */
+      const own = get().accountId;
+      const accountId =
+        intoAccountId && intoAccountId !== own
+          ? intoAccountId
+          : accountOfBook(addressBookId, get().books, own, get().sharedBooks);
       if (!accountId) throw new Error("That address book is not available");
       const up = await client.upload(
         accountId,
@@ -226,13 +231,12 @@ export function importSlice(
      * goes to the server is finished cards. That is the whole difference between
      * the two imports; from `ContactCard/set` down they are the same.
      */
-    async importLdif(text, addressBookId) {
-      const accountId = accountOfBook(
-        addressBookId,
-        get().books,
-        get().accountId,
-        get().sharedBooks,
-      );
+    async importLdif(text, addressBookId, intoAccountId) {
+      const own = get().accountId;
+      const accountId =
+        intoAccountId && intoAccountId !== own
+          ? intoAccountId
+          : accountOfBook(addressBookId, get().books, own, get().sharedBooks);
       if (!accountId) throw new Error("That address book is not available");
       /* The record and not just the card: the `dn` is the entry's identity and
          `cardFromLdif` deliberately does not carry it into the card. */
