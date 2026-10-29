@@ -105,18 +105,27 @@ export function TodayView({ section }: { section?: string }) {
       setBoard(queue);
       setDoNotCallNumbers(blocked);
       setPages(scriptPages);
+      // The campaign list carries the vocabulary of the row in hand, so a read that
+      // fails here is the pane's own failure: without it nothing can be settled.
+      await loadCampaigns(name);
     } catch (err) {
       setLoadError(errorMessage(err));
     } finally {
       setLoading(false);
     }
-    void loadCampaigns(name).catch(() => {});
   }
+
+  // Moving group leaves the last group's rows and its numbers behind: they belong to
+  // an account this screen is no longer working in.
+  useEffect(() => {
+    setBoard(null);
+    setTaken(null);
+    setVisible(PAGE);
+    setLoading(true);
+  }, [active]);
 
   useEffect(() => {
     if (!active) return;
-    setTaken(null);
-    setVisible(PAGE);
     void read(active);
   }, [active, campaign]);
 
@@ -163,10 +172,11 @@ export function TodayView({ section }: { section?: string }) {
   /**
    * The handoff: the rows that ended with one outcome, as a file.
    *
-   * What leaves carries what the record says it must — the number, who was spoken
-   * to, when, by whom, the outcome and the note — so the colleague receiving it
-   * does not have to ask the caller anything. It leaves as a file the caller
-   * saves, which is the one surface this build already has for a list leaving.
+   * What leaves carries what the record says it must — the number, its extension,
+   * the words that arrived around it, the outcome, the note, who called and when —
+   * so the colleague receiving it does not have to ask the caller anything. It
+   * leaves as a file the caller saves, which is the one surface this build already
+   * has for a list leaving.
    */
   async function handOff(campaignUid: string, outcome: string) {
     setError(null);
@@ -193,7 +203,13 @@ export function TodayView({ section }: { section?: string }) {
           .map((value) => `"${String(value).replace(/"/g, '""')}"`)
           .join(",");
       });
-      downloadFile([header.join(","), ...lines].join("\n"), "text/csv", `${outcome}.csv`);
+      // The outcome is the caller's own words, so the name it gives the file is
+      // cleaned of what a filesystem would refuse — and of nothing else.
+      downloadFile(
+        [header.join(","), ...lines].join("\n"),
+        "text/csv",
+        `${outcome.replace(/[/\\?%*:|"<>]+/g, "-")}.csv`,
+      );
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -207,7 +223,7 @@ export function TodayView({ section }: { section?: string }) {
    * carrying moves the still-open ones into a new campaign with the same purpose.
    */
   async function close(uid: string, carry: boolean) {
-    const purpose = board?.campaigns[uid]?.purpose ?? "";
+    const purpose = campaignOf(uid)?.purpose ?? "";
     const agreed = await confirmDialog({
       title: carry
         ? t("Close “{purpose}” and carry its open rows?", { purpose })

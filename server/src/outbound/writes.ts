@@ -126,7 +126,7 @@ type RowRefusal = Extract<SettleResult, { ok: false }>["reason"] | "not_mine";
 /**
  * The refusal a caller reads when an act on a row is not allowed.
  *
- * Taking and settling fail for the same reasons, so the sentence for each reason
+ * The acts on a row fail for the same few reasons, so the sentence for each reason
  * is written once and the act says only which act it was.
  */
 function rowRefusal(reason: RowRefusal, outcome = ""): OutboundError {
@@ -240,7 +240,7 @@ export async function take(
   if (held) {
     throw new OutboundError(
       "row_in_hand",
-      `You are already calling ${held.e164}: settle that row before taking another.`,
+      `You are already calling ${held.e164}: settle it or put it back before taking another.`,
       409,
     );
   }
