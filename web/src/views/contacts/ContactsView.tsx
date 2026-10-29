@@ -554,20 +554,15 @@ export function ContactsView({ id }: { id?: string }) {
   ) => {
     const target = intoBookId && intoBookId !== "all" ? intoBookId : bookId;
     /*
-     * A destination is the reader's own book or one that lives in another
-     * account -- a group's directory, which its members write. Which of the two
-     * is decided by the **account**, never by the id alone: ids are unique within
-     * an account and this server mints them two characters long, so "b" is one
-     * book in the reader's account and another in a group's.
+     * A destination is a book, and a book is its account and its id: the account
+     * the caller named, or the reader's own. Resolved once, by the store, because
+     * a book's id is unique inside its account and this server mints them two
+     * characters long -- "b" is one book here and another in a group.
      */
-    const elsewhere = Boolean(intoAccountId && intoAccountId !== contacts.accountId);
+    const intoAccount = intoAccountId ?? contacts.accountId;
     const book =
       target !== "all"
-        ? elsewhere
-          ? contacts.sharedBooks.find(
-              (b) => b.accountId === intoAccountId && b.book.id === target,
-            )?.book
-          : contacts.books[target]
+        ? contacts.bookIn(intoAccount, target)
         : (books.find((b) => b.isDefault) ?? books[0]);
     if (!book) {
       toast.error(translate("Create an address book first"));
@@ -581,12 +576,6 @@ export function ContactsView({ id }: { id?: string }) {
        * LDIF may arrive as .ldif, .ldi, .txt or with no extension at all, and
        * the name is the least reliable thing about it.
        */
-      /*
-       * The account travels with the book: an id names a book inside its own
-       * account only, and the store's lookup answers with the reader's own book
-       * of that id.
-       */
-      const intoAccount = elsewhere ? intoAccountId : contacts.accountId;
       const { created, updated, alike } = /^\s*BEGIN:VCARD/im.test(text)
         ? await contacts.importVCard(text, book.id, intoAccount)
         : await contacts.importLdif(text, book.id, intoAccount);

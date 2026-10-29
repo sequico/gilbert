@@ -149,13 +149,7 @@ export function ContactsSidebar() {
    * only if they opened it.
    */
   const selectedBook =
-    sel.bookId === "all"
-      ? undefined
-      : sel.accountId && sel.accountId !== contacts.accountId
-        ? contacts.sharedBooks.find(
-            (b) => b.accountId === sel.accountId && b.book.id === sel.bookId,
-          )?.book
-        : contacts.books[sel.bookId];
+    sel.bookId === "all" ? null : contacts.bookIn(sel.accountId, sel.bookId);
   const canImport =
     sel.bookId === "all"
       ? own.length > 0

@@ -130,6 +130,16 @@ export interface ContactsState {
   cardWritable(card: ContactCard, heldIn?: Id | null): boolean;
   /** The account holding an address book, null when it is not the reader's own. */
   accountOfBook(bookId: Id): Id | null;
+  /**
+   * The book with that id, in the account that owns it.
+   *
+   * The account is half the address: a book id is unique inside its account and
+   * nowhere else, so the id alone describes two books as soon as a group's "b"
+   * and the reader's own "b" exist. Callers that hold a row already know which
+   * account it came from, and hand it over rather than let the lookup prefer the
+   * reader's own copy.
+   */
+  bookIn(accountId: Id | null, bookId: Id): AddressBook | null;
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
   /**
    * The addresses behind a group, whichever surface asked (ADR 0003).

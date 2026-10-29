@@ -52,6 +52,7 @@ export function booksSlice(
   | "createBook"
   | "updateBook"
   | "destroyBook"
+  | "bookIn"
 > {
   return {
     async init() {
@@ -377,6 +378,24 @@ export function booksSlice(
       if (err) throw new Error(setErrorMessage(err));
       if (target === own) await get().loadBooks();
       else await get().reloadShared();
+    },
+
+    /*
+     * One book, by the two halves of its address.
+     *
+     * The reader's own books when no account is named or when the named one is
+     * theirs, and that account's shared books otherwise. Written once because
+     * three surfaces ask it -- the sidebar's selection, the import's destination
+     * and the dialog that files a card into a second book -- and a book id alone
+     * is two books as soon as a group and the reader both have one.
+     */
+    bookIn(accountId, bookId) {
+      const own = get().accountId;
+      if (!accountId || accountId === own) return get().books[bookId] ?? null;
+      return (
+        get().sharedBooks.find((b) => b.accountId === accountId && b.book.id === bookId)
+          ?.book ?? null
+      );
     },
 
     async destroyBook(id, accountId) {
