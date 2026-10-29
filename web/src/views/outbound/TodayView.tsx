@@ -839,7 +839,7 @@ function StartList({
       <h2>{t("The list")}</h2>
       <p className="hint">
         {t(
-          "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.",
+          "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.",
         )}
       </p>
 

@@ -127,8 +127,7 @@ export const catalog: Catalog = {
       "За номером не зрозуміти, у якій він країні",
     "No country uses this number": "Жодна країна не використовує цей номер",
     "The line is empty": "Рядок порожній",
-    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
-      "Список — це кампанія: мета, результати, які оберуть телефонуючі, і номери, вставлені по одному в рядку.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Кампанія — це мета, її сценарій, результати, які оберуть телефонуючі, та імпортований список.",
     Purpose: "Мета",
     "Renewals, October": "Продовження, жовтень",
     "Outcomes, one per line": "Результати, по одному в рядку",

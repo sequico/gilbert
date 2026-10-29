@@ -133,8 +133,7 @@ export const catalog: Catalog = {
       "По номеру не понять, в какой он стране",
     "No country uses this number": "Ни одна страна не использует этот номер",
     "The line is empty": "Строка пуста",
-    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
-      "Список — это кампания: цель, исходы, которые выберут звонящие, и номера, вставленные по одному в строке.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Кампания — это цель, её сценарий, исходы, которые выберут звонящие, и импортированный список.",
     Purpose: "Цель",
     "Renewals, October": "Продления, октябрь",
     "Outcomes, one per line": "Исходы, по одному в строке",

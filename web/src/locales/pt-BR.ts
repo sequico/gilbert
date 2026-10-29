@@ -133,8 +133,7 @@ export const catalog: Catalog = {
     "The number does not say which country it is in": "O número não diz em que país está",
     "No country uses this number": "Nenhum país usa este número",
     "The line is empty": "A linha está vazia",
-    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
-      "Uma lista é uma campanha: um propósito, os resultados que os atendentes vão escolher e os números, colados um por linha.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Uma campanha é um propósito, o seu roteiro, os resultados que os atendentes escolherão e a lista importada.",
     Purpose: "Propósito",
     "Renewals, October": "Renovações, outubro",
     "Outcomes, one per line": "Resultados, um por linha",

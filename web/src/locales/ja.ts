@@ -129,8 +129,7 @@ export const catalog: Catalog = {
     "The number does not say which country it is in": "番号から国が分かりません",
     "No country uses this number": "この番号を使う国はありません",
     "The line is empty": "行が空です",
-    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
-      "リストはキャンペーンです。目的、発信者が選ぶ結果、そして1行に1件ずつ貼り付けた番号でできています。",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "キャンペーンは、目的、スクリプト、発信者が選ぶ結果、そして取り込まれたリストです。",
     Purpose: "目的",
     "Renewals, October": "更新、10月",
     "Outcomes, one per line": "結果（1行に1件）",

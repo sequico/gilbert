@@ -126,8 +126,7 @@ export const catalog: Catalog = {
     "The number does not say which country it is in": "号码没有说明是哪个国家",
     "No country uses this number": "没有国家使用这个号码",
     "The line is empty": "这一行是空的",
-    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
-      "名单就是一次活动：一个目的、致电人要选择的结果，以及每行粘贴一个的号码。",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "活动就是目的、脚本、致电者将选择的结果，以及导入的名单。",
     Purpose: "目的",
     "Renewals, October": "续约，十月",
     "Outcomes, one per line": "结果，每行一个",

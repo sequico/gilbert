@@ -106,8 +106,7 @@ export const catalog: Catalog = {
       "Numara hangi ülkede olduğunu söylemiyor",
     "No country uses this number": "Bu numarayı hiçbir ülke kullanmıyor",
     "The line is empty": "Satır boş",
-    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
-      "Liste bir kampanyadır: bir amaç, arayanların seçeceği sonuçlar ve satır başına bir tane yapıştırılan numaralar.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Bir kampanya; bir amaç, betiği, arayanların seçeceği sonuçlar ve içe aktarılan listedir.",
     Purpose: "Amaç",
     "Renewals, October": "Yenilemeler, Ekim",
     "Outcomes, one per line": "Sonuçlar, satır başına bir tane",

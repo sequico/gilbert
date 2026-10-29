@@ -126,8 +126,7 @@ export const catalog: Catalog = {
       "Het nummer zegt niet in welk land het ligt",
     "No country uses this number": "Geen land gebruikt dit nummer",
     "The line is empty": "De regel is leeg",
-    "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
-      "Een lijst is een campagne: een doel, de uitkomsten die de bellers kiezen, en de nummers, één per regel geplakt.",
+    "A campaign is a purpose, its script, the outcomes its callers choose, and the list imported into it.": "Een campagne is een doel, zijn script, de uitkomsten die bellers kiezen en de geïmporteerde lijst.",
     Purpose: "Doel",
     "Renewals, October": "Verlengingen, oktober",
     "Outcomes, one per line": "Uitkomsten, één per regel",
