@@ -93,15 +93,15 @@ export function ContactsSidebar() {
    * menu item reaches it through this -- the same arrangement the calendar's
    * iCAL import uses, which is the point of #224.
    *
-   * The book is remembered separately because opening the picker closes the
-   * menu, and `target` goes with it: by the time a file comes back there would
-   * be nothing left saying which book it was chosen for.
+   * The destination is remembered because opening the picker closes the menu,
+   * and `target` goes with it: by the time a file comes back there would be
+   * nothing left saying which book it was chosen for. Both halves of the
+   * address in one value, because a book is its account and its id -- an id
+   * alone names a book inside its account and nowhere else -- and two refs
+   * would be two places to forget one of them.
    */
   const fileRef = useRef<HTMLInputElement>(null);
-  const importInto = useRef<string | null>(null);
-  /* The account that book lives in: an id names a book inside its own account
-     and nowhere else. Null for the reader's own. */
-  const importAccount = useRef<string | null>(null);
+  const importInto = useRef<{ bookId: string; accountId: string | null } | null>(null);
   const openMenu = (e: React.MouseEvent, t: MenuTarget) => {
     e.stopPropagation();
     e.preventDefault();
@@ -463,8 +463,10 @@ export function ContactsSidebar() {
             type="button"
             className="btn btn-sm"
             onClick={() => {
-              importInto.current = sel.bookId === "all" ? defaultBookId : sel.bookId;
-              importAccount.current = sel.accountId;
+              importInto.current = {
+                bookId: sel.bookId === "all" ? defaultBookId : sel.bookId,
+                accountId: sel.accountId,
+              };
               fileRef.current?.click();
             }}
           >
@@ -490,7 +492,7 @@ export function ContactsSidebar() {
         onChange={(e) => {
           const f = e.target.files?.[0];
           const into = importInto.current;
-          if (f && into) onImport(f, into, importAccount.current);
+          if (f && into) onImport(f, into.bookId, into.accountId);
           e.target.value = "";
         }}
       />
@@ -530,8 +532,10 @@ export function ContactsSidebar() {
                 icon={<Upload size={16} />}
                 label={t("Import contacts…")}
                 onClick={() => {
-                  importInto.current = target.kind === "all" ? "all" : target.book.id;
-                  importAccount.current = target.kind === "shared" ? target.accountId : null;
+                  importInto.current = {
+                    bookId: target.kind === "all" ? "all" : target.book.id,
+                    accountId: target.kind === "shared" ? target.accountId : null,
+                  };
                   fileRef.current?.click();
                 }}
               />
