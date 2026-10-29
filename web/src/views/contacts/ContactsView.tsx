@@ -51,6 +51,7 @@ import {
   memberCards,
   sortKey,
   toVCard,
+  vCardFileName,
 } from "@/lib/contacts";
 import { formatDate, formatDateLong } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
@@ -544,7 +545,14 @@ export function ContactsView({ id }: { id?: string }) {
       toast.error(translate("There is nothing in it to export"));
       return;
     }
-    downloadFile(cards.map(toVCard).join(""), "text/vcard", "contacts.vcf");
+    downloadFile(
+      cards.map(toVCard).join(""),
+      "text/vcard",
+      vCardFileName(
+        book === "all" ? translate("Contacts") : (contacts.bookIn(accountId, book)?.name ?? ""),
+        "contacts",
+      ),
+    );
   };
 
   const importFile = async (
@@ -1375,11 +1383,7 @@ function ContactDetail({
         <button
           className="btn btn-sm"
           onClick={() => {
-            downloadFile(
-              toVCard(c),
-              "text/vcard",
-              `${name.replace(/[^\w.-]+/g, "_")}.vcf`,
-            );
+            downloadFile(toVCard(c), "text/vcard", vCardFileName(name));
           }}
         >
           <Download size={14} /> {translate("vCard")}

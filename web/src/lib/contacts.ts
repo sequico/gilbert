@@ -316,6 +316,19 @@ export function formatAddressLines(a: {
   return lines;
 }
 
+/**
+ * The name a vCard download is saved under.
+ *
+ * What the reader typed, made safe for a filesystem and kept recognisable: a
+ * book called "Clienti 2026" is `Clienti_2026.vcf`, not `contacts.vcf` three
+ * times over in the downloads folder. A card with no name at all still gets a
+ * file rather than a `.vcf` with nothing in front of it.
+ */
+export function vCardFileName(name: string, fallback = "contact"): string {
+  const clean = name.trim().replace(/[^\w.-]+/g, "_");
+  return `${clean || fallback}.vcf`;
+}
+
 /** Generate a vCard 4.0 for export. */
 export function toVCard(c: ContactCard): string {
   const esc = (s: string) =>
