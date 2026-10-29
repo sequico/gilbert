@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import type { GlobalContactInput } from "@gilbert/shared/globalContacts";
 import { batchedSet, chunk, client, setErrorMessage } from "@/jmap/client";
 import type { ContactCard, GetResponse, Id, QueryResponse, SetError } from "@/jmap/types";
@@ -373,9 +374,28 @@ export function importSlice(
             ? "none of its entries has a name, and the directory lists contacts by name"
             : "it has no contacts in it",
         );
-      for (const card of inputs) await saveGlobalContact(null, card);
-      await get().reloadShared();
-      return { created: inputs.length };
+      /*
+       * The route takes one card at a time, so a failure part way leaves what it
+       * already saved. Saying how many landed, and re-reading the directory so
+       * they are on screen, is the honest half: an error that reads like nothing
+       * happened would be a lie about a half-finished migration.
+       */
+      let created = 0;
+      try {
+        for (const card of inputs) {
+          await saveGlobalContact(null, card);
+          created += 1;
+        }
+      } catch (err) {
+        throw new Error(
+          created
+            ? `${created} of ${inputs.length} were saved before it stopped: ${errorMessage(err)}`
+            : errorMessage(err),
+        );
+      } finally {
+        await get().reloadShared().catch(() => undefined);
+      }
+      return { created };
     },
   };
 }
