@@ -263,10 +263,18 @@ export function AppShell({ children }: { children: ReactNode }) {
    * Where the account menu's Settings entry takes the reader back to. It is a
    * toggle rather than a link: the entry that opens the section is the entry
    * that closes it, and "closed" means where the reader was, as the shield does
-   * for /admin. After a reload inside the section the memory is gone and it
-   * falls back to Mail.
+   * for /admin.
+   *
+   * Remembered from the location itself rather than on the click that leaves it,
+   * so every way into Settings answers the same -- the menu's entry, the `g k`
+   * shortcut, a link from another screen -- and a reader who moves between the
+   * section's pages is not sent to one of them. A reload inside Settings leaves
+   * nothing to remember, and it falls back to Mail, the home section.
    */
   const settingsBackTo = useRef("/mail");
+  useEffect(() => {
+    if (section !== "settings") settingsBackTo.current = location;
+  }, [location, section]);
 
   useGlobalShortcuts({
     onHelp: () => setHelpOpen(true),
@@ -446,12 +454,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => {
                 // The same entry closes the section it opened, and returns to
                 // where the reader was rather than to a fixed screen.
-                if (section === "settings") {
-                  navigate(settingsBackTo.current);
-                  return;
-                }
-                settingsBackTo.current = location;
-                navigate("/settings");
+                if (section === "settings") navigate(settingsBackTo.current);
+                else navigate("/settings");
               }}
             />
             {/*
