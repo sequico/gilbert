@@ -54,6 +54,7 @@ interface Summary {
   title: string;
   folder: string;
   nodeId: string;
+  order: number;
   updated: { by: string; at: string } | null;
 }
 
@@ -142,6 +143,46 @@ test("a member renames a page in the group's KB, and not in the company's", asyn
     scope: "company",
     folder,
     title: "New name",
+  });
+  assert.equal(refused.status, 403, JSON.stringify(refused.body));
+});
+
+test("a member moves and reorders a page in the group's KB, and not in the company's", async () => {
+  const archive = await post("/api/knowledge/folder", {
+    scope: "group",
+    group: TEAM,
+    name: "Shelf",
+  });
+  assert.equal(archive.status, 200, JSON.stringify(archive.body));
+  const created = await post("/api/knowledge/create", {
+    scope: "group",
+    group: TEAM,
+    title: "Moving target",
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+
+  const moved = await post("/api/knowledge/move", {
+    scope: "group",
+    group: TEAM,
+    folder: summaryOf(created.body).folder,
+    parentFolder: "Shelf",
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  assert.equal(summaryOf(moved.body).folder, "Shelf/Moving target");
+
+  const placed = await post("/api/knowledge/reorder", {
+    scope: "group",
+    group: TEAM,
+    folder: "Shelf/Moving target",
+    order: 5,
+  });
+  assert.equal(placed.status, 200, JSON.stringify(placed.body));
+  assert.equal(summaryOf(placed.body).order, 5);
+
+  const refused = await post("/api/knowledge/move", {
+    scope: "company",
+    folder: "Shelf/Moving target",
+    parentFolder: null,
   });
   assert.equal(refused.status, 403, JSON.stringify(refused.body));
 });
