@@ -18,7 +18,7 @@ import {
   refuseDirectoryWrite,
 } from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
-import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
+import { accountOf, accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
 import { useSession } from "../../session";
 import { accountOfBook, sessionEpoch } from "../shared";
 import type { ContactsGet, ContactsSet, ContactsState } from "../types";
@@ -269,9 +269,9 @@ export function cardsSlice(
     cardsIn(accountId) {
       const own = get().accountId;
       if (!accountId || accountId === own) return Object.values(get().cards);
-      const prefix = `${accountId}:`;
       return Object.entries(get().sharedCards)
-        .filter(([key]) => key.startsWith(prefix))
+        // The key's own reader, not a prefix written out again: one format.
+        .filter(([key]) => accountOf(key) === accountId)
         .map(([, card]) => card);
     },
 

@@ -6,6 +6,7 @@ import type { ContactCard } from "@/jmap/types";
 import { contactDisplayName } from "@/lib/contacts";
 import { deleteGlobalContact, saveGlobalContact } from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
+import { accountOf } from "@/lib/sharedKey";
 import { useContacts } from "@/store/contacts";
 import { confirmDialog, Dialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -64,7 +65,7 @@ export function GlobalContactsEditor({
   const mine = useMemo(
     () =>
       Object.entries(shared)
-        .filter(([key]) => key.startsWith(`${accountId}:`))
+        .filter(([key]) => accountOf(key) === accountId)
         .map(([, card]) => card)
         .filter((c) => c.addressBookIds?.[bookId]),
     [shared, accountId, bookId],
