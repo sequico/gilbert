@@ -47,6 +47,14 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    Outbound: "発信",
+    Campaigns: "キャンペーン",
+    "All campaigns": "すべてのキャンペーン",
+    "Your list": "あなたのリスト",
+    "Close it in Start a list, with or without carrying the rows still open.":
+      "「リストを始める」で閉じてください。開いている行を引き継ぐかどうかを選べます。",
+    "The numbers this group promised never to call. A number here is never written into a campaign.":
+      "このグループが決して電話しないと約束した番号です。ここの番号がキャンペーンに書き込まれることはありません。",
     "No row of this campaign ended that way.":
       "このキャンペーンでその結果になった行はありません。",
     "Script page, if the group has one": "スクリプトのページ（あれば）",
@@ -63,8 +71,6 @@ export const catalog: Catalog = {
       "まだ開いている行はこのキャンペーンに残り、キャンペーンは Today から外れます。",
     "“{purpose}” is past its window with {open} rows still open.":
       "「{purpose}」は期間を過ぎていますが、{open} 行がまだ開いています。",
-    "Close it below, with or without carrying the rows still open.":
-      "下で閉じてください。開いている行を引き継ぐかどうかを選べます。",
     "Close it and carry the open rows": "閉じて未処理の行を引き継ぐ",
     "Close the campaign": "キャンペーンを閉じる",
     Calls: "通話",

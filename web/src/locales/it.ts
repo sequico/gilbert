@@ -25,6 +25,14 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    Outbound: "Outbound",
+    Campaigns: "Campagne",
+    "All campaigns": "Tutte le campagne",
+    "Your list": "La tua lista",
+    "Close it in Start a list, with or without carrying the rows still open.":
+      "Chiudila in «Avvia una lista», portando o no le righe ancora aperte.",
+    "The numbers this group promised never to call. A number here is never written into a campaign.":
+      "I numeri che questo gruppo ha promesso di non chiamare. Un numero qui non finisce mai in una campagna.",
     "No row of this campaign ended that way.":
       "Nessuna riga di questa campagna è finita così.",
     "Script page, if the group has one": "Pagina dello script, se il gruppo ne ha una",
@@ -41,8 +49,6 @@ export const catalog: Catalog = {
       "Le righe ancora aperte restano con questa campagna, che esce da Today.",
     "“{purpose}” is past its window with {open} rows still open.":
       "«{purpose}» è oltre la sua finestra con {open} righe ancora aperte.",
-    "Close it below, with or without carrying the rows still open.":
-      "Chiudila qui sotto, portando o no le righe ancora aperte.",
     "Close it and carry the open rows": "Chiudi e porta le righe aperte",
     "Close the campaign": "Chiudi la campagna",
     Calls: "Chiamate",

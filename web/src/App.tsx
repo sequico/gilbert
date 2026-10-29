@@ -776,8 +776,8 @@ function AuthedApp() {
           </Route>
           <Route path="/files/:nodeId?">{(p) => <FilesView nodeId={p.nodeId} />}</Route>
           <Route path="/kb/:nodeId?">{(p) => <KnowledgeView nodeId={p.nodeId} />}</Route>
-          <Route path="/today">
-            <TodayView />
+          <Route path="/today/:section?">
+            {(p) => <TodayView section={p.section} />}
           </Route>
           <Route path="/settings/:section?">
             {(p) => <SettingsView section={p.section} />}

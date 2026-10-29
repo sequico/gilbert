@@ -46,6 +46,14 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    Outbound: "外呼",
+    Campaigns: "活动",
+    "All campaigns": "所有活动",
+    "Your list": "你的名单",
+    "Close it in Start a list, with or without carrying the rows still open.":
+      "在「开始一份名单」中关闭它，可带走也可不带走未结的行。",
+    "The numbers this group promised never to call. A number here is never written into a campaign.":
+      "这个群组承诺永不致电的号码。这里的号码永远不会写入活动。",
     "No row of this campaign ended that way.": "这次活动没有以这种方式结束的行。",
     "Script page, if the group has one": "脚本页面（如果群组有的话）",
     "No script": "无脚本",
@@ -60,8 +68,6 @@ export const catalog: Catalog = {
       "仍未结的行留在这次活动里，活动会从 Today 中移除。",
     "“{purpose}” is past its window with {open} rows still open.":
       "「{purpose}」已超出其时间范围，仍有 {open} 行未结。",
-    "Close it below, with or without carrying the rows still open.":
-      "在下面关闭它，可带走也可不带走未结的行。",
     "Close it and carry the open rows": "关闭并带走未结的行",
     "Close the campaign": "关闭活动",
     Calls: "通话",

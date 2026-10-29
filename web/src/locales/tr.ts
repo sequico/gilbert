@@ -24,6 +24,14 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    Outbound: "Outbound",
+    Campaigns: "Kampanyalar",
+    "All campaigns": "Tüm kampanyalar",
+    "Your list": "Listeniz",
+    "Close it in Start a list, with or without carrying the rows still open.":
+      "“Bir liste başlat” bölümünde kapatın; açık satırları taşıyıp taşımamayı siz seçin.",
+    "The numbers this group promised never to call. A number here is never written into a campaign.":
+      "Bu grubun asla aramayacağına söz verdiği numaralar. Buradaki bir numara hiçbir kampanyaya yazılmaz.",
     "No row of this campaign ended that way.": "Bu kampanyada o şekilde biten satır yok.",
     "Script page, if the group has one": "Grup bir sayfa verirse, betik sayfası",
     "No script": "Betik yok",
@@ -39,8 +47,6 @@ export const catalog: Catalog = {
       "Hâlâ açık satırlar bu kampanyada kalır ve kampanya Today'den çıkar.",
     "“{purpose}” is past its window with {open} rows still open.":
       "“{purpose}” penceresini aştı ve {open} satır hâlâ açık.",
-    "Close it below, with or without carrying the rows still open.":
-      "Aşağıdan kapatın; açık satırları taşıyıp taşımamayı siz seçin.",
     "Close it and carry the open rows": "Kapat ve açık satırları taşı",
     "Close the campaign": "Kampanyayı kapat",
     Calls: "Aramalar",

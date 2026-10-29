@@ -80,6 +80,9 @@ const KnowledgeSidebar = lazyView(() =>
     default: m.KnowledgeSidebar,
   })),
 );
+const TodaySidebar = lazyView(() =>
+  import("./outbound/TodaySidebar").then((m) => ({ default: m.TodaySidebar })),
+);
 
 /*
  * How far the sidebar edge can be dragged. Below about 240px the module bar
@@ -164,16 +167,16 @@ const MODULES: Module[] = [
     action: { label: "Upload", icon: Upload, event: EVENTS.filesUpload },
   },
   {
+    id: "today",
+    href: "/today",
+    label: "Outbound",
+    icon: Phone,
+  },
+  {
     id: "kb",
     href: "/kb",
     label: "KB",
     icon: BookOpen,
-  },
-  {
-    id: "today",
-    href: "/today",
-    label: "Today",
-    icon: Phone,
   },
 ];
 
@@ -574,14 +577,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             {/*
               The other sections' sidebars load with the section, the way their
               views already do: each is only drawn under one section, and
-              keeping all four in the main chunk is what made a mail-only
-              session carry the calendar, contacts, files and knowledge trees.
+              keeping them all in the main chunk is what made a mail-only
+              session carry the calendar, contacts, files, knowledge and
+              outbound trees.
             */}
             <Suspense fallback={null}>
               {section === "calendar" && <CalendarSidebar />}
               {section === "contacts" && <ContactsSidebar />}
               {section === "files" && <FilesTree />}
               {section === "kb" && <KnowledgeSidebar />}
+              {section === "today" && <TodaySidebar />}
             </Suspense>
           </div>
           {(section === "mail" || section === "search") && <QuotaBar />}

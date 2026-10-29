@@ -352,7 +352,7 @@ test("the first call creates the card, and the call stays on it", async () => {
     { group: GROUP, outcome: "no_answer" },
   );
   assert.equal(settled.status, 200, JSON.stringify(settled.body));
-  const cardUid = (settled.body?.row as Row).cardUid;
+  const cardUid = (settled.body?.row as Row | undefined)?.cardUid;
   assert.ok(cardUid, "the first call is what creates the card");
 
   const log = await call(
@@ -388,7 +388,7 @@ test("closing a campaign keeps it, and carrying moves the rows still open", asyn
   const successor = closed.body?.successor as Campaign | null;
   assert.ok(successor, "the open rows have somewhere to go");
   assert.equal(closed.body?.carried, 2);
-  assert.equal((closed.body?.campaign as Campaign).state, "closed");
+  assert.equal((closed.body?.campaign as Campaign | undefined)?.state, "closed");
 
   const listed = await call(`/api/outbound/campaigns?group=${encodeURIComponent(GROUP)}`);
   const campaigns = (listed.body?.campaigns ?? []) as Campaign[];

@@ -1,12 +1,11 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import type { CampaignOutcome, RowDoc } from "@gilbert/shared/outbound";
 import { Phone, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { downloadFile } from "@/lib/download";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
-  type CampaignFinding,
   closeCampaign,
   createCampaign,
   fetchDoNotCall,
@@ -16,7 +15,6 @@ import {
   fetchToday,
   type ImportReport,
   importRows,
-  listCampaigns,
   type ScriptPage,
   setDoNotCall,
   settleRow,
@@ -24,6 +22,7 @@ import {
   takeRow,
 } from "@/lib/outbound";
 import { useMail } from "@/store/mail";
+import { activeGroupName, useOutbound } from "@/store/outbound";
 import { confirmDialog } from "@/ui/dialog";
 import { LoadState } from "@/ui/LoadState";
 import { Empty } from "@/ui/misc";
@@ -41,9 +40,9 @@ import { Empty } from "@/ui/misc";
  * A campaign is a group's, so the screen names the group it works in; the queue,
  * its counts and every refusal are the server's, and this view only draws them.
  */
-export function TodayView() {
+export function TodayView({ section }: { section?: string }) {
   const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
-  const [group, setGroup] = useState("");
+  const { group, campaign, findings, load: loadCampaigns } = useOutbound();
   const [board, setBoard] = useState<TodayBoard | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -51,30 +50,29 @@ export function TodayView() {
   const [taken, setTaken] = useState<RowDoc | null>(null);
   const [busy, setBusy] = useState(false);
   const [doNotCall, setDoNotCallNumbers] = useState<string[]>([]);
-  const [findings, setFindings] = useState<CampaignFinding[]>([]);
   const [pages, setPages] = useState<ScriptPage[]>([]);
   /** The words the campaign of the row in hand pinned, if it pinned any. */
   const [script, setScript] = useState<string | null>(null);
 
-  // The group being worked: the one the caller chose, or the first they are in.
-  const active = useMemo(
-    () => (groups.some((g) => g.name === group) ? group : (groups[0]?.name ?? "")),
-    [groups, group],
+  // The group being worked, and the pane this route names.
+  const active = activeGroupName(groups, group);
+  const view = section === "do-not-call" || section === "new" ? section : "queue";
+  // The queue the reader asked for: one campaign's, or every running one's.
+  const queue = (board?.queue ?? []).filter(
+    (row) => !campaign || row.campaignUid === campaign,
   );
 
   async function load(name: string) {
     setLoading(true);
     setLoadError(null);
     try {
-      const [queue, blocked, campaigns, scriptPages] = await Promise.all([
+      const [queue, blocked, scriptPages] = await Promise.all([
         fetchToday(name),
         fetchDoNotCall(name),
-        listCampaigns(name),
         fetchScriptPages(name),
       ]);
       setBoard(queue);
       setDoNotCallNumbers(blocked);
-      setFindings(campaigns.findings);
       setPages(scriptPages);
     } catch (err) {
       setLoadError(errorMessage(err));
@@ -87,10 +85,16 @@ export function TodayView() {
     if (!active) return;
     setTaken(null);
     void load(active);
-  }, [active]);
+    // The campaigns belong to the store the tree reads, and the store answers both
+    // callers with one read.
+    void loadCampaigns(active).catch(() => {});
+  }, [active, loadCampaigns]);
 
+  /** Read the queue again, and the campaign list with it: a settled row moves both. */
   async function refresh() {
-    if (active) setBoard(await fetchToday(active));
+    if (!active) return;
+    setBoard(await fetchToday(active));
+    void loadCampaigns(active).catch(() => {});
   }
 
   async function take(row: RowDoc) {
@@ -231,39 +235,23 @@ export function TodayView() {
 
   return (
     <div>
-      <h1>{t("Today")}</h1>
-      <p className="lead">
-        {t(
-          "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.",
-        )}
-      </p>
-
-      {groups.length > 1 && (
-        <div className="field">
-          <label htmlFor="today-group">{t("Group")}</label>
-          <select
-            id="today-group"
-            className="select"
-            value={active}
-            onChange={(e) => setGroup(e.target.value)}
-          >
-            {groups.map((g) => (
-              <option key={g.accountId} value={g.name}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
       <LoadState
         loadError={loadError}
         reload={() => void load(active)}
         loading={loading && !board}
       />
 
-      {board && (
+      {error && <div className="error-box">{error}</div>}
+
+      {board && view === "queue" && (
         <>
+          <h1>{t("Today")}</h1>
+          <p className="lead">
+            {t(
+              "The calls this list is waiting for. Take a row, call the number from your own phone, then say how it went.",
+            )}
+          </p>
+
           <p className="hint">
             {t("{due} due · {ahead} ahead · {held} with another caller", {
               due: board.due,
@@ -275,8 +263,7 @@ export function TodayView() {
           {error && <div className="error-box">{error}</div>}
 
           <section>
-            <h2>{t("Queue")}</h2>
-            {board.queue.length === 0 && !taken ? (
+            {queue.length === 0 && !taken ? (
               <Empty icon={<Phone size={22} />} title={t("Nothing left to call")}>
                 {t("Every open row is done, due later, or in another caller's hands.")}
               </Empty>
@@ -291,7 +278,7 @@ export function TodayView() {
                     onSettle={(outcome) => void settle(taken, outcome)}
                   />
                 )}
-                {board.queue
+                {queue
                   .filter((row) => row.uid !== taken?.uid)
                   .map((row) => (
                     <div className="card" key={row.uid}>
@@ -335,18 +322,35 @@ export function TodayView() {
                 </p>
               ))}
               <p className="hint">
-                {t("Close it below, with or without carrying the rows still open.")}
+                {t(
+                  "Close it in Start a list, with or without carrying the rows still open.",
+                )}
               </p>
             </div>
           )}
+        </>
+      )}
 
+      {board && view === "do-not-call" && (
+        <>
+          <h1>{t("Do not call")}</h1>
+          <p className="lead">
+            {t(
+              "The numbers this group promised never to call. A number here is never written into a campaign.",
+            )}
+          </p>
           <DoNotCallList
             numbers={doNotCall}
             busy={busy}
             onBlock={(number) => void block(number, true)}
             onAllow={(number) => void block(number, false)}
           />
+        </>
+      )}
 
+      {board && view === "new" && (
+        <>
+          <h1>{t("Start a list")}</h1>
           <StartList
             campaigns={board.campaigns}
             pages={pages}
@@ -526,7 +530,6 @@ function StartList({
 
   return (
     <section style={{ marginTop: 24 }}>
-      <h2>{t("Start a list")}</h2>
       <p className="hint">
         {t(
           "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.",
@@ -725,7 +728,6 @@ function DoNotCallList({
 
   return (
     <section style={{ marginTop: 24 }}>
-      <h2>{t("Do not call")}</h2>
       <p className="hint">
         {t(
           "A number on this list is never written into a campaign: the import counts it and leaves it out.",

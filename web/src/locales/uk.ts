@@ -44,6 +44,14 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    Outbound: "Вихідні",
+    Campaigns: "Кампанії",
+    "All campaigns": "Усі кампанії",
+    "Your list": "Ваш список",
+    "Close it in Start a list, with or without carrying the rows still open.":
+      "Закрийте її в «Почати список» — з перенесенням відкритих рядків або без.",
+    "The numbers this group promised never to call. A number here is never written into a campaign.":
+      "Номери, які ця група обіцяла ніколи не набирати. Номер звідси ніколи не потрапляє в кампанію.",
     "No row of this campaign ended that way.":
       "Жоден рядок цієї кампанії так не закінчився.",
     "Script page, if the group has one": "Сторінка сценарію, якщо вона є в групи",
@@ -60,8 +68,6 @@ export const catalog: Catalog = {
       "Ще відкриті рядки залишаються з цією кампанією, і вона зникає з Today.",
     "“{purpose}” is past its window with {open} rows still open.":
       "«{purpose}» вийшла за своє вікно, і {open} рядків ще відкриті.",
-    "Close it below, with or without carrying the rows still open.":
-      "Закрийте її нижче — з перенесенням відкритих рядків або без.",
     "Close it and carry the open rows": "Закрити й перенести відкриті рядки",
     "Close the campaign": "Закрити кампанію",
     Calls: "Дзвінки",

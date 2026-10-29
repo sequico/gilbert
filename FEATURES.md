@@ -1162,12 +1162,17 @@ product, `gilbertoutbound` ([README.md](README.md)); the decision behind it is
 names what is still owed. It is not a CRM — no pipeline, no stage, no value, no
 owner of an account — and nothing here makes a call.
 
-## Today
+## The section, and Today
 
-**Today** is the queue, in the module bar and on a phone's tab bar. It shows the rows
-of a group's running campaigns that are mine or due — mine first, then what is late,
-then what carried no date — with the counts beside them. A row another caller holds
-is not offered, and a claim that lapses comes back on its own.
+**Outbound** is the section: a phone icon in the module bar and on a phone's tab bar,
+the fifth there. Its tree holds the group being worked, that group's campaigns (one
+narrows the queue), and the three places the section has — **Queue**, **Do not call**,
+**Start a list**.
+
+**Today** is the queue itself. It shows the rows of the chosen campaigns that are mine
+or due — mine first, then what is late, then what carried no date — with the counts
+beside them. A row another caller holds is not offered, and a claim that lapses comes
+back on its own.
 
 ## A row, and the call
 
