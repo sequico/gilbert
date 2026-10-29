@@ -106,8 +106,6 @@ export const catalog: Catalog = {
     "ACME, ask for Tizio, +39 333 123 4567": "ACME、Tizio を呼び出し、+39 333 123 4567",
     "Add to the list": "リストに追加",
     "Do not call": "電話しない",
-    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
-      "このリストの番号はキャンペーンに書き込まれません。取り込みが数えて除外します。",
     "Number never to call": "決して電話しない番号",
     "Country code and number": "国番号と番号",
     "Allow calls again": "再び電話を許可",

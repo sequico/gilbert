@@ -188,9 +188,12 @@ export async function setDoNotCall(
   return res.numbers ?? [];
 }
 
-/** The queue this caller works today. */
-export async function fetchToday(group: string): Promise<TodayBoard> {
-  const res = await apiFetch<TodayBoard>(`/api/outbound/today?${groupQuery(group)}`);
+/** The queue this caller works today, narrowed to one campaign when asked. */
+export async function fetchToday(group: string, campaign = ""): Promise<TodayBoard> {
+  const narrow = campaign ? `&campaign=${encodeURIComponent(campaign)}` : "";
+  const res = await apiFetch<TodayBoard>(
+    `/api/outbound/today?${groupQuery(group)}${narrow}`,
+  );
   return {
     queue: res.queue ?? [],
     due: res.due ?? 0,

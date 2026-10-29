@@ -110,8 +110,6 @@ export const catalog: Catalog = {
     "ACME, ask for Tizio, +39 333 123 4567": "ACME, peça por Tizio, +39 333 123 4567",
     "Add to the list": "Adicionar à lista",
     "Do not call": "Não ligar",
-    "A number on this list is never written into a campaign: the import counts it and leaves it out.":
-      "Um número nesta lista nunca entra numa campanha: a importação conta e deixa de fora.",
     "Number never to call": "Número para nunca ligar",
     "Country code and number": "Código do país e número",
     "Allow calls again": "Permitir ligações novamente",

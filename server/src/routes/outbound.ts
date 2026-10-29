@@ -380,8 +380,15 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         required(c.req.query("group"), "group"),
       );
       const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 20) || 20, 1), 50);
+      // The queue, its counts and the vocabulary beside it are all about the same
+      // set of campaigns: narrowing to one cannot leave the numbers speaking for
+      // every list the group runs.
+      const wanted = c.req.query("campaign") ?? "";
       const { docs: campaigns, problems } = await listCampaigns(ctx, accountId);
-      const running = campaigns.filter((campaign) => campaign.state === "running");
+      const running = campaigns.filter(
+        (campaign) =>
+          campaign.state === "running" && (wanted === "" || campaign.uid === wanted),
+      );
       const rows = [];
       for (const campaign of running) {
         const read = await readRows(ctx, accountId, campaign.uid);

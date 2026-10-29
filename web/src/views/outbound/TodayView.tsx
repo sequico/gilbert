@@ -57,17 +57,16 @@ export function TodayView({ section }: { section?: string }) {
   // The group being worked, and the pane this route names.
   const active = activeGroupName(groups, group);
   const view = section === "do-not-call" || section === "new" ? section : "queue";
-  // The queue the reader asked for: one campaign's, or every running one's.
-  const queue = (board?.queue ?? []).filter(
-    (row) => !campaign || row.campaignUid === campaign,
-  );
+  // The queue the reader asked for, as the server answered for that set of
+  // campaigns: the counts and the words beside it are about the same rows.
+  const queue = board?.queue ?? [];
 
   async function load(name: string) {
     setLoading(true);
     setLoadError(null);
     try {
       const [queue, blocked, scriptPages] = await Promise.all([
-        fetchToday(name),
+        fetchToday(name, campaign),
         fetchDoNotCall(name),
         fetchScriptPages(name),
       ]);
@@ -88,12 +87,12 @@ export function TodayView({ section }: { section?: string }) {
     // The campaigns belong to the store the tree reads, and the store answers both
     // callers with one read.
     void loadCampaigns(active).catch(() => {});
-  }, [active, loadCampaigns]);
+  }, [active, campaign, loadCampaigns]);
 
   /** Read the queue again, and the campaign list with it: a settled row moves both. */
   async function refresh() {
     if (!active) return;
-    setBoard(await fetchToday(active));
+    setBoard(await fetchToday(active, campaign));
     void loadCampaigns(active).catch(() => {});
   }
 
@@ -727,12 +726,7 @@ function DoNotCallList({
   const [typed, setTyped] = useState("");
 
   return (
-    <section style={{ marginTop: 24 }}>
-      <p className="hint">
-        {t(
-          "A number on this list is never written into a campaign: the import counts it and leaves it out.",
-        )}
-      </p>
+    <section>
       <div className="field">
         <label htmlFor="today-do-not-call">{t("Number never to call")}</label>
         <div className="row">
