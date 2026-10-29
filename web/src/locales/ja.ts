@@ -48,6 +48,10 @@ export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "前回の通話：{when} · {outcome}",
+    "Put it back": "戻す",
+    "No list yet": "まだリストがありません",
+    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
+      "リストを始めましょう。目的と結果を決めてから、番号を貼り付けます。",
     "Runs from": "開始日",
     "Runs until": "終了日",
     "Leave the dates empty for a list with no window.":

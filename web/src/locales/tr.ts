@@ -25,6 +25,10 @@ export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Son arama: {when} · {outcome}",
+    "Put it back": "Geri koy",
+    "No list yet": "Henüz liste yok",
+    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
+      "Bir liste başlatın: ona bir amaç ve sonuçlarını verin, sonra numaraları yapıştırın.",
     "Runs from": "Başlangıç",
     "Runs until": "Bitiş",
     "Leave the dates empty for a list with no window.":

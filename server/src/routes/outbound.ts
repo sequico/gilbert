@@ -29,6 +29,7 @@ import {
   createCampaign,
   importList,
   openCampaign,
+  release,
   settle,
   take,
 } from "../outbound/writes.js";
@@ -423,6 +424,36 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         required(body.group, "group"),
       );
       const row = await take(
+        ctx,
+        accountId,
+        c.req.param("uid"),
+        c.req.param("rowUid"),
+        c.get("session").username,
+        new Date(),
+      );
+      return c.json({ ok: true, row });
+    } catch (err) {
+      return outboundFailure(c, err);
+    }
+  });
+
+  /**
+   * Give a taken row back to the list.
+   *
+   * A caller holds one row at a time, so a row taken by mistake would keep them
+   * from the list for the length of the lease. The release is the way out, and it
+   * is only the holder's to make.
+   */
+  api.post("/outbound/campaigns/:uid/rows/:rowUid/release", requireSession, async (c) => {
+    try {
+      const body: unknown = await readJson(c);
+      if (!isRecord(body))
+        throw new OutboundError("bad_request", "A release names its group.", 400);
+      const { ctx, accountId } = await campaignAccount(
+        c.get("session"),
+        required(body.group, "group"),
+      );
+      const row = await release(
         ctx,
         accountId,
         c.req.param("uid"),

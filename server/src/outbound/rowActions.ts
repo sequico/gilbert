@@ -9,7 +9,7 @@
  * the campaign's business and never a switch in the code.
  */
 
-import { heldByOther, type RowDoc, withCall } from "../shared/outbound.js";
+import { claimIsLive, heldByOther, type RowDoc, withCall } from "../shared/outbound.js";
 
 /** How long a taken row is believed to be in a caller's hands. */
 export const CLAIM_LEASE_MS = 15 * 60 * 1000;
@@ -53,6 +53,23 @@ export interface SettleInput {
 export type SettleResult =
   | { ok: true; row: RowDoc }
   | { ok: false; reason: "settled" | "held_by_other" | "unknown_outcome" };
+
+/**
+ * Give a taken row back before its call.
+ *
+ * A caller holds one row at a time, so a row taken by mistake would keep them from
+ * the list for the length of the lease: the release is what makes that mistake cost
+ * nothing. Only the caller holding it may give it back.
+ */
+export function releaseRow(
+  row: RowDoc,
+  { by, now }: { by: string; now: Date },
+): { ok: true; row: RowDoc } | { ok: false; reason: "settled" | "not_mine" } {
+  if (row.state !== "open") return { ok: false, reason: "settled" };
+  if (!claimIsLive(row.claim, now) || row.claim.by !== by)
+    return { ok: false, reason: "not_mine" };
+  return { ok: true, row: { ...row, claim: null } };
+}
 
 /** Settle a row with the call it just took. */
 export function settleRow(

@@ -51,6 +51,10 @@ export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Последний звонок: {when} · {outcome}",
+    "Put it back": "Вернуть",
+    "No list yet": "Списка ещё нет",
+    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
+      "Начните список: задайте ему цель и её исходы, затем вставьте номера.",
     "Runs from": "Начало",
     "Runs until": "Окончание",
     "Leave the dates empty for a list with no window.":

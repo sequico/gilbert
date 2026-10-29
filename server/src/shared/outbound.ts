@@ -117,10 +117,10 @@ export interface CampaignDoc {
 }
 
 /** A row's own state: open until its call settles it. */
-export type RowState = "open" | "done" | "dropped";
+export type RowState = "open" | "done";
 
 export function isRowState(value: unknown): value is RowState {
-  return value === "open" || value === "done" || value === "dropped";
+  return value === "open" || value === "done";
 }
 
 /**

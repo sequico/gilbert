@@ -22,6 +22,7 @@ import {
   fetchToday,
   type ImportReport,
   importRows,
+  releaseRow,
   type ScriptPage,
   setDoNotCall,
   settleRow,
@@ -234,6 +235,22 @@ export function TodayView({ section }: { section?: string }) {
     }
   }
 
+  /** Give the row in hand back: a tap made by mistake costs nothing. */
+  async function putBack(row: RowDoc) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await releaseRow(active, row.campaignUid, row.uid);
+      setTaken(null);
+      await read(active);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function settle(row: RowDoc, outcome: string) {
     if (busy) return;
     setBusy(true);
@@ -306,9 +323,17 @@ export function TodayView({ section }: { section?: string }) {
 
           <section>
             {queue.length === 0 && !taken ? (
-              <Empty icon={<Phone size={22} />} title={t("Nothing left to call")}>
-                {t("Every open row is done, due later, or in another caller's hands.")}
-              </Empty>
+              campaigns.length === 0 ? (
+                <Empty icon={<Phone size={22} />} title={t("No list yet")}>
+                  {t(
+                    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.",
+                  )}
+                </Empty>
+              ) : (
+                <Empty icon={<Phone size={22} />} title={t("Nothing left to call")}>
+                  {t("Every open row is done, due later, or in another caller's hands.")}
+                </Empty>
+              )
             ) : (
               <>
                 {taken && (
@@ -322,6 +347,7 @@ export function TodayView({ section }: { section?: string }) {
                     nextCall={nextCall}
                     onNextCall={setNextCall}
                     onSettle={(outcome) => void settle(taken, outcome)}
+                    onRelease={() => void putBack(taken)}
                   />
                 )}
                 {shown
@@ -451,6 +477,8 @@ function TakenRow({
   nextCall: string;
   onNextCall: (nextCall: string) => void;
   onSettle: (outcome: string) => void;
+  /** Give the row back before its call. */
+  onRelease: () => void;
 }) {
   // What was said to this number last time: the reason the row exists at all, and
   // what a caller reading a row they have never worked needs before dialling.
@@ -522,6 +550,16 @@ function TakenRow({
             {outcome.label}
           </button>
         ))}
+        {/* Set apart from the outcomes: giving the row back is not a way of saying
+            how the call went, it is saying that there was no call. */}
+        <button
+          className="btn btn-ghost"
+          style={{ marginLeft: "auto" }}
+          disabled={busy}
+          onClick={onRelease}
+        >
+          {t("Put it back")}
+        </button>
       </div>
     </div>
   );

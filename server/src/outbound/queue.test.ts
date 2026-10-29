@@ -73,8 +73,7 @@ test("a call due later is not in Today, and is counted", () => {
 
 test("a row that is settled is not work", () => {
   const done = row({ uid: "done", state: "done" });
-  const dropped = row({ uid: "dropped", state: "dropped" });
-  const result = todayQueue([done, dropped], { caller: "sam", now });
+  const result = todayQueue([done], { caller: "sam", now });
   assert.deepEqual(result.queue, []);
   assert.equal(result.due + result.upcoming + result.heldByOthers, 0);
 });

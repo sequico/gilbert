@@ -226,6 +226,21 @@ export async function takeRow(
   return res.row;
 }
 
+/** Give a taken row back, before its call. */
+export async function releaseRow(
+  group: string,
+  campaignUid: string,
+  rowUid: string,
+): Promise<RowDoc> {
+  const res = await apiFetch<{ row: RowDoc }>(
+    `/api/outbound/campaigns/${encodeURIComponent(campaignUid)}/rows/${encodeURIComponent(
+      rowUid,
+    )}/release`,
+    { method: "POST", body: JSON.stringify({ group }) },
+  );
+  return res.row;
+}
+
 /** Settle a row with the call it just took. */
 export async function settleRow(
   group: string,

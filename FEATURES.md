@@ -1188,7 +1188,9 @@ that made it — "ACME, ask for Tizio" — so a caller reads them before diallin
 what the last call to that number said, so the second caller does not repeat the
 first. Settling a row picks one of the campaign's own outcomes and writes what was
 said; a date in "call again" keeps the row open until then, and an outcome the
-campaign never named is refused.
+campaign never named is refused. A row taken by mistake goes back with one press, so
+a tap on the wrong number does not hold the list for the fifteen minutes of the
+lease.
 
 ## A list
 

@@ -47,6 +47,10 @@ export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "上次通话：{when} · {outcome}",
+    "Put it back": "放回",
+    "No list yet": "还没有名单",
+    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
+      "开始一份名单：给它一个目的和它的结果，然后粘贴号码。",
     "Runs from": "开始",
     "Runs until": "结束",
     "Leave the dates empty for a list with no window.":

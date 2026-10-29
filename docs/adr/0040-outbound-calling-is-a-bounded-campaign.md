@@ -7,7 +7,7 @@ are `server/src/shared/outbound.ts`; the one number form, the paste, the queue,
 the two acts on a row, the documents on disk and the group's door are
 `server/src/outbound/`, answered by `server/src/routes/outbound.ts` and drawn by
 `web/src/views/outbound/TodayView.tsx`; `server/src/outbound.test.ts` drives the
-door, the import, the do-not-call list and the two acts against the mock. The area
+door, the import, the do-not-call list and the acts on a row against the mock. The area
 acts as the caller and never as the installation's agent, which is what lets a
 group that exists for outbound work alone be worked at all.
 
@@ -161,7 +161,8 @@ that must never be called is entered once for each group that calls.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the conditional write and the lapsed lease the installation's
   own claim already uses (ADR 0032) — and a caller holds one row of a list at a
-  time.
+  time. A row taken by mistake is given back rather than held: the lease is a
+  safety net, not a punishment.
 - **A number has one form: E.164 and nothing else.** `+` and the country code
   followed by digits — fifteen at most — with no space, no punctuation, no
   extension, no national trunk prefix, no note: the canonical string is the

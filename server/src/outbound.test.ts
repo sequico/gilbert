@@ -335,6 +335,45 @@ test("a caller holds one row of a list at a time", async () => {
   assert.equal(again.status, 200, JSON.stringify(again.body));
 });
 
+test("a row taken by mistake goes back to the list", async () => {
+  const campaign = await newCampaign("Taken by mistake");
+  await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 0721 123456",
+  });
+  const [row] = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  assert.ok(row);
+
+  const taken = await post(
+    `/api/outbound/campaigns/${campaign.uid}/rows/${row.uid}/take`,
+    { group: GROUP },
+  );
+  assert.equal(taken.status, 200, JSON.stringify(taken.body));
+
+  const released = await post(
+    `/api/outbound/campaigns/${campaign.uid}/rows/${row.uid}/release`,
+    { group: GROUP },
+  );
+  assert.equal(released.status, 200, JSON.stringify(released.body));
+  assert.equal(
+    (released.body?.row as Row | undefined)?.claim,
+    null,
+    "the row is nobody's again",
+  );
+
+  const back = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  assert.equal(back.length, 1, "and it is offered to whoever is calling");
+  assert.equal(back[0].claim, null);
+
+  // A second release has nothing to give back.
+  const again = await post(
+    `/api/outbound/campaigns/${campaign.uid}/rows/${row.uid}/release`,
+    { group: GROUP },
+  );
+  assert.equal(again.status, 409, JSON.stringify(again.body));
+  assert.equal(again.body?.error, "row_not_held");
+});
+
 test("a number taken off the list is one the import may write again", async () => {
   const removed = await post("/api/outbound/do-not-call", {
     group: GROUP,

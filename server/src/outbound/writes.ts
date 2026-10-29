@@ -29,7 +29,13 @@ import {
 } from "./documents.js";
 import { OutboundError, campaignMissing, rowMissing } from "./errors.js";
 import { type ImportPlan, planImport } from "./importList.js";
-import { type SettleInput, type SettleResult, settleRow, takeRow } from "./rowActions.js";
+import {
+  releaseRow,
+  type SettleInput,
+  type SettleResult,
+  settleRow,
+  takeRow,
+} from "./rowActions.js";
 
 export interface NewCampaign {
   uid: string;
@@ -115,7 +121,7 @@ export async function importList(
 }
 
 /** Why an act on a row was refused, as the rules beside this module state it. */
-type RowRefusal = Extract<SettleResult, { ok: false }>["reason"];
+type RowRefusal = Extract<SettleResult, { ok: false }>["reason"] | "not_mine";
 
 /**
  * The refusal a caller reads when an act on a row is not allowed.
@@ -138,6 +144,12 @@ function rowRefusal(reason: RowRefusal, outcome = ""): OutboundError {
         "unknown_outcome",
         `"${outcome}" is not an outcome of this campaign.`,
         400,
+      );
+    case "not_mine":
+      return new OutboundError(
+        "row_not_held",
+        "This row is not in your hands any more: the claim lapsed or somebody else took it.",
+        409,
       );
   }
 }
@@ -236,6 +248,23 @@ export async function take(
     const taken = takeRow(doc, { by, now });
     if (taken.ok) return taken.row;
     throw rowRefusal(taken.reason);
+  });
+}
+
+/** Give a taken row back, so the list is not held by a tap made by mistake. */
+export async function release(
+  ctx: Ctx,
+  accountId: string,
+  campaignUid: string,
+  rowUid: string,
+  by: string,
+  now: Date,
+): Promise<RowDoc> {
+  await openCampaign(ctx, accountId, campaignUid);
+  return mutateRow(ctx, accountId, campaignUid, rowUid, (doc) => {
+    const released = releaseRow(doc, { by, now });
+    if (released.ok) return released.row;
+    throw rowRefusal(released.reason);
   });
 }
 
