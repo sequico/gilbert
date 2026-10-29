@@ -52,6 +52,7 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Every row on this page is skipped.": "Toutes les lignes de cette page ont été passées.",
     "Number": "Numéro",
     "Campaign": "Campagne",
     "Take": "Prendre",

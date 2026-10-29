@@ -294,6 +294,9 @@ export function TodayView({ section }: { section?: string }) {
   async function skip(row: RowDoc) {
     if (taken?.uid === row.uid) await putBack(row);
     setSkipped((current) => new Set(current).add(row.uid));
+    // A skipped row leaves a hole in the page, and the caller wants the next row,
+    // not a shorter table: ask for one more and let it fill the place.
+    if (queue.length === page) setPage((size) => size + 1);
   }
 
   async function settle(row: RowDoc, outcome: string, nextCallAt: string | null) {
@@ -379,6 +382,10 @@ export function TodayView({ section }: { section?: string }) {
                 <Empty icon={<Phone size={22} />} title={t("No list yet")}>
                   {t("Start a campaign, give it its script and outcomes, then import a list.")}
                 </Empty>
+              ) : queue.length === page ? (
+                // Everything on this page was passed over: the list is not empty,
+                // the page is, and saying otherwise would be a lie about the work.
+                <p className="hint">{t("Every row on this page is skipped.")}</p>
               ) : (
                 <Empty icon={<Phone size={22} />} title={t("Nothing left to call")}>
                   {t("Every open row is done, due later, or in another caller's hands.")}
@@ -686,7 +693,12 @@ function CallPanel({
 
 /** Who this number is: the card's names, or the words that arrived with it. */
 function detailOf(row: RowDoc, card: RowCard | null): string {
-  if (card) return [card.company, card.title].filter(Boolean).join(" · ");
+  // A card that carries no company and no title says less than the paste did, so
+  // the words that arrived with the number stay as the fallback.
+  if (card) {
+    const named = [card.company, card.title].filter(Boolean).join(" · ");
+    if (named !== "") return named;
+  }
   return row.context ?? "";
 }
 
