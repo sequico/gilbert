@@ -1898,7 +1898,10 @@ JMAP Contacts and JSContact.
   **directory** are shared collections: both commands there are an administrator's,
   drawn for everybody and disabled for whoever does not hold them. On a book of
   your own, or a colleague's share, import appears only where the book can be
-  written — a share opened read-only offers export and nothing else. The
+  written — a share opened read-only offers export and nothing else. A contact
+  of a shared collection follows the same rule: the card's own **vCard** button
+  is an administrator's there, and disabled for everybody else, so the book and
+  the one card it holds do not tell two stories. The
   installation's directory is not a mail account: its import runs through the
   administration's route, one card at a time (ADR 0019), while a book's goes
   through the mail server's own parser. The rule is asked again where the two

@@ -6,7 +6,10 @@ import type {
   JSContactMedia,
   JSContactName,
 } from "@/jmap/types";
-import { GLOBAL_CONTACTS_BOOK_ID } from "@/lib/globalContactsAdmin";
+import {
+  GLOBAL_CONTACTS_ACCOUNT_ID,
+  GLOBAL_CONTACTS_BOOK_ID,
+} from "@/lib/globalContactsAdmin";
 import { foldLine } from "./contentLines";
 
 /**
@@ -44,7 +47,11 @@ export function isSharedCollectionBook(spec: {
   /** Whether that probe has answered; until it has, nothing is classified. */
   groupsKnown: boolean;
 }): boolean {
-  if (isGlobalContactsBook({ id: spec.bookId })) return true;
+  if (
+    isGlobalContactsBook({ id: spec.bookId }) ||
+    spec.accountId === GLOBAL_CONTACTS_ACCOUNT_ID
+  )
+    return true;
   if (!spec.accountId) return false;
   return !spec.groupsKnown || spec.groups.has(spec.accountId);
 }

@@ -25,6 +25,9 @@ describe("a shared collection's book", () => {
   it("is the installation's directory, whatever the account says", () => {
     expect(rule({ bookId: "global-contacts", accountId: "global" })).toBe(true);
     expect(rule({ bookId: "global-contacts", accountId: null })).toBe(true);
+    // A directory card read from "All contacts" has no book of its own: the
+    // account is what is left to recognise it by.
+    expect(rule({ bookId: "all", accountId: "global" })).toBe(true);
   });
 
   it("is a group's book, and not a colleague's share", () => {

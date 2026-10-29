@@ -460,6 +460,20 @@ export function ContactsView({ id }: { id?: string }) {
   const selectedReadOnly = selected
     ? !contacts.cardWritable(selected, selectedAccountId)
     : false;
+  /*
+   * Whether the open card may leave as a `.vcf`: a shared collection's contact
+   * is an installation administrator's to export, exactly as that book's
+   * command is (`isSharedCollectionBook`), and the button asks the same answer
+   * rather than telling a second story.
+   */
+  const selectedMayExport =
+    isAdmin ||
+    !isSharedCollectionBook({
+      bookId: bookId === "all" ? "all" : bookId,
+      accountId: selectedAccountId,
+      groups: groupIds,
+      groupsKnown,
+    });
   const books = contacts.booksOf(contacts.accountId);
   const groups = useMemo(() => {
     const out: Array<{
@@ -1104,6 +1118,7 @@ export function ContactsView({ id }: { id?: string }) {
             card={selected}
             accountId={selectedAccountId}
             readOnly={selectedReadOnly}
+            mayExport={selectedMayExport}
             bookId={bookId === "all" ? undefined : bookId}
             onBack={() => navigate("/contacts")}
             onEdit={() => {
@@ -1418,6 +1433,7 @@ function ContactDetail({
   accountId,
   readOnly,
   bookId,
+  mayExport,
   onBack,
   onEdit,
   narrow,
@@ -1437,6 +1453,12 @@ function ContactDetail({
    * reader's own.
    */
   accountId: string | null;
+  /**
+   * Whether this card may leave as a `.vcf`. A card of a shared collection is
+   * an installation administrator's to export, as the book is
+   * (`isSharedCollectionBook`), so the button follows the same answer.
+   */
+  mayExport: boolean;
   /**
    * A card the store knows is another account's: the reader's own list is in,
    * and this id is not in it. Editing and deleting it are that account's to
@@ -1483,6 +1505,14 @@ function ContactDetail({
         )}
         <button
           className="btn btn-sm"
+          disabled={!mayExport}
+          title={
+            mayExport
+              ? undefined
+              : translate(
+                  "Only an installation administrator imports into or exports a group's address book or the installation's directory.",
+                )
+          }
           onClick={() => {
             downloadFile(toVCard(c), "text/vcard", vCardFileName(name));
           }}
