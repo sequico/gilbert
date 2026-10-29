@@ -2422,6 +2422,7 @@ export const catalog: Catalog = {
     "Date it takes effect": "Дата вступления в силу",
     "No revisions yet.": "Редакций пока нет.",
     "Approved {date} by {who}": "Утверждено {date}, {who}",
+    "Last edited {date} by {who}": "Последнее изменение {date}, {who}",
     "In force from {date}": "Действует с {date}",
     "This account is not set up for file storage.":
       "Эта учётная запись не настроена для хранения файлов.",

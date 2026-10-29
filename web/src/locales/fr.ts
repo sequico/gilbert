@@ -2454,6 +2454,7 @@ export const catalog: Catalog = {
     "Date it takes effect": "Date d'entrée en vigueur",
     "No revisions yet.": "Aucune révision pour l'instant.",
     "Approved {date} by {who}": "Approuvé le {date} par {who}",
+    "Last edited {date} by {who}": "Modifié pour la dernière fois le {date} par {who}",
     "In force from {date}": "En vigueur depuis le {date}",
     "This account is not set up for file storage.":
       "Ce compte n'est pas configuré pour le stockage de fichiers.",

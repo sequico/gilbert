@@ -14,6 +14,7 @@ const groupTier = {
   accountId: "a3",
   group: "team@example.org",
   canApprove: false,
+  canEdit: true,
   articles: [],
 };
 

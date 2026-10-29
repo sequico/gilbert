@@ -549,10 +549,10 @@ export function KnowledgeSidebar() {
      * in their tag and what a click does, so the events live in one place.
      */
     const rowDrag = {
-      // Moving a page or a folder is an administrator's, as the route enforces:
-      // a member's write is the draft. A row a member cannot move is not
-      // draggable at all.
-      draggable: tier.canApprove,
+      // Moving a page or a folder is its tier's: a group's belongs to its
+      // members, the company's to an administrator. A row the reader cannot
+      // move is not draggable at all.
+      draggable: tier.canEdit,
       onDragStart: (e: DragEvent) => dragStart(e, a, tier),
       onDragEnd: dragEnd,
       onDragOver: (e: DragEvent) => dragOver(e, a, tier),
@@ -605,7 +605,7 @@ export function KnowledgeSidebar() {
         />
         {a.pending && <span className="hint">{t("Pending")}</span>}
         {a.retired && <span className="hint">{t("Retired")}</span>}
-        {tier.canApprove && (
+        {tier.canEdit && (
           <button
             type="button"
             className="icon-btn sm nav-row-menu"
@@ -852,7 +852,7 @@ export function KnowledgeSidebar() {
             <Fragment key={`${tier.scope}:${tier.accountId}`}>
               <div className="nav-section">
                 <span title={tierLabel(tier)}>{tierLabel(tier)}</span>
-                {tier.canApprove && (
+                {tier.canEdit && (
                   <span className="row" style={{ gap: 4 }}>
                     <button
                       className="icon-btn sm"

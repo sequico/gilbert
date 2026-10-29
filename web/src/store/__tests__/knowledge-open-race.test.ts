@@ -59,6 +59,7 @@ describe("opening a KB article", () => {
           accountId: "a1",
           group: null,
           canApprove: false,
+          canEdit: false,
           articles: [article("n1", "Old"), article("n2", "New")],
         },
       ],

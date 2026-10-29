@@ -61,6 +61,11 @@ interface KnowledgeTierState {
   group: string | null;
   /** Whether the reader is an installation administrator (approval's gate). */
   canApprove: boolean;
+  /**
+   * Whether the reader shapes this tier's tree: a group's belongs to its
+   * members, the company's to an administrator (`gilbert-groups`, ADR 0020).
+   */
+  canEdit: boolean;
   articles: KnowledgeSummary[];
 }
 
@@ -406,6 +411,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
             accountId: company.accountId,
             group: null,
             canApprove,
+            canEdit: canApprove,
             articles: company.articles,
           });
         }
@@ -436,6 +442,10 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
             accountId: group.accountId,
             group: group.name,
             canApprove,
+            // A group tier is only listed for a member, and the tree is the
+            // members' own: the route accepts these writes from any member of
+            // it, whatever the installation's role says.
+            canEdit: true,
             articles,
           };
         },

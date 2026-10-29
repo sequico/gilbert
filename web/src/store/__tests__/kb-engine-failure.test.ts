@@ -25,6 +25,7 @@ beforeEach(() => {
         accountId: "a1",
         group: null,
         canApprove: false,
+        canEdit: false,
         articles: [],
       },
     ],

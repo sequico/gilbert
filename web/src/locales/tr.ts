@@ -2344,6 +2344,7 @@ export const catalog: Catalog = {
     "Date it takes effect": "Yürürlüğe gireceği tarih",
     "No revisions yet.": "Henüz revizyon yok.",
     "Approved {date} by {who}": "{who} tarafından {date} tarihinde onaylandı",
+    "Last edited {date} by {who}": "Son düzenleme {date}, {who}",
     "In force from {date}": "{date} tarihinden itibaren yürürlükte",
     "This account is not set up for file storage.":
       "Bu hesap dosya depolama için ayarlanmamış.",

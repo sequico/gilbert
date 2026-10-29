@@ -32,9 +32,11 @@ const KnowledgeEditor = lazyView(() =>
  *
  * The sidebar chooses the page and this shows it: the body read through
  * `KnowledgeEditor`, the title, tags and lifecycle state around it, and the
- * controls the state allows -- drafting for anyone, approval and the effective
- * date for an administrator only. The store holds the article and the
- * in-progress edit; this view only decides what to draw and when to ask.
+ * controls the state allows -- drafting for anyone, the tree's own shape for a
+ * group's members (renaming, restoring) and for the company's administrator,
+ * and approval with the effective date for an administrator only. The store
+ * holds the article and the in-progress edit; this view only decides what to
+ * draw and when to ask.
  */
 
 /** Now in the `yyyy-mm-ddThh:mm` a native datetime input reads and writes. */
@@ -241,6 +243,12 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     Boolean(article.summary.pending);
   const title = editing && edit ? edit.title : readerTitle;
   const tags = editing && edit ? edit.tags : readerTags;
+  /*
+   * Who last changed the draft, and when: the write is signed by the session
+   * that made it (a group's member, the company's administrator), so this is
+   * the one line that says whose change a reader is looking at.
+   */
+  const lastEdited = article.draft?.updated ?? article.summary.updated;
   const body =
     editing && edit
       ? edit.blocks
@@ -400,6 +408,14 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
           {!article.effective && !article.summary.pending && (
             <span className="hint">{t("Draft")}</span>
           )}
+          {lastEdited && (
+            <span className="hint">
+              {t("Last edited {date} by {who}", {
+                date: dateText(lastEdited.at),
+                who: lastEdited.by,
+              })}
+            </span>
+          )}
           <KnowledgeRevBadge rev={article.summary.rev} />
         </span>
       </div>
@@ -527,9 +543,10 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         <button className="btn btn-sm" onClick={() => setHistoryOpen(true)}>
           {t("History")}
         </button>
-        {/* Creating, renaming and deleting pages is an administrator's; a
-            member's write is the draft itself (ADR 0020). */}
-        {activeTier?.canApprove && (
+        {/* Renaming follows the tree's shape, which a group's members own; the
+            route refuses it in the company tier for anybody but an
+            administrator (ADR 0020). */}
+        {activeTier?.canEdit && (
           <button className="btn btn-sm" onClick={() => void doRename()}>
             {t("Rename")}
           </button>
@@ -622,7 +639,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
                 {t("In force from {date}", { date: dateText(rev.effectiveAt) })}
               </div>
             </div>
-            {activeTier?.canApprove && (
+            {activeTier?.canEdit && (
               <button
                 className="btn btn-sm"
                 onClick={async () => {

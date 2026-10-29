@@ -9,11 +9,12 @@
  * Master. The shared half is re-exported, so `@/lib/knowledge` is the one
  * import a surface needs.
  *
- * Writes go through `/api/knowledge/*`, because the company KB lives in the
- * Master's account and a reader reaches it through a route, not a session that
- * may write it (ADR 0020, Q1). The **company** KB is read through the route
- * too: a `shareWith` naming every account cannot work (Stalwart caps a share at
- * 10 principals per item, live-probed; ADR 0019), so the route is how every
+ * Writes go through `/api/knowledge/*` for both tiers, and each is made with the
+ * session that owns the documents: a group's with the member's, the company's
+ * with the Master's, because a reader's own session holds nothing of that
+ * account (ADR 0020, Q1). The **company** KB is read through the route too: a
+ * `shareWith` naming every account cannot work (Stalwart caps a share at 10
+ * principals per item, live-probed; ADR 0019), so the route is how every
  * account reaches the folder. A group's KB is read straight from the reader's
  * own session on the group account, membership being the grant; its approval
  * still goes through the route, an administrator's alone.
@@ -505,7 +506,8 @@ export async function readArticleRevision(
 }
 
 /* ------------------------------------------------------------------ */
-/* Writes — the server acts as the Master (ADR 0020, Q1)               */
+/* Writes — a group's with the member's session, the company as the     */
+/* Master (ADR 0020, Q1)                                               */
 /* ------------------------------------------------------------------ */
 
 /** The summary the server echoes after a write; the route always answers one. */

@@ -63,6 +63,7 @@ vi.mock("@/store/knowledge", () => ({
           accountId: "acct-1",
           group: null,
           canApprove: true,
+          canEdit: true,
           articles: [
             {
               id: "art-1",

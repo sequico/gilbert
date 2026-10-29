@@ -2423,6 +2423,7 @@ export const catalog: Catalog = {
     "Date it takes effect": "発効日",
     "No revisions yet.": "改訂はまだありません。",
     "Approved {date} by {who}": "{who} が {date} に承認",
+    "Last edited {date} by {who}": "最終編集 {date}（{who}）",
     "In force from {date}": "{date} から発効",
     "This account is not set up for file storage.":
       "このアカウントはファイル保存用に設定されていません。",

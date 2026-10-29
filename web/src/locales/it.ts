@@ -3395,6 +3395,7 @@ export const catalog: Catalog = {
     "Date it takes effect": "Data di entrata in vigore",
     "No revisions yet.": "Nessuna revisione per ora.",
     "Approved {date} by {who}": "Approvato il {date} da {who}",
+    "Last edited {date} by {who}": "Ultima modifica il {date} da {who}",
     "In force from {date}": "In vigore dal {date}",
     // ── Invitations, labels, account capabilities ──────────────────────
     "This invitation could not be read.": "Non è stato possibile leggere questo invito.",

@@ -45,6 +45,7 @@ describe("clearing the KB search", () => {
           accountId: "a1",
           group: null,
           canApprove: false,
+          canEdit: false,
           articles: [article("Pagina di prova")],
         },
       ],
