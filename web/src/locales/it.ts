@@ -1683,7 +1683,8 @@ export const catalog: Catalog = {
     "Contact moved": "Contatto spostato",
 
     "Contact deleted": "Contatto eliminato",
-    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.": "Vengono tolti da questa rubrica; un contatto che è solo qui viene eliminato. Questo non può essere annullato.",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Vengono tolti da questa rubrica; un contatto che è solo qui viene eliminato. Questo non può essere annullato.",
     "Removed from this address book": "Tolto da questa rubrica",
     "Removed {n} contact from this address book": "{n} contatto tolto da questa rubrica",
     "Removed {n} contacts from this address book": "{n} contatti tolti da questa rubrica",
@@ -1740,7 +1741,8 @@ export const catalog: Catalog = {
     "Delete this identity?": "Eliminare questa identità?",
 
     "Delete {name}?": "Eliminare {name}?",
-    "It leaves this address book and stays in the others it is in.": "Esce da questa rubrica e resta nelle altre in cui si trova.",
+    "It leaves this address book and stays in the others it is in.":
+      "Esce da questa rubrica e resta nelle altre in cui si trova.",
     Deleted: "Eliminato",
 
     "Deletes the whole series. This cannot be undone.":
@@ -1948,7 +1950,8 @@ export const catalog: Catalog = {
 
     "Template name": "Nome del modello",
 
-    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Vengono eliminati i contatti che sono solo qui. Quelli che sono anche in un’altra rubrica vengono tolti solo da questa.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Vengono eliminati i contatti che sono solo qui. Quelli che sono anche in un’altra rubrica vengono tolti solo da questa.",
 
     "The default identity is always offered when composing":
       "L'identità predefinita viene sempre offerta durante la composizione",
@@ -2537,8 +2540,10 @@ export const catalog: Catalog = {
     // ── Emptying an address book, and deleting a selection (#277) ──
 
     "This cannot be undone.": "Questo non può essere annullato.",
-    "One of them is in more than one address book, and is deleted from all of them.": "Uno di loro è in più di una rubrica e viene eliminato da tutte.",
-    "{n} of them are in more than one address book, and are deleted from all of them.": "{n} di loro sono in più di una rubrica e vengono eliminati da tutte.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Uno di loro è in più di una rubrica e viene eliminato da tutte.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} di loro sono in più di una rubrica e vengono eliminati da tutte.",
 
     "Some could not be deleted: {error}":
       "Alcuni non hanno potuto essere eliminati: {error}",
@@ -2548,8 +2553,10 @@ export const catalog: Catalog = {
     "Empty address book": "Svuota la rubrica",
 
     "There is nothing in it to delete": "Non c'è nulla da eliminare",
-    "{n} of them is also in another address book, and will only be removed from this one.": "{n} di loro è anche in un’altra rubrica e verrà tolto solo da questa.",
-    "{n} of them are also in other address books, and will only be removed from this one.": "{n} di loro sono anche in altre rubriche e verranno tolti solo da questa.",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} di loro è anche in un’altra rubrica e verrà tolto solo da questa.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} di loro sono anche in altre rubriche e verranno tolti solo da questa.",
 
     "Empty “{name}”?": "Svuotare «{name}»?",
 

@@ -1069,7 +1069,8 @@ export const catalog: Catalog = {
     "Contact created": "Contact créé",
     "Contact moved": "Contact déplacé",
     "Contact deleted": "Contact supprimé",
-    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.": "Ils sont retirés de ce carnet ; un contact qui n’y figure que là est supprimé. Cela ne peut pas être annulé.",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Ils sont retirés de ce carnet ; un contact qui n’y figure que là est supprimé. Cela ne peut pas être annulé.",
     "Removed from this address book": "Retiré de ce carnet",
     "Removed {n} contact from this address book": "{n} contact retiré de ce carnet",
     "Removed {n} contacts from this address book": "{n} contacts retirés de ce carnet",
@@ -1104,7 +1105,8 @@ export const catalog: Catalog = {
     "Delete this event?": "Supprimer cet événement ?",
     "Delete this identity?": "Supprimer cette identité ?",
     "Delete {name}?": "Supprimer {name} ?",
-    "It leaves this address book and stays in the others it is in.": "Il quitte ce carnet et reste dans les autres carnets où il figure.",
+    "It leaves this address book and stays in the others it is in.":
+      "Il quitte ce carnet et reste dans les autres carnets où il figure.",
     Deleted: "Supprimé",
     "Deletes the whole series. This cannot be undone.":
       "Supprime toute la série. Cette action est irréversible.",
@@ -1224,7 +1226,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Passer à {theme}",
     Template: "Modèle",
     "Template name": "Nom du modèle",
-    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Les contacts qui n’y figurent que là sont supprimés. Ceux qui figurent aussi dans un autre carnet sont seulement retirés de celui-ci.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Les contacts qui n’y figurent que là sont supprimés. Ceux qui figurent aussi dans un autre carnet sont seulement retirés de celui-ci.",
     "The default identity is always offered when composing":
       "L’identité par défaut est toujours proposée à la rédaction",
     "The new passwords don't match": "Les nouveaux mots de passe ne correspondent pas",
@@ -1578,15 +1581,19 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Cette action est irréversible.",
-    "One of them is in more than one address book, and is deleted from all of them.": "L’un d’eux figure dans plusieurs carnets et est supprimé de tous.",
-    "{n} of them are in more than one address book, and are deleted from all of them.": "{n} d’entre eux figurent dans plusieurs carnets et sont supprimés de tous.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "L’un d’eux figure dans plusieurs carnets et est supprimé de tous.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} d’entre eux figurent dans plusieurs carnets et sont supprimés de tous.",
     "Some could not be deleted: {error}":
       "Certains n’ont pas pu être supprimés : {error}",
     "It was not deleted": "Il n’a pas été supprimé",
     "Empty address book": "Vider ce carnet d’adresses",
     "There is nothing in it to delete": "Il n’y a rien à supprimer dedans",
-    "{n} of them is also in another address book, and will only be removed from this one.": "{n} d’entre eux figure aussi dans un autre carnet et sera seulement retiré de celui-ci.",
-    "{n} of them are also in other address books, and will only be removed from this one.": "{n} d’entre eux figurent aussi dans d’autres carnets et seront seulement retirés de celui-ci.",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} d’entre eux figure aussi dans un autre carnet et sera seulement retiré de celui-ci.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} d’entre eux figurent aussi dans d’autres carnets et seront seulement retirés de celui-ci.",
     "Empty “{name}”?": "Vider « {name} » ?",
     "Delete them": "Les supprimer",
     "Nothing was deleted": "Rien n’a été supprimé",

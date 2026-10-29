@@ -9,11 +9,11 @@ import type {
   SetResponse,
 } from "@/jmap/types";
 import { descendantsOf, foldersByParent } from "@/lib/folderOrder";
-import { bySortOrder } from "@/lib/sortOrder";
 import { plural, t } from "@/lib/i18n";
 import { destroyRefusal, folderDestroyTakesMail, mayDestroy } from "@/lib/mailDelete";
 import { mailRouteAccount } from "@/lib/mailLink";
 import type { FolderRef } from "@/lib/sieveFolders";
+import { bySortOrder } from "@/lib/sortOrder";
 import { toast } from "@/ui/toast";
 import { useSieve } from "../../sieve";
 import { deleteContext } from "../context";

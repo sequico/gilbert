@@ -1,7 +1,13 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { ref } from "@gilbert/shared/jmapQuery";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
-import { batchedSet, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
+import {
+  batchedSet,
+  chunk,
+  client,
+  JmapMethodError,
+  setErrorMessage,
+} from "@/jmap/client";
 import type {
   ChangesResponse,
   ContactCard,
@@ -269,10 +275,12 @@ export function cardsSlice(
     cardsIn(accountId) {
       const own = get().accountId;
       if (!accountId || accountId === own) return Object.values(get().cards);
-      return Object.entries(get().sharedCards)
-        // The key's own reader, not a prefix written out again: one format.
-        .filter(([key]) => accountOf(key) === accountId)
-        .map(([, card]) => card);
+      return (
+        Object.entries(get().sharedCards)
+          // The key's own reader, not a prefix written out again: one format.
+          .filter(([key]) => accountOf(key) === accountId)
+          .map(([, card]) => card)
+      );
     },
 
     /*

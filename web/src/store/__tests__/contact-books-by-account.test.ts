@@ -37,7 +37,11 @@ describe("finding a book by its account and its id", () => {
       },
       cards: {} as Record<string, ContactCard>,
       sharedBooks: [
-        { accountId: "grp", accountName: "freight@example.org", book: book("b", "Freight") },
+        {
+          accountId: "grp",
+          accountName: "freight@example.org",
+          book: book("b", "Freight"),
+        },
         {
           accountId: "grp",
           accountName: "freight@example.org",
@@ -62,8 +66,18 @@ describe("finding a book by its account and its id", () => {
   });
 
   it("lists one account's books, in the order the reader arranged them", () => {
-    expect(useContacts.getState().booksOf("grp").map((b) => b.id)).toEqual(["b", "c"]);
-    expect(useContacts.getState().booksOf(null).map((b) => b.id)).toEqual(["b", "a", "z"]);
+    expect(
+      useContacts
+        .getState()
+        .booksOf("grp")
+        .map((b) => b.id),
+    ).toEqual(["b", "c"]);
+    expect(
+      useContacts
+        .getState()
+        .booksOf(null)
+        .map((b) => b.id),
+    ).toEqual(["b", "a", "z"]);
     expect(useContacts.getState().booksOf("nobody")).toEqual([]);
   });
 });

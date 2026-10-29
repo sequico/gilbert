@@ -222,8 +222,9 @@ export function ContactsView({ id }: { id?: string }) {
      * the same id names a book in the reader's account and in a group's at once.
      */
     const onImport = (ev: Event) => {
-      const d = (ev as CustomEvent<{ file: File; bookId: string; accountId?: string | null }>)
-        .detail;
+      const d = (
+        ev as CustomEvent<{ file: File; bookId: string; accountId?: string | null }>
+      ).detail;
       if (d?.file) void importFile(d.file, d.bookId, d.accountId ?? null);
     };
     const onExport = (ev: Event) => {
@@ -548,7 +549,9 @@ export function ContactsView({ id }: { id?: string }) {
       cards.map(toVCard).join(""),
       "text/vcard",
       vCardFileName(
-        book === "all" ? translate("Contacts") : (contacts.bookIn(accountId, book)?.name ?? ""),
+        book === "all"
+          ? translate("Contacts")
+          : (contacts.bookIn(accountId, book)?.name ?? ""),
         "contacts",
       ),
     );
@@ -1041,6 +1044,7 @@ export function ContactsView({ id }: { id?: string }) {
             card={selected}
             accountId={selectedAccountId}
             readOnly={selectedReadOnly}
+            bookId={bookId === "all" ? undefined : bookId}
             onBack={() => navigate("/contacts")}
             onEdit={() => {
               setEditing(selected);
@@ -1353,12 +1357,19 @@ function ContactDetail({
   card: c,
   accountId,
   readOnly,
+  bookId,
   onBack,
   onEdit,
   narrow,
   onEmail,
 }: {
   card: ContactCard;
+  /**
+   * The book the reader is looking at, when it is one book rather than "All
+   * contacts": deleting from there leaves that book, and only a card filed here
+   * alone is destroyed.
+   */
+  bookId?: string;
   /**
    * The account holding this card, half of its address -- null for the reader's
    * own. Told rather than looked up: a card of a group's book and one of the
@@ -1430,8 +1441,7 @@ function ContactDetail({
                      going: said before the click, as the list's own confirmation
                      says it. */
                   message:
-                    bookId !== "all" &&
-                    Object.keys(c.addressBookIds ?? {}).length > 1
+                    bookId !== "all" && Object.keys(c.addressBookIds ?? {}).length > 1
                       ? translate(
                           "It leaves this address book and stays in the others it is in.",
                         )
@@ -1445,7 +1455,7 @@ function ContactDetail({
                      also filed elsewhere leaves this book rather than going. */
                   const { destroyed, unfiled, refused } = await contacts.destroyCards(
                     [{ id: c.id, accountId }],
-                    bookId === "all" ? undefined : bookId,
+                    bookId,
                   );
                   if (!destroyed && !unfiled) {
                     toast.error(

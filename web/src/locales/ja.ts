@@ -1062,10 +1062,13 @@ export const catalog: Catalog = {
     "Contact created": "連絡先を作成しました",
     "Contact moved": "連絡先を移動しました",
     "Contact deleted": "連絡先を削除しました",
-    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.": "このアドレス帳から削除されます。このアドレス帳にしかない連絡先は完全に削除されます。元に戻せません。",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "このアドレス帳から削除されます。このアドレス帳にしかない連絡先は完全に削除されます。元に戻せません。",
     "Removed from this address book": "このアドレス帳から削除しました",
-    "Removed {n} contact from this address book": "{n} 件の連絡先をこのアドレス帳から削除しました",
-    "Removed {n} contacts from this address book": "{n} 件の連絡先をこのアドレス帳から削除しました",
+    "Removed {n} contact from this address book":
+      "{n} 件の連絡先をこのアドレス帳から削除しました",
+    "Removed {n} contacts from this address book":
+      "{n} 件の連絡先をこのアドレス帳から削除しました",
     "Contact saved": "連絡先を保存しました",
     Copied: "コピーしました",
     "Could not cancel: {error}": "取り消せませんでした: {error}",
@@ -1095,7 +1098,8 @@ export const catalog: Catalog = {
     "Delete this event?": "この予定を削除しますか？",
     "Delete this identity?": "この差出人を削除しますか？",
     "Delete {name}?": "{name} を削除しますか？",
-    "It leaves this address book and stays in the others it is in.": "このアドレス帳から外れ、入っている他のアドレス帳には残ります。",
+    "It leaves this address book and stays in the others it is in.":
+      "このアドレス帳から外れ、入っている他のアドレス帳には残ります。",
     Deleted: "削除しました",
     "Deletes the whole series. This cannot be undone.":
       "繰り返し全体を削除します。元に戻せません。",
@@ -1215,7 +1219,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "{theme}に切り替え",
     Template: "テンプレート",
     "Template name": "テンプレート名",
-    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "このアドレス帳にしかない連絡先は削除されます。別のアドレス帳にも入っている連絡先は、このアドレス帳からのみ外されます。",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "このアドレス帳にしかない連絡先は削除されます。別のアドレス帳にも入っている連絡先は、このアドレス帳からのみ外されます。",
     "The default identity is always offered when composing":
       "既定の差出人は作成時につねに表示されます",
     "The new passwords don't match": "新しいパスワードが一致しません",
@@ -1564,14 +1569,18 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "この操作は取り消せません。",
-    "One of them is in more than one address book, and is deleted from all of them.": "そのうち 1 件は複数のアドレス帳に入っており、すべてから削除されます。",
-    "{n} of them are in more than one address book, and are deleted from all of them.": "そのうち {n} 件は複数のアドレス帳に入っており、すべてから削除されます。",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "そのうち 1 件は複数のアドレス帳に入っており、すべてから削除されます。",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "そのうち {n} 件は複数のアドレス帳に入っており、すべてから削除されます。",
     "Some could not be deleted: {error}": "一部を削除できませんでした: {error}",
     "It was not deleted": "削除されませんでした",
     "Empty address book": "このアドレス帳を空にする",
     "There is nothing in it to delete": "削除するものがありません",
-    "{n} of them is also in another address book, and will only be removed from this one.": "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
-    "{n} of them are also in other address books, and will only be removed from this one.": "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
     "Empty “{name}”?": "「{name}」を空にしますか？",
     "Delete them": "削除する",
     "Nothing was deleted": "何も削除されませんでした",

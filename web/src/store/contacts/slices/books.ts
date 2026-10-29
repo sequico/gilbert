@@ -33,7 +33,11 @@ import type { ContactsGet, ContactsSet, ContactsState } from "../types";
  * deleting one book must never do to a card another book still lists. Written as
  * a patch on the membership, which is the shape JMAP gives it.
  */
-function unfiledOnly(update: Record<Id, unknown>, cards: ContactCard[], bookId: Id): void {
+function unfiledOnly(
+  update: Record<Id, unknown>,
+  cards: ContactCard[],
+  bookId: Id,
+): void {
   for (const c of cards)
     if (Object.keys(c.addressBookIds ?? {}).length > 1)
       update[c.id] = { [`addressBookIds/${bookId}`]: null };
@@ -185,7 +189,9 @@ export function booksSlice(
        * one filed here *and* somewhere else is only taken out of this book (see
        * `unfiledOnly`). Emptying one book must not empty another.
        */
-      const inBook = get().cardsIn(accountId).filter((c) => c.addressBookIds?.[bookId]);
+      const inBook = get()
+        .cardsIn(accountId)
+        .filter((c) => c.addressBookIds?.[bookId]);
       const update: Record<Id, unknown> = {};
       unfiledOnly(update, inBook, bookId);
       const destroy = inBook.filter((c) => !update[c.id]).map((c) => c.id);
@@ -409,7 +415,8 @@ export function booksSlice(
 
     booksOf(accountId) {
       const own = get().accountId;
-      if (!accountId || accountId === own) return Object.values(get().books).sort(bySortOrder);
+      if (!accountId || accountId === own)
+        return Object.values(get().books).sort(bySortOrder);
       return get()
         .sharedBooks.filter((b) => b.accountId === accountId)
         .map((b) => b.book)

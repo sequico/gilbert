@@ -1088,10 +1088,13 @@ export const catalog: Catalog = {
     "Contact created": "Kontakt erstellt",
     "Contact moved": "Kontakt verschoben",
     "Contact deleted": "Kontakt gelöscht",
-    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.": "Sie werden aus diesem Adressbuch entfernt; ein Kontakt, der nur darin steht, wird gelöscht. Das lässt sich nicht rückgängig machen.",
+    "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
+      "Sie werden aus diesem Adressbuch entfernt; ein Kontakt, der nur darin steht, wird gelöscht. Das lässt sich nicht rückgängig machen.",
     "Removed from this address book": "Aus diesem Adressbuch entfernt",
-    "Removed {n} contact from this address book": "{n} Kontakt aus diesem Adressbuch entfernt",
-    "Removed {n} contacts from this address book": "{n} Kontakte aus diesem Adressbuch entfernt",
+    "Removed {n} contact from this address book":
+      "{n} Kontakt aus diesem Adressbuch entfernt",
+    "Removed {n} contacts from this address book":
+      "{n} Kontakte aus diesem Adressbuch entfernt",
     "Contact saved": "Kontakt gespeichert",
     Copied: "Kopiert",
     "Could not cancel: {error}": "Abbrechen fehlgeschlagen: {error}",
@@ -1124,7 +1127,8 @@ export const catalog: Catalog = {
     "Delete this event?": "Diesen Termin löschen?",
     "Delete this identity?": "Diese Absenderidentität löschen?",
     "Delete {name}?": "{name} löschen?",
-    "It leaves this address book and stays in the others it is in.": "Der Kontakt wird aus diesem Adressbuch entfernt und bleibt in den anderen, in denen er steht.",
+    "It leaves this address book and stays in the others it is in.":
+      "Der Kontakt wird aus diesem Adressbuch entfernt und bleibt in den anderen, in denen er steht.",
     Deleted: "Gelöscht",
     "Deletes the whole series. This cannot be undone.":
       "Löscht die gesamte Serie. Das lässt sich nicht rückgängig machen.",
@@ -1244,7 +1248,8 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Zu {theme} wechseln",
     Template: "Vorlage",
     "Template name": "Vorlagenname",
-    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Kontakte, die nur darin stehen, werden gelöscht. Alle, die auch in einem anderen Adressbuch stehen, werden nur aus diesem entfernt.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.":
+      "Kontakte, die nur darin stehen, werden gelöscht. Alle, die auch in einem anderen Adressbuch stehen, werden nur aus diesem entfernt.",
     "The default identity is always offered when composing":
       "Die Standardidentität wird beim Verfassen immer angeboten",
     "The new passwords don't match": "Die neuen Passwörter stimmen nicht überein",
@@ -1604,14 +1609,18 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Dies kann nicht rückgängig gemacht werden.",
-    "One of them is in more than one address book, and is deleted from all of them.": "Einer davon steht in mehr als einem Adressbuch und wird aus allen gelöscht.",
-    "{n} of them are in more than one address book, and are deleted from all of them.": "{n} davon stehen in mehr als einem Adressbuch und werden aus allen gelöscht.",
+    "One of them is in more than one address book, and is deleted from all of them.":
+      "Einer davon steht in mehr als einem Adressbuch und wird aus allen gelöscht.",
+    "{n} of them are in more than one address book, and are deleted from all of them.":
+      "{n} davon stehen in mehr als einem Adressbuch und werden aus allen gelöscht.",
     "Some could not be deleted: {error}": "Einige konnten nicht gelöscht werden: {error}",
     "It was not deleted": "Der Kontakt wurde nicht gelöscht",
     "Empty address book": "Dieses Adressbuch leeren",
     "There is nothing in it to delete": "Es ist nichts darin zum Löschen",
-    "{n} of them is also in another address book, and will only be removed from this one.": "{n} davon steht auch in einem anderen Adressbuch und wird nur aus diesem entfernt.",
-    "{n} of them are also in other address books, and will only be removed from this one.": "{n} davon stehen auch in anderen Adressbüchern und werden nur aus diesem entfernt.",
+    "{n} of them is also in another address book, and will only be removed from this one.":
+      "{n} davon steht auch in einem anderen Adressbuch und wird nur aus diesem entfernt.",
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      "{n} davon stehen auch in anderen Adressbüchern und werden nur aus diesem entfernt.",
     "Empty “{name}”?": "„{name}“ leeren?",
     "Delete them": "Alle löschen",
     "Nothing was deleted": "Es wurde nichts gelöscht",

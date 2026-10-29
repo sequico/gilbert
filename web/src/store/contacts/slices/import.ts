@@ -131,11 +131,7 @@ async function writeCards(
  * (this server mints them two characters long) -- and the lookup when it has
  * none, which is the case for a caller holding nothing but an id.
  */
-function accountFor(
-  get: ContactsGet,
-  bookId: Id,
-  named?: Id | null,
-): Id | null {
+function accountFor(get: ContactsGet, bookId: Id, named?: Id | null): Id | null {
   return named ?? accountOfBook(bookId, get().books, get().accountId, get().sharedBooks);
 }
 
