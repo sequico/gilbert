@@ -1,16 +1,16 @@
 /**
  * The Master's own session, opened the one way every admin door opens it.
  *
- * Every surface that acts as the Master — the agent's own, the knowledge base,
- * workorders and Global contacts — needs the same things from the identity
- * door: the installation's session (`agentSession`) and, where a caller must be
- * an administrator, the read that answers it. The conditional-write token every
- * door's FileNode writes take (`requireState`) is here too, and so is the refusal
- * a group the Master's own session does not hold carries
- * (`groupNotGrantedRefuser`). All of them live here once, so a refusal is
- * translated the same way everywhere and a change reaches every door; each door
- * only states which surface it is (the words its sentence uses) and builds its
- * own error type.
+ * Every surface that acts as the Master — the agent's own, the company
+ * knowledge base, workorders and Global contacts — needs the same things from
+ * the identity door: the installation's session (`agentSession`) and, where a
+ * caller must be an administrator, the read that answers it. The
+ * conditional-write token every door's FileNode writes take (`requireState`) is
+ * here too, and so is the refusal a group the Master's own session does not
+ * hold carries (`groupNotGrantedRefuser`). All of them live here once, so a
+ * refusal is translated the same way everywhere and a change reaches every
+ * door; each door only states which surface it is (the words its sentence
+ * uses) and builds its own error type.
  */
 
 import type { Ctx } from "./appFolder.js";
@@ -84,12 +84,15 @@ export function groupNotGrantedRefuser(
 /**
  * The Master's own session for an admin write, or the caller's own refusal.
  *
+ * Not exported: the one door out of this module is `openMasterAccount`, which
+ * also answers which account of the Master's a surface writes into.
+ *
  * `agentSession` raises `IdentityAdminError`; it is translated here through
  * `refuse` so the routes have one error shape per surface and a caller reads a
  * code that names that surface's own state rather than another one's message.
  * `what` is the surface as the sentence names it (e.g. `"workorders"`).
  */
-export async function openMasterSession(
+async function openMasterSession(
   admin: LiveSession,
   what: string,
   refuse: RefuseWith,

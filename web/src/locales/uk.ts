@@ -2419,6 +2419,8 @@ export const catalog: Catalog = {
     "No revisions yet.": "Версій ще немає.",
     "Approved {date} by {who}": "Затверджено {date} ({who})",
     "Last edited {date} by {who}": "Остання зміна {date} ({who})",
+    "Restore this revision?": "Відновити цю ревізію?",
+    "It replaces the draft with this revision. Nothing already issued changes.": "Вона замінить чернетку цією ревізією. Уже випущене не змінюється.",
     "In force from {date}": "Чинна з {date}",
     "This account is not set up for file storage.":
       "Цей обліковий запис не налаштований для зберігання файлів.",

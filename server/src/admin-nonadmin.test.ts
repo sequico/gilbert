@@ -43,8 +43,9 @@ test("a user without the admin marker signs in with isAdmin false", async () => 
 });
 
 test("a non-admin cannot create a page or a folder in the knowledge base", async () => {
-  // Creating the tree is an administrator's (ADR 0020): a member writes the
-  // draft of a page that exists, and nothing else.
+  // Creating the tree is an administrator's in the company KB (ADR 0020): a
+  // group's tree is its members' (`knowledge-group.test.ts`); here the company
+  // tier is what is refused.
   const page = await call("/api/knowledge/create", {
     method: "POST",
     body: JSON.stringify({ scope: "company", title: "Nope" }),

@@ -113,6 +113,34 @@ test("the draft records the member who last wrote it", async () => {
   assert.equal(summaryOf(saved.body).updated?.by, DEMO);
 });
 
+test("a member renames a page in the group's KB, and not in the company's", async () => {
+  const created = await post("/api/knowledge/create", {
+    scope: "group",
+    group: TEAM,
+    title: "Old name",
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const folder = summaryOf(created.body).folder;
+
+  const renamed = await post("/api/knowledge/rename", {
+    scope: "group",
+    group: TEAM,
+    folder,
+    title: "New name",
+  });
+  assert.equal(renamed.status, 200, JSON.stringify(renamed.body));
+  assert.equal(summaryOf(renamed.body).title, "New name");
+
+  // The same write on the company tier is an administration's: the one helper
+  // that gates the tree's shape refuses it here, for the caller's role alone.
+  const refused = await post("/api/knowledge/rename", {
+    scope: "company",
+    folder,
+    title: "New name",
+  });
+  assert.equal(refused.status, 403, JSON.stringify(refused.body));
+});
+
 test("a member outside the group cannot write its KB", async () => {
   const refused = await post("/api/knowledge/folder", {
     scope: "group",

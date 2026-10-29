@@ -85,8 +85,10 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
    * creating a folder, renaming, moving, reordering and restoring in a group's
    * KB is what membership gives, and the write is made with the member's own
    * session. Approval and dealing with a page for good stay an administrator's
-   * (ADR 0020, ADR 0013), on `requireAdmin`. The company tier is an
-   * administration write throughout, on the same door as every other admin
+   * (ADR 0020, ADR 0013), on `requireAdmin` — and in a group that is an
+   * administrator who is a member of it, because the tier, like every other
+   * write there, is resolved with the caller's own session. The company tier is
+   * an administration write throughout, on the same door as every other admin
    * route.
    */
   const adminUnlessGroup = async (

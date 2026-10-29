@@ -643,6 +643,20 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
               <button
                 className="btn btn-sm"
                 onClick={async () => {
+                  /*
+                   * A restore writes over the one shared draft, so another
+                   * member's unsaved work is what it replaces. It asks first:
+                   * the history column is a list of rows, and a row is one
+                   * click.
+                   */
+                  const ok = await confirmDialog({
+                    title: t("Restore this revision?"),
+                    message: t(
+                      "It replaces the draft with this revision. Nothing already issued changes.",
+                    ),
+                    confirmLabel: t("Restore"),
+                  });
+                  if (!ok) return;
                   try {
                     await restore(rev.revision);
                     setHistoryOpen(false);
