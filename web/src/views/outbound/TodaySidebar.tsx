@@ -118,11 +118,7 @@ export function TodaySidebar() {
             ))}
         </>
       )}
-      {entry(
-        "/today/new",
-        t("Start a campaign"),
-        <Plus size={16} aria-hidden="true" />,
-      )}
+      {entry("/today/new", t("Start a campaign"), <Plus size={16} aria-hidden="true" />)}
 
       <div className="nav-section">{t("Your list")}</div>
       {entry(

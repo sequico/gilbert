@@ -115,7 +115,10 @@ function csvHeader(first: string): CsvHeader | null {
 }
 
 /** What one line of a file gives: the entry to normalise, and the words around it. */
-function csvLine(line: string, header: CsvHeader): {
+function csvLine(
+  line: string,
+  header: CsvHeader,
+): {
   entry: string;
   context: string | null;
 } {
@@ -127,11 +130,7 @@ function csvLine(line: string, header: CsvHeader): {
   const company = pick("company");
   const person = pick("person");
   const role = pick("role");
-  const context = [
-    company,
-    person ? `ask for ${person}` : "",
-    role ? `(${role})` : "",
-  ]
+  const context = [company, person ? `ask for ${person}` : "", role ? `(${role})` : ""]
     .filter((part) => part !== "")
     .join(" ");
   return { entry: pick("phone"), context: context === "" ? null : context };

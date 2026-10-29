@@ -3,9 +3,9 @@ import type {
   CampaignDoc,
   CampaignOutcome,
   CampaignWindow,
+  QueueRow,
   RowCard,
   RowDoc,
-  QueueRow,
 } from "@gilbert/shared/outbound";
 import { Phone, PhoneOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -380,7 +380,9 @@ export function TodayView({ section }: { section?: string }) {
             {rows.length === 0 && !taken ? (
               campaigns.length === 0 ? (
                 <Empty icon={<Phone size={22} />} title={t("No list yet")}>
-                  {t("Start a campaign, give it its script and outcomes, then import a list.")}
+                  {t(
+                    "Start a campaign, give it its script and outcomes, then import a list.",
+                  )}
                 </Empty>
               ) : queue.length === page ? (
                 // Everything on this page was passed over: the list is not empty,
@@ -411,7 +413,9 @@ export function TodayView({ section }: { section?: string }) {
                         <td className="num">
                           <a href={`tel:${row.e164}`}>{row.e164}</a>
                           {row.extension && (
-                            <span className="tag">{t("ext. {extension}", { extension: row.extension })}</span>
+                            <span className="tag">
+                              {t("ext. {extension}", { extension: row.extension })}
+                            </span>
                           )}
                         </td>
                         <td>{row.card?.name ?? ""}</td>
@@ -454,7 +458,11 @@ export function TodayView({ section }: { section?: string }) {
             )}
             {queue.length === page && (
               <p>
-                <button className="btn" disabled={busy} onClick={() => setPage((n) => n + PAGE)}>
+                <button
+                  className="btn"
+                  disabled={busy}
+                  onClick={() => setPage((n) => n + PAGE)}
+                >
                   {t("Show more")}
                 </button>
               </p>
@@ -704,7 +712,7 @@ function detailOf(row: RowDoc, card: RowCard | null): string {
   return row.context ?? "";
 }
 
-/** What the last call to this number said, when there was one. */function LastCall({
+/** What the last call to this number said, when there was one. */ function LastCall({
   row,
   outcomes,
 }: {
@@ -962,7 +970,9 @@ function StartList({
                   <button
                     className="btn btn-ghost"
                     disabled={disabled}
-                    onClick={() => downloadFile(TEMPLATE, "text/csv", "outbound-list.csv")}
+                    onClick={() =>
+                      downloadFile(TEMPLATE, "text/csv", "outbound-list.csv")
+                    }
                   >
                     {t("Download the template")}
                   </button>
