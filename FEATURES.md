@@ -1171,8 +1171,12 @@ narrows the queue), and the three places the section has — **Queue**, **Do not
 
 **Today** is the queue itself. It shows the rows of the chosen campaigns that are mine
 or due — mine first, then what is late, then what carried no date — with the counts
-beside them. A row another caller holds is not offered, and a claim that lapses comes
-back on its own.
+beside them, twenty at a time with the rest behind one press. A row another caller
+holds is not offered, and a claim that lapses comes back on its own.
+
+A campaign's list is **one document**, so opening Today is one read per campaign and
+a paste of a thousand lines is one write. What that costs is that two callers of one
+list can land together; the write re-reads and applies its rule again.
 
 ## A row, and the call
 
@@ -1191,7 +1195,9 @@ its purpose, its outcomes and, when the group has one, the knowledge page it rea
 aloud. Every line gives one row or one refusal, and the import says its counts out
 loud: added, already in the list, matched to a card, on the do-not-call list, and the
 lines it could not read. A number is found inside a line of prose and the prose is
-kept as the row's context; an extension leaves the number and stays beside it.
+kept as the row's context; an extension leaves the number and stays beside it. The
+list the campaign already holds is read against too, so the same sheet pasted twice
+adds nothing the second time.
 
 A number the group's cards already carry starts its row pointed at that card, and
 the first call to a number nobody knows creates the card — never an import, so a list
@@ -1209,8 +1215,10 @@ A campaign past its window with rows still open is a finding Today reports, not 
 list that quietly stops existing. Closing it keeps the rows with the campaign, or
 carries the ones still open into a successor with the same purpose and outcomes.
 
-The rows that ended with one outcome leave as a file — the number, who was spoken to,
-when, by whom, the outcome and the note — saved by the caller to pass on.
+The rows that ended with one outcome leave as a file: the number, its extension, the
+words that arrived around it, the outcome, the note, who called and when — saved by
+the caller to pass on. A campaign that has just been closed can still hand its
+decided rows out.
 
 ## Numbers
 
@@ -1222,8 +1230,11 @@ guessed.
 ## The do-not-call list
 
 The **group's own**, beside the campaigns that honour it: a number on it is never
-written into that group's lists, and the import counts what it left out. A number is
-added from Today, or lifted again, one canonical number at a time.
+written into that group's lists, and the import counts what it left out. The promise
+is about the person: a card carrying one listed number is refused for its other
+numbers too, so a second team cannot call somebody the group already promised to
+leave alone. A number is added from the **Do not call** pane, or lifted again, one
+canonical number at a time.
 
 ## Who reaches a campaign
 

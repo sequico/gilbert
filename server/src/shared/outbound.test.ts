@@ -7,9 +7,10 @@ import {
   isCampaignDoc,
   isDoNotCallDoc,
   isRowDoc,
+  isRowsDoc,
   MAX_CALLS_KEPT,
   type RowDoc,
-  rowPath,
+  rowsPath,
   withCall,
 } from "./outbound.js";
 
@@ -32,7 +33,6 @@ const row = (over: Partial<RowDoc> = {}): RowDoc => ({
   campaignUid: "c1",
   e164: "+393331234567",
   extension: null,
-  label: { company: "ACME", name: null },
   context: null,
   cardUid: null,
   state: "open",
@@ -46,8 +46,20 @@ const row = (over: Partial<RowDoc> = {}): RowDoc => ({
 
 test("the paths are the ones the decision names", () => {
   assert.equal(campaignPath("c1"), "outbound/campaigns/c1.json");
-  assert.equal(rowPath("c1", "r1"), "outbound/rows/c1/r1.json");
+  assert.equal(rowsPath("c1"), "outbound/rows/c1.json");
   assert.equal(doNotCallPath(), "outbound/do-not-call.json");
+});
+
+test("a list is one document of rows, and two rows cannot share a uid", () => {
+  const list = { version: 1, rows: [row(), row({ uid: "r2" })] };
+  assert.equal(isRowsDoc(list), true);
+  assert.equal(
+    isRowsDoc({ version: 1, rows: [row(), row()] }),
+    false,
+    "one act by uid would hit both rows",
+  );
+  assert.equal(isRowsDoc({ version: 1, rows: [row({ e164: "3331234567" })] }), false);
+  assert.equal(isRowsDoc({ version: 2, rows: [] }), false);
 });
 
 test("a campaign this build can read is read", () => {

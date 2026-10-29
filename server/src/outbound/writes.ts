@@ -21,13 +21,13 @@ import {
   appendCardCall,
   mutateCampaign,
   mutateRow,
+  mutateRows,
   readCampaign,
   readRow,
   readRows,
   writeCampaign,
-  writeRow,
 } from "./documents.js";
-import { OutboundError } from "./errors.js";
+import { OutboundError, campaignMissing, rowMissing } from "./errors.js";
 import { type ImportPlan, planImport } from "./importList.js";
 import { type SettleInput, type SettleResult, settleRow, takeRow } from "./rowActions.js";
 
@@ -69,8 +69,7 @@ export async function openCampaign(
   uid: string,
 ): Promise<CampaignDoc> {
   const campaign = await readCampaign(ctx, accountId, uid);
-  if (!campaign)
-    throw new OutboundError("outbound_not_found", `No campaign "${uid}" is there.`, 404);
+  if (!campaign) throw campaignMissing(uid);
   if (campaign.state !== "running") {
     throw new OutboundError(
       "campaign_closed",
@@ -88,10 +87,10 @@ export interface ImportedList extends ImportPlan {
 /**
  * Read a pasted list into the campaign, writing what the plan decided.
  *
- * What the group already knows — the numbers it promised never to call, and the
- * cards its numbers belong to — arrives from the caller rather than being read
- * here, because the rule that decides what a line becomes is the only thing this
- * act adds: one plan, one write per row it kept.
+ * What the group already knows — the numbers it promised never to call, the cards
+ * its numbers belong to and the rows this campaign already holds — arrives from
+ * the caller rather than being read here, because the rule that decides what a
+ * line becomes is the only thing this act adds: one plan, one write of the list.
  */
 export async function importList(
   ctx: Ctx,
@@ -103,8 +102,15 @@ export async function importList(
   newUid: () => string,
 ): Promise<ImportedList> {
   await openCampaign(ctx, accountId, campaignUid);
-  const plan = planImport({ campaignUid, text, ...known, now, newUid });
-  for (const row of plan.rows) await writeRow(ctx, accountId, row);
+  // The numbers this campaign already holds are what "already in the list" means:
+  // the same sheet pasted twice adds nothing and says so.
+  const existing = (await readRows(ctx, accountId, campaignUid)).docs.map(
+    (row) => row.e164,
+  );
+  const plan = planImport({ campaignUid, text, ...known, existing, now, newUid });
+  if (plan.rows.length > 0) {
+    await mutateRows(ctx, accountId, campaignUid, (rows) => [...rows, ...plan.rows]);
+  }
   return { ...plan, campaignUid };
 }
 
@@ -164,7 +170,7 @@ export async function closeCampaign(
   let successor: CampaignDoc | null = null;
   let carried = 0;
   if (carry && open.length > 0) {
-    successor = await createCampaign(ctx, accountId, {
+    const written = await createCampaign(ctx, accountId, {
       uid: newUid(),
       purpose: campaign.purpose,
       outcomes: campaign.outcomes,
@@ -173,18 +179,20 @@ export async function closeCampaign(
       createdBy,
       now,
     });
-    for (const row of open) {
-      await writeRow(ctx, accountId, {
-        ...row,
-        uid: newUid(),
-        campaignUid: successor.uid,
-        claim: null,
-        calls: [],
-        trimmed: 0,
-        createdAt: now.toISOString(),
-      });
-      carried += 1;
-    }
+    successor = written;
+    // The rows still open are the successor's own from its first moment: its path
+    // is its campaign's, so carrying one is writing it there, with a fresh window.
+    const carriedRows: RowDoc[] = open.map((row) => ({
+      ...row,
+      uid: newUid(),
+      campaignUid: written.uid,
+      claim: null,
+      calls: [],
+      trimmed: 0,
+      createdAt: now.toISOString(),
+    }));
+    await mutateRows(ctx, accountId, written.uid, () => carriedRows);
+    carried = carriedRows.length;
   }
 
   const closed = await mutateCampaign(ctx, accountId, campaignUid, (doc) => ({
@@ -242,13 +250,7 @@ export async function settle(
   const campaign = await openCampaign(ctx, accountId, campaignUid);
   const outcomes = campaign.outcomes.map((outcome) => outcome.id);
   const before = await readRow(ctx, accountId, campaignUid, rowUid);
-  if (!before) {
-    throw new OutboundError(
-      "outbound_not_found",
-      `No row "${rowUid}" is in campaign "${campaignUid}".`,
-      404,
-    );
-  }
+  if (!before) throw rowMissing(campaignUid, rowUid);
 
   /*
    * The rules are asked of the row as it stands before anything is created: a

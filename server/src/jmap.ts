@@ -151,10 +151,18 @@ export const WRITE_ATTEMPTS = 2;
  * with its own surface's sentence, never the raw upstream `stateMismatch`, which
  * names neither a surface nor a document. Anything that is not a mismatch is the
  * write's own failure, thrown as it came.
+ *
+ * `attempts` is what the caller's loop is running, for a document more contested
+ * than most: a list every caller of a group writes to is the one case where the
+ * default two attempts is one too few.
  */
-export function retryStateMismatch(err: unknown, attempt: number): boolean {
+export function retryStateMismatch(
+  err: unknown,
+  attempt: number,
+  attempts: number = WRITE_ATTEMPTS,
+): boolean {
   if (!isStateMismatch(err)) throw err;
-  return attempt >= WRITE_ATTEMPTS - 1;
+  return attempt >= attempts - 1;
 }
 
 /**

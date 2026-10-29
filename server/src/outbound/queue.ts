@@ -18,8 +18,6 @@ export interface TodayInput {
   caller: string;
   /** Now, as the caller's own clock says. */
   now: Date;
-  /** The most rows to offer; the counts still count every row. */
-  limit?: number;
 }
 
 export interface TodayResult {
@@ -53,7 +51,7 @@ function keyOf(row: RowDoc, band: Band): string {
 
 export function todayQueue(
   rows: readonly RowDoc[],
-  { caller, now, limit = 20 }: TodayInput,
+  { caller, now }: TodayInput,
 ): TodayResult {
   let due = 0;
   let upcoming = 0;
@@ -84,7 +82,7 @@ export function todayQueue(
   );
 
   return {
-    queue: offered.slice(0, Math.max(0, limit)).map((entry) => entry.row),
+    queue: offered.map((entry) => entry.row),
     due,
     upcoming,
     heldByOthers,

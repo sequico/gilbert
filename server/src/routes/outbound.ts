@@ -391,10 +391,6 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         session,
         required(c.req.query("group"), "group"),
       );
-      const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 20) || 20, 1), 50);
-      // The queue, its counts and the vocabulary beside it are all about the same
-      // set of campaigns: narrowing to one cannot leave the numbers speaking for
-      // every list the group runs.
       const wanted = c.req.query("campaign") ?? "";
       const { docs: campaigns, problems } = await listCampaigns(ctx, accountId);
       const running = campaigns.filter(
@@ -407,22 +403,11 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         problems.push(...read.problems);
         rows.push(...read.docs);
       }
-      const today = todayQueue(rows, {
-        caller: session.username,
-        now: new Date(),
-        limit,
-      });
-      const vocabularies: Record<
-        string,
-        { purpose: string; outcomes: CampaignOutcome[] }
-      > = {};
-      for (const campaign of running) {
-        vocabularies[campaign.uid] = {
-          purpose: campaign.purpose,
-          outcomes: campaign.outcomes,
-        };
-      }
-      return c.json({ ok: true, ...today, campaigns: vocabularies, problems });
+      // The whole queue, ordered: a campaign is one document, so the page the
+      // reader sees is the pane's to cut, and the counts can never disagree with
+      // the list they sit above.
+      const today = todayQueue(rows, { caller: session.username, now: new Date() });
+      return c.json({ ok: true, ...today, problems });
     } catch (err) {
       return outboundFailure(c, err);
     }

@@ -3,9 +3,9 @@
  *
  * Every write is a read-modify-write under the account's compare-and-set: the
  * state token is taken **before** the document is read, so a write that lands in
- * between is refused instead of overwritten, and the act is retried once. That is
- * the whole concurrency story — two callers of one list touch different rows, and
- * two callers of one row are one refusal apart.
+ * between is refused instead of overwritten, and the act is retried. That is the
+ * whole concurrency story — a campaign's list is one document every caller of it
+ * writes, and two callers landing together are one retry apart.
  *
  * Nothing here decides policy: which row may be taken and what settling it means
  * are `rowActions.ts`, and what the queue offers is `queue.ts`.
@@ -16,6 +16,7 @@ import {
   type Ctx,
   listAppSheets,
   readAppJsonAt,
+  readAppJsonForWrite,
   writeAppFileAt,
 } from "../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
@@ -33,14 +34,24 @@ import {
   isCardCallsDoc,
   isCardIndexDoc,
   isDoNotCallDoc,
-  isRowDoc,
+  isRowsDoc,
   type RowCall,
   type RowDoc,
-  rowFolderPath,
-  rowPath,
+  type RowsDoc,
+  rowsPath,
   windowCalls,
 } from "../shared/outbound.js";
-import { OutboundError, requireState } from "./errors.js";
+import { campaignMissing, OutboundError, requireState, rowMissing } from "./errors.js";
+
+/**
+ * How many attempts a campaign's list gets.
+ *
+ * One document holds a whole list, so two callers settling two rows of it collide
+ * where two callers of two row files never did. A call takes minutes and a write
+ * milliseconds, so a second or two of retries is enough for the callers a group
+ * actually has on the phone at once.
+ */
+const ROWS_ATTEMPTS = 5;
 
 /** The sentence an exhausted retry carries: the write did not land, and that is all it means. */
 function writeFailed(what: string): OutboundError {
@@ -48,6 +59,21 @@ function writeFailed(what: string): OutboundError {
     "outbound_write_failed",
     `${what} could not be written: another write kept landing first. Try again.`,
     502,
+  );
+}
+
+/**
+ * A document that is there and cannot be read.
+ *
+ * Reading it as absent would overwrite it on the next act, and what it held — a
+ * list, a promise not to call — would be gone without anybody deciding that. The
+ * act refuses instead, and says which document it was.
+ */
+function unreadable(what: string): OutboundError {
+  return new OutboundError(
+    "outbound_unreadable",
+    `${what} is there and cannot be read: nothing was changed.`,
+    409,
   );
 }
 
@@ -96,9 +122,11 @@ async function readDoc<T>(
  * in between is a state mismatch, and the retry reads the document as they left
  * it.
  *
- * `start` is what a document that is not there yet is: a refusal for a campaign
- * or a row, which only exist once somebody wrote them, and the empty list for a
- * document whose absence is its empty state.
+ * `start` is what a document that is not there yet is: a refusal for a campaign,
+ * which only exists once somebody wrote it, and the empty list for a document
+ * whose absence is its empty state. A document that **is** there and cannot be
+ * read is neither: it is refused, because the next write would replace what
+ * nobody could read.
  */
 async function mutateAt<T>(
   ctx: Ctx,
@@ -108,16 +136,22 @@ async function mutateAt<T>(
   start: () => T,
   mutate: (doc: T) => T,
   what: string,
+  attempts: number = WRITE_ATTEMPTS,
 ): Promise<T> {
-  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     const token = requireState(await appFolderState(ctx, accountId));
-    const doc = (await readDoc(ctx, accountId, path, isDoc)) ?? start();
+    const held = await readAppJsonForWrite(ctx, accountId, path);
+    if (held.kind === "unreadable") throw unreadable(what);
+    let doc: T;
+    if (held.kind === "absent") doc = start();
+    else if (isDoc(held.doc)) doc = held.doc;
+    else throw unreadable(what);
     const next = mutate(doc);
     try {
       await writeAppFileAt(ctx, accountId, path, next, { ifInState: token });
       return next;
     } catch (err) {
-      if (retryStateMismatch(err, attempt)) break;
+      if (retryStateMismatch(err, attempt, attempts)) break;
     }
   }
   throw writeFailed(what);
@@ -177,7 +211,11 @@ export async function readRow(
   campaignUid: string,
   rowUid: string,
 ): Promise<RowDoc | null> {
-  return readDoc(ctx, accountId, rowPath(campaignUid, rowUid), isRowDoc);
+  const held = await readAppJsonForWrite(ctx, accountId, rowsPath(campaignUid));
+  if (held.kind === "absent") return null;
+  if (held.kind === "unreadable" || !isRowsDoc(held.doc))
+    throw unreadable(`The list of campaign "${campaignUid}"`);
+  return held.doc.rows.find((row) => row.uid === rowUid) ?? null;
 }
 
 /** Every campaign of the account, oldest first, and what could not be read. */
@@ -194,13 +232,28 @@ export async function listCampaigns(
   return { docs: docs.sort((a, b) => a.createdAt.localeCompare(b.createdAt)), problems };
 }
 
-/** Every row of a campaign, and what could not be read. */
+/**
+ * A campaign's list, and what could not be read of it.
+ *
+ * A list nobody has filled has no document, and that is an empty list rather than
+ * a broken one. One that is there and cannot be read is named, because a list that
+ * silently reads as empty is a campaign whose numbers disappeared.
+ */
 export async function readRows(
   ctx: Ctx,
   accountId: string,
   campaignUid: string,
 ): Promise<ReadAll<RowDoc>> {
-  return readAll(ctx, accountId, rowFolderPath(campaignUid), isRowDoc);
+  const path = rowsPath(campaignUid);
+  const held = await readAppJsonForWrite(ctx, accountId, path);
+  if (held.kind === "absent") return { docs: [], problems: [] };
+  if (held.kind === "unreadable" || !isRowsDoc(held.doc))
+    return { docs: [], problems: [`${path}: this build cannot read it`] };
+  // A row carrying another campaign's uid would be worked in a list it does not
+  // belong to, and its own campaign would never offer it.
+  if (held.doc.rows.some((row) => row.campaignUid !== campaignUid))
+    return { docs: [], problems: [`${path}: it holds a row of another campaign`] };
+  return { docs: held.doc.rows, problems: [] };
 }
 
 /** Write a campaign as it stands. */
@@ -218,17 +271,6 @@ export async function writeCampaign(
   );
 }
 
-/** Write one row as it stands. */
-export async function writeRow(ctx: Ctx, accountId: string, doc: RowDoc): Promise<void> {
-  await writeWithRetry(
-    ctx,
-    accountId,
-    rowPath(doc.campaignUid, doc.uid),
-    doc,
-    `The row "${doc.uid}"`,
-  );
-}
-
 /** Change one campaign under the compare-and-set. */
 export async function mutateCampaign(
   ctx: Ctx,
@@ -242,40 +284,67 @@ export async function mutateCampaign(
     campaignPath(uid),
     isCampaignDoc,
     () => {
-      throw new OutboundError(
-        "outbound_not_found",
-        `No campaign "${uid}" is there.`,
-        404,
-      );
+      throw campaignMissing(uid);
     },
     mutate,
     `The campaign "${uid}"`,
   );
 }
 
-/** Change one row under the compare-and-set. */
+/**
+ * Change a campaign's list under the compare-and-set.
+ *
+ * The whole list is one document, so an act that touches one row rewrites the
+ * list — and the retry is the price: the caller who lost a race re-reads the list
+ * as the winner left it and applies its own rule to that.
+ */
+export async function mutateRows(
+  ctx: Ctx,
+  accountId: string,
+  campaignUid: string,
+  mutate: (rows: RowDoc[]) => RowDoc[],
+): Promise<RowDoc[]> {
+  const next = await mutateAt<RowsDoc>(
+    ctx,
+    accountId,
+    rowsPath(campaignUid),
+    isRowsDoc,
+    () => ({ version: 1, rows: [] }),
+    (doc) => ({ ...doc, rows: mutate(doc.rows) }),
+    `The list of campaign "${campaignUid}"`,
+    ROWS_ATTEMPTS,
+  );
+  return next.rows;
+}
+
+/** Change one row of a campaign under the compare-and-set. */
 export async function mutateRow(
   ctx: Ctx,
   accountId: string,
   campaignUid: string,
   rowUid: string,
-  mutate: (doc: RowDoc) => RowDoc,
+  mutate: (row: RowDoc) => RowDoc,
 ): Promise<RowDoc> {
-  return mutateAt(
+  let changed: RowDoc | undefined;
+  await mutateAt<RowsDoc>(
     ctx,
     accountId,
-    rowPath(campaignUid, rowUid),
-    isRowDoc,
-    () => {
-      throw new OutboundError(
-        "outbound_not_found",
-        `No row "${rowUid}" is in campaign "${campaignUid}".`,
-        404,
-      );
+    rowsPath(campaignUid),
+    isRowsDoc,
+    () => ({ version: 1, rows: [] }),
+    (doc) => {
+      const index = doc.rows.findIndex((row) => row.uid === rowUid);
+      if (index < 0) throw rowMissing(campaignUid, rowUid);
+      changed = mutate(doc.rows[index]);
+      const rows = doc.rows.slice();
+      rows[index] = changed;
+      return { ...doc, rows };
     },
-    mutate,
-    `The row "${rowUid}"`,
+    `The list of campaign "${campaignUid}"`,
+    ROWS_ATTEMPTS,
   );
+  if (!changed) throw rowMissing(campaignUid, rowUid);
+  return changed;
 }
 
 /** The card index as it stands, or null when none was built yet. */

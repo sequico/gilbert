@@ -1,5 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import type { CampaignOutcome, RowDoc } from "@gilbert/shared/outbound";
+import type { CampaignDoc, CampaignOutcome, RowDoc } from "@gilbert/shared/outbound";
 import { Phone, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { downloadFile } from "@/lib/download";
@@ -29,6 +29,13 @@ import { LoadState } from "@/ui/LoadState";
 import { Empty } from "@/ui/misc";
 
 /**
+ * How many rows Today draws at once. The rest are one press away: a list of a
+ * thousand is one document and one read, and what it must not be is a thousand
+ * cards on a phone.
+ */
+const PAGE = 20;
+
+/**
  * Today (ADR 0040): the rows a caller works, one at a time, with the phone in
  * their hand.
  *
@@ -43,7 +50,7 @@ import { Empty } from "@/ui/misc";
  */
 export function TodayView({ section }: { section?: string }) {
   const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
-  const { group, campaign, findings, load: loadCampaigns } = useOutbound();
+  const { group, campaign, campaigns, findings, load: loadCampaigns } = useOutbound();
   const [board, setBoard] = useState<TodayBoard | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,6 +64,8 @@ export function TodayView({ section }: { section?: string }) {
   /** What the call in hand said, and when to call again if it stays open. */
   const [note, setNote] = useState("");
   const [nextCall, setNextCall] = useState("");
+  /** How much of the queue is drawn. */
+  const [visible, setVisible] = useState(PAGE);
 
   // The group being worked, and the pane this route names.
   const active = activeGroupName(groups, group);
@@ -64,6 +73,12 @@ export function TodayView({ section }: { section?: string }) {
   // The queue the reader asked for, as the server answered for that set of
   // campaigns: the counts and the words beside it are about the same rows.
   const queue = board?.queue ?? [];
+  // What the pane draws: the first page of the queue, and as many pages as the
+  // reader asked for.
+  const shown = queue.slice(0, visible);
+  // The campaign a row belongs to: its purpose and its vocabulary are the document
+  // the tree reads, not a second copy of them carried beside the queue.
+  const campaignOf = (uid: string) => campaigns.find((entry) => entry.uid === uid);
 
   /**
    * Everything this section shows, read as one act: the queue, the numbers it
@@ -93,6 +108,7 @@ export function TodayView({ section }: { section?: string }) {
   useEffect(() => {
     if (!active) return;
     setTaken(null);
+    setVisible(PAGE);
     void read(active);
   }, [active, campaign]);
 
@@ -289,7 +305,7 @@ export function TodayView({ section }: { section?: string }) {
                 {taken && (
                   <TakenRow
                     row={taken}
-                    outcomes={board.campaigns[taken.campaignUid]?.outcomes ?? []}
+                    outcomes={campaignOf(taken.campaignUid)?.outcomes ?? []}
                     script={script}
                     busy={busy}
                     note={note}
@@ -299,35 +315,47 @@ export function TodayView({ section }: { section?: string }) {
                     onSettle={(outcome) => void settle(taken, outcome)}
                   />
                 )}
-                {queue
+                {shown
                   .filter((row) => row.uid !== taken?.uid)
-                  .map((row) => (
-                    <div className="card" key={row.uid}>
-                      <div className="card-head">
-                        <h3>{row.e164}</h3>
-                        {row.extension && (
-                          <span className="tag">
-                            {t("ext. {extension}", { extension: row.extension })}
-                          </span>
-                        )}
-                        {board.campaigns[row.campaignUid]?.purpose && (
-                          <span className="tag">
-                            {board.campaigns[row.campaignUid]?.purpose}
-                          </span>
-                        )}
+                  .map((row) => {
+                    const purpose = campaignOf(row.campaignUid)?.purpose;
+                    return (
+                      <div className="card" key={row.uid}>
+                        <div className="card-head">
+                          <h3>{row.e164}</h3>
+                          {row.extension && (
+                            <span className="tag">
+                              {t("ext. {extension}", { extension: row.extension })}
+                            </span>
+                          )}
+                          {purpose && <span className="tag">{purpose}</span>}
+                        </div>
+                        {row.context && <p className="hint">{row.context}</p>}
+                        <p>
+                          {/* One primary on this pane: the call on the row in hand.
+                              Taking another is the same list, one row further on. */}
+                          <button
+                            className="btn"
+                            disabled={busy || taken !== null}
+                            onClick={() => void take(row)}
+                          >
+                            {t("Take this row")}
+                          </button>
+                        </p>
                       </div>
-                      {row.context && <p className="hint">{row.context}</p>}
-                      <p>
-                        <button
-                          className="btn btn-primary"
-                          disabled={busy || taken !== null}
-                          onClick={() => void take(row)}
-                        >
-                          {t("Take this row")}
-                        </button>
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
+                {visible < queue.length && (
+                  <p>
+                    <button
+                      className="btn"
+                      disabled={busy}
+                      onClick={() => setVisible((count) => count + PAGE)}
+                    >
+                      {t("Show more")}
+                    </button>
+                  </p>
+                )}
               </>
             )}
           </section>
@@ -373,7 +401,7 @@ export function TodayView({ section }: { section?: string }) {
         <>
           <h1>{t("Start a list")}</h1>
           <StartList
-            campaigns={board.campaigns}
+            campaigns={campaigns}
             pages={pages}
             busy={busy}
             onCreated={() => void read(active)}
@@ -513,8 +541,8 @@ function StartList({
   onError,
 }: {
   group: string;
-  /** The running campaigns, by uid: the lists a paste can go into, and their words. */
-  campaigns: Record<string, { purpose: string; outcomes: CampaignOutcome[] }>;
+  /** The group's campaigns, closed ones included: the lists a handoff reads. */
+  campaigns: readonly CampaignDoc[];
   /** The group's knowledge pages: what a campaign may read aloud. */
   pages: readonly ScriptPage[];
   busy: boolean;
@@ -534,8 +562,12 @@ function StartList({
   const [outcome, setOutcome] = useState("");
   const [working, setWorking] = useState(false);
 
-  const chosen = target || Object.keys(campaigns)[0] || "";
-  const chosenOutcomes = campaigns[chosen]?.outcomes ?? [];
+  // A paste goes into a list being worked; a handoff reads one that may have just
+  // been closed, because handing the decided rows out is what the end of a list is.
+  const running = campaigns.filter((entry) => entry.state === "running");
+  const chosen = target !== "" ? target : (running[0]?.uid ?? campaigns[0]?.uid ?? "");
+  const chosenCampaign = campaigns.find((entry) => entry.uid === chosen);
+  const open = chosenCampaign?.state === "running";
 
   async function writeCampaign() {
     if (working) return;
@@ -638,29 +670,30 @@ function StartList({
         </button>
       </p>
 
-      <div className="field">
-        <label htmlFor="today-campaign">{t("Into which campaign")}</label>
-        <select
-          id="today-campaign"
-          className="select"
-          value={chosen}
-          onChange={(e) => setTarget(e.target.value)}
-          disabled={Object.keys(campaigns).length === 0}
-        >
-          {Object.entries(campaigns).map(([uid, campaign]) => (
-            <option key={uid} value={uid}>
-              {campaign.purpose}
-            </option>
-          ))}
-        </select>
-      </div>
-      {chosen && (
-        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-          <button
-            className="btn btn-ghost"
-            disabled={disabled}
-            onClick={() => onClose(chosen, true)}
+      {campaigns.length > 0 && (
+        <div className="field">
+          <label htmlFor="today-campaign">{t("Into which campaign")}</label>
+          <select
+            id="today-campaign"
+            className="select"
+            value={chosen}
+            onChange={(e) => setTarget(e.target.value)}
           >
+            {campaigns.map((entry) => (
+              <option key={entry.uid} value={entry.uid}>
+                {entry.state === "running"
+                  ? entry.purpose
+                  : t("{purpose} (closed)", { purpose: entry.purpose })}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {open && (
+        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          {/* Carrying the open rows is the usual end of a list; closing them away is
+              the exception, so it is the one drawn as the quieter action. */}
+          <button className="btn" disabled={disabled} onClick={() => onClose(chosen, true)}>
             {t("Close it and carry the open rows")}
           </button>
           <button
@@ -672,7 +705,7 @@ function StartList({
           </button>
         </div>
       )}
-      {chosen && chosenOutcomes.length > 0 && (
+      {chosenCampaign && chosenCampaign.outcomes.length > 0 && (
         <div className="field">
           <label htmlFor="today-handoff">
             {t("Hand off the rows that ended this way")}
@@ -685,7 +718,7 @@ function StartList({
               onChange={(e) => setOutcome(e.target.value)}
             >
               <option value="">{t("Choose an outcome…")}</option>
-              {chosenOutcomes.map((entry) => (
+              {chosenCampaign.outcomes.map((entry) => (
                 <option key={entry.id} value={entry.id}>
                   {entry.label}
                 </option>
@@ -702,25 +735,35 @@ function StartList({
         </div>
       )}
 
-      <div className="field">
-        <label htmlFor="today-paste">{t("Numbers, one per line")}</label>
-        <textarea
-          id="today-paste"
-          className="textarea"
-          value={paste}
-          placeholder={t("ACME, ask for Tizio, +39 333 123 4567")}
-          onChange={(e) => setPaste(e.target.value)}
-        />
-      </div>
-      <p>
-        <button
-          className="btn btn-primary"
-          disabled={disabled || !chosen || paste.trim() === ""}
-          onClick={() => void add()}
-        >
-          {t("Add to the list")}
-        </button>
-      </p>
+      {open ? (
+        <>
+          <div className="field">
+            <label htmlFor="today-paste">{t("Numbers, one per line")}</label>
+            <textarea
+              id="today-paste"
+              className="textarea"
+              value={paste}
+              placeholder={t("ACME, ask for Tizio, +39 333 123 4567")}
+              onChange={(e) => setPaste(e.target.value)}
+            />
+          </div>
+          <p>
+            <button
+              className="btn btn-primary"
+              disabled={disabled || paste.trim() === ""}
+              onClick={() => void add()}
+            >
+              {t("Add to the list")}
+            </button>
+          </p>
+        </>
+      ) : (
+        <p className="hint">
+          {t(
+            "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.",
+          )}
+        </p>
+      )}
 
       {report && (
         <div className="hint">

@@ -79,11 +79,11 @@ test("a row that is settled is not work", () => {
   assert.equal(result.due + result.upcoming + result.heldByOthers, 0);
 });
 
-test("the limit cuts the queue and not the count", () => {
-  const rows = Array.from({ length: 5 }, (_, index) =>
-    row({ uid: `r${index}`, nextCallAt: `2026-10-28T0${index}:00:00Z` }),
+test("the queue offers every row to work, and the count agrees with it", () => {
+  const rows = Array.from({ length: 50 }, (_, index) =>
+    row({ uid: `r${index}`, nextCallAt: `2026-10-28T0${index % 9}:00:00Z` }),
   );
-  const { queue, due } = todayQueue(rows, { caller: "sam", now, limit: 2 });
-  assert.equal(queue.length, 2);
-  assert.equal(due, 5);
+  const { queue, due } = todayQueue(rows, { caller: "sam", now });
+  assert.equal(queue.length, 50, "a list is not cut at a page nobody asked for");
+  assert.equal(due, queue.length, "what the list shows is what the count says");
 });

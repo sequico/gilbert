@@ -19,9 +19,8 @@ export const OUTBOUND_FOLDER = "outbound";
 /** Campaign roots, one file each. */
 export const CAMPAIGN_FOLDER = "campaigns";
 
-/** A campaign's rows, one file each, in a folder of their own. */
+/** A campaign's rows, as one document per campaign. */
 export const ROW_FOLDER = "rows";
-
 /** The group's do-not-call list: one document, beside the campaigns that honour it. */
 export const DO_NOT_CALL_FILE = "do-not-call.json";
 
@@ -44,14 +43,16 @@ export function campaignFolderPath(): string {
   return `${OUTBOUND_FOLDER}/${CAMPAIGN_FOLDER}`;
 }
 
-/** `outbound/rows/<campaignUid>/<rowUid>.json`, app-folder-relative. */
-export function rowPath(campaignUid: string, rowUid: string): string {
-  return `${OUTBOUND_FOLDER}/${ROW_FOLDER}/${campaignUid}/${rowUid}.json`;
-}
-
-/** The folder holding one campaign's rows. */
-export function rowFolderPath(campaignUid: string): string {
-  return `${OUTBOUND_FOLDER}/${ROW_FOLDER}/${campaignUid}`;
+/**
+ * `outbound/rows/<campaignUid>.json`, app-folder-relative.
+ *
+ * A list is one document and not a file per row: a caller opens Today and reads
+ * one file per campaign instead of one per number, and a paste of a thousand
+ * lines is one write. What that costs is stated in ADR 0040 — two callers of one
+ * list share the document, and a lost race is retried.
+ */
+export function rowsPath(campaignUid: string): string {
+  return `${OUTBOUND_FOLDER}/${ROW_FOLDER}/${campaignUid}.json`;
 }
 
 /** The group's do-not-call list, app-folder-relative. */
@@ -332,6 +333,28 @@ export function isRowDoc(value: unknown): value is RowDoc {
   )
     return false;
   return isInstant(value.createdAt);
+}
+
+/**
+ * A campaign's rows, as the one document its list is.
+ *
+ * The rows are the campaign's own: they never exist without it and they die with
+ * it. One document is one read for Today and one write for a paste; what that
+ * costs — two callers of one list sharing the file — is the compare-and-set's to
+ * settle, and ADR 0040 states it.
+ */
+export interface RowsDoc {
+  version: 1;
+  rows: RowDoc[];
+}
+
+/** Whether a campaign's list is one this build can read. */
+export function isRowsDoc(value: unknown): value is RowsDoc {
+  if (!isRecord(value) || value.version !== 1) return false;
+  if (!Array.isArray(value.rows) || !value.rows.every(isRowDoc)) return false;
+  // Two rows sharing a uid are two rows one act by uid would hit together, and one
+  // of them would be written as the other.
+  return new Set(value.rows.map((row) => (row as RowDoc).uid)).size === value.rows.length;
 }
 
 /**

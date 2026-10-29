@@ -101,9 +101,7 @@ async function newCampaign(purpose: string): Promise<Campaign> {
 
 /** The rows Today offers, with the campaign each belongs to. */
 async function today(): Promise<Row[]> {
-  // The biggest page the route serves, so a campaign written late in this file is
-  // in it: what the page size is not about here is the order of the queue.
-  const res = await call(`/api/outbound/today?group=${encodeURIComponent(GROUP)}&limit=50`);
+  const res = await call(`/api/outbound/today?group=${encodeURIComponent(GROUP)}`);
   assert.equal(res.status, 200, JSON.stringify(res.body));
   return (res.body?.queue ?? []) as Row[];
 }
@@ -240,6 +238,16 @@ test("an import writes the rows it kept and counts every line it lost", async ()
   assert.equal(rows[0].e164, "+39021234567");
   assert.equal(rows[0].extension, "24");
   assert.equal(rows[0].context, "ACME, chiedi di Tizio");
+
+  // The list the campaign already holds is part of what a paste is read against: a
+  // sheet imported twice adds nothing the second time.
+  const again = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 02 1234567",
+  });
+  assert.equal(again.status, 200, JSON.stringify(again.body));
+  assert.equal(again.body?.added, 0);
+  assert.equal(again.body?.duplicate, 1, "the number is already a row of this list");
 });
 
 test("a row is taken before it is dialled, and settling it records the call", async () => {
@@ -398,6 +406,76 @@ test("a number a group's card already carries is matched at the import", async (
     null,
     "a number no card carries stays a row with no card",
   );
+});
+
+test("a card carrying a listed number blocks its other numbers too", async () => {
+  const authorization = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
+  const session = await fetchUpstreamSession(authorization, `http://127.0.0.1:${PORT}`);
+  const ctx = { authorization, session, username: "demo@example.com" };
+  const accountId = Object.entries(session.accounts).find(
+    ([, account]) => (account as { name?: string }).name === GROUP,
+  )?.[0];
+  assert.ok(accountId, "the member's session holds the group's account");
+  const client = new JmapClient(ctx);
+
+  const books = await client.call<{ list?: Array<{ id?: unknown }> }>(
+    "AddressBook/get",
+    { accountId, ids: null, properties: ["id"] },
+    [JMAP_CONTACTS],
+  );
+  const bookId = (books.list ?? []).find((book) => typeof book.id === "string")?.id;
+  assert.ok(bookId, "the group has an address book by now");
+  await client.call(
+    "ContactCard/set",
+    {
+      accountId,
+      create: {
+        c: {
+          "@type": "Card",
+          version: "1.0",
+          addressBookIds: { [bookId]: true },
+          phones: {
+            p1: { "@type": "Phone", number: "+39 06 555 1010" },
+            p2: { "@type": "Phone", number: "+39 06 555 2020" },
+          },
+        },
+      },
+    },
+    [JMAP_CONTACTS],
+  );
+
+  // One of the person's two numbers is on the list.
+  const listed = await post("/api/outbound/do-not-call", {
+    group: GROUP,
+    number: "+39 06 555 1010",
+  });
+  assert.equal(listed.status, 200, JSON.stringify(listed.body));
+
+  // The other one is the same person, so the paste is refused and counted.
+  const campaign = await newCampaign("The same person, another line");
+  const refusedNumber = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 06 555 2020",
+  });
+  assert.equal(refusedNumber.status, 200, JSON.stringify(refusedNumber.body));
+  assert.equal(refusedNumber.body?.added, 0);
+  assert.equal(
+    refusedNumber.body?.blocked,
+    1,
+    "the promise is about the person, not the string pasted",
+  );
+
+  // Lifting the promise lets both back in.
+  await post("/api/outbound/do-not-call", {
+    group: GROUP,
+    number: "+39 06 555 1010",
+    blocked: false,
+  });
+  const allowed = await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 06 555 2020",
+  });
+  assert.equal(allowed.body?.added, 1);
 });
 
 test("the first call creates the card, and the call stays on it", async () => {

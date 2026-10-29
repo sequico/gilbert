@@ -8,8 +8,9 @@
  * lines instead of against a database.
  *
  * Four things a line can be, and a person is told each of them: a row, a
- * duplicate of another line in the same paste, a number the installation
- * promised never to call, or a line this build cannot read.
+ * duplicate of another line in the same paste or of a row the campaign already
+ * holds, a number the group promised never to call, or a line this build cannot
+ * read.
  */
 
 import type { RowDoc } from "../shared/outbound.js";
@@ -28,7 +29,7 @@ export interface ImportPlan {
   rows: RowDoc[];
   /** The lines that became no row, with the reason a person reads. */
   refused: ImportRefusal[];
-  /** Lines that repeated a number an earlier line of this paste already gave. */
+  /** Lines whose number an earlier line of the paste, or the campaign, already held. */
   duplicate: number;
   /** Lines whose number the group's do-not-call list already holds. */
   blocked: number;
@@ -44,6 +45,8 @@ export interface ImportInput {
   doNotCall: readonly string[];
   /** The group's cards by the number each carries: canonical number → card uid. */
   cards: Readonly<Record<string, string>>;
+  /** The numbers this campaign already holds: a repeated paste adds nothing. */
+  existing?: readonly string[];
   now: Date;
   /** Where a new row's uid comes from; injected so a test names its own. */
   newUid: () => string;
@@ -55,13 +58,25 @@ export function planImport({
   text,
   doNotCall,
   cards,
+  existing = [],
   now,
   newUid,
 }: ImportInput): ImportPlan {
   const rows: RowDoc[] = [];
   const refused: ImportRefusal[] = [];
-  const seen = new Set<string>();
+  const seen = new Set<string>(existing);
   const blocked = new Set(doNotCall);
+  /*
+   * The promise not to call is about the person, not the string that was pasted:
+   * a card carrying a number on the list carries every number of that person, and
+   * calling another one is calling them again. The index is number → card, so the
+   * cards to refuse are the ones a listed number belongs to.
+   */
+  const blockedCards = new Set(
+    doNotCall
+      .map((number) => cards[number])
+      .filter((uid): uid is string => uid !== undefined),
+  );
   let duplicate = 0;
   let blockedCount = 0;
   let matched = 0;
@@ -85,14 +100,14 @@ export function planImport({
       continue;
     }
     seen.add(number.e164);
-    if (blocked.has(number.e164)) {
-      blockedCount += 1;
-      continue;
-    }
 
     // A number the group already knows becomes a row pointed at its card, so the
     // caller reads who they are about to speak to before the call, not after it.
     const cardUid = cards[number.e164] ?? null;
+    if (blocked.has(number.e164) || (cardUid !== null && blockedCards.has(cardUid))) {
+      blockedCount += 1;
+      continue;
+    }
     if (cardUid) matched += 1;
 
     rows.push({

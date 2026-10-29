@@ -10,17 +10,15 @@
 import type { CampaignDoc, CampaignOutcome, RowDoc } from "@gilbert/shared/outbound";
 import { apiFetch } from "@/jmap/client";
 
-/** What Today holds: the rows to work, the counts, and each campaign's words. */
+/** What Today holds: the rows to work and the counts beside them. */
 export interface TodayBoard {
   queue: RowDoc[];
-  /** Open rows due now and not another caller's. */
+  /** Open rows due now and not another caller's, dated or not. */
   due: number;
   /** Open rows whose next call is still ahead. */
   upcoming: number;
   /** Open rows another caller holds right now. */
   heldByOthers: number;
-  /** The purpose and outcome vocabulary of each running campaign, by uid. */
-  campaigns: Record<string, { purpose: string; outcomes: CampaignOutcome[] }>;
   /** Documents that are there and cannot be read. */
   problems: string[];
 }
@@ -196,7 +194,6 @@ export async function fetchToday(group: string, campaign = ""): Promise<TodayBoa
     due: res.due ?? 0,
     upcoming: res.upcoming ?? 0,
     heldByOthers: res.heldByOthers ?? 0,
-    campaigns: res.campaigns ?? {},
     problems: res.problems ?? [],
   };
 }

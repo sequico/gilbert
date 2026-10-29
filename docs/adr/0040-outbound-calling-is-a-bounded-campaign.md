@@ -11,6 +11,11 @@ door, the import, the do-not-call list and the two acts against the mock. The ar
 acts as the caller and never as the installation's agent, which is what lets a
 group that exists for outbound work alone be worked at all.
 
+A campaign's list is one document, `outbound/rows/<campaignUid>.json`: one read
+when Today opens, one write when a paste fills it, and a compare-and-set retry for
+the callers of one list who land together (`server/src/outbound/documents.ts`). The
+pane draws the queue twenty rows at a time, the rest behind one press.
+
 A number the group's cards already carry is matched at the import through an index
 beside the campaigns, rebuilt whenever the card store's state has moved
 (`server/src/outbound/cards.ts`). The first call creates the card, carrying the
@@ -25,7 +30,9 @@ file of the rows that ended with one outcome.
 
 Future improvements, named rather than left implicit: the handoff leaves as a file
 and nothing else, so an appointment in the calendar and a message to the receiving
-group are not built and are not owed by this record; and the area is not one of the
+group are not built and are not owed by this record; a file is not chosen and read
+by its columns — a list is pasted, and a spreadsheet arrives as the text it was
+copied from; and the area is not one of the
 agent's — `shared/areas.ts` names none of it, no instruction may declare it, and the
 agent neither reads a card's calls nor proposes a note. Each of those is a change
 with a record of its own if a group ever needs it.
@@ -78,12 +85,12 @@ dialled leaves nothing behind.
 
 **The call log lives on the card of whoever was spoken to**, and on the company's
 own when the call named nobody: opening a card shows what was said to it — when,
-by whom, in which campaign, with which outcome and note — so the card a caller
-opens in November carries what a colleague said in October. A call to a
-switchboard that named nobody is the company's history until a person is attached
-to it, and the routing note that says who is competent for what is that same
-card's own note or a person's title, written while the call is happening: the
-handoff carries it, and does not invent it.
+by whom, with which outcome and with the note the caller wrote — so the card a
+caller opens in November carries what a colleague said in October. A call to a
+switchboard that named nobody is that number's card until a person is attached to
+it, and the words that say who to ask for travel with the number: they are the
+card's first note when the first call creates it, and the row's own context before
+that.
 
 ### The two lists
 
@@ -103,17 +110,20 @@ that must never be called is entered once for each group that calls.
 - a **campaign** — the root document. One sentence of purpose, the revision of the
   script it points at, the outcome vocabulary it admits, the window it runs in, and
   the group it belongs to. Closing a campaign is a state, not a deletion.
-- a **row** — a part document of its own, so two members of the group write
-  without touching each other. It carries the number to dial and, once a card
-  exists for it, the card it calls; and its state, its owner and its next call. A
-  row may point at a company and no person.
+- a **row** — the number to dial and, once a card exists for it, the card it
+  calls; its state, its owner and its next call. A campaign's rows are **one
+  document of the campaign** rather than a file each: a list is one read when
+  Today opens and one write when a paste fills it, and two callers of one list are
+  a compare-and-set apart with a retry sized for the people a group has on the
+  phone at once. A row may point at a company and no person.
 - **Today** — not stored: the queue is the view of the rows that are mine or
   due, and it is where the work happens. The call is placed from the person's own
-  phone.
+  phone. The pane draws it a page at a time; the queue behind the page is the whole
+  of what is to call, so the counts and the list cannot disagree.
 - a **handoff** — not an object: an outcome selects rows into a screened list that
-  leaves as a **file**, carrying the row's outcome and note, who called and when,
-  the discovered person and the routing note that says who is competent for what.
-  The product's job ends when the campaign closes and the subset has left; what the
+  leaves as a **file**, carrying the number, its extension, the words that arrived
+  around it, the outcome, the note, who called and when. The product's job ends
+  when the campaign closes and the subset has left; what the
   receiving side does with the file is its own business, and this block drafts no
   message and books no appointment.
 
@@ -137,19 +147,21 @@ that must never be called is entered once for each group that calls.
   failure this product cannot afford. The list is the group's, so the check happens
   where the rows are written and never reaches another account: a number the group
   was told never to call is never written into that group's campaigns.
-- **The list arrives by paste or file, and the work happens on a phone.** A
-  hundred calls begin as a paste or a file, never as a form filled once per
-  number, and the work happens on the screen in the caller's hand: the size of the
-  list is why the first is true, and where the call is made is why the second is. A
-  file is read by its columns; **a paste has none**, so it is read for the numbers
-  in it — one row for each, the words around it kept as the row's own context —
-  because the paste that starts a campaign is as often a mail as a spreadsheet.
+- **The list arrives by paste, and the work happens on a phone.** A hundred calls
+  begin as a paste — a spreadsheet's column, a mail's body, a file's contents —
+  never as a form filled once per number, and the work happens on the screen in the
+  caller's hand: the size of the list is why the first is true, and where the call
+  is made is why the second is. A paste has no columns, so it is read for the
+  numbers in it — one row for each, the words around it kept as the row's own
+  context — because the paste that starts a campaign is as often a mail as a
+  spreadsheet.
 - **The window orders the work; it does not delete it.** A campaign past its window
   with rows still open is a finding for the group that owns it — closed, extended,
   or carried into the next campaign — never a list that quietly stops existing.
 - **A row is claimed before its number is dialled**, so a list is never called
   twice at once — the conditional write and the lapsed lease the installation's
-  own claim already uses (ADR 0032) — and a caller holds one row at a time.
+  own claim already uses (ADR 0032) — and a caller holds one row of a list at a
+  time.
 - **A number has one form: E.164 and nothing else.** `+` and the country code
   followed by digits — fifteen at most — with no space, no punctuation, no
   extension, no national trunk prefix, no note: the canonical string is the
@@ -195,6 +207,14 @@ paste needs; it is rebuilt from the cards and never becomes a second truth.
 The call log is a bounded window per card: the most recent calls, and a count of
 the ones it trimmed. A card is read far more often than it is written, and a log
 that grows without limit turns opening a contact into a large read.
+
+A campaign's list is one document, and that is the trade this area makes: a
+thousand numbers cost one read when the list is opened and one write when a paste
+fills it, where a file per row cost a thousand of each. The price is that two
+callers settling two rows of one list can collide, which the compare-and-set
+answers by re-reading and re-applying the rule; a write takes milliseconds and a
+call takes minutes, and a group's list is worked by the people on the phone at
+once.
 
 A card outlives this area and may already carry a number in any form: outbound
 writes only the canonical one, normalises a card's number when it touches it, and
