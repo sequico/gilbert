@@ -259,6 +259,14 @@ export function AppShell({ children }: { children: ReactNode }) {
    * gone and the shield falls back to Mail, the home section.
    */
   const adminBackTo = useRef("/mail");
+  /*
+   * Where the account menu's Settings entry takes the reader back to. It is a
+   * toggle rather than a link: the entry that opens the section is the entry
+   * that closes it, and "closed" means where the reader was, as the shield does
+   * for /admin. After a reload inside the section the memory is gone and it
+   * falls back to Mail.
+   */
+  const settingsBackTo = useRef("/mail");
 
   useGlobalShortcuts({
     onHelp: () => setHelpOpen(true),
@@ -385,16 +393,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Shield size={21} />
             </button>
           )}
-          {/* `hide-mobile`: the account menu beside it already carries
-              Settings, and a phone's bar has no room for both. */}
-          <Link
-            href="/settings"
-            className={`icon-btn hide-mobile ${section === "settings" ? "active" : ""}`}
-            aria-label={t("Settings")}
-            title={t("Settings")}
-          >
-            <Settings size={21} />
-          </Link>
+          {/* Settings is not in this bar: it is in the account menu beside these,
+              where it also toggles (see what leaves the section). A second gear
+              here was the same entry twice. */}
           <button
             className="icon-btn"
             style={{ width: "auto", padding: "0 2px", borderRadius: 999 }}
@@ -441,7 +442,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             <MenuItem
               icon={<Settings size={16} />}
               label={t("Settings")}
-              onClick={() => navigate("/settings")}
+              active={section === "settings"}
+              onClick={() => {
+                // The same entry closes the section it opened, and returns to
+                // where the reader was rather than to a fixed screen.
+                if (section === "settings") {
+                  navigate(settingsBackTo.current);
+                  return;
+                }
+                settingsBackTo.current = location;
+                navigate("/settings");
+              }}
             />
             {/*
               The install/update command, on a phone only: a desktop browser
