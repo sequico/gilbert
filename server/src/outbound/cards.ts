@@ -15,7 +15,7 @@
 
 import type { Ctx } from "../appFolder.js";
 import { JMAP_CONTACTS, JmapClient } from "../jmap.js";
-import type { CardIndexDoc } from "../shared/outbound.js";
+import type { CardIndexDoc, RowCard } from "../shared/outbound.js";
 import { readCardIndexDoc, writeCardIndex } from "./documents.js";
 import { OutboundError } from "./errors.js";
 import { normaliseNumber } from "./phone.js";
@@ -24,6 +24,9 @@ import { normaliseNumber } from "./phone.js";
 interface CardShape {
   id?: unknown;
   phones?: Record<string, { number?: unknown }>;
+  name?: { full?: unknown };
+  organizations?: Record<string, { name?: unknown }>;
+  titles?: Record<string, { name?: unknown }>;
 }
 
 /** The account's card state, the stamp the index is rebuilt against. */
@@ -155,4 +158,47 @@ export async function readCardIndex(
   const index = await buildIndex(client, accountId, state, new Date());
   await writeCardIndex(ctx, accountId, index);
   return index.cards;
+}
+
+/**
+ * What the cards these rows point at say about themselves, by card id.
+ *
+ * The queue draws a name and a company beside each number, and the row does not
+ * hold them: identity is the card's. One `ContactCard/get` answers for the page
+ * the caller asked for — ten rows at most — so opening Today stays one read of
+ * the list and one of the cards in it, never a walk through the address book.
+ */
+export async function readRowCards(
+  ctx: Ctx,
+  accountId: string,
+  uids: readonly string[],
+): Promise<Record<string, RowCard>> {
+  if (uids.length === 0) return {};
+  const client = new JmapClient(ctx);
+  const res = await client.call<{ list?: CardShape[] }>(
+    "ContactCard/get",
+    {
+      accountId,
+      ids: [...new Set(uids)],
+      properties: ["id", "name", "organizations", "titles"],
+    },
+    [JMAP_CONTACTS],
+  );
+  const cards: Record<string, RowCard> = {};
+  for (const card of res.list ?? []) {
+    if (typeof card.id !== "string") continue;
+    const name = card.name?.full;
+    cards[card.id] = {
+      name: typeof name === "string" ? name : "",
+      company:
+        Object.values(card.organizations ?? {})
+          .map((org) => org.name)
+          .find((value): value is string => typeof value === "string") ?? null,
+      title:
+        Object.values(card.titles ?? {})
+          .map((title) => title.name)
+          .find((value): value is string => typeof value === "string") ?? null,
+    };
+  }
+  return cards;
 }

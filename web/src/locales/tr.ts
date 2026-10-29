@@ -23,20 +23,37 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Number": "Numara",
+    "Name": "Ad",
+    "Details": "Ayrıntılar",
+    "Campaign": "Kampanya",
+    "Actions": "İşlemler",
+    "Take": "Al",
+    "Release": "Bırak",
+    "Skip": "Atla",
+    "“{outcome}” — when to call again?": "“{outcome}” — ne zaman tekrar aranacak?",
+    "In an hour": "Bir saat sonra",
+    "In three hours": "Üç saat sonra",
+    "Tomorrow": "Yarın",
+    "Close the row": "Satırı kapat",
+    "Or a day of my own": "Ya da kendi günüm",
+    "Reschedule": "Yeniden planla",
+    "Import a CSV": "CSV içe aktar",
+    "Download the template": "Şablonu indir",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — numara içe aktarılırken normalleştirilir ve iki kez aktarılan liste ikinci kez hiçbir şey eklemez.",
+    "Archived": "Arşiv",
+    "Start a campaign": "Kampanya başlat",
+    "Start a campaign, give it its script and outcomes, then import a list.": "Bir kampanya başlatın, betiğini ve sonuçlarını verin, ardından bir liste aktarın.",
+    "Settle the row in hand or release it before taking another.": "Başka bir satır almadan önce elinizdeki satırı kapatın ya da bırakın.",
+    "Close it from the campaigns, with or without carrying the rows still open.": "Kampanyalardan kapatın; açık satırları taşıyıp taşımamayı siz seçin.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Son arama: {when} · {outcome}",
-    "Put it back": "Geri koy",
     "No list yet": "Henüz liste yok",
-    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
-      "Bir liste başlatın: ona bir amaç ve sonuçlarını verin, sonra numaraları yapıştırın.",
     "Runs from": "Başlangıç",
     "Runs until": "Bitiş",
     "Leave the dates empty for a list with no window.":
       "Penceresiz bir liste için tarihleri boş bırakın.",
     "What was said": "Ne söylendi",
-    "Call again": "Tekrar ara",
-    "A date keeps the row open until then; leaving it empty settles the row.":
-      "Bir tarih, satırı o tarihe kadar açık tutar; boş bırakılırsa satır kapanır.",
     "Show more": "Daha fazla göster",
     "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.":
       "Bu kampanya kapalı: yeni satır almaz ve karara bağlanmış satırlar yine de devredilebilir.",
@@ -45,8 +62,6 @@ export const catalog: Catalog = {
     Campaigns: "Kampanyalar",
     "All campaigns": "Tüm kampanyalar",
     "Your list": "Listeniz",
-    "Close it in Start a list, with or without carrying the rows still open.":
-      "“Bir liste başlat” bölümünde kapatın; açık satırları taşıyıp taşımamayı siz seçin.",
     "The numbers this group promised never to call. A number here is never written into a campaign.":
       "Bu grubun asla aramayacağına söz verdiği numaralar. Buradaki bir numara hiçbir kampanyaya yazılmaz.",
     "No row of this campaign ended that way.": "Bu kampanyada o şekilde biten satır yok.",
@@ -75,25 +90,20 @@ export const catalog: Catalog = {
     "{due} to call": "{due} aranacak",
     "{ahead} later": "{ahead} sonra",
     "{held} in another caller's hands": "{held} başkasında",
-    "Settle the row in hand or put it back before taking another.":
-      "Başka bir satır almadan önce elinizdeki satırı kapatın ya da geri koyun.",
     "How it went": "Nasıl geçti",
     "Call recorded": "Arama kaydedildi",
     "Wants a quote for January": "Ocak için teklif istiyor",
     "“{purpose}” is closed": "“{purpose}” kapatıldı",
     "The list": "Liste",
-    "Continue this call": "Bu aramaya devam et",
     "The numbers": "Numaralar",
     "Closing and handoff": "Kapatma ve devir",
     "No number blocked": "Engellenen numara yok",
     "A number entered here is never written into this group's lists.":
       "Buraya girilen bir numara bu grubun listelerine asla yazılmaz.",
-    Queue: "Kuyruk",
     "Nothing left to call": "Arayacak bir şey kalmadı",
     "Every open row is done, due later, or in another caller's hands.":
       "Açık her satır ya tamamlandı, ya ileride bir tarihte, ya da başka bir arayanın elinde.",
     "ext. {extension}": "dahili {extension}",
-    "Take this row": "Bu satırı al",
     "yours now": "artık sizin",
     Call: "Ara",
     "No number in this line": "Bu satırda numara yok",
@@ -101,7 +111,6 @@ export const catalog: Catalog = {
       "Numara hangi ülkede olduğunu söylemiyor",
     "No country uses this number": "Bu numarayı hiçbir ülke kullanmıyor",
     "The line is empty": "Satır boş",
-    "Start a list": "Bir liste başlat",
     "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
       "Liste bir kampanyadır: bir amaç, arayanların seçeceği sonuçlar ve satır başına bir tane yapıştırılan numaralar.",
     Purpose: "Amaç",
@@ -110,9 +119,6 @@ export const catalog: Catalog = {
     Spoke: "Konuştum",
     "Create the campaign": "Kampanyayı oluştur",
     "Into which campaign": "Hangi kampanyaya",
-    "Numbers, one per line": "Numaralar, satır başına bir tane",
-    "ACME, ask for Tizio, +39 333 123 4567": "ACME, Tizio'yu isteyin, +39 333 123 4567",
-    "Add to the list": "Listeye ekle",
     "Do not call": "Arama",
     "Number never to call": "Asla aranmayacak numara",
     "Country code and number": "Ülke kodu ve numara",

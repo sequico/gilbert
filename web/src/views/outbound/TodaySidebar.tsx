@@ -1,5 +1,5 @@
-import { ListFilter, Phone, PhoneOff, Plus, Users } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { ChevronRight, ListFilter, Phone, PhoneOff, Plus, Users } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -7,18 +7,18 @@ import { useMail } from "@/store/mail";
 import { activeGroupName, useOutbound } from "@/store/outbound";
 
 /**
- * Outbound's tree (ADR 0040): the group whose list is being worked, the campaigns
- * in it, and the three places the section has.
+ * Outbound's tree (ADR 0040): the calls to work, the campaigns that hold them,
+ * and the one list that lives on its own.
  *
- * The group belongs here rather than in the pane: it is a choice about *which
- * list*, and a choice drawn twice is a second way of saying the same thing. A
- * campaign narrows the queue; "Do not call" and "Start a list" act on the list as a
- * whole, so they are entries rather than buttons in the middle of the work.
+ * Today comes first because it is where the work happens; the campaigns below it
+ * are what narrows it, the ones being worked first and the closed ones behind a
+ * fold; and the do-not-call list is the group's own promise, not a campaign's.
  */
 export function TodaySidebar() {
   const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
   const { group, campaign, campaigns, selectGroup, filterCampaign, load } = useOutbound();
   const [location] = useLocation();
+  const [archived, setArchived] = useState(false);
   const active = activeGroupName(groups, group);
 
   useEffect(() => {
@@ -26,6 +26,7 @@ export function TodaySidebar() {
   }, [active, load]);
 
   const running = campaigns.filter((entry) => entry.state === "running");
+  const closed = campaigns.filter((entry) => entry.state === "closed");
   const at = (path: string) => location === path;
 
   const entry = (path: string, label: string, icon: ReactNode) => (
@@ -59,6 +60,8 @@ export function TodaySidebar() {
         </div>
       )}
 
+      {entry("/today", t("Today"), <Phone size={16} aria-hidden="true" />)}
+
       <div className="nav-section">{t("Campaigns")}</div>
       <button
         type="button"
@@ -82,15 +85,51 @@ export function TodaySidebar() {
           <span className="nav-label truncate">{option.purpose}</span>
         </button>
       ))}
+      {closed.length > 0 && (
+        <>
+          <button
+            type="button"
+            className={`nav-item ${archived ? "open" : ""}`}
+            aria-expanded={archived}
+            onClick={() => setArchived((open) => !open)}
+          >
+            <ChevronRight
+              size={16}
+              aria-hidden="true"
+              style={{
+                transform: archived ? "rotate(90deg)" : undefined,
+                transition: "transform .15s",
+              }}
+            />
+            <span className="nav-label">{t("Archived")}</span>
+            <span className="nav-count">{closed.length}</span>
+          </button>
+          {archived &&
+            closed.map((option) => (
+              // A closed list takes no work, so it is named rather than offered:
+              // what survives it is its cards, its calls and its handoff.
+              <div
+                key={option.uid}
+                className="nav-item archived-item"
+                title={option.purpose}
+              >
+                <span className="nav-label truncate">{option.purpose}</span>
+              </div>
+            ))}
+        </>
+      )}
+      {entry(
+        "/today/new",
+        t("Start a campaign"),
+        <Plus size={16} aria-hidden="true" />,
+      )}
 
       <div className="nav-section">{t("Your list")}</div>
-      {entry("/today", t("Queue"), <Phone size={16} aria-hidden="true" />)}
       {entry(
         "/today/do-not-call",
         t("Do not call"),
         <PhoneOff size={16} aria-hidden="true" />,
       )}
-      {entry("/today/new", t("Start a list"), <Plus size={16} aria-hidden="true" />)}
     </>
   );
 }

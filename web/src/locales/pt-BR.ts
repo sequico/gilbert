@@ -50,20 +50,37 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Number": "Número",
+    "Name": "Nome",
+    "Details": "Detalhes",
+    "Campaign": "Campanha",
+    "Actions": "Ações",
+    "Take": "Assumir",
+    "Release": "Liberar",
+    "Skip": "Pular",
+    "“{outcome}” — when to call again?": "“{outcome}” — quando ligar de novo?",
+    "In an hour": "Em uma hora",
+    "In three hours": "Em três horas",
+    "Tomorrow": "Amanhã",
+    "Close the row": "Encerrar a linha",
+    "Or a day of my own": "Ou um dia próprio",
+    "Reschedule": "Reprogramar",
+    "Import a CSV": "Importar um CSV",
+    "Download the template": "Baixar o modelo",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — o número é normalizado na importação, e uma lista importada duas vezes não acrescenta nada na segunda.",
+    "Archived": "Arquivadas",
+    "Start a campaign": "Começar uma campanha",
+    "Start a campaign, give it its script and outcomes, then import a list.": "Comece uma campanha, dê a ela o roteiro e os resultados, depois importe uma lista.",
+    "Settle the row in hand or release it before taking another.": "Encerre ou libere a linha em mãos antes de pegar outra.",
+    "Close it from the campaigns, with or without carrying the rows still open.": "Feche-a pelas campanhas, com ou sem as linhas ainda abertas.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Última ligação: {when} · {outcome}",
-    "Put it back": "Devolver",
     "No list yet": "Ainda sem lista",
-    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
-      "Comece uma lista: dê a ela um propósito e os seus resultados, depois cole os números.",
     "Runs from": "Começa em",
     "Runs until": "Termina em",
     "Leave the dates empty for a list with no window.":
       "Deixe as datas vazias para uma lista sem janela.",
     "What was said": "O que foi dito",
-    "Call again": "Ligar de novo",
-    "A date keeps the row open until then; leaving it empty settles the row.":
-      "Uma data mantém a linha aberta até então; deixá-la vazia encerra a linha.",
     "Show more": "Mostrar mais",
     "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.":
       "Esta campanha está fechada: não aceita novas linhas, e as linhas já decididas ainda podem ser entregues.",
@@ -72,8 +89,6 @@ export const catalog: Catalog = {
     Campaigns: "Campanhas",
     "All campaigns": "Todas as campanhas",
     "Your list": "Sua lista",
-    "Close it in Start a list, with or without carrying the rows still open.":
-      "Feche-a em “Começar uma lista”, com ou sem as linhas ainda abertas.",
     "The numbers this group promised never to call. A number here is never written into a campaign.":
       "Os números que este grupo prometeu nunca ligar. Um número aqui nunca entra numa campanha.",
     "No row of this campaign ended that way.":
@@ -103,32 +118,26 @@ export const catalog: Catalog = {
     "{due} to call": "{due} para ligar",
     "{ahead} later": "{ahead} mais tarde",
     "{held} in another caller's hands": "{held} na mão de outro",
-    "Settle the row in hand or put it back before taking another.":
-      "Encerre a linha em mãos ou devolva-a antes de pegar outra.",
     "How it went": "Como foi",
     "Call recorded": "Ligação registrada",
     "Wants a quote for January": "Quer um orçamento para janeiro",
     "“{purpose}” is closed": "“{purpose}” está fechada",
     "The list": "A lista",
-    "Continue this call": "Continuar esta ligação",
     "The numbers": "Os números",
     "Closing and handoff": "Fechamento e entrega",
     "No number blocked": "Nenhum número bloqueado",
     "A number entered here is never written into this group's lists.":
       "Um número digitado aqui nunca é escrito nas listas deste grupo.",
-    Queue: "Fila",
     "Nothing left to call": "Não sobrou nada para ligar",
     "Every open row is done, due later, or in another caller's hands.":
       "Cada linha aberta está concluída, vence mais adiante ou está nas mãos de outro atendente.",
     "ext. {extension}": "ramal {extension}",
-    "Take this row": "Pegar esta linha",
     "yours now": "agora é sua",
     Call: "Ligar",
     "No number in this line": "Nenhum número nesta linha",
     "The number does not say which country it is in": "O número não diz em que país está",
     "No country uses this number": "Nenhum país usa este número",
     "The line is empty": "A linha está vazia",
-    "Start a list": "Começar uma lista",
     "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
       "Uma lista é uma campanha: um propósito, os resultados que os atendentes vão escolher e os números, colados um por linha.",
     Purpose: "Propósito",
@@ -137,9 +146,6 @@ export const catalog: Catalog = {
     Spoke: "Falei",
     "Create the campaign": "Criar a campanha",
     "Into which campaign": "Em qual campanha",
-    "Numbers, one per line": "Números, um por linha",
-    "ACME, ask for Tizio, +39 333 123 4567": "ACME, peça por Tizio, +39 333 123 4567",
-    "Add to the list": "Adicionar à lista",
     "Do not call": "Não ligar",
     "Number never to call": "Número para nunca ligar",
     "Country code and number": "Código do país e número",

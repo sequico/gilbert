@@ -46,20 +46,37 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Number": "番号",
+    "Name": "名前",
+    "Details": "詳細",
+    "Campaign": "キャンペーン",
+    "Actions": "操作",
+    "Take": "取得",
+    "Release": "解放",
+    "Skip": "スキップ",
+    "“{outcome}” — when to call again?": "「{outcome}」— 次はいつかけますか？",
+    "In an hour": "1時間後",
+    "In three hours": "3時間後",
+    "Tomorrow": "明日",
+    "Close the row": "行を閉じる",
+    "Or a day of my own": "自分で日付を選ぶ",
+    "Reschedule": "再設定",
+    "Import a CSV": "CSVを読み込む",
+    "Download the template": "テンプレートをダウンロード",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — 番号は取り込み時に正規化され、同じリストを二度取り込んでも何も増えません。",
+    "Archived": "アーカイブ",
+    "Start a campaign": "キャンペーンを始める",
+    "Start a campaign, give it its script and outcomes, then import a list.": "キャンペーンを作り、スクリプトと結果を決めてから、リストを取り込んでください。",
+    "Settle the row in hand or release it before taking another.": "別の行を取る前に、手元の行を閉じるか解放してください。",
+    "Close it from the campaigns, with or without carrying the rows still open.": "キャンペーンから閉じてください。開いている行を引き継ぐかどうかを選べます。",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "前回の通話：{when} · {outcome}",
-    "Put it back": "戻す",
     "No list yet": "まだリストがありません",
-    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
-      "リストを始めましょう。目的と結果を決めてから、番号を貼り付けます。",
     "Runs from": "開始日",
     "Runs until": "終了日",
     "Leave the dates empty for a list with no window.":
       "期間のないリストにするには、日付を空のままにします。",
     "What was said": "話した内容",
-    "Call again": "再発信",
-    "A date keeps the row open until then; leaving it empty settles the row.":
-      "日時を入れるとその時点まで行は開いたままになります。空のままにすると行は完了します。",
     "Show more": "さらに表示",
     "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.":
       "このキャンペーンは終了しています。新しい行は追加できませんが、決定済みの行は引き続き引き渡せます。",
@@ -68,8 +85,6 @@ export const catalog: Catalog = {
     Campaigns: "キャンペーン",
     "All campaigns": "すべてのキャンペーン",
     "Your list": "あなたのリスト",
-    "Close it in Start a list, with or without carrying the rows still open.":
-      "「リストを始める」で閉じてください。開いている行を引き継ぐかどうかを選べます。",
     "The numbers this group promised never to call. A number here is never written into a campaign.":
       "このグループが決して電話しないと約束した番号です。ここの番号がキャンペーンに書き込まれることはありません。",
     "No row of this campaign ended that way.":
@@ -99,32 +114,26 @@ export const catalog: Catalog = {
     "{due} to call": "{due} 件の発信",
     "{ahead} later": "{ahead} 件は後日",
     "{held} in another caller's hands": "{held} 件は他の担当者",
-    "Settle the row in hand or put it back before taking another.":
-      "別の行を取る前に、手元の行を完了するか戻してください。",
     "How it went": "結果",
     "Call recorded": "通話を記録しました",
     "Wants a quote for January": "1月の見積もりを希望",
     "“{purpose}” is closed": "「{purpose}」は終了しました",
     "The list": "リスト",
-    "Continue this call": "この通話を続ける",
     "The numbers": "番号",
     "Closing and handoff": "終了と引き渡し",
     "No number blocked": "ブロックした番号はありません",
     "A number entered here is never written into this group's lists.":
       "ここに入力した番号がこのグループのリストに書き込まれることはありません。",
-    Queue: "キュー",
     "Nothing left to call": "かける相手が残っていません",
     "Every open row is done, due later, or in another caller's hands.":
       "開いている行はすべて完了、後日の期限、または他の発信者の手元にあります。",
     "ext. {extension}": "内線 {extension}",
-    "Take this row": "この行を取得",
     "yours now": "あなたの担当",
     Call: "電話する",
     "No number in this line": "この行に番号がありません",
     "The number does not say which country it is in": "番号から国が分かりません",
     "No country uses this number": "この番号を使う国はありません",
     "The line is empty": "行が空です",
-    "Start a list": "リストを始める",
     "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
       "リストはキャンペーンです。目的、発信者が選ぶ結果、そして1行に1件ずつ貼り付けた番号でできています。",
     Purpose: "目的",
@@ -133,9 +142,6 @@ export const catalog: Catalog = {
     Spoke: "話した",
     "Create the campaign": "キャンペーンを作成",
     "Into which campaign": "どのキャンペーンに",
-    "Numbers, one per line": "番号（1行に1件）",
-    "ACME, ask for Tizio, +39 333 123 4567": "ACME、Tizio を呼び出し、+39 333 123 4567",
-    "Add to the list": "リストに追加",
     "Do not call": "電話しない",
     "Number never to call": "決して電話しない番号",
     "Country code and number": "国番号と番号",

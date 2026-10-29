@@ -11,13 +11,13 @@ import type {
   CampaignDoc,
   CampaignOutcome,
   CampaignWindow,
-  RowDoc,
+  QueueRow,
 } from "@gilbert/shared/outbound";
 import { apiFetch } from "@/jmap/client";
 
-/** What Today holds: the rows to work and the counts beside them. */
+/** What Today holds: a page of the rows to work and the counts beside them. */
 export interface TodayBoard {
-  queue: RowDoc[];
+  queue: QueueRow[];
   /** Open rows due now and not another caller's, dated or not. */
   due: number;
   /** Open rows whose next call is still ahead. */
@@ -191,10 +191,14 @@ export async function setDoNotCall(
 }
 
 /** The queue this caller works today, narrowed to one campaign when asked. */
-export async function fetchToday(group: string, campaign = ""): Promise<TodayBoard> {
+export async function fetchToday(
+  group: string,
+  campaign = "",
+  limit = 10,
+): Promise<TodayBoard> {
   const narrow = campaign ? `&campaign=${encodeURIComponent(campaign)}` : "";
   const res = await apiFetch<TodayBoard>(
-    `/api/outbound/today?${groupQuery(group)}${narrow}`,
+    `/api/outbound/today?${groupQuery(group)}${narrow}&limit=${limit}`,
   );
   return {
     queue: res.queue ?? [],

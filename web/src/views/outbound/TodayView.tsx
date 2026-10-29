@@ -3,7 +3,9 @@ import type {
   CampaignDoc,
   CampaignOutcome,
   CampaignWindow,
+  RowCard,
   RowDoc,
+  QueueRow,
 } from "@gilbert/shared/outbound";
 import { Phone, PhoneOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -42,7 +44,14 @@ import { toast } from "@/ui/toast";
  * thousand is one document and one read, and what it must not be is a thousand
  * cards on a phone.
  */
-const PAGE = 20;
+const PAGE = 10;
+
+/**
+ * The file the import reads, as the template a group downloads: a header naming
+ * the columns, and one line showing a filled row.
+ */
+const TEMPLATE =
+  "company,person,role,phone\nNorthwind Traders,Mark Turner,Procurement manager,+442079460101\n";
 
 /**
  * Today (ADR 0040): the rows a caller works, one at a time, with the phone in
@@ -64,17 +73,17 @@ export function TodayView({ section }: { section?: string }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [taken, setTaken] = useState<RowDoc | null>(null);
+  const [taken, setTaken] = useState<QueueRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [doNotCall, setDoNotCallNumbers] = useState<string[]>([]);
   const [pages, setPages] = useState<ScriptPage[]>([]);
   /** The words the campaign of the row in hand pinned, if it pinned any. */
   const [script, setScript] = useState<string | null>(null);
-  /** What the call in hand said, and when to call again if it stays open. */
   const [note, setNote] = useState("");
-  const [nextCall, setNextCall] = useState("");
-  /** How much of the queue is drawn. */
-  const [visible, setVisible] = useState(PAGE);
+  /** How many rows the table asks for: ten at a time. */
+  const [page, setPage] = useState(PAGE);
+  /** Rows this caller passed over for now: the list is not changed, the view is. */
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
 
   // The group being worked, and the pane this route names.
   const active = activeGroupName(groups, group);
@@ -82,9 +91,9 @@ export function TodayView({ section }: { section?: string }) {
   // The queue the reader asked for, as the server answered for that set of
   // campaigns: the counts and the words beside it are about the same rows.
   const queue = board?.queue ?? [];
-  // What the pane draws: the first page of the queue, and as many pages as the
-  // reader asked for.
-  const shown = queue.slice(0, visible);
+  // The rows the table draws: the page the server answered, without the ones this
+  // caller passed over. Skipping is a view, so the list and its counts are intact.
+  const rows = queue.filter((row) => !skipped.has(row.uid));
   // The campaign a row belongs to: its purpose and its vocabulary are the document
   // the tree reads, not a second copy of them carried beside the queue.
   const campaignOf = (uid: string) => campaigns.find((entry) => entry.uid === uid);
@@ -99,7 +108,7 @@ export function TodayView({ section }: { section?: string }) {
     setLoadError(null);
     try {
       const [queue, blocked, scriptPages] = await Promise.all([
-        fetchToday(name, campaign),
+        fetchToday(name, campaign, page),
         fetchDoNotCall(name),
         fetchScriptPages(name),
       ]);
@@ -121,24 +130,27 @@ export function TodayView({ section }: { section?: string }) {
   useEffect(() => {
     setBoard(null);
     setTaken(null);
-    setVisible(PAGE);
+    setSkipped(new Set());
+    setPage(PAGE);
     setLoading(true);
   }, [active]);
 
   useEffect(() => {
     if (!active) return;
     void read(active);
-  }, [active, campaign]);
+  }, [active, campaign, page]);
 
   async function take(row: RowDoc) {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      setTaken(await takeRow(active, row.campaignUid, row.uid));
-      // A row in hand starts with nothing said and no date: both belong to this call.
+      const held = await takeRow(active, row.campaignUid, row.uid);
+      // The card travels with the row: the panel names who is being called, and it
+      // is read from the queue rather than asked for again.
+      setTaken({ ...held, card: row.card ?? null });
+      // A row in hand starts with nothing said: the note belongs to this call.
       setNote("");
-      setNextCall("");
       // The script the campaign pinned travels with the row: the same words were
       // said to every number of this list (ADR 0040).
       setScript(await fetchScript(active, row.campaignUid).catch(() => null));
@@ -278,7 +290,13 @@ export function TodayView({ section }: { section?: string }) {
     }
   }
 
-  async function settle(row: RowDoc, outcome: string) {
+  /** Pass over a row for now. Nothing is written: the list is not the caller's. */
+  async function skip(row: RowDoc) {
+    if (taken?.uid === row.uid) await putBack(row);
+    setSkipped((current) => new Set(current).add(row.uid));
+  }
+
+  async function settle(row: RowDoc, outcome: string, nextCallAt: string | null) {
     if (busy) return;
     setBusy(true);
     setError(null);
@@ -286,14 +304,10 @@ export function TodayView({ section }: { section?: string }) {
       await settleRow(active, row.campaignUid, row.uid, {
         outcome,
         note: note.trim() || null,
-        // A day keeps the row open from its first moment, ready to be called again;
-        // no date settles it.
-        nextCallAt:
-          nextCall === "" ? null : new Date(`${nextCall}T00:00:00`).toISOString(),
+        nextCallAt,
       });
       setTaken(null);
       setNote("");
-      setNextCall("");
       toast.success(t("Call recorded"));
       await read(active);
     } catch (err) {
@@ -347,7 +361,7 @@ export function TodayView({ section }: { section?: string }) {
 
           {taken && (
             <p className="hint">
-              {t("Settle the row in hand or put it back before taking another.")}
+              {t("Settle the row in hand or release it before taking another.")}
             </p>
           )}
 
@@ -360,12 +374,10 @@ export function TodayView({ section }: { section?: string }) {
           )}
 
           <section>
-            {queue.length === 0 && !taken ? (
+            {rows.length === 0 && !taken ? (
               campaigns.length === 0 ? (
                 <Empty icon={<Phone size={22} />} title={t("No list yet")}>
-                  {t(
-                    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.",
-                  )}
+                  {t("Start a campaign, give it its script and outcomes, then import a list.")}
                 </Empty>
               ) : (
                 <Empty icon={<Phone size={22} />} title={t("Nothing left to call")}>
@@ -373,74 +385,88 @@ export function TodayView({ section }: { section?: string }) {
                 </Empty>
               )
             ) : (
-              <>
-                {taken && (
-                  <TakenRow
-                    row={taken}
-                    outcomes={campaignOf(taken.campaignUid)?.outcomes ?? []}
-                    script={script}
-                    busy={busy}
-                    note={note}
-                    onNote={setNote}
-                    nextCall={nextCall}
-                    onNextCall={setNextCall}
-                    onSettle={(outcome) => void settle(taken, outcome)}
-                    onRelease={() => void putBack(taken)}
-                  />
-                )}
-                {shown
-                  .filter((row) => row.uid !== taken?.uid)
-                  .map((row) => {
+              <table className="sessions-table call-table">
+                <thead>
+                  <tr>
+                    <th>{t("Number")}</th>
+                    <th>{t("Name")}</th>
+                    <th>{t("Details")}</th>
+                    <th>{t("Campaign")}</th>
+                    <th aria-label={t("Actions")} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
                     const doc = campaignOf(row.campaignUid);
+                    const mine = taken?.uid === row.uid;
                     return (
-                      <div className="card" key={row.uid}>
-                        <div className="card-head">
-                          <h3>{row.e164}</h3>
+                      <tr key={row.uid} className={mine ? "active" : ""}>
+                        <td className="num">
+                          <a href={`tel:${row.e164}`}>{row.e164}</a>
                           {row.extension && (
-                            <span className="tag">
-                              {t("ext. {extension}", { extension: row.extension })}
-                            </span>
+                            <span className="tag">{t("ext. {extension}", { extension: row.extension })}</span>
                           )}
-                          {/* The campaign's name is only news when the queue is every
-                              campaign: filtering to one makes it a repeat on each card. */}
-                          {campaign === "" && doc?.purpose && (
-                            <span className="tag">{doc.purpose}</span>
+                        </td>
+                        <td>{row.card?.name ?? ""}</td>
+                        <td>
+                          {detailOf(row, row.card)}
+                          <LastCall row={row} outcomes={doc?.outcomes ?? []} />
+                        </td>
+                        <td>{doc?.purpose ?? ""}</td>
+                        <td className="row-actions">
+                          {mine ? (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              disabled={busy}
+                              onClick={() => void putBack(row)}
+                            >
+                              {t("Release")}
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              disabled={busy || taken !== null}
+                              onClick={() => void take(row)}
+                            >
+                              {t("Take")}
+                            </button>
                           )}
-                          {row.claim && <span className="tag">{t("yours now")}</span>}
-                        </div>
-                        {row.context && <p className="hint">{row.context}</p>}
-                        <LastCall row={row} outcomes={doc?.outcomes ?? []} />
-                        <p>
-                          {/* One primary on this pane: the call on the row in hand.
-                              Taking another is the same list, one row further on. */}
                           <button
-                            className="btn"
-                            disabled={busy || taken !== null}
-                            onClick={() => void take(row)}
+                            className="btn btn-ghost btn-sm"
+                            disabled={busy}
+                            onClick={() => void skip(row)}
                           >
-                            {/* A row this caller still holds offers to be picked up
-                                again, not taken: a reload forgets the row in hand, the
-                                claim on the server does not. */}
-                            {row.claim ? t("Continue this call") : t("Take this row")}
+                            {t("Skip")}
                           </button>
-                        </p>
-                      </div>
+                        </td>
+                      </tr>
                     );
                   })}
-                {visible < queue.length && (
-                  <p>
-                    <button
-                      className="btn"
-                      disabled={busy}
-                      onClick={() => setVisible((count) => count + PAGE)}
-                    >
-                      {t("Show more")}
-                    </button>
-                  </p>
-                )}
-              </>
+                </tbody>
+              </table>
+            )}
+            {queue.length === page && (
+              <p>
+                <button className="btn" disabled={busy} onClick={() => setPage((n) => n + PAGE)}>
+                  {t("Show more")}
+                </button>
+              </p>
             )}
           </section>
+
+          {taken && (
+            <CallPanel
+              row={taken}
+              card={taken.card}
+              outcomes={campaignOf(taken.campaignUid)?.outcomes ?? []}
+              script={script}
+              busy={busy}
+              note={note}
+              onNote={setNote}
+              onSettle={(outcome, nextCallAt) => void settle(taken, outcome, nextCallAt)}
+              onRelease={() => void putBack(taken)}
+            />
+          )}
 
           {findings.length > 0 && (
             <div className="warn-box" style={{ marginTop: 16 }}>
@@ -454,7 +480,7 @@ export function TodayView({ section }: { section?: string }) {
               ))}
               <p className="hint">
                 {t(
-                  "Close it in Start a list, with or without carrying the rows still open.",
+                  "Close it from the campaigns, with or without carrying the rows still open.",
                 )}
               </p>
             </div>
@@ -481,7 +507,7 @@ export function TodayView({ section }: { section?: string }) {
 
       {board && view === "new" && (
         <>
-          <h1>{t("Start a list")}</h1>
+          <h1>{t("Start a campaign")}</h1>
           <StartList
             campaigns={campaigns}
             pages={pages}
@@ -499,64 +525,67 @@ export function TodayView({ section }: { section?: string }) {
 }
 
 /**
- * The row in this caller's hands: the number to dial on the phone beside them,
- * and the campaign's own vocabulary to say how it went.
+ * The row in this caller's hands, open under the table.
+ *
+ * The words the campaign pinned, what the call said, and how it went. The outcome
+ * is picked first and the delay second, because *when to call again* is the
+ * caller's decision at that moment and not a property of the word.
  */
-function TakenRow({
+function CallPanel({
   row,
+  card,
   outcomes,
   script,
   busy,
   note,
   onNote,
-  nextCall,
-  onNextCall,
   onSettle,
   onRelease,
 }: {
   row: RowDoc;
+  card: RowCard | null;
   outcomes: readonly CampaignOutcome[];
   /** The words the campaign pinned, when it pinned any. */
   script: string | null;
   busy: boolean;
   note: string;
   onNote: (note: string) => void;
-  /** "YYYY-MM-DD", or "" when the call settles the row. */
-  nextCall: string;
-  onNextCall: (nextCall: string) => void;
-  onSettle: (outcome: string) => void;
-  /** Give the row back before its call. */
+  /** The outcome, and when to call again: null settles the row. */
+  onSettle: (outcome: string, nextCallAt: string | null) => void;
+  /** Release the row: the panel closes with it. */
   onRelease: () => void;
 }) {
+  const [outcome, setOutcome] = useState<string | null>(null);
+  const [day, setDay] = useState("");
+  const chosen = outcomes.find((entry) => entry.id === outcome) ?? null;
+  const inHours = (hours: number) =>
+    new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+  const tomorrow = () => {
+    const at = new Date();
+    at.setDate(at.getDate() + 1);
+    at.setHours(9, 0, 0, 0);
+    return at.toISOString();
+  };
+
   return (
-    <div className="card" style={{ borderLeft: "3px solid var(--accent)" }}>
-      <div className="card-head">
-        <h3>{row.e164}</h3>
-        {row.extension && (
-          <span className="tag">
-            {t("ext. {extension}", { extension: row.extension })}
-          </span>
-        )}
+    <section className="call-panel">
+      <div className="row">
+        <h2>{card?.name ?? row.e164}</h2>
         <span className="tag">{t("yours now")}</span>
       </div>
-      {row.context && <p className="hint">{row.context}</p>}
-      <LastCall row={row} outcomes={outcomes} />
-      <p>
+      <p className="row call-panel-line">
         {/* The product has no telephony: the number is dialled by the phone this
             page is looked at on, which is the whole reason the row was taken. */}
         <a className="btn btn-primary" href={`tel:${row.e164}`}>
           <Phone size={16} /> {t("Call")}
         </a>
+        <span className="hint">{detailOf(row, card)}</span>
       </p>
-      {script && (
-        <div className="hint" style={{ whiteSpace: "pre-wrap", marginBottom: 10 }}>
-          {script}
-        </div>
-      )}
+      {script && <div className="call-script">{script}</div>}
       <div className="field">
-        <label htmlFor="today-note">{t("What was said")}</label>
+        <label htmlFor="call-note">{t("What was said")}</label>
         <input
-          id="today-note"
+          id="call-note"
           className="input"
           value={note}
           disabled={busy}
@@ -564,49 +593,104 @@ function TakenRow({
           onChange={(e) => onNote(e.target.value)}
         />
       </div>
-      <div className="field">
-        <label htmlFor="today-next-call">{t("Call again")}</label>
-        <DateField
-          id="today-next-call"
-          value={nextCall}
-          disabled={busy}
-          onChange={onNextCall}
-        />
-        <p className="hint">
-          {t("A date keeps the row open until then; leaving it empty settles the row.")}
-        </p>
-      </div>
-      <p className="hint">{t("How it went")}</p>
-      <div
-        className="row"
-        role="group"
-        aria-label={t("How it went")}
-        style={{ flexWrap: "wrap", gap: 8 }}
-      >
-        {outcomes.map((outcome) => (
-          <button
-            key={outcome.id}
-            className="btn btn-ghost"
-            disabled={busy}
-            onClick={() => onSettle(outcome.id)}
+      {chosen === null ? (
+        <>
+          <p className="hint">{t("How it went")}</p>
+          <div
+            className="row"
+            role="group"
+            aria-label={t("How it went")}
+            style={{ flexWrap: "wrap", gap: 8 }}
           >
-            {outcome.label}
-          </button>
-        ))}
-      </div>
-      {/* On its own line and quiet: giving the row back is not a way of saying how
-          the call went, it is saying that there was no call. */}
-      <p style={{ marginTop: 10 }}>
+            {outcomes.map((entry) => (
+              <button
+                key={entry.id}
+                className="btn btn-ghost"
+                disabled={busy}
+                onClick={() => setOutcome(entry.id)}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="hint">
+            {t("“{outcome}” — when to call again?", { outcome: chosen.label })}
+          </p>
+          <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+            <button
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => onSettle(chosen.id, inHours(1))}
+            >
+              {t("In an hour")}
+            </button>
+            <button
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => onSettle(chosen.id, inHours(3))}
+            >
+              {t("In three hours")}
+            </button>
+            <button
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => onSettle(chosen.id, tomorrow())}
+            >
+              {t("Tomorrow")}
+            </button>
+            <button
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => onSettle(chosen.id, null)}
+            >
+              {t("Close the row")}
+            </button>
+            <button
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() => setOutcome(null)}
+            >
+              {t("Cancel")}
+            </button>
+          </div>
+          <div className="field">
+            <label htmlFor="call-day">{t("Or a day of my own")}</label>
+            <div className="row">
+              <DateField id="call-day" value={day} disabled={busy} onChange={setDay} />
+              <button
+                className="btn"
+                disabled={busy || day === ""}
+                onClick={() =>
+                  onSettle(chosen.id, new Date(`${day}T09:00:00`).toISOString())
+                }
+              >
+                {t("Reschedule")}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+      {/* On its own line and quiet: releasing the row is not a way of saying how the
+          call went, it is saying that there was no call. */}
+      <p style={{ marginTop: 12 }}>
         <button className="btn btn-ghost" disabled={busy} onClick={onRelease}>
-          {t("Put it back")}
+          {t("Release")}
         </button>
       </p>
-    </div>
+    </section>
   );
 }
 
-/** What the last call to this number said, when there was one. */
-function LastCall({
+/** Who this number is: the card's names, or the words that arrived with it. */
+function detailOf(row: RowDoc, card: RowCard | null): string {
+  if (card) return [card.company, card.title].filter(Boolean).join(" · ");
+  return row.context ?? "";
+}
+
+/** What the last call to this number said, when there was one. */function LastCall({
   row,
   outcomes,
 }: {
@@ -689,7 +773,6 @@ function StartList({
   onError: (message: string | null) => void;
 }) {
   const [target, setTarget] = useState("");
-  const [paste, setPaste] = useState("");
   const [report, setReport] = useState<ImportReport | null>(null);
   const [purpose, setPurpose] = useState("");
   const [vocabulary, setVocabulary] = useState("");
@@ -733,15 +816,14 @@ function StartList({
     }
   }
 
-  async function add() {
-    if (working || !chosen || paste.trim() === "") return;
+  async function add(text: string) {
+    if (working || !chosen || text.trim() === "") return;
     setWorking(true);
     onError(null);
     setReport(null);
     try {
-      const imported = await importRows(group, chosen, paste);
+      const imported = await importRows(group, chosen, text);
       setReport(imported);
-      setPaste("");
       onCreated();
     } catch (err) {
       onError(errorMessage(err));
@@ -845,25 +927,38 @@ function StartList({
 
           {open ? (
             <>
+              {/* A list arrives as a file with columns, never as a form filled once
+                  per number: the template says what the columns are. */}
               <div className="field">
-                <label htmlFor="today-paste">{t("Numbers, one per line")}</label>
-                <textarea
-                  id="today-paste"
-                  className="textarea"
-                  value={paste}
-                  placeholder={t("ACME, ask for Tizio, +39 333 123 4567")}
-                  onChange={(e) => setPaste(e.target.value)}
-                />
+                <label htmlFor="today-file">{t("Import a CSV")}</label>
+                <div className="row">
+                  <input
+                    id="today-file"
+                    className="input"
+                    type="file"
+                    accept=".csv,text/csv"
+                    disabled={disabled}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      void file.text().then((text) => add(text));
+                    }}
+                  />
+                  <button
+                    className="btn btn-ghost"
+                    disabled={disabled}
+                    onClick={() => downloadFile(TEMPLATE, "text/csv", "outbound-list.csv")}
+                  >
+                    {t("Download the template")}
+                  </button>
+                </div>
+                <p className="hint">
+                  {t(
+                    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.",
+                  )}
+                </p>
               </div>
-              <p>
-                <button
-                  className="btn btn-primary"
-                  disabled={disabled || paste.trim() === ""}
-                  onClick={() => void add()}
-                >
-                  {t("Add to the list")}
-                </button>
-              </p>
               {report && (
                 <div className="hint">
                   <p>

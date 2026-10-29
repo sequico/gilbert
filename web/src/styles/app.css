@@ -1849,6 +1849,24 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
    metrics is read for. */
 .sessions-table th.num, .sessions-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* Today's table: what a caller reads across a row, and the row's own actions at
+   the far end. A row in the caller's hands is marked at its left edge. */
+.call-table td { vertical-align: top; }
+.call-table td .tag { margin-left: 6px; }
+.call-table tbody tr.active td { background: var(--accent-soft); }
+.call-table tbody tr.active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.call-table .row-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+
+/* The row in hand, opened under the table: the script it reads, the note, how it
+   went. It closes with the release, which is the same act as taking it back. */
+.call-panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); padding: 16px; margin-top: 16px; }
+.call-panel h2 { margin: 0; font-size: 1.1em; font-weight: 650; flex: 1; }
+.call-panel-line { margin: 12px 0; gap: 12px; }
+.call-script { border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; margin: 12px 0; color: var(--fg-muted); white-space: pre-wrap; font-size: .95em; }
+
+/* A closed campaign is named in the tree, not offered: there is no work in it. */
+.nav-item.archived-item { color: var(--fg-muted); cursor: default; }
+
 /* The agent's headline numbers: a row of tiles, wrapping on a narrow page. */
 .status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
 .status-dot.ok { background: var(--success); }

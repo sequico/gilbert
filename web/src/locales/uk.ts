@@ -43,20 +43,37 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Number": "Номер",
+    "Name": "Ім'я",
+    "Details": "Деталі",
+    "Campaign": "Кампанія",
+    "Actions": "Дії",
+    "Take": "Взяти",
+    "Release": "Відпустити",
+    "Skip": "Пропустити",
+    "“{outcome}” — when to call again?": "«{outcome}» — коли передзвонити?",
+    "In an hour": "Через годину",
+    "In three hours": "Через три години",
+    "Tomorrow": "Завтра",
+    "Close the row": "Закрити рядок",
+    "Or a day of my own": "Або свій день",
+    "Reschedule": "Перенести",
+    "Import a CSV": "Імпортувати CSV",
+    "Download the template": "Завантажити шаблон",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — номер нормалізується під час імпорту, і список, імпортований двічі, вдруге нічого не додає.",
+    "Archived": "Архів",
+    "Start a campaign": "Почати кампанію",
+    "Start a campaign, give it its script and outcomes, then import a list.": "Почніть кампанію, задайте їй сценарій та результати, потім імпортуйте список.",
+    "Settle the row in hand or release it before taking another.": "Закрийте або відпустіть рядок у руках, перш ніж брати інший.",
+    "Close it from the campaigns, with or without carrying the rows still open.": "Закрийте її з кампаній — з перенесенням відкритих рядків або без.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Останній дзвінок: {when} · {outcome}",
-    "Put it back": "Повернути",
     "No list yet": "Списку ще немає",
-    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
-      "Почніть список: задайте йому мету та її результати, потім вставте номери.",
     "Runs from": "Початок",
     "Runs until": "Завершення",
     "Leave the dates empty for a list with no window.":
       "Залиште дати порожніми для списку без вікна.",
     "What was said": "Що було сказано",
-    "Call again": "Передзвонити",
-    "A date keeps the row open until then; leaving it empty settles the row.":
-      "Дата тримає рядок відкритим до того часу; якщо лишити порожнім, рядок закривається.",
     "Show more": "Показати більше",
     "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.":
       "Кампанію закрито: нові рядки не приймаються, а вирішені рядки все ще можна передати.",
@@ -65,8 +82,6 @@ export const catalog: Catalog = {
     Campaigns: "Кампанії",
     "All campaigns": "Усі кампанії",
     "Your list": "Ваш список",
-    "Close it in Start a list, with or without carrying the rows still open.":
-      "Закрийте її в «Почати список» — з перенесенням відкритих рядків або без.",
     "The numbers this group promised never to call. A number here is never written into a campaign.":
       "Номери, які ця група обіцяла ніколи не набирати. Номер звідси ніколи не потрапляє в кампанію.",
     "No row of this campaign ended that way.":
@@ -96,25 +111,20 @@ export const catalog: Catalog = {
     "{due} to call": "{due} набрати",
     "{ahead} later": "{ahead} пізніше",
     "{held} in another caller's hands": "{held} у іншого",
-    "Settle the row in hand or put it back before taking another.":
-      "Закрийте рядок у руках або поверніть його, перш ніж брати інший.",
     "How it went": "Як минуло",
     "Call recorded": "Дзвінок записано",
     "Wants a quote for January": "Просить кошторис на січень",
     "“{purpose}” is closed": "«{purpose}» закрито",
     "The list": "Список",
-    "Continue this call": "Продовжити цей дзвінок",
     "The numbers": "Номери",
     "Closing and handoff": "Закриття та передача",
     "No number blocked": "Жодного заблокованого номера",
     "A number entered here is never written into this group's lists.":
       "Номер, введений тут, ніколи не потрапляє до списків цієї групи.",
-    Queue: "Черга",
     "Nothing left to call": "Більше нема кому телефонувати",
     "Every open row is done, due later, or in another caller's hands.":
       "Кожен відкритий рядок або закрито, або він чекає пізнішого строку, або він у руках іншого телефонуючого.",
     "ext. {extension}": "внутр. {extension}",
-    "Take this row": "Взяти цей рядок",
     "yours now": "тепер ваш",
     Call: "Зателефонувати",
     "No number in this line": "У цьому рядку немає номера",
@@ -122,7 +132,6 @@ export const catalog: Catalog = {
       "За номером не зрозуміти, у якій він країні",
     "No country uses this number": "Жодна країна не використовує цей номер",
     "The line is empty": "Рядок порожній",
-    "Start a list": "Почати список",
     "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
       "Список — це кампанія: мета, результати, які оберуть телефонуючі, і номери, вставлені по одному в рядку.",
     Purpose: "Мета",
@@ -131,9 +140,6 @@ export const catalog: Catalog = {
     Spoke: "Поговорили",
     "Create the campaign": "Створити кампанію",
     "Into which campaign": "У яку кампанію",
-    "Numbers, one per line": "Номери, по одному в рядку",
-    "ACME, ask for Tizio, +39 333 123 4567": "ACME, запитати Тіціо, +39 333 123 4567",
-    "Add to the list": "Додати до списку",
     "Do not call": "Не телефонувати",
     "Number never to call": "Номер, на який не телефонувати",
     "Country code and number": "Код країни й номер",

@@ -11,7 +11,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
-import { readCardIndex } from "../outbound/cards.js";
+import { readCardIndex, readRowCards } from "../outbound/cards.js";
 import {
   listCampaigns,
   mutateDoNotCall,
@@ -39,6 +39,7 @@ import type {
   CampaignOutcome,
   CampaignScriptRef,
   CampaignWindow,
+  QueueRow,
 } from "../shared/outbound.js";
 import { isPastWindow } from "../shared/outbound.js";
 import type { Env } from "./shared.js";
@@ -396,6 +397,7 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         session,
         required(c.req.query("group"), "group"),
       );
+      const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 10) || 10, 1), 50);
       const wanted = c.req.query("campaign") ?? "";
       const { docs: campaigns, problems } = await listCampaigns(ctx, accountId);
       const running = campaigns.filter(
@@ -408,11 +410,24 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         problems.push(...read.problems);
         rows.push(...read.docs);
       }
-      // The whole queue, ordered: a campaign is one document, so the page the
-      // reader sees is the pane's to cut, and the counts can never disagree with
-      // the list they sit above.
+      /*
+       * The counts describe the whole list and the rows a page of it: the table a
+       * caller works draws ten at a time, and the names beside them are the cards
+       * those ten point at — one read for the page, never a walk through the
+       * address book.
+       */
       const today = todayQueue(rows, { caller: session.username, now: new Date() });
-      return c.json({ ok: true, ...today, problems });
+      const page = today.queue.slice(0, limit);
+      const cards = await readRowCards(
+        ctx,
+        accountId,
+        page.map((row) => row.cardUid).filter((uid): uid is string => uid !== null),
+      );
+      const queue: QueueRow[] = page.map((row) => ({
+        ...row,
+        card: row.cardUid === null ? null : (cards[row.cardUid] ?? null),
+      }));
+      return c.json({ ok: true, ...today, queue, problems });
     } catch (err) {
       return outboundFailure(c, err);
     }

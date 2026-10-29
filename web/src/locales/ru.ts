@@ -49,20 +49,37 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Number": "Номер",
+    "Name": "Имя",
+    "Details": "Детали",
+    "Campaign": "Кампания",
+    "Actions": "Действия",
+    "Take": "Взять",
+    "Release": "Освободить",
+    "Skip": "Пропустить",
+    "“{outcome}” — when to call again?": "«{outcome}» — когда перезвонить?",
+    "In an hour": "Через час",
+    "In three hours": "Через три часа",
+    "Tomorrow": "Завтра",
+    "Close the row": "Закрыть строку",
+    "Or a day of my own": "Или свой день",
+    "Reschedule": "Перенести",
+    "Import a CSV": "Импортировать CSV",
+    "Download the template": "Скачать шаблон",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — номер нормализуется при импорте, и список, импортированный дважды, во второй раз ничего не добавляет.",
+    "Archived": "Архив",
+    "Start a campaign": "Начать кампанию",
+    "Start a campaign, give it its script and outcomes, then import a list.": "Начните кампанию, задайте ей сценарий и исходы, затем импортируйте список.",
+    "Settle the row in hand or release it before taking another.": "Закройте или освободите строку в руках, прежде чем брать другую.",
+    "Close it from the campaigns, with or without carrying the rows still open.": "Закройте её из кампаний — с переносом открытых строк или без.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Последний звонок: {when} · {outcome}",
-    "Put it back": "Вернуть",
     "No list yet": "Списка ещё нет",
-    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
-      "Начните список: задайте ему цель и её исходы, затем вставьте номера.",
     "Runs from": "Начало",
     "Runs until": "Окончание",
     "Leave the dates empty for a list with no window.":
       "Оставьте даты пустыми для списка без окна.",
     "What was said": "Что было сказано",
-    "Call again": "Перезвонить",
-    "A date keeps the row open until then; leaving it empty settles the row.":
-      "Дата держит строку открытой до этого момента; если оставить пусто, строка закрывается.",
     "Show more": "Показать ещё",
     "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.":
       "Кампания закрыта: новые строки не принимаются, а решённые строки всё ещё можно передать.",
@@ -71,8 +88,6 @@ export const catalog: Catalog = {
     Campaigns: "Кампании",
     "All campaigns": "Все кампании",
     "Your list": "Ваш список",
-    "Close it in Start a list, with or without carrying the rows still open.":
-      "Закройте её в «Начать список» — с переносом открытых строк или без.",
     "The numbers this group promised never to call. A number here is never written into a campaign.":
       "Номера, которые эта группа обещала никогда не набирать. Номер отсюда никогда не попадает в кампанию.",
     "No row of this campaign ended that way.":
@@ -102,25 +117,20 @@ export const catalog: Catalog = {
     "{due} to call": "{due} набрать",
     "{ahead} later": "{ahead} позже",
     "{held} in another caller's hands": "{held} у другого",
-    "Settle the row in hand or put it back before taking another.":
-      "Закройте строку в руках или верните её, прежде чем брать другую.",
     "How it went": "Как прошло",
     "Call recorded": "Звонок записан",
     "Wants a quote for January": "Просит смету на январь",
     "“{purpose}” is closed": "«{purpose}» закрыта",
     "The list": "Список",
-    "Continue this call": "Продолжить этот звонок",
     "The numbers": "Номера",
     "Closing and handoff": "Закрытие и передача",
     "No number blocked": "Нет заблокированных номеров",
     "A number entered here is never written into this group's lists.":
       "Номер, введённый здесь, никогда не попадает в списки этой группы.",
-    Queue: "Очередь",
     "Nothing left to call": "Звонить больше некому",
     "Every open row is done, due later, or in another caller's hands.":
       "Каждая открытая строка либо закрыта, либо ждёт срока позже, либо в руках другого звонящего.",
     "ext. {extension}": "доб. {extension}",
-    "Take this row": "Взять эту строку",
     "yours now": "теперь ваша",
     Call: "Позвонить",
     "No number in this line": "В этой строке нет номера",
@@ -128,7 +138,6 @@ export const catalog: Catalog = {
       "По номеру не понять, в какой он стране",
     "No country uses this number": "Ни одна страна не использует этот номер",
     "The line is empty": "Строка пуста",
-    "Start a list": "Начать список",
     "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
       "Список — это кампания: цель, исходы, которые выберут звонящие, и номера, вставленные по одному в строке.",
     Purpose: "Цель",
@@ -137,9 +146,6 @@ export const catalog: Catalog = {
     Spoke: "Поговорили",
     "Create the campaign": "Создать кампанию",
     "Into which campaign": "В какую кампанию",
-    "Numbers, one per line": "Номера, по одному в строке",
-    "ACME, ask for Tizio, +39 333 123 4567": "ACME, спросить Тицио, +39 333 123 4567",
-    "Add to the list": "Добавить в список",
     "Do not call": "Не звонить",
     "Number never to call": "Номер, на который не звонить",
     "Country code and number": "Код страны и номер",

@@ -194,6 +194,21 @@ export interface DoNotCallDoc {
 }
 
 /**
+ * Who the card of a row says the caller is about to speak to.
+ *
+ * The row does not hold identity — the card does — so the queue carries this
+ * beside the row for the names the table draws, and nothing writes it back.
+ */
+export interface RowCard {
+  name: string;
+  company: string | null;
+  title: string | null;
+}
+
+/** A row as the queue answers it: the document, and its card's name when it has one. */
+export type QueueRow = RowDoc & { card: RowCard | null };
+
+/**
  * The calls a card carries, whoever dialled them.
  *
  * The row dies with its campaign; this does not. It is what makes a card opened

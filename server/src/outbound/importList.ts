@@ -10,7 +10,12 @@
  * Four things a line can be, and a person is told each of them: a row, a
  * duplicate of another line in the same paste or of a row the campaign already
  * holds, a number the group promised never to call, or a line this build cannot
- * read.
+ * read. An import never doubles a list: a file read a second time adds nothing
+ * and says how much it skipped.
+ *
+ * A file named by columns is read by them (`company,person,role,phone`, in any
+ * order, with a header); anything else is read as a bare list, which is what a
+ * pasted column of numbers is.
  */
 
 import type { RowDoc } from "../shared/outbound.js";
@@ -52,6 +57,85 @@ export interface ImportInput {
   newUid: () => string;
 }
 
+/** One field of a CSV line, with quoted fields and doubled quotes read as one. */
+function csvFields(line: string): string[] {
+  const fields: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else quoted = false;
+      } else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") {
+      fields.push(field);
+      field = "";
+    } else field += ch;
+  }
+  fields.push(field);
+  return fields;
+}
+
+/**
+ * The header words each column answers to.
+ *
+ * A header is a header because it names the number's column: a file whose first
+ * line says `phone` is read by its columns, and one that does not is a bare list
+ * of entries, which is what a pasted column of numbers is.
+ */
+const CSV_COLUMNS = {
+  company: ["company", "organisation", "organization", "account", "customer"],
+  person: ["person", "name", "contact", "full name", "first name"],
+  role: ["role", "title", "job title", "position"],
+  phone: ["phone", "number", "telephone", "tel", "mobile", "e164"],
+} as const;
+
+type CsvColumn = keyof typeof CSV_COLUMNS;
+
+interface CsvHeader {
+  /** The field each column sits in, when the file has it at all. */
+  at: Partial<Record<CsvColumn, number>>;
+}
+
+/** The columns a file's first line names, or null when it names none. */
+function csvHeader(first: string): CsvHeader | null {
+  const fields = csvFields(first).map((field) => field.trim().toLowerCase());
+  const at: Partial<Record<CsvColumn, number>> = {};
+  for (const column of Object.keys(CSV_COLUMNS) as CsvColumn[]) {
+    const found = fields.findIndex((field) => CSV_COLUMNS[column].includes(field));
+    if (found >= 0) at[column] = found;
+  }
+  return at.phone === undefined ? null : { at };
+}
+
+/** What one line of a file gives: the entry to normalise, and the words around it. */
+function csvLine(line: string, header: CsvHeader): {
+  entry: string;
+  context: string | null;
+} {
+  const fields = csvFields(line);
+  const pick = (column: CsvColumn): string => {
+    const at = header.at[column];
+    return at === undefined ? "" : (fields[at] ?? "").trim();
+  };
+  const company = pick("company");
+  const person = pick("person");
+  const role = pick("role");
+  const context = [
+    company,
+    person ? `ask for ${person}` : "",
+    role ? `(${role})` : "",
+  ]
+    .filter((part) => part !== "")
+    .join(" ");
+  return { entry: pick("phone"), context: context === "" ? null : context };
+}
+
 /** Read a pasted list into the rows a campaign is about to hold. */
 export function planImport({
   campaignUid,
@@ -81,16 +165,22 @@ export function planImport({
   let blockedCount = 0;
   let matched = 0;
 
-  for (const raw of text.split(/\r?\n/)) {
+  const lines = text.split(/\r?\n/).filter((raw) => raw.trim() !== "");
+  const first = lines[0];
+  const header = first === undefined ? null : csvHeader(first);
+  for (const raw of header ? lines.slice(1) : lines) {
     const line = raw.trim();
     if (!line) continue;
 
-    const { entry, context } = lineEntry(line);
-    if (!entry) {
+    // A file read by its columns names the number in one of them; a bare list is
+    // read for the number inside its line.
+    const read = header ? csvLine(line, header) : lineEntry(line);
+    if (!read.entry) {
       refused.push({ line, reason: "no_number" });
       continue;
     }
-    const number = normaliseNumber(entry);
+    const number = normaliseNumber(read.entry);
+    const context = read.context;
     if (!number.ok) {
       refused.push({ line, reason: number.reason });
       continue;

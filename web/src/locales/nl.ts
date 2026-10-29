@@ -43,20 +43,37 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Number": "Nummer",
+    "Name": "Naam",
+    "Details": "Details",
+    "Campaign": "Campagne",
+    "Actions": "Acties",
+    "Take": "Overnemen",
+    "Release": "Vrijgeven",
+    "Skip": "Overslaan",
+    "“{outcome}” — when to call again?": "‘{outcome}’ — wanneer opnieuw bellen?",
+    "In an hour": "Over een uur",
+    "In three hours": "Over drie uur",
+    "Tomorrow": "Morgen",
+    "Close the row": "Rij sluiten",
+    "Or a day of my own": "Of een eigen dag",
+    "Reschedule": "Opnieuw plannen",
+    "Import a CSV": "CSV importeren",
+    "Download the template": "Sjabloon downloaden",
+    "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — het nummer wordt bij de import genormaliseerd, en een lijst die je twee keer importeert voegt de tweede keer niets toe.",
+    "Archived": "Gearchiveerd",
+    "Start a campaign": "Campagne starten",
+    "Start a campaign, give it its script and outcomes, then import a list.": "Start een campagne, geef hem zijn script en uitkomsten, en importeer daarna een lijst.",
+    "Settle the row in hand or release it before taking another.": "Sluit of geef de rij in je hand vrij voordat je een andere neemt.",
+    "Close it from the campaigns, with or without carrying the rows still open.": "Sluit hem vanuit de campagnes, met of zonder de open rijen.",
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "Last call: {when} · {outcome}": "Laatste gesprek: {when} · {outcome}",
-    "Put it back": "Terugleggen",
     "No list yet": "Nog geen lijst",
-    "Start a list: give it a purpose and its outcomes, then paste the numbers into it.":
-      "Begin een lijst: geef hem een doel en zijn uitkomsten, en plak daarna de nummers.",
     "Runs from": "Loopt vanaf",
     "Runs until": "Loopt tot",
     "Leave the dates empty for a list with no window.":
       "Laat de datums leeg voor een lijst zonder periode.",
     "What was said": "Wat er is gezegd",
-    "Call again": "Opnieuw bellen",
-    "A date keeps the row open until then; leaving it empty settles the row.":
-      "Een datum houdt de rij tot dan open; laat je hem leeg, dan wordt de rij afgesloten.",
     "Show more": "Meer tonen",
     "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.":
       "Deze campagne is gesloten: hij neemt geen nieuwe rijen aan, en de besliste rijen kunnen nog worden overgedragen.",
@@ -65,8 +82,6 @@ export const catalog: Catalog = {
     Campaigns: "Campagnes",
     "All campaigns": "Alle campagnes",
     "Your list": "Jouw lijst",
-    "Close it in Start a list, with or without carrying the rows still open.":
-      "Sluit hem bij „Een lijst beginnen“, met of zonder de open rijen.",
     "The numbers this group promised never to call. A number here is never written into a campaign.":
       "De nummers die deze groep nooit zal bellen. Een nummer hier komt nooit in een campagne.",
     "No row of this campaign ended that way.": "Geen rij van deze campagne eindigde zo.",
@@ -95,25 +110,20 @@ export const catalog: Catalog = {
     "{due} to call": "{due} te bellen",
     "{ahead} later": "{ahead} later",
     "{held} in another caller's hands": "{held} bij een ander",
-    "Settle the row in hand or put it back before taking another.":
-      "Rond de rij in je hand af of leg hem terug voordat je een andere neemt.",
     "How it went": "Hoe het ging",
     "Call recorded": "Gesprek vastgelegd",
     "Wants a quote for January": "Wil een offerte voor januari",
     "“{purpose}” is closed": "‘{purpose}’ is gesloten",
     "The list": "De lijst",
-    "Continue this call": "Dit gesprek hervatten",
     "The numbers": "De nummers",
     "Closing and handoff": "Sluiten en overdragen",
     "No number blocked": "Geen nummer geblokkeerd",
     "A number entered here is never written into this group's lists.":
       "Een hier ingevoerd nummer komt nooit in de lijsten van deze groep.",
-    Queue: "Wachtrij",
     "Nothing left to call": "Niets meer om te bellen",
     "Every open row is done, due later, or in another caller's hands.":
       "Elke open rij is gedaan, later aan de beurt, of in handen van een andere beller.",
     "ext. {extension}": "toestel {extension}",
-    "Take this row": "Deze rij nemen",
     "yours now": "nu van jou",
     Call: "Bellen",
     "No number in this line": "Geen nummer in deze regel",
@@ -121,7 +131,6 @@ export const catalog: Catalog = {
       "Het nummer zegt niet in welk land het ligt",
     "No country uses this number": "Geen land gebruikt dit nummer",
     "The line is empty": "De regel is leeg",
-    "Start a list": "Een lijst beginnen",
     "A list is a campaign: a purpose, the outcomes its callers will choose, and the numbers, pasted one per line.":
       "Een lijst is een campagne: een doel, de uitkomsten die de bellers kiezen, en de nummers, één per regel geplakt.",
     Purpose: "Doel",
@@ -130,9 +139,6 @@ export const catalog: Catalog = {
     Spoke: "Gesproken",
     "Create the campaign": "Campagne aanmaken",
     "Into which campaign": "In welke campagne",
-    "Numbers, one per line": "Nummers, één per regel",
-    "ACME, ask for Tizio, +39 333 123 4567": "ACME, vraag naar Tizio, +39 333 123 4567",
-    "Add to the list": "Aan de lijst toevoegen",
     "Do not call": "Niet bellen",
     "Number never to call": "Nummer dat nooit gebeld wordt",
     "Country code and number": "Landcode en nummer",
