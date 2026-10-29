@@ -382,6 +382,9 @@ export function TodayView({ section }: { section?: string }) {
                             </span>
                           )}
                           {purpose && <span className="tag">{purpose}</span>}
+                          {/* After a reload the row in hand is just a row again: the
+                              claim says it is still this caller's to finish. */}
+                          {row.claim && <span className="tag">{t("yours now")}</span>}
                         </div>
                         {row.context && <p className="hint">{row.context}</p>}
                         <p>
