@@ -11,13 +11,12 @@ import { ContactsView } from "../ContactsView";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * Importing and exporting, where a reader can find them, and into what.
+ * Importing and exporting, and into what.
  *
- * Both lived only in the `…` of a book's row, so a migration began by guessing.
- * The sidebar now carries them at the foot of the books; the destination is what
- * is selected, and a book in another account -- a group's own directory -- takes
- * an import like any other, which is what the view used to refuse by looking only
- * in the reader's own books.
+ * Both are a book's own commands: they live in the row's menu and nowhere else,
+ * so the account and the book are the row that was right-clicked — a group's
+ * own directory takes an import like any other, and the action runs in that
+ * group.
  */
 
 const book = (id: string, name: string, mayWrite = true) =>
@@ -64,12 +63,28 @@ const arrange = (selection: { accountId: string | null; bookId: string }) => {
   });
 };
 
-describe("bulk import and export", () => {
+describe("import and export from a book's menu", () => {
   let host: HTMLDivElement;
   let root: Root;
 
-  const labels = () =>
-    [...host.querySelectorAll(".contacts-bulk button")].map((b) => b.textContent?.trim());
+  /** The row of one book, by the name it shows. */
+  const row = (name: string) =>
+    [...host.querySelectorAll<HTMLElement>(".nav-item")].find((el) =>
+      el.textContent?.includes(name),
+    );
+  /** The menu entry carrying `label`, wherever the popover put it. */
+  const item = (label: string) =>
+    [...document.body.querySelectorAll<HTMLButtonElement>(".menu-item")].find((b) =>
+      b.textContent?.includes(label),
+    );
+
+  const openMenuOf = async (name: string) => {
+    const more = row(name)?.querySelector<HTMLButtonElement>(".nav-more");
+    expect(more, `the row of "${name}" carries a menu`).toBeTruthy();
+    await act(async () => {
+      more!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  };
 
   beforeEach(() => {
     vi.stubGlobal("matchMedia", (query: string) => ({
@@ -106,21 +121,21 @@ describe("bulk import and export", () => {
     await act(async () => {});
   };
 
-  it("offers both at the foot of the books, named for the selection", async () => {
+  it("keeps both commands out of the tree", async () => {
     await mountSidebar({ accountId: null, bookId: "all" });
-    expect(labels()).toEqual(["Import contacts…", "Export all contacts"]);
+    expect(host.textContent).not.toContain("Import contacts…");
+    expect(host.querySelector(".contacts-bulk")).toBeNull();
   });
 
-  it("exports the book that is selected rather than everything", async () => {
+  it("runs a group's export in that group's account", async () => {
     const heard = vi.fn();
     window.addEventListener(EVENTS.contactsExport, heard);
-    await mountSidebar({ accountId: "freight", bookId: "fb" });
-    expect(labels()).toEqual(["Import contacts…", "Export address book"]);
-    const [, exportButton] = host.querySelectorAll<HTMLButtonElement>(
-      ".contacts-bulk button",
-    );
+    await mountSidebar({ accountId: "me", bookId: "mine" });
+    await openMenuOf("Freight directory");
     await act(async () => {
-      exportButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      item("Export address book")!.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
     });
     expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({
       accountId: "freight",
@@ -129,10 +144,37 @@ describe("bulk import and export", () => {
     window.removeEventListener(EVENTS.contactsExport, heard);
   });
 
+  it("runs a group's import into that group's book", async () => {
+    const heard = vi.fn();
+    window.addEventListener(EVENTS.contactsImport, heard);
+    await mountSidebar({ accountId: "me", bookId: "mine" });
+    await openMenuOf("Freight directory");
+    await act(async () => {
+      item("Import contacts…")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const input = host.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(input, "the picker the menu opens").toBeTruthy();
+    const file = new File(["BEGIN:VCARD\nEND:VCARD\n"], "c.vcf", {
+      type: "text/vcard",
+    });
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    await act(async () => {
+      input!.dispatchEvent(new Event("change"));
+    });
+    expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({
+      file,
+      bookId: "fb",
+      accountId: "freight",
+    });
+    window.removeEventListener(EVENTS.contactsImport, heard);
+  });
+
   it("offers no import on a book the reader may not write", async () => {
-    await mountSidebar({ accountId: "freight", bookId: "ro" });
+    await mountSidebar({ accountId: "me", bookId: "mine" });
+    await openMenuOf("Read only");
+    expect(item("Import contacts…")).toBeUndefined();
     // The book can still be exported: reading it is what the share granted.
-    expect(labels()).toEqual(["Export address book"]);
+    expect(item("Export address book")).toBeTruthy();
   });
 
   it("imports into a group's own book, which is the same import as one of yours", async () => {

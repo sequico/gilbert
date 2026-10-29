@@ -1891,10 +1891,12 @@ JMAP Contacts and JSContact.
 - **Letter index** down the list, with `#` for anything not starting with a letter.
 - **Search** across name, address, organisation and notes, in one book or all.
 - **vCard import** through `ContactCard/parse` (a file of any number of cards), and
-  **export** of one card, a whole book, or everything as `.vcf`. Both are at the foot
-  of the books, named for what is selected: import appears only on a book the reader
+  **export** of one card, a whole book, or everything as `.vcf`. Both are a book's
+  own commands, in the menu of the row they act on — right-click or the row's `…`
+  — and each names the account and the book of that row, so a group's import runs
+  in the group the menu was opened on. Import appears only on a book the reader
   may write — a group's own directory included, because a member writes it — while
-  export is offered on any book, a share opened read-only included.
+  export is offered on any row, a share opened read-only included.
 - **A contact can belong to several books of its account** without being copied:
   *Add to another book…* on a row files it into one more and keeps the one it is
   in, up to the server's ten. Membership is the card's own (`addressBookIds`, RFC

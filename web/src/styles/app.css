@@ -1865,10 +1865,6 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .contacts-list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .contacts-list .list-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .contacts-scroll { flex: 1; overflow-y: auto; }
-/* The bulk actions sit at the foot of the books, where a migration looks for
-   them: two controls, the width of the pane, no menu to open. */
-.contacts-bulk { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--border); }
-.contacts-bulk .btn { flex: 1; justify-content: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-row { display: flex; align-items: center; gap: 12px; padding: 8px 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
 .contact-row:hover { background: var(--bg-hover); }
 .contact-row.active { background: var(--selected-bg); }
