@@ -2217,16 +2217,13 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   /*
    * What the bar carries on a phone.
    *
-   * The gear goes, and the search field is why. Everything else in this row is a
-   * fixed 36px that its own margin cannot give up: the menu and the brand on one
+   * The search field is why so little: everything else in this row is a fixed
+   * 36px that its own margin cannot give up -- the menu and the brand on one
    * side, and chat, the theme, admin (for an admin) and the account menu on the
-   * other -- 298px of a 360px screen before the search is measured, leaving it
-   * about 43px wide, an icon and a sliver. On a 320px screen, four. Settings is
-   * in the account menu already, so it is one tap away and the field gets the
-   * room.
+   * other. Settings is not one of them on any screen: it lives in the account
+   * menu, one tap away, and the field gets the room.
    */
   .searchbar .search-input { height: 40px; }
-  .topbar-actions .hide-mobile { display: none; }
   /*
    * The advanced panel and its suggestions hang off the search field, so they
    * are as wide as it is -- which on a phone is not a form's worth of room.

@@ -324,7 +324,14 @@ export function cardsSlice(
         card.accountId === own || !card.accountId
           ? get().cards[card.id]
           : get().sharedCards[sharedKey(card.accountId, card.id)];
-      const books = { ...(held?.addressBookIds ?? {}) };
+      /*
+       * Nothing in hand means nothing to add to: the map would be built from an
+       * empty set and the write would carry one id, which *moves* the card out of
+       * the books it is in. Loud instead -- the card is always in the store by the
+       * time a row is drawn, so a miss is a caller's mistake.
+       */
+      if (!held) throw new Error("That contact is not in this account");
+      const books = { ...(held.addressBookIds ?? {}) };
       if (books[bookId]) return;
       books[bookId] = true;
       await get().updateCard(card, { addressBookIds: books });

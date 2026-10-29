@@ -896,7 +896,8 @@ export function ContactsView({ id }: { id?: string }) {
                        * (ADR 0019).
                        */
                       onContextMenu={
-                        cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID
+                        cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID &&
+                        contacts.cardWritable(c, cardAccountId)
                           ? (e) => openMenuAt(e, c, cardAccountId)
                           : undefined
                       }
