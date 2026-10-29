@@ -75,7 +75,7 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("a member creates a page and a folder in the group's KB, Master or not", async () => {
+test("a member creates a page and a folder in the group's KB", async () => {
   const page = await post("/api/knowledge/create", {
     scope: "group",
     group: TEAM,
@@ -107,7 +107,12 @@ test("the draft records the member who last wrote it", async () => {
     scope: "group",
     group: TEAM,
     folder,
-    input: { title: "Draft ownership", tags: [], blocks: [], text: "written by a member" },
+    input: {
+      title: "Draft ownership",
+      tags: [],
+      blocks: [],
+      text: "written by a member",
+    },
   });
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
   assert.equal(summaryOf(saved.body).updated?.by, DEMO);
