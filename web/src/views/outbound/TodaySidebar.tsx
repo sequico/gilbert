@@ -63,7 +63,7 @@ export function TodaySidebar() {
       <button
         type="button"
         className={`nav-item ${campaign === "" ? "active" : ""}`}
-        aria-current={campaign === "" ? "page" : undefined}
+        aria-pressed={campaign === ""}
         onClick={() => filterCampaign("")}
       >
         <ListFilter size={16} aria-hidden="true" />
@@ -74,7 +74,7 @@ export function TodaySidebar() {
           type="button"
           key={option.uid}
           className={`nav-item ${campaign === option.uid ? "active" : ""}`}
-          aria-current={campaign === option.uid ? "page" : undefined}
+          aria-pressed={campaign === option.uid}
           title={option.purpose}
           onClick={() => filterCampaign(option.uid)}
         >

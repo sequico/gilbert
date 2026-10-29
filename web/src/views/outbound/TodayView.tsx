@@ -240,7 +240,9 @@ export function TodayView({ section }: { section?: string }) {
     setBusy(true);
     try {
       await closeCampaign(active, uid, carry);
-      setTaken(null);
+      // Only the row of the campaign being closed leaves the caller's hands: closing
+      // another list must not make a live claim disappear from the screen.
+      if (taken?.campaignUid === uid) setTaken(null);
       // The campaign leaves the tree as it closes, and the queue with it: the read
       // below asks for the list as the server now holds it.
       await read(active);
