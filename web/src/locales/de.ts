@@ -1243,7 +1243,7 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Zu {theme} wechseln",
     Template: "Vorlage",
     "Template name": "Vorlagenname",
-    "The contacts in it go too.": "Die enthaltenen Kontakte werden ebenfalls gelöscht.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Kontakte, die nur darin stehen, werden gelöscht. Alle, die auch in einem anderen Adressbuch stehen, werden nur aus diesem entfernt.",
     "The default identity is always offered when composing":
       "Die Standardidentität wird beim Verfassen immer angeboten",
     "The new passwords don't match": "Die neuen Passwörter stimmen nicht überein",

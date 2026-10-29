@@ -1208,7 +1208,7 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Overschakelen naar {theme}",
     Template: "Sjabloon",
     "Template name": "Sjabloonnaam",
-    "The contacts in it go too.": "De contacten erin gaan mee.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Contacten die er alleen in staan worden verwijderd. Contacten die ook in een ander adresboek staan, worden alleen hieruit verwijderd.",
     "The default identity is always offered when composing":
       "De standaardafzender wordt altijd aangeboden bij het opstellen",
     "The new passwords don't match": "De nieuwe wachtwoorden komen niet overeen",

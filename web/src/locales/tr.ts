@@ -1605,7 +1605,7 @@ export const catalog: Catalog = {
     "The certificate is not valid yet.": "Sertifika henüz geçerli değil.",
     "The colour palette (Gilbert's own or one of the shipped ones).":
       "Renk paleti (Gilbert'in kendisi ya da sunulanlardan biri).",
-    "The contacts in it go too.": "İçindeki kişiler de silinecektir.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Yalnızca burada olan kişiler silinir. Başka bir adres defterinde de olanlar yalnızca buradan çıkarılır.",
     "The default identity is always offered when composing":
       "İleti oluştururken varsayılan kimlik her zaman sunulur",
     "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":

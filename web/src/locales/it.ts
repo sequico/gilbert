@@ -1947,7 +1947,7 @@ export const catalog: Catalog = {
 
     "Template name": "Nome del modello",
 
-    "The contacts in it go too.": "Verranno eliminati anche i contatti che contiene.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Vengono eliminati i contatti che sono solo qui. Quelli che sono anche in un’altra rubrica vengono tolti solo da questa.",
 
     "The default identity is always offered when composing":
       "L'identità predefinita viene sempre offerta durante la composizione",

@@ -1205,7 +1205,7 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Перемкнути на {theme}",
     Template: "Шаблон",
     "Template name": "Назва шаблону",
-    "The contacts in it go too.": "Контакти всередині теж буде видалено.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Контакти, які є лише в ній, буде видалено. Ті, що є і в іншій адресній книзі, буде вилучено лише з цієї.",
     "The default identity is always offered when composing":
       "Профіль за умовчанням завжди пропонується під час написання",
     "The new passwords don't match": "Нові паролі не збігаються",

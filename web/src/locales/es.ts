@@ -1219,7 +1219,7 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Cambiar a {theme}",
     Template: "Plantilla",
     "Template name": "Nombre de la plantilla",
-    "The contacts in it go too.": "También se eliminarán los contactos que contiene.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Se eliminan los contactos que solo están en ella. Los que también están en otra libreta solo se quitan de esta.",
     "The default identity is always offered when composing":
       "La identidad predeterminada siempre se ofrece al redactar",
     "The new passwords don't match": "Las contraseñas nuevas no coinciden",

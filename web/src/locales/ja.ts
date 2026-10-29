@@ -1214,7 +1214,7 @@ export const catalog: Catalog = {
     "Switch to {theme}": "{theme}に切り替え",
     Template: "テンプレート",
     "Template name": "テンプレート名",
-    "The contacts in it go too.": "中の連絡先も削除されます。",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "このアドレス帳にしかない連絡先は削除されます。別のアドレス帳にも入っている連絡先は、このアドレス帳からのみ外されます。",
     "The default identity is always offered when composing":
       "既定の差出人は作成時につねに表示されます",
     "The new passwords don't match": "新しいパスワードが一致しません",

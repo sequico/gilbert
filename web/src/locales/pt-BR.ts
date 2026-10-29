@@ -1218,7 +1218,7 @@ export const catalog: Catalog = {
     "Switch to {theme}": "Mudar para {theme}",
     Template: "Modelo",
     "Template name": "Nome do modelo",
-    "The contacts in it go too.": "Os contatos dentro dele também serão excluídos.",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "Os contatos que só estão nela são excluídos. Os que também estão em outra agenda são apenas removidos desta.",
     "The default identity is always offered when composing":
       "A identidade padrão é sempre oferecida ao escrever",
     "The new passwords don't match": "As novas senhas não coincidem",

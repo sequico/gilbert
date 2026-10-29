@@ -704,7 +704,9 @@ export function ContactsSidebar() {
                 if (
                   !(await confirmDialog({
                     title: t("Delete “{name}”?", { name: menuBook.name }),
-                    message: t("The contacts in it go too."),
+                    message: t(
+                      "The contacts filed only in it are deleted. Any that are also in another address book leave this one.",
+                    ),
                     confirmLabel: t("Delete"),
                     danger: true,
                   }))

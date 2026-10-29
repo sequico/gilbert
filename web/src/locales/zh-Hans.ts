@@ -1179,7 +1179,7 @@ export const catalog: Catalog = {
     "Switch to {theme}": "切换到{theme}",
     Template: "模板",
     "Template name": "模板名称",
-    "The contacts in it go too.": "其中的联系人也会一并删除。",
+    "The contacts filed only in it are deleted. Any that are also in another address book leave this one.": "仅在本通讯录中的联系人会被删除。同时位于其他通讯录的联系人只会从此通讯录中移除。",
     "The default identity is always offered when composing":
       "默认发件身份在写邮件时始终提供",
     "The new passwords don't match": "两次输入的新密码不一致",
