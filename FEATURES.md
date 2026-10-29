@@ -1891,10 +1891,13 @@ JMAP Contacts and JSContact.
 - **Letter index** down the list, with `#` for anything not starting with a letter.
 - **Search** across name, address, organisation and notes, in one book or all.
 - **vCard import** through `ContactCard/parse` (a file of any number of cards), and
-  **export** of one card, a whole book, or everything as `.vcf`. Both are a book's
-  own commands, in the menu of the row they act on — right-click or the row's `…`
+  **export** of one card or a whole book as `.vcf`. Both are a book's own
+  commands, in the menu of the row they act on — right-click or the row's `…`
   — and each names the account and the book of that row, so a group's import runs
-  in the group the menu was opened on. A **group's book** and the installation's
+  in the group the menu was opened on. **All contacts** is a view rather than a
+  book and carries no import or export at all: the set it draws holds the
+  installation's directory and every group's cards, which are not the reader's to
+  take out. A **group's book** and the installation's
   **directory** are shared collections: both commands there are an administrator's,
   drawn for everybody and disabled for whoever does not hold them. On a book of
   your own, or a colleague's share, import appears only where the book can be

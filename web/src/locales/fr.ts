@@ -514,7 +514,6 @@ export const catalog: Catalog = {
     "New address book": "Nouveau carnet d'adresses",
     "No address books yet.": "Aucun carnet d'adresses pour le moment.",
     "Choose from address books": "Choisir dans les carnets d'adresses",
-    "Export all contacts": "Exporter tous les contacts",
     "Export address book": "Exporter ce carnet d’adresses",
     "Import contacts…": "Importer des contacts…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":

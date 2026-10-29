@@ -494,7 +494,6 @@ export const catalog: Catalog = {
     "New address book": "新建通讯录",
     "No address books yet.": "还没有通讯录。",
     "Choose from address books": "从通讯录中选择",
-    "Export all contacts": "导出所有联系人",
     "Export address book": "导出此通讯录",
     "Import contacts…": "导入联系人…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":

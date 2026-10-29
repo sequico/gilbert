@@ -500,7 +500,6 @@ export const catalog: Catalog = {
     "New address book": "Nieuw adresboek",
     "No address books yet.": "Nog geen adresboeken.",
     "Choose from address books": "Kiezen uit adresboeken",
-    "Export all contacts": "Alle contacten exporteren",
     "Export address book": "Dit adresboek exporteren",
     "Import contacts…": "Contacten importeren…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":

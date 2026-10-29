@@ -140,6 +140,9 @@ describe("import and export from a book's menu", () => {
     await mountSidebar({ accountId: null, bookId: "all" });
     expect(host.textContent).not.toContain("Import contacts…");
     expect(host.querySelector(".contacts-bulk")).toBeNull();
+    // "All contacts" is a view, not a book: no menu at all, so nothing to
+    // export from a set that holds a group's cards and the directory.
+    expect(row("All contacts")?.querySelector(".nav-more")).toBeNull();
   });
 
   it("runs a group's export in that group's account", async () => {

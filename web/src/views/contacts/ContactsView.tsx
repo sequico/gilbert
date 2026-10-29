@@ -279,9 +279,10 @@ export function ContactsView({ id }: { id?: string }) {
    * the whole shared cache, so what `loadShared` left unloaded (a stranger's
    * account) cannot arrive here by the back door.
    *
-   * The one source for that set: the list draws it and "Export all contacts"
-   * writes it, so what is exported is what is on screen rather than the half of
-   * it that happens to live in the reader's own account.
+   * The one source for that set: the list draws it and nothing else reads it —
+   * "All contacts" is a view, not a book, and carries no import or export of
+   * its own, because a set that holds a shared collection's cards is not the
+   * reader's to take out.
    */
   const allCards = useMemo(
     () => [
@@ -597,6 +598,9 @@ export function ContactsView({ id }: { id?: string }) {
   };
 
   const exportBook = (accountId: string | null, book: string) => {
+    // "All contacts" is a view, not a book: its set holds a shared
+    // collection's cards, and it carries no export of its own anywhere.
+    if (book === "all") return;
     if (!mayMoveInOrOut(accountId, book)) return;
     const cards = cardsOf(accountId, book);
     if (!cards.length) {

@@ -736,8 +736,6 @@ export const catalog: Catalog = {
 
     "Choose from address books": "Scegli dalle rubriche",
 
-    "Export all contacts": "Esporta tutti i contatti",
-
     "Export address book": "Esporta la rubrica",
 
     "Import contacts…": "Importa contatti…",

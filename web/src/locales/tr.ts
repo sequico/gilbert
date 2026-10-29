@@ -685,7 +685,6 @@ export const catalog: Catalog = {
     "Expand all": "Tümünü genişlet",
     Expires: "Bitiş",
     "Export address book": "Adres defterini dışa aktar",
-    "Export all contacts": "Tüm kişileri dışa aktar",
     "Export iCAL file": "iCAL dosyasını dışa aktar",
     "Export settings": "Ayarları dışa aktar",
     "Fewer options": "Daha az seçenek",

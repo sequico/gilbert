@@ -503,7 +503,6 @@ export const catalog: Catalog = {
     "New address book": "新しいアドレス帳",
     "No address books yet.": "アドレス帳がまだありません。",
     "Choose from address books": "アドレス帳から選択",
-    "Export all contacts": "すべての連絡先をエクスポート",
     "Export address book": "このアドレス帳をエクスポート",
     "Import contacts…": "連絡先をインポート…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
