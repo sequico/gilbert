@@ -140,7 +140,7 @@ export function TodayView({ section }: { section?: string }) {
     void read(active);
   }, [active, campaign, page]);
 
-  async function take(row: RowDoc) {
+  async function take(row: QueueRow) {
     if (busy) return;
     setBusy(true);
     setError(null);
