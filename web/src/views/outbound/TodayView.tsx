@@ -5,7 +5,7 @@ import type {
   CampaignWindow,
   RowDoc,
 } from "@gilbert/shared/outbound";
-import { Phone, X } from "lucide-react";
+import { Phone, PhoneOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { addDays } from "@/lib/dates";
 import { formatDateTime } from "@/lib/datetime";
@@ -31,10 +31,11 @@ import {
 } from "@/lib/outbound";
 import { useMail } from "@/store/mail";
 import { activeGroupName, useOutbound } from "@/store/outbound";
-import { DateTimeField, DateField } from "@/ui/datefield";
+import { DateField } from "@/ui/datefield";
 import { confirmDialog } from "@/ui/dialog";
 import { LoadState } from "@/ui/LoadState";
 import { Empty } from "@/ui/misc";
+import { toast } from "@/ui/toast";
 
 /**
  * How many rows Today draws at once. The rest are one press away: a list of a
@@ -239,10 +240,18 @@ export function TodayView({ section }: { section?: string }) {
     setError(null);
     setBusy(true);
     try {
-      await closeCampaign(active, uid, carry);
+      const closed = await closeCampaign(active, uid, carry);
       // Only the row of the campaign being closed leaves the caller's hands: closing
       // another list must not make a live claim disappear from the screen.
       if (taken?.campaignUid === uid) setTaken(null);
+      toast.success(
+        closed.carried > 0
+          ? plural(closed.carried, {
+              one: "{n} row carried into a new campaign",
+              other: "{n} rows carried into a new campaign",
+            })
+          : t("“{purpose}” is closed", { purpose }),
+      );
       // The campaign leaves the tree as it closes, and the queue with it: the read
       // below asks for the list as the server now holds it.
       await read(active);
@@ -277,12 +286,14 @@ export function TodayView({ section }: { section?: string }) {
       await settleRow(active, row.campaignUid, row.uid, {
         outcome,
         note: note.trim() || null,
-        // A date keeps the row open until then; no date settles it.
-        nextCallAt: nextCall ? new Date(nextCall).toISOString() : null,
+        // A day keeps the row open from its first moment, ready to be called again;
+        // no date settles it.
+        nextCallAt: nextCall === "" ? null : new Date(`${nextCall}T00:00:00`).toISOString(),
       });
       setTaken(null);
       setNote("");
       setNextCall("");
+      toast.success(t("Call recorded"));
       await read(active);
     } catch (err) {
       setError(errorMessage(err));
@@ -324,12 +335,17 @@ export function TodayView({ section }: { section?: string }) {
           </p>
 
           <p className="hint">
-            {t("{due} due · {ahead} ahead · {held} with another caller", {
-              due: board.due,
-              ahead: board.upcoming,
-              held: board.heldByOthers,
-            })}
+            {t("{due} to call", { due: board.due })}
+            {board.upcoming > 0 && ` · ${t("{ahead} later", { ahead: board.upcoming })}`}
+            {board.heldByOthers > 0 &&
+              ` · ${t("{held} in another caller's hands", { held: board.heldByOthers })}`}
           </p>
+
+          {taken && (
+            <p className="hint">
+              {t("Settle the row in hand or put it back before taking another.")}
+            </p>
+          )}
 
           {board.problems.length > 0 && (
             <div className="warn-box">
@@ -371,7 +387,7 @@ export function TodayView({ section }: { section?: string }) {
                 {shown
                   .filter((row) => row.uid !== taken?.uid)
                   .map((row) => {
-                    const purpose = campaignOf(row.campaignUid)?.purpose;
+                    const doc = campaignOf(row.campaignUid);
                     return (
                       <div className="card" key={row.uid}>
                         <div className="card-head">
@@ -381,12 +397,15 @@ export function TodayView({ section }: { section?: string }) {
                               {t("ext. {extension}", { extension: row.extension })}
                             </span>
                           )}
-                          {purpose && <span className="tag">{purpose}</span>}
-                          {/* After a reload the row in hand is just a row again: the
-                              claim says it is still this caller's to finish. */}
+                          {/* The campaign's name is only news when the queue is every
+                              campaign: filtering to one makes it a repeat on each card. */}
+                          {campaign === "" && doc?.purpose && (
+                            <span className="tag">{doc.purpose}</span>
+                          )}
                           {row.claim && <span className="tag">{t("yours now")}</span>}
                         </div>
                         {row.context && <p className="hint">{row.context}</p>}
+                        <LastCall row={row} outcomes={doc?.outcomes ?? []} />
                         <p>
                           {/* One primary on this pane: the call on the row in hand.
                               Taking another is the same list, one row further on. */}
@@ -486,6 +505,7 @@ function TakenRow({
   nextCall,
   onNextCall,
   onSettle,
+  onRelease,
 }: {
   row: RowDoc;
   outcomes: readonly CampaignOutcome[];
@@ -494,16 +514,13 @@ function TakenRow({
   busy: boolean;
   note: string;
   onNote: (note: string) => void;
-  /** "YYYY-MM-DDTHH:MM", or "" when the call settles the row. */
+  /** "YYYY-MM-DD", or "" when the call settles the row. */
   nextCall: string;
   onNextCall: (nextCall: string) => void;
   onSettle: (outcome: string) => void;
   /** Give the row back before its call. */
   onRelease: () => void;
 }) {
-  // What was said to this number last time: the reason the row exists at all, and
-  // what a caller reading a row they have never worked needs before dialling.
-  const last = row.calls.at(-1);
   return (
     <div className="card" style={{ borderColor: "var(--accent)" }}>
       <div className="card-head">
@@ -516,16 +533,7 @@ function TakenRow({
         <span className="tag">{t("yours now")}</span>
       </div>
       {row.context && <p className="hint">{row.context}</p>}
-      {last && (
-        <p className="hint">
-          {t("Last call: {when} · {outcome}", {
-            when: formatDateTime(new Date(last.at)),
-            outcome:
-              outcomes.find((entry) => entry.id === last.outcome)?.label ?? last.outcome,
-          })}
-          {last.note && ` — ${last.note}`}
-        </p>
-      )}
+      <LastCall row={row} outcomes={outcomes} />
       <p>
         {/* The product has no telephony: the number is dialled by the phone this
             page is looked at on, which is the whole reason the row was taken. */}
@@ -545,12 +553,13 @@ function TakenRow({
           className="input"
           value={note}
           disabled={busy}
+          placeholder={t("Wants a quote for January")}
           onChange={(e) => onNote(e.target.value)}
         />
       </div>
       <div className="field">
         <label htmlFor="today-next-call">{t("Call again")}</label>
-        <DateTimeField
+        <DateField
           id="today-next-call"
           value={nextCall}
           disabled={busy}
@@ -560,7 +569,13 @@ function TakenRow({
           {t("A date keeps the row open until then; leaving it empty settles the row.")}
         </p>
       </div>
-      <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+      <p className="hint">{t("How it went")}</p>
+      <div
+        className="row"
+        role="group"
+        aria-label={t("How it went")}
+        style={{ flexWrap: "wrap", gap: 8 }}
+      >
         {outcomes.map((outcome) => (
           <button
             key={outcome.id}
@@ -571,18 +586,36 @@ function TakenRow({
             {outcome.label}
           </button>
         ))}
-        {/* Set apart from the outcomes: giving the row back is not a way of saying
-            how the call went, it is saying that there was no call. */}
-        <button
-          className="btn btn-ghost"
-          style={{ marginLeft: "auto" }}
-          disabled={busy}
-          onClick={onRelease}
-        >
+      </div>
+      {/* On its own line and quiet: giving the row back is not a way of saying how
+          the call went, it is saying that there was no call. */}
+      <p style={{ marginTop: 10 }}>
+        <button className="btn btn-ghost" disabled={busy} onClick={onRelease}>
           {t("Put it back")}
         </button>
-      </div>
+      </p>
     </div>
+  );
+}
+
+/** What the last call to this number said, when there was one. */
+function LastCall({
+  row,
+  outcomes,
+}: {
+  row: RowDoc;
+  outcomes: readonly CampaignOutcome[];
+}) {
+  const last = row.calls.at(-1);
+  if (!last) return null;
+  return (
+    <p className="hint">
+      {t("Last call: {when} · {outcome}", {
+        when: formatDateTime(new Date(last.at)),
+        outcome: outcomes.find((entry) => entry.id === last.outcome)?.label ?? last.outcome,
+      })}
+      {last.note && ` — ${last.note}`}
+    </p>
   );
 }
 
@@ -770,7 +803,7 @@ function StartList({
       <p className="hint">{t("Leave the dates empty for a list with no window.")}</p>
       <p>
         <button
-          className="btn"
+          className="btn btn-primary"
           disabled={
             disabled || purpose.trim() === "" || outcomesOf(vocabulary).length === 0
           }
@@ -781,134 +814,143 @@ function StartList({
       </p>
 
       {campaigns.length > 0 && (
-        <div className="field">
-          <label htmlFor="today-campaign">{t("Into which campaign")}</label>
-          <select
-            id="today-campaign"
-            className="select"
-            value={chosen}
-            onChange={(e) => setTarget(e.target.value)}
-          >
-            {campaigns.map((entry) => (
-              <option key={entry.uid} value={entry.uid}>
-                {entry.state === "running"
-                  ? entry.purpose
-                  : t("{purpose} (closed)", { purpose: entry.purpose })}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-      {open && (
-        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-          {/* Carrying the open rows is the usual end of a list; closing them away is
-              the exception, so it is the one drawn as the quieter action. */}
-          <button
-            className="btn"
-            disabled={disabled}
-            onClick={() => onClose(chosen, true)}
-          >
-            {t("Close it and carry the open rows")}
-          </button>
-          <button
-            className="btn btn-ghost"
-            disabled={disabled}
-            onClick={() => onClose(chosen, false)}
-          >
-            {t("Close the campaign")}
-          </button>
-        </div>
-      )}
-      {chosenCampaign && chosenCampaign.outcomes.length > 0 && (
-        <div className="field">
-          <label htmlFor="today-handoff">
-            {t("Hand off the rows that ended this way")}
-          </label>
-          <div className="row">
+        <>
+          <div className="field">
+            <label htmlFor="today-campaign">{t("Into which campaign")}</label>
             <select
-              id="today-handoff"
+              id="today-campaign"
               className="select"
-              value={outcome}
-              onChange={(e) => setOutcome(e.target.value)}
+              value={chosen}
+              onChange={(e) => setTarget(e.target.value)}
             >
-              <option value="">{t("Choose an outcome…")}</option>
-              {chosenCampaign.outcomes.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.label}
+              {campaigns.map((entry) => (
+                <option key={entry.uid} value={entry.uid}>
+                  {entry.state === "running"
+                    ? entry.purpose
+                    : t("{purpose} (closed)", { purpose: entry.purpose })}
                 </option>
               ))}
             </select>
-            <button
-              className="btn"
-              disabled={disabled || outcome === ""}
-              onClick={() => onHandOff(chosen, outcome)}
-            >
-              {t("Save the file")}
-            </button>
           </div>
-        </div>
-      )}
 
-      {open ? (
-        <>
-          <div className="field">
-            <label htmlFor="today-paste">{t("Numbers, one per line")}</label>
-            <textarea
-              id="today-paste"
-              className="textarea"
-              value={paste}
-              placeholder={t("ACME, ask for Tizio, +39 333 123 4567")}
-              onChange={(e) => setPaste(e.target.value)}
-            />
-          </div>
-          <p>
-            <button
-              className="btn btn-primary"
-              disabled={disabled || paste.trim() === ""}
-              onClick={() => void add()}
-            >
-              {t("Add to the list")}
-            </button>
-          </p>
-        </>
-      ) : (
-        <p className="hint">
-          {t(
-            "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.",
-          )}
-        </p>
-      )}
-
-      {report && (
-        <div className="hint">
-          <p>
-            {plural(report.added, { one: "{n} row added", other: "{n} rows added" })}
-            {report.matched > 0 &&
-              ` · ${plural(report.matched, { one: "{n} matched a card", other: "{n} matched a card" })}`}
-            {report.duplicate > 0 &&
-              ` · ${plural(report.duplicate, { one: "{n} already in the list", other: "{n} already in the list" })}`}
-            {report.blocked > 0 &&
-              ` · ${plural(report.blocked, { one: "{n} on do not call", other: "{n} on do not call" })}`}
-          </p>
-          {report.refused.length > 0 && (
+          {open ? (
             <>
+              <div className="field">
+                <label htmlFor="today-paste">{t("Numbers, one per line")}</label>
+                <textarea
+                  id="today-paste"
+                  className="textarea"
+                  value={paste}
+                  placeholder={t("ACME, ask for Tizio, +39 333 123 4567")}
+                  onChange={(e) => setPaste(e.target.value)}
+                />
+              </div>
               <p>
-                {plural(report.refused.length, {
-                  one: "{n} line could not be read",
-                  other: "{n} lines could not be read",
-                })}
+                <button
+                  className="btn btn-primary"
+                  disabled={disabled || paste.trim() === ""}
+                  onClick={() => void add()}
+                >
+                  {t("Add to the list")}
+                </button>
               </p>
-              <ul>
-                {report.refused.map((entry, index) => (
-                  <li key={`${index}-${entry.line}`}>
-                    {entry.line} —{" "}
-                    {t(REFUSAL_LABELS[entry.reason] ?? "This line could not be read")}
-                  </li>
-                ))}
-              </ul>
+              {report && (
+                <div className="hint">
+                  <p>
+                    {plural(report.added, { one: "{n} row added", other: "{n} rows added" })}
+                    {report.matched > 0 &&
+                      ` · ${plural(report.matched, { one: "{n} matched a card", other: "{n} matched a card" })}`}
+                    {report.duplicate > 0 &&
+                      ` · ${plural(report.duplicate, { one: "{n} already in the list", other: "{n} already in the list" })}`}
+                    {report.blocked > 0 &&
+                      ` · ${plural(report.blocked, { one: "{n} on do not call", other: "{n} on do not call" })}`}
+                  </p>
+                  {report.refused.length > 0 && (
+                    <>
+                      <p>
+                        {plural(report.refused.length, {
+                          one: "{n} line could not be read",
+                          other: "{n} lines could not be read",
+                        })}
+                      </p>
+                      <ul>
+                        {report.refused.map((entry, index) => (
+                          <li key={`${index}-${entry.line}`}>
+                            {entry.line} —{" "}
+                            {t(REFUSAL_LABELS[entry.reason] ?? "This line could not be read")}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
             </>
+          ) : (
+            <p className="hint">
+              {t(
+                "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.",
+              )}
+            </p>
           )}
-        </div>
+
+          {/* Closing and handing off act on a list that already exists, so they come
+              after the list has been written and filled — never between the two. */}
+          <p className="hint" style={{ marginTop: 24 }}>
+            {t(
+              "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.",
+            )}
+          </p>
+          {open && (
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              {/* Carrying the open rows is the usual end of a list; closing them away
+                  is the exception, so it is the one drawn as the quieter action. */}
+              <button
+                className="btn"
+                disabled={disabled}
+                onClick={() => onClose(chosen, true)}
+              >
+                {t("Close it and carry the open rows")}
+              </button>
+              <button
+                className="btn btn-ghost"
+                disabled={disabled}
+                onClick={() => onClose(chosen, false)}
+              >
+                {t("Close the campaign")}
+              </button>
+            </div>
+          )}
+          {chosenCampaign && chosenCampaign.outcomes.length > 0 && (
+            <div className="field">
+              <label htmlFor="today-handoff">
+                {t("Hand off the rows that ended this way")}
+              </label>
+              <div className="row">
+                <select
+                  id="today-handoff"
+                  className="select"
+                  value={outcome}
+                  onChange={(e) => setOutcome(e.target.value)}
+                >
+                  <option value="">{t("Choose an outcome…")}</option>
+                  {chosenCampaign.outcomes.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn"
+                  disabled={disabled || outcome === ""}
+                  onClick={() => onHandOff(chosen, outcome)}
+                >
+                  {t("Save the file")}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -963,20 +1005,30 @@ function DoNotCallList({
           </button>
         </div>
       </div>
-      {numbers.map((number) => (
-        <div className="row" key={number}>
-          <span>{number}</span>
-          <button
-            className="icon-btn xs"
-            disabled={busy}
-            title={t("Allow calls again")}
-            aria-label={t("Allow calls again")}
-            onClick={() => onAllow(number)}
-          >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
+      {numbers.length === 0 ? (
+        <Empty icon={<PhoneOff size={22} />} title={t("No number blocked")}>
+          {t("A number entered here is never written into this group's lists.")}
+        </Empty>
+      ) : (
+        numbers.map((number) => (
+          <div className="card" key={number}>
+            {/* The same shape as a row in Today: what it is, and the one thing that
+                can be done to it at the other end. */}
+            <div className="card-head">
+              <h3>{number}</h3>
+              <button
+                className="icon-btn xs"
+                disabled={busy}
+                title={t("Allow calls again")}
+                aria-label={t("Allow calls again")}
+                onClick={() => onAllow(number)}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
     </section>
   );
 }
