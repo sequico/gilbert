@@ -83,7 +83,8 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   group's account and is written with the member's **own** session — creating,
   renaming, reordering, moving and restoring a page or a folder, and the one
   shared draft, are every member's; approving, and deleting or retiring a page,
-  are an installation administrator's. Nothing there depends on the
+  are an installation administrator's who is a **member** of that group, because
+  the write is the member's own session. Nothing there depends on the
   installation's agent being a member of the group
   (`server/src/knowledge/scope.ts` `groupKnowledgeAccount`), and the draft
   records the member who last wrote it. The company KB is the Master's, written

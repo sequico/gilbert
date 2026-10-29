@@ -251,8 +251,8 @@ Calendar, Contacts and Files** in the module bar — and not a folder inside Fil
 | --- | --- | --- |
 | Owner | the **Master** account (the installation) | the **group** account |
 | Who reads | everyone (through the route, as the Master) | members (membership is the grant) |
-| Who writes | administrators create, rename, move and delete pages and folders; every member and every agent write the **draft** | every member and the group's agent: create, rename, reorder and move pages and folders, and write the **draft**; deleting or retiring one is an administrator's |
-| Who approves | **administrators only** | **administrators only** |
+| Who writes | administrators write the **draft** and shape the tree; the agent writes the draft too | every member and the group's agent: create, rename, reorder and move pages and folders, and write the **draft**; deleting or retiring one is an administrator's |
+| Who approves | **administrators only** | **an administrator who is a member of the group** |
 | Created | at boot, as `ensureGlobalContacts` is | on first use, as `gilbert/chat` is |
 | Store | `gilbert/knowledge/…` in the Master | `gilbert/knowledge/…` in the group |
 | Access | the server route, as the Master (not a security boundary) | the reader's own JMAP session |
@@ -274,10 +274,12 @@ The owner has settled how a KB article moves from a change to in force. It is th
 document-control core of this record, and it answers several of the questions
 below.
 
-- **An article has at most one unapproved draft, and everyone edits it.** Users
-  and agents alike write and modify the same draft — multi-edit by everybody —
-  rather than opening a competing draft of their own. A second intent is an edit
-  of that draft, not a second document.
+- **An article has at most one unapproved draft, and everyone who may write
+  that tier edits it.** A group's members and every agent write and modify the
+  same draft — multi-edit by everybody — rather than opening a competing draft
+  of their own; in the company KB the draft is an administrator's and the
+  agent's (the table above). A second intent is an edit of that draft, not a
+  second document.
 - **The shape of a group's tree is its members'.** Creating, renaming, moving,
   reordering and restoring a page or a folder in a group's KB is what being a
   member of that group means (`gilbert-groups`), and the write is made with the
@@ -298,7 +300,10 @@ below.
   contradictions with what is in force. A review is a read that yields findings;
   it is not an approval.
 - **Only an administrator approves.** Administrators are the single approval
-  level. No member, and no agent, ever approves an article. The approver a
+  level. No member, and no agent, ever approves an article. In a group's KB that
+  is an administrator who is a **member** of the group: the tier is reached by
+  membership, and both approval and deletion are written with the caller's own
+  session, so nothing is written into a group from outside it. The approver a
   revision records, and the instant of approval, are taken from the session the
   server authenticated and never from the request, so a group's revision names
   the administrator who approved it even though a member writes that group's
@@ -488,10 +493,11 @@ does this is a *document controller*, and it is where the KB earns its keep.
 - **Suggestions are the plan, not an edit.** "Suggest an improvement" is the same
   plan with a person free to accept, amend or drop it; nothing lands in place
   until a person or the policy says so.
-- **Drafting is free; approval is the administrator's.** Users and agents write
-  and modify the one shared draft directly, within the authority classes
-  (ADR 0028); a change to what is in force is never an edit of the issued
-  revision but an edit of the draft above it. When the draft is ready, approval is
+- **Drafting is free; approval is the administrator's.** A group's members and
+  every agent write and modify the one shared draft directly, within the
+  authority classes (ADR 0028); in the company KB the draft is an
+  administrator's and the agent's. A change to what is in force is never an edit
+  of the issued revision but an edit of the draft above it. When the draft is ready, approval is
   what issues it (the lifecycle section), through the same privileged door every
   other administrative write uses (ADR 0019, `docs/adr/0001`).
 - **The catalogue is the agent's tools.** A `knowledge` read and a
@@ -512,8 +518,10 @@ does this is a *document controller*, and it is where the KB earns its keep.
 Every question this record opened is settled below, with what the owner decided.
 The record is **Accepted**.
 
-1. **Who writes a KB, and through which door?** — **Settled.** Every member and
-   every agent writes and edits drafts, and only an administrator approves.
+1. **Who writes a KB, and through which door?** — **Settled.** Every member
+   writes and edits drafts in a group's KB and an administrator does in the
+   company's; an agent writes drafts in the accounts it holds; only an
+   administrator approves.
    Every **write** goes through the `/api/knowledge/*` route, with the session
    that owns the documents: the **company's** as the Master, because a reader is
    not a member of the Master's account, and the route is also where an approval
@@ -547,7 +555,9 @@ The record is **Accepted**.
    is the only sense of "public" the KB has; an anonymous surface would be a
    separate trust decision with its own record, and is not built.
 8. **Who may publish/approve?** — **Settled.** Administrators only, with an
-   effective instant. No separate quality-manager grant for v1.
+   effective instant — and in a group's KB an administrator who is a member of
+   that group, because the write is made with the member's own session. No
+   separate quality-manager grant for v1.
 9. **Is a lifecycle needed?** — **Settled.** One shared draft → agent review →
    administrator approval with an effective instant → in force (pending until
    that instant arrives, the previous revision still in force); the revision
@@ -644,6 +654,9 @@ The record is **Accepted**.
 
 - One edit of the company KB changes what every reader sees, with nothing to
   republish — the ADR 0019 property.
+- A write into a group's KB is the member's own session, so the mail server's
+  grant is now the limit: a member whose grant on the group is read-only is
+  refused upstream, where the installation's agent would have written.
 - The KB is a rule the product keeps, not a security boundary: the app folder and
   its documents are readable and writable by whoever can write the account (an
   administrator with impersonation, the deployment's agent). Where a real
