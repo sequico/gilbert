@@ -589,6 +589,7 @@ function CallPanel({
         </a>
         <span className="hint">{detailOf(row, card)}</span>
       </p>
+      <LastCall row={row} outcomes={outcomes} />
       {script && <div className="call-script">{script}</div>}
       <div className="field">
         <label htmlFor="call-note">{t("What was said")}</label>
