@@ -1173,17 +1173,20 @@ value, no owner of an account — and nothing here makes a call.
 ## The section, and Today
 
 **Outbound** is the section: a phone icon in the module bar and on a phone's tab bar,
-the fifth there. Its tree holds the group being worked, that group's campaigns (one
-narrows the queue), and the three places the section has — **Queue**, **Do not call**,
-**Start a list**.
+the fifth there. Its tree holds **Today** first, then the group's **Campaigns** — the
+ones being worked, the closed ones behind an **Archived** fold, and **Start a
+campaign** — and, under **Your list**, the **Do not call** list.
 
-**Today** is the queue itself. It shows the rows of the chosen campaigns that are mine
-or due — mine first, then what is late, then what carried no date — with the counts
-beside them, twenty at a time with the rest behind one press. A row another caller
-holds is not offered, and a claim that lapses comes back on its own.
+**Today** is the queue itself, as the table a caller works across: the number as a
+link the phone dials, the name and the details the row's card gives, the campaign,
+and the row's own acts — take it, release it, or skip it for now — with the counts
+beside them and ten rows to a page, the rest behind one press. A row another caller
+holds is not offered, and a claim that lapses comes back on its own. Taking a row
+opens, under the table, the campaign's script, the note and the vocabulary, and the
+release closes it.
 
 A campaign's list is **one document**, so opening Today is one read per campaign and
-a paste of a thousand lines is one write. What that costs is that two callers of one
+an import of a thousand lines is one write. What that costs is that two callers of one
 list can land together; the write re-reads and applies its rule again.
 
 ## A row, and the call
@@ -1191,26 +1194,25 @@ list can land together; the write re-reads and applies its rule again.
 **A row is taken before its number is dialled**, and taking it claims it for that
 caller for fifteen minutes: a list is never called twice at once, and a caller
 leaving the desk costs nothing. The number is a link the phone dials, because the
-product has no telephony. The row carries the words around its number in the paste
+product has no telephony. The row carries the words around its number in the file
 that made it — "ACME, ask for Tizio" — so a caller reads them before dialling, and
 what the last call to that number said, so the second caller does not repeat the
 first. Settling a row picks one of the campaign's own outcomes and writes what was
-said; a date in "call again" keeps the row open until then, and an outcome the
-campaign never named is refused. A row taken by mistake goes back with one press, so
-a tap on the wrong number does not hold the list for the fifteen minutes of the
-lease.
+said; the outcome is picked first and **when to call again** second — an hour, three
+hours, tomorrow, a day of the caller's own, or the row is closed — and an outcome the
+campaign never named is refused. A row taken by mistake is released with one press,
+and one the caller does not want now is skipped without touching the list.
 
 ## A list
 
-A hundred calls begin as a paste, one entry per line, or as a campaign written with
-its purpose, its outcomes, the days it runs and, when the group has one, the
-knowledge page it reads aloud. Every line gives one row or one refusal, and the
-import says its counts out
-loud: added, already in the list, matched to a card, on the do-not-call list, and the
-lines it could not read. A number is found inside a line of prose and the prose is
-kept as the row's context; an extension leaves the number and stays beside it. The
-list the campaign already holds is read against too, so the same sheet pasted twice
-adds nothing the second time.
+A hundred calls begin as a **CSV file with named columns** — company, person, role,
+phone — and the pane offers the template to download. A file that names no columns is
+read as a bare list, one entry per line. Every line gives one row or one refusal, and
+the import says its counts out loud: added, already in the list, matched to a card, on
+the do-not-call list, and the lines it could not read. A number is normalised as it
+arrives — a number found inside a line of prose keeps the prose as the row's context,
+and an extension leaves the number and stays beside it. The list the campaign already
+holds is read against too, so a file imported twice adds nothing the second time.
 
 A number the group's cards already carry starts its row pointed at that card, and
 the first call to a number nobody knows creates the card — never an import, so a list

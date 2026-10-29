@@ -3,7 +3,7 @@
 Status: Proposed
 
 Implementation: Built. The documents, their paths and their validators
-are `server/src/shared/outbound.ts`; the one number form, the paste, the queue,
+are `server/src/shared/outbound.ts`; the one number form, the file import, the queue,
 the acts on a row, the documents on disk and the group's door are
 `server/src/outbound/`, answered by `server/src/routes/outbound.ts` and drawn by
 `web/src/views/outbound/TodayView.tsx`; `server/src/outbound.test.ts` drives the
@@ -30,9 +30,8 @@ file of the rows that ended with one outcome.
 
 Future improvements, named rather than left implicit: the handoff leaves as a file
 and nothing else, so an appointment in the calendar and a message to the receiving
-group are not built; and a file is not chosen and read by its columns — a list is
-pasted, and a spreadsheet arrives as the text it was copied from. Each is a change
-with a record of its own if a group ever needs it.
+group are not built. Each is a change with a record of its own if a group ever needs
+it.
 
 The area is not one of the agent's, and that is a decision rather than an omission:
 `shared/areas.ts` names none of it, no instruction may declare it, and the agent
@@ -148,14 +147,16 @@ that must never be called is entered once for each group that calls.
   failure this product cannot afford. The list is the group's, so the check happens
   where the rows are written and never reaches another account: a number the group
   was told never to call is never written into that group's campaigns.
-- **The list arrives by paste, and the work happens on a phone.** A hundred calls
-  begin as a paste — a spreadsheet's column, a mail's body, a file's contents —
-  never as a form filled once per number, and the work happens on the screen in the
-  caller's hand: the size of the list is why the first is true, and where the call
-  is made is why the second is. A paste has no columns, so it is read for the
-  numbers in it — one row for each, the words around it kept as the row's own
-  context — because the paste that starts a campaign is as often a mail as a
-  spreadsheet.
+- **The list arrives as a file with columns, and the work happens on a phone.** A
+  hundred calls begin as a CSV — `company, person, role, phone`, named by its header
+  and offered as a template — never as a form filled once per number, and the work
+  happens on the screen in the caller's hand: the size of the list is why the first
+  is true, and where the call is made is why the second is. A file that names no
+  columns is read as a bare list, for the numbers in its lines, the words around each
+  kept as the row's own context; a number is normalised as it arrives and a line that
+  cannot be resolved is refused and counted. Reading a list twice adds nothing: a
+  number the campaign already holds is skipped and counted, so an import can be
+  repeated without fear.
 - **The window orders the work; it does not delete it.** A campaign past its window
   with rows still open is a finding for the group that owns it — closed, extended,
   or carried into the next campaign — never a list that quietly stops existing.
