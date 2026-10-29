@@ -20,7 +20,11 @@ export function VCardCard({ part, accountId }: { part: EmailBodyPart; accountId:
         Object.values(contacts.books).find((b) => b.isDefault) ??
         Object.values(contacts.books)[0];
       if (!book) throw new Error("No address book available");
-      const { created, updated } = await contacts.importVCard(text, book.id);
+      const { created, updated } = await contacts.importVCard(
+        text,
+        book.id,
+        contacts.accountId,
+      );
       setDone(true);
       /*
        * A card attached to a message is usually one you already have, and now
