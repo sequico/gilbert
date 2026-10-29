@@ -102,7 +102,8 @@ export const catalog: Catalog = {
     "Wants a quote for January": "Wil een offerte voor januari",
     "“{purpose}” is closed": "‘{purpose}’ is gesloten",
     "{n} row carried into a new campaign": "{n} rij overgedragen aan een nieuwe campagne",
-    "{n} rows carried into a new campaign": "{n} rijen overgedragen aan een nieuwe campagne",
+    "{n} rows carried into a new campaign":
+      "{n} rijen overgedragen aan een nieuwe campagne",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Als de lijst klaar is, sluit je hem — de nog open rijen gaan naar een nieuwe campagne — of geef je de rijen die op één manier eindigden aan een collega.",
     "No number blocked": "Geen nummer geblokkeerd",

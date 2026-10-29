@@ -110,7 +110,8 @@ export const catalog: Catalog = {
     "Wants a quote for January": "Quer um orçamento para janeiro",
     "“{purpose}” is closed": "“{purpose}” está fechada",
     "{n} row carried into a new campaign": "{n} linha transferida para uma nova campanha",
-    "{n} rows carried into a new campaign": "{n} linhas transferidas para uma nova campanha",
+    "{n} rows carried into a new campaign":
+      "{n} linhas transferidas para uma nova campanha",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Quando a lista estiver pronta, feche-a — as linhas ainda abertas vão para uma nova campanha — ou entregue a um colega as linhas que terminaram de um jeito.",
     "No number blocked": "Nenhum número bloqueado",

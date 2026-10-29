@@ -288,7 +288,8 @@ export function TodayView({ section }: { section?: string }) {
         note: note.trim() || null,
         // A day keeps the row open from its first moment, ready to be called again;
         // no date settles it.
-        nextCallAt: nextCall === "" ? null : new Date(`${nextCall}T00:00:00`).toISOString(),
+        nextCallAt:
+          nextCall === "" ? null : new Date(`${nextCall}T00:00:00`).toISOString(),
       });
       setTaken(null);
       setNote("");
@@ -612,7 +613,8 @@ function LastCall({
     <p className="hint">
       {t("Last call: {when} · {outcome}", {
         when: formatDateTime(new Date(last.at)),
-        outcome: outcomes.find((entry) => entry.id === last.outcome)?.label ?? last.outcome,
+        outcome:
+          outcomes.find((entry) => entry.id === last.outcome)?.label ?? last.outcome,
       })}
       {last.note && ` — ${last.note}`}
     </p>
@@ -857,7 +859,10 @@ function StartList({
               {report && (
                 <div className="hint">
                   <p>
-                    {plural(report.added, { one: "{n} row added", other: "{n} rows added" })}
+                    {plural(report.added, {
+                      one: "{n} row added",
+                      other: "{n} rows added",
+                    })}
                     {report.matched > 0 &&
                       ` · ${plural(report.matched, { one: "{n} matched a card", other: "{n} matched a card" })}`}
                     {report.duplicate > 0 &&
@@ -877,7 +882,10 @@ function StartList({
                         {report.refused.map((entry, index) => (
                           <li key={`${index}-${entry.line}`}>
                             {entry.line} —{" "}
-                            {t(REFUSAL_LABELS[entry.reason] ?? "This line could not be read")}
+                            {t(
+                              REFUSAL_LABELS[entry.reason] ??
+                                "This line could not be read",
+                            )}
                           </li>
                         ))}
                       </ul>

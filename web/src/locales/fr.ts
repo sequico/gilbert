@@ -111,8 +111,10 @@ export const catalog: Catalog = {
     "Call recorded": "Appel enregistré",
     "Wants a quote for January": "Veut un devis pour janvier",
     "“{purpose}” is closed": "« {purpose} » est fermée",
-    "{n} row carried into a new campaign": "{n} ligne reportée dans une nouvelle campagne",
-    "{n} rows carried into a new campaign": "{n} lignes reportées dans une nouvelle campagne",
+    "{n} row carried into a new campaign":
+      "{n} ligne reportée dans une nouvelle campagne",
+    "{n} rows carried into a new campaign":
+      "{n} lignes reportées dans une nouvelle campagne",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Quand la liste est terminée, fermez-la — les lignes encore ouvertes passent dans une nouvelle campagne — ou transmettez à un collègue les lignes qui se sont terminées d'une certaine façon.",
     "No number blocked": "Aucun numéro bloqué",
