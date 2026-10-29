@@ -1559,6 +1559,8 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "この操作は取り消せません。",
+    "One of them is in more than one address book, and is deleted from all of them.": "そのうち 1 件は複数のアドレス帳に入っており、すべてから削除されます。",
+    "{n} of them are in more than one address book, and are deleted from all of them.": "そのうち {n} 件は複数のアドレス帳に入っており、すべてから削除されます。",
     "Some could not be deleted: {error}": "一部を削除できませんでした: {error}",
     "It was not deleted": "削除されませんでした",
     "Empty address book": "このアドレス帳を空にする",

@@ -692,10 +692,26 @@ export function ContactsView({ id }: { id?: string }) {
             r.id === address.id && (r.accountId ?? null) === (address.accountId ?? null),
         ),
     );
+    /*
+     * A card filed in several books goes from all of them: `destroy` takes the
+     * object, and the books are only a membership inside it. Said when it is true
+     * rather than always, because a sentence about a case that cannot happen here
+     * is noise, and said instead of silently taking a card out of a book nobody
+     * pointed at.
+     */
+    const inSeveral = pickedItems.filter(
+      (i) => Object.keys(i.card.addressBookIds ?? {}).length > 1,
+    ).length;
     if (
       !(await confirmDialog({
         title: plural(n, { one: "Delete {n} contact?", other: "Delete {n} contacts?" }),
-        message: translate("This cannot be undone."),
+        message: inSeveral
+          ? `${translate("This cannot be undone.")} ${plural(inSeveral, {
+              one: "One of them is in more than one address book, and is deleted from all of them.",
+              other:
+                "{n} of them are in more than one address book, and are deleted from all of them.",
+            })}`
+          : translate("This cannot be undone."),
         confirmLabel: translate("Delete"),
         danger: true,
       }))

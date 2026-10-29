@@ -2532,6 +2532,8 @@ export const catalog: Catalog = {
     // ── Emptying an address book, and deleting a selection (#277) ──
 
     "This cannot be undone.": "Questo non può essere annullato.",
+    "One of them is in more than one address book, and is deleted from all of them.": "Uno di loro è in più di una rubrica e viene eliminato da tutte.",
+    "{n} of them are in more than one address book, and are deleted from all of them.": "{n} di loro sono in più di una rubrica e vengono eliminati da tutte.",
 
     "Some could not be deleted: {error}":
       "Alcuni non hanno potuto essere eliminati: {error}",

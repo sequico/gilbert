@@ -1549,6 +1549,8 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Цю дію не можна скасувати.",
+    "One of them is in more than one address book, and is deleted from all of them.": "Один із них є в кількох адресних книгах і буде вилучений з усіх.",
+    "{n} of them are in more than one address book, and are deleted from all of them.": "{n} із них є в кількох адресних книгах і будуть вилучені з усіх.",
     "Some could not be deleted: {error}": "Деякі не вдалося видалити: {error}",
     "It was not deleted": "Контакт не було видалено",
     "Empty address book": "Очистити цю адресну книгу",

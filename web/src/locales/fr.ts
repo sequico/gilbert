@@ -1574,6 +1574,8 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Cette action est irréversible.",
+    "One of them is in more than one address book, and is deleted from all of them.": "L’un d’eux figure dans plusieurs carnets et est supprimé de tous.",
+    "{n} of them are in more than one address book, and are deleted from all of them.": "{n} d’entre eux figurent dans plusieurs carnets et sont supprimés de tous.",
     "Some could not be deleted: {error}":
       "Certains n’ont pas pu être supprimés : {error}",
     "It was not deleted": "Il n’a pas été supprimé",

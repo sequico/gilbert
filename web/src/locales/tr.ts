@@ -1691,6 +1691,8 @@ export const catalog: Catalog = {
     "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
       "Bu tarayıcı artık bu cihazdaki bildirimler için bir yanıt tutmuyor, dolayısıyla hiçbiri gösterilemez. Bir anahtarı kapatıp yeniden açmak izni ister.",
     "This cannot be undone.": "Bu işlem geri alınamaz.",
+    "One of them is in more than one address book, and is deleted from all of them.": "Bunlardan biri birden fazla adres defterinde ve hepsinden silinecek.",
+    "{n} of them are in more than one address book, and are deleted from all of them.": "Bunlardan {n} tanesi birden fazla adres defterinde ve hepsinden silinecek.",
     "This conversation no longer exists.": "Bu yazışma artık yok.",
     "This date cannot be changed on its own": "Bu tarih tek başına değiştirilemez",
     "This file is not UTF-8 text, so editing it here would corrupt it — download it instead.":

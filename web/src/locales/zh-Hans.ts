@@ -1515,6 +1515,8 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "此操作无法撤销。",
+    "One of them is in more than one address book, and is deleted from all of them.": "其中一个位于多个通讯录中，将从所有通讯录中删除。",
+    "{n} of them are in more than one address book, and are deleted from all of them.": "其中 {n} 个位于多个通讯录中，将从所有通讯录中删除。",
     "Some could not be deleted: {error}": "部分无法删除：{error}",
     "It was not deleted": "未被删除",
     "Empty address book": "清空此通讯录",
