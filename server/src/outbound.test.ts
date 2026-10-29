@@ -65,6 +65,7 @@ interface Campaign {
   uid: string;
   purpose: string;
   outcomes: { id: string; label: string }[];
+  window: { from: string | null; to: string | null };
   state: string;
 }
 
@@ -128,6 +129,40 @@ test("a campaign is written into the group's account and read back by a member",
     queue.body?.problems,
     [],
     "the group's folder holds no unreadable document",
+  );
+});
+
+test("a campaign is refused when its vocabulary repeats or its window runs backwards", async () => {
+  const repeated = await post("/api/outbound/campaigns", {
+    group: GROUP,
+    purpose: "Two meanings for one word",
+    outcomes: [
+      { id: "spoke", label: "Spoke" },
+      { id: "spoke", label: "Spoke again" },
+    ],
+  });
+  assert.equal(repeated.status, 400, "one id cannot name two outcomes");
+  assert.equal(repeated.body?.error, "bad_request");
+
+  const backwards = await post("/api/outbound/campaigns", {
+    group: GROUP,
+    purpose: "Ends before it starts",
+    outcomes: OUTCOMES,
+    window: { from: "2026-11-01T00:00:00Z", to: "2026-10-01T00:00:00Z" },
+  });
+  assert.equal(backwards.status, 400, JSON.stringify(backwards.body));
+
+  const ordered = await post("/api/outbound/campaigns", {
+    group: GROUP,
+    purpose: "A window that closes",
+    outcomes: OUTCOMES,
+    window: { from: "2026-10-01T00:00:00Z", to: "2026-11-01T00:00:00Z" },
+  });
+  assert.equal(ordered.status, 200, JSON.stringify(ordered.body));
+  assert.equal(
+    (ordered.body?.campaign as Campaign | undefined)?.window?.to,
+    "2026-11-01T00:00:00Z",
+    "the window is stored as the caller stated it",
   );
 });
 

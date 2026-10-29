@@ -78,7 +78,7 @@ function outcomesOf(value: unknown): CampaignOutcome[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new OutboundError("bad_request", "A campaign needs at least one outcome.", 400);
   }
-  return value.map((entry) => {
+  const outcomes = value.map((entry) => {
     if (
       !isRecord(entry) ||
       typeof entry.id !== "string" ||
@@ -99,6 +99,12 @@ function outcomesOf(value: unknown): CampaignOutcome[] {
     }
     return { id: entry.id.trim(), label: entry.label.trim() };
   });
+  // The document refuses two outcomes sharing an id, so the write does too: a
+  // campaign stored here has to be one this build can read back.
+  if (new Set(outcomes.map((outcome) => outcome.id)).size !== outcomes.length) {
+    throw new OutboundError("bad_request", "Two outcomes cannot share an id.", 400);
+  }
+  return outcomes;
 }
 
 function scriptOf(value: unknown): CampaignScriptRef | null {
@@ -121,10 +127,14 @@ function windowOf(value: unknown): CampaignWindow {
   if (value === undefined || value === null) return { from: null, to: null };
   if (!isRecord(value))
     throw new OutboundError("bad_request", "The window is a pair of dates.", 400);
-  return {
-    from: instantOf(value.from, "window.from"),
-    to: instantOf(value.to, "window.to"),
-  };
+  const from = instantOf(value.from, "window.from");
+  const to = instantOf(value.to, "window.to");
+  // A window that ends before it starts is a campaign nobody can work and a finding
+  // that says nothing: refused where it is written, not discovered later.
+  if (from !== null && to !== null && Date.parse(from) > Date.parse(to)) {
+    throw new OutboundError("bad_request", "A campaign cannot end before it starts.", 400);
+  }
+  return { from, to };
 }
 
 export function registerOutboundRoutes(api: Hono<Env>): void {
