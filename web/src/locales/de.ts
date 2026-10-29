@@ -56,6 +56,14 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "What was said": "Was gesagt wurde",
+    "Call again": "Erneut anrufen",
+    "A date keeps the row open until then; leaving it empty settles the row.":
+      "Ein Datum hält die Zeile bis dahin offen; bleibt es leer, wird die Zeile abgeschlossen.",
+    "Show more": "Mehr anzeigen",
+    "This campaign is closed: it takes no new rows, and its decided rows can still be handed off.":
+      "Diese Kampagne ist geschlossen: sie nimmt keine neuen Zeilen auf, und ihre entschiedenen Zeilen lassen sich weiterhin übergeben.",
+    "{purpose} (closed)": "„{purpose}“ (geschlossen)",
     Outbound: "Outbound",
     Campaigns: "Kampagnen",
     "All campaigns": "Alle Kampagnen",
