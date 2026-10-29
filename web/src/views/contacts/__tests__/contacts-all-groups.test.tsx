@@ -156,7 +156,7 @@ describe("All contacts, and the group a card came from", () => {
     expect(badges()).toEqual([]);
   });
 
-  it("exports what All contacts shows, the groups included", async () => {
+  it("exports nothing for All contacts, which is a view and not a book", async () => {
     await arrange({ accountId: null, bookId: "all" });
     await render();
     await act(async () => {
@@ -166,10 +166,8 @@ describe("All contacts, and the group a card came from", () => {
         }),
       );
     });
-    const written = vi.mocked(downloadFile).mock.calls[0]?.[0];
-    expect(String(written)).toContain("Ada Person");
-    expect(String(written)).toContain("Freight team");
-    // The colleague's share is not in this list, so it is not in the file.
-    expect(String(written)).not.toContain("A colleague's friend");
+    // The set holds the directory's and every group's cards, so it is not a
+    // book to export: the command does not exist and the effect refuses it.
+    expect(vi.mocked(downloadFile)).not.toHaveBeenCalled();
   });
 });

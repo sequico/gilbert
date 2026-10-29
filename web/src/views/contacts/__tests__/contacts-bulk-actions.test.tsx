@@ -50,7 +50,7 @@ const arrange = (selection: { accountId: string | null; bookId: string }) => {
     error: null,
     sharedBooks: [
       {
-        accountId: "master",
+        accountId: GLOBAL_CONTACTS_ACCOUNT_ID,
         accountName: "gilbert@example.org",
         book: book("global-contacts", "Global contacts"),
       },
@@ -73,7 +73,15 @@ const arrange = (selection: { accountId: string | null; bookId: string }) => {
 
 /** The administrator's marker, as the session store answers it. */
 const asAdmin = (on: boolean) =>
-  useSession.setState({ session: on ? ({ gilbert: { isAdmin: true } } as never) : null });
+  useSession.setState({
+    session: on
+      ? ({
+          accounts: {},
+          primaryAccounts: {},
+          gilbert: { isAdmin: true },
+        } as never)
+      : null,
+  });
 
 describe("import and export from a book's menu", () => {
   let host: HTMLDivElement;
@@ -179,7 +187,7 @@ describe("import and export from a book's menu", () => {
     });
     Object.defineProperty(input, "files", { value: [file], configurable: true });
     await act(async () => {
-      input!.dispatchEvent(new Event("change"));
+      input!.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({
       file,
@@ -218,7 +226,7 @@ describe("import and export from a book's menu", () => {
       exportItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({
-      accountId: "master",
+      accountId: GLOBAL_CONTACTS_ACCOUNT_ID,
       bookId: "global-contacts",
     });
     window.removeEventListener(EVENTS.contactsExport, heard);
@@ -256,7 +264,7 @@ describe("import and export from a book's menu", () => {
 
   it("imports into the directory through the administration's route", async () => {
     asAdmin(true);
-    arrange({ accountId: "master", bookId: "global-contacts" });
+    arrange({ accountId: GLOBAL_CONTACTS_ACCOUNT_ID, bookId: "global-contacts" });
     const intoDirectory = vi
       .spyOn(useContacts.getState(), "importIntoDirectory")
       .mockResolvedValue({ created: 1 });

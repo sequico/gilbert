@@ -465,16 +465,24 @@ export function ContactsView({ id }: { id?: string }) {
    * Whether the open card may leave as a `.vcf`: a shared collection's contact
    * is an installation administrator's to export, exactly as that book's
    * command is (`isSharedCollectionBook`), and the button asks the same answer
-   * rather than telling a second story.
+   * rather than telling a second story. `knownShared` is the same question
+   * answered with the group probe taken as done: it is what lets the pane say
+   * *why* the button is off, and stay quiet while the probe has not spoken.
    */
-  const selectedMayExport =
-    isAdmin ||
-    !isSharedCollectionBook({
-      bookId: bookId === "all" ? "all" : bookId,
-      accountId: selectedAccountId,
-      groups: groupIds,
-      groupsKnown,
-    });
+  const cardBook = bookId === "all" ? "all" : bookId;
+  const selectedIsSharedCollection = isSharedCollectionBook({
+    bookId: cardBook,
+    accountId: selectedAccountId,
+    groups: groupIds,
+    groupsKnown,
+  });
+  const selectedMayExport = isAdmin || !selectedIsSharedCollection;
+  const selectedKnownSharedCollection = isSharedCollectionBook({
+    bookId: cardBook,
+    accountId: selectedAccountId,
+    groups: groupIds,
+    groupsKnown: true,
+  });
   const books = contacts.booksOf(contacts.accountId);
   const groups = useMemo(() => {
     const out: Array<{
@@ -1130,6 +1138,7 @@ export function ContactsView({ id }: { id?: string }) {
             accountId={selectedAccountId}
             readOnly={selectedReadOnly}
             mayExport={selectedMayExport}
+            sharedCollection={selectedKnownSharedCollection}
             bookId={bookId === "all" ? undefined : bookId}
             onBack={() => navigate("/contacts")}
             onEdit={() => {
@@ -1445,6 +1454,7 @@ function ContactDetail({
   readOnly,
   bookId,
   mayExport,
+  sharedCollection,
   onBack,
   onEdit,
   narrow,
@@ -1470,6 +1480,8 @@ function ContactDetail({
    * (`isSharedCollectionBook`), so the button follows the same answer.
    */
   mayExport: boolean;
+  /** Whether the book holding this card is *known* to be a shared collection. */
+  sharedCollection: boolean;
   /**
    * A card the store knows is another account's: the reader's own list is in,
    * and this id is not in it. Editing and deleting it are that account's to
@@ -1585,7 +1597,7 @@ function ContactDetail({
       {/* Said as text, not as the `title` of a disabled button: a browser does
           not show one, and the reason an export is not offered has to be
           readable. */}
-      {!mayExport && (
+      {!mayExport && sharedCollection && (
         <p className="hint">
           {translate(
             "Only an installation administrator imports into or exports a group's address book or the installation's directory.",
