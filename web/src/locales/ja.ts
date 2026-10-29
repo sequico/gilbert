@@ -1095,6 +1095,7 @@ export const catalog: Catalog = {
     "Delete this event?": "この予定を削除しますか？",
     "Delete this identity?": "この差出人を削除しますか？",
     "Delete {name}?": "{name} を削除しますか？",
+    "It leaves this address book and stays in the others it is in.": "このアドレス帳から外れ、入っている他のアドレス帳には残ります。",
     Deleted: "削除しました",
     "Deletes the whole series. This cannot be undone.":
       "繰り返し全体を削除します。元に戻せません。",

@@ -1124,6 +1124,7 @@ export const catalog: Catalog = {
     "Delete this event?": "Diesen Termin löschen?",
     "Delete this identity?": "Diese Absenderidentität löschen?",
     "Delete {name}?": "{name} löschen?",
+    "It leaves this address book and stays in the others it is in.": "Der Kontakt wird aus diesem Adressbuch entfernt und bleibt in den anderen, in denen er steht.",
     Deleted: "Gelöscht",
     "Deletes the whole series. This cannot be undone.":
       "Löscht die gesamte Serie. Das lässt sich nicht rückgängig machen.",

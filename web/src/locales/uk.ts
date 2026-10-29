@@ -1086,6 +1086,7 @@ export const catalog: Catalog = {
     "Delete this event?": "Видалити цю подію?",
     "Delete this identity?": "Видалити цей профіль відправника?",
     "Delete {name}?": "Видалити {name}?",
+    "It leaves this address book and stays in the others it is in.": "Контакт вийде з цієї адресної книги та залишиться в інших, де він є.",
     Deleted: "Видалено",
     "Deletes the whole series. This cannot be undone.":
       "Видаляє всю серію. Це не можна буде скасувати.",

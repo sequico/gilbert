@@ -1070,6 +1070,7 @@ export const catalog: Catalog = {
     "Delete this event?": "删除此日程？",
     "Delete this identity?": "删除此发件身份？",
     "Delete {name}?": "删除 {name}？",
+    "It leaves this address book and stays in the others it is in.": "该联系人将从此通讯录中移出，并保留在其所在的其他通讯录中。",
     Deleted: "已删除",
     "Deletes the whole series. This cannot be undone.": "删除整个系列。此操作无法撤销。",
     "Did you forget the attachment?": "您是不是忘了添加附件？",

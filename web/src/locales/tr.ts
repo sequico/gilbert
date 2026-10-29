@@ -478,6 +478,7 @@ export const catalog: Catalog = {
     "Delete this message": "Bu iletiyi sil",
     "Delete {identity}?": "{identity} silinsin mi?",
     "Delete {name}?": "{name} silinsin mi?",
+    "It leaves this address book and stays in the others it is in.": "Bu adres defterinden çıkar ve bulunduğu diğer defterlerde kalır.",
     "Delete “{name}”?": "“{name}” silinsin mi?",
     "Delete?": "Silinsin mi?",
     Deleted: "Silindi",

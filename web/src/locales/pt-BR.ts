@@ -1099,6 +1099,7 @@ export const catalog: Catalog = {
     "Delete this event?": "Excluir este evento?",
     "Delete this identity?": "Excluir esta identidade?",
     "Delete {name}?": "Excluir {name}?",
+    "It leaves this address book and stays in the others it is in.": "Ele sai desta agenda e permanece nas outras em que está.",
     Deleted: "Excluído",
     "Deletes the whole series. This cannot be undone.":
       "Exclui a série inteira. Isso não pode ser desfeito.",

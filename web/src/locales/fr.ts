@@ -1104,6 +1104,7 @@ export const catalog: Catalog = {
     "Delete this event?": "Supprimer cet événement ?",
     "Delete this identity?": "Supprimer cette identité ?",
     "Delete {name}?": "Supprimer {name} ?",
+    "It leaves this address book and stays in the others it is in.": "Il quitte ce carnet et reste dans les autres carnets où il figure.",
     Deleted: "Supprimé",
     "Deletes the whole series. This cannot be undone.":
       "Supprime toute la série. Cette action est irréversible.",

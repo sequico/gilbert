@@ -1092,6 +1092,7 @@ export const catalog: Catalog = {
     "Delete this event?": "Удалить это событие?",
     "Delete this identity?": "Удалить этот профиль отправителя?",
     "Delete {name}?": "Удалить {name}?",
+    "It leaves this address book and stays in the others it is in.": "Контакт будет удалён из этой адресной книги и останется в остальных, где он есть.",
     Deleted: "Удалено",
     "Deletes the whole series. This cannot be undone.":
       "Удаляет всю серию. Отменить это будет нельзя.",

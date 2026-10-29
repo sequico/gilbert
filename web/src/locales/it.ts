@@ -1740,6 +1740,7 @@ export const catalog: Catalog = {
     "Delete this identity?": "Eliminare questa identità?",
 
     "Delete {name}?": "Eliminare {name}?",
+    "It leaves this address book and stays in the others it is in.": "Esce da questa rubrica e resta nelle altre in cui si trova.",
     Deleted: "Eliminato",
 
     "Deletes the whole series. This cannot be undone.":

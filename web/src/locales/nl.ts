@@ -1089,6 +1089,7 @@ export const catalog: Catalog = {
     "Delete this event?": "Deze afspraak verwijderen?",
     "Delete this identity?": "Deze afzender verwijderen?",
     "Delete {name}?": "{name} verwijderen?",
+    "It leaves this address book and stays in the others it is in.": "Het contact verlaat dit adresboek en blijft in de andere adresboeken waarin het staat.",
     Deleted: "Verwijderd",
     "Deletes the whole series. This cannot be undone.":
       "Verwijdert de hele reeks. Dit kan niet ongedaan worden gemaakt.",

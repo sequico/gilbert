@@ -1426,6 +1426,16 @@ function ContactDetail({
               if (
                 await confirmDialog({
                   title: translate("Delete {name}?", { name }),
+                  /* Inside a book, a card filed elsewhere leaves it rather than
+                     going: said before the click, as the list's own confirmation
+                     says it. */
+                  message:
+                    bookId !== "all" &&
+                    Object.keys(c.addressBookIds ?? {}).length > 1
+                      ? translate(
+                          "It leaves this address book and stays in the others it is in.",
+                        )
+                      : undefined,
                   confirmLabel: translate("Delete"),
                   danger: true,
                 })
