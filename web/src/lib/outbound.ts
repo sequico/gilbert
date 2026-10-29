@@ -7,7 +7,12 @@
  * this file only carries them.
  */
 
-import type { CampaignDoc, CampaignOutcome, RowDoc } from "@gilbert/shared/outbound";
+import type {
+  CampaignDoc,
+  CampaignOutcome,
+  CampaignWindow,
+  RowDoc,
+} from "@gilbert/shared/outbound";
 import { apiFetch } from "@/jmap/client";
 
 /** What Today holds: the rows to work and the counts beside them. */
@@ -107,18 +112,20 @@ export async function fetchScript(
 }
 
 /**
- * Write a campaign for a purpose, with the outcomes its callers will choose and,
- * when the group has a page for it, the script it reads aloud.
+ * Write a campaign for a purpose, with the outcomes its callers will choose, the
+ * window it runs in when it has one, and — when the group has a page for it — the
+ * script it reads aloud.
  */
 export async function createCampaign(
   group: string,
   purpose: string,
   outcomes: CampaignOutcome[],
   script: { nodeId: string; revision: string } | null = null,
+  window: CampaignWindow | null = null,
 ): Promise<CampaignDoc> {
   const res = await apiFetch<{ campaign: CampaignDoc }>("/api/outbound/campaigns", {
     method: "POST",
-    body: JSON.stringify({ group, purpose, outcomes, script }),
+    body: JSON.stringify({ group, purpose, outcomes, script, window }),
   });
   return res.campaign;
 }

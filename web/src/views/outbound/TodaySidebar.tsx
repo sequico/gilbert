@@ -1,6 +1,6 @@
 import { ListFilter, Phone, PhoneOff, Plus, Users } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
@@ -29,14 +29,14 @@ export function TodaySidebar() {
   const at = (path: string) => location === path;
 
   const entry = (path: string, label: string, icon: ReactNode) => (
-    <a
-      className={`nav-item ${at(path) ? "active" : ""}`}
+    <Link
       href={path}
+      className={`nav-item ${at(path) ? "active" : ""}`}
       aria-current={at(path) ? "page" : undefined}
     >
       {icon}
       <span className="nav-label">{label}</span>
-    </a>
+    </Link>
   );
 
   return (

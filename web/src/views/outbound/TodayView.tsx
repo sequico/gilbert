@@ -1,7 +1,14 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import type { CampaignDoc, CampaignOutcome, RowDoc } from "@gilbert/shared/outbound";
+import type {
+  CampaignDoc,
+  CampaignOutcome,
+  CampaignWindow,
+  RowDoc,
+} from "@gilbert/shared/outbound";
 import { Phone, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { addDays } from "@/lib/dates";
+import { formatDateTime } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -23,7 +30,7 @@ import {
 } from "@/lib/outbound";
 import { useMail } from "@/store/mail";
 import { activeGroupName, useOutbound } from "@/store/outbound";
-import { DateTimeField } from "@/ui/datefield";
+import { DateTimeField, DateField } from "@/ui/datefield";
 import { confirmDialog } from "@/ui/dialog";
 import { LoadState } from "@/ui/LoadState";
 import { Empty } from "@/ui/misc";
@@ -138,13 +145,15 @@ export function TodayView({ section }: { section?: string }) {
    * group's promise and the group's document, so the answer is the list as the
    * server now holds it rather than a guess made here.
    */
-  async function block(number: string, blocked: boolean) {
+  async function block(number: string, blocked: boolean): Promise<boolean> {
     setError(null);
     setBusy(true);
     try {
       setDoNotCallNumbers(await setDoNotCall(active, number, blocked));
+      return true;
     } catch (err) {
       setError(errorMessage(err));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -391,7 +400,7 @@ export function TodayView({ section }: { section?: string }) {
           <DoNotCallList
             numbers={doNotCall}
             busy={busy}
-            onBlock={(number) => void block(number, true)}
+            onBlock={(number) => block(number, true)}
             onAllow={(number) => void block(number, false)}
           />
         </>
@@ -443,6 +452,9 @@ function TakenRow({
   onNextCall: (nextCall: string) => void;
   onSettle: (outcome: string) => void;
 }) {
+  // What was said to this number last time: the reason the row exists at all, and
+  // what a caller reading a row they have never worked needs before dialling.
+  const last = row.calls.at(-1);
   return (
     <div className="card" style={{ borderColor: "var(--accent)" }}>
       <div className="card-head">
@@ -455,6 +467,16 @@ function TakenRow({
         <span className="tag">{t("yours now")}</span>
       </div>
       {row.context && <p className="hint">{row.context}</p>}
+      {last && (
+        <p className="hint">
+          {t("Last call: {when} · {outcome}", {
+            when: formatDateTime(new Date(last.at)),
+            outcome:
+              outcomes.find((entry) => entry.id === last.outcome)?.label ?? last.outcome,
+          })}
+          {last.note && ` — ${last.note}`}
+        </p>
+      )}
       <p>
         {/* The product has no telephony: the number is dialled by the phone this
             page is looked at on, which is the whole reason the row was taken. */}
@@ -526,6 +548,19 @@ function outcomesOf(text: string): CampaignOutcome[] {
 }
 
 /**
+ * The window as the campaign stores it: instants, from the first day's midnight to
+ * the moment after the last day — a list that runs "until the 30th" is worked on
+ * the 30th.
+ */
+function windowOf(from: string, until: string): CampaignWindow | null {
+  if (from === "" && until === "") return null;
+  return {
+    from: from === "" ? null : new Date(`${from}T00:00:00`).toISOString(),
+    to: until === "" ? null : addDays(new Date(`${until}T00:00:00`), 1).toISOString(),
+  };
+}
+
+/**
  * Where a list comes from: a campaign is written with its purpose and its own
  * outcome vocabulary, then a paste fills it. Both are the group's, so both name
  * the group the screen is working in.
@@ -559,6 +594,8 @@ function StartList({
   const [purpose, setPurpose] = useState("");
   const [vocabulary, setVocabulary] = useState("");
   const [page, setPage] = useState("");
+  const [from, setFrom] = useState("");
+  const [until, setUntil] = useState("");
   const [outcome, setOutcome] = useState("");
   const [working, setWorking] = useState(false);
 
@@ -580,10 +617,13 @@ function StartList({
         purpose.trim(),
         outcomesOf(vocabulary),
         read ? { nodeId: read.nodeId, revision: read.revision } : null,
+        windowOf(from, until),
       );
       setPurpose("");
       setVocabulary("");
       setPage("");
+      setFrom("");
+      setUntil("");
       setTarget(campaign.uid);
       onCreated();
     } catch (err) {
@@ -658,6 +698,17 @@ function StartList({
           </select>
         </div>
       )}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <div className="field">
+          <label htmlFor="today-from">{t("Runs from")}</label>
+          <DateField id="today-from" value={from} onChange={setFrom} />
+        </div>
+        <div className="field">
+          <label htmlFor="today-until">{t("Runs until")}</label>
+          <DateField id="today-until" value={until} onChange={setUntil} />
+        </div>
+      </div>
+      <p className="hint">{t("Leave the dates empty for a list with no window.")}</p>
       <p>
         <button
           className="btn"
@@ -816,7 +867,8 @@ function DoNotCallList({
 }: {
   numbers: readonly string[];
   busy: boolean;
-  onBlock: (number: string) => void;
+  /** True when the number went on the list: what was typed stays if it did not. */
+  onBlock: (number: string) => Promise<boolean>;
   onAllow: (number: string) => void;
 }) {
   const [typed, setTyped] = useState("");
@@ -837,8 +889,11 @@ function DoNotCallList({
             className="btn"
             disabled={busy || typed.trim() === ""}
             onClick={() => {
-              onBlock(typed.trim());
-              setTyped("");
+              // The word goes out, and only a number the server accepted leaves the
+              // box: a refusal keeps what was typed, so it can be corrected.
+              void onBlock(typed.trim()).then((added) => {
+                if (added) setTyped("");
+              });
             }}
           >
             {t("Add")}

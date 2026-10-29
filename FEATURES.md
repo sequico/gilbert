@@ -1184,15 +1184,18 @@ list can land together; the write re-reads and applies its rule again.
 caller for fifteen minutes: a list is never called twice at once, and a caller
 leaving the desk costs nothing. The number is a link the phone dials, because the
 product has no telephony. The row carries the words around its number in the paste
-that made it — "ACME, ask for Tizio" — so a caller reads them before dialling.
-Settling a row picks one of the campaign's own outcomes; an outcome the campaign
-never named is refused, and a settled row leaves Today.
+that made it — "ACME, ask for Tizio" — so a caller reads them before dialling, and
+what the last call to that number said, so the second caller does not repeat the
+first. Settling a row picks one of the campaign's own outcomes and writes what was
+said; a date in "call again" keeps the row open until then, and an outcome the
+campaign never named is refused.
 
 ## A list
 
 A hundred calls begin as a paste, one entry per line, or as a campaign written with
-its purpose, its outcomes and, when the group has one, the knowledge page it reads
-aloud. Every line gives one row or one refusal, and the import says its counts out
+its purpose, its outcomes, the days it runs and, when the group has one, the
+knowledge page it reads aloud. Every line gives one row or one refusal, and the
+import says its counts out
 loud: added, already in the list, matched to a card, on the do-not-call list, and the
 lines it could not read. A number is found inside a line of prose and the prose is
 kept as the row's context; an extension leaves the number and stays beside it. The

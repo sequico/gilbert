@@ -50,6 +50,11 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
+    "Last call: {when} · {outcome}": "Последний звонок: {when} · {outcome}",
+    "Runs from": "Начало",
+    "Runs until": "Окончание",
+    "Leave the dates empty for a list with no window.":
+      "Оставьте даты пустыми для списка без окна.",
     "What was said": "Что было сказано",
     "Call again": "Перезвонить",
     "A date keeps the row open until then; leaving it empty settles the row.":
