@@ -105,8 +105,6 @@ export const catalog: Catalog = {
     "Call recorded": "通話を記録しました",
     "Wants a quote for January": "1月の見積もりを希望",
     "“{purpose}” is closed": "「{purpose}」は終了しました",
-    "{n} row carried into a new campaign": "{n} 行を新しいキャンペーンへ引き継ぎました",
-    "{n} rows carried into a new campaign": "{n} 行を新しいキャンペーンへ引き継ぎました",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "リストが終わったら閉じてください（未完了の行は新しいキャンペーンへ引き継げます）。または、特定の結果で終わった行を同僚に渡せます。",
     "No number blocked": "ブロックした番号はありません",
@@ -1160,10 +1158,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "このアドレス帳から削除されます。このアドレス帳にしかない連絡先は完全に削除されます。元に戻せません。",
     "Removed from this address book": "このアドレス帳から削除しました",
-    "Removed {n} contact from this address book":
-      "{n} 件の連絡先をこのアドレス帳から削除しました",
-    "Removed {n} contacts from this address book":
-      "{n} 件の連絡先をこのアドレス帳から削除しました",
     "Contact saved": "連絡先を保存しました",
     Copied: "コピーしました",
     "Could not cancel: {error}": "取り消せませんでした: {error}",
@@ -1664,18 +1658,10 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "この操作は取り消せません。",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "そのうち 1 件は複数のアドレス帳に入っており、すべてから削除されます。",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "そのうち {n} 件は複数のアドレス帳に入っており、すべてから削除されます。",
     "Some could not be deleted: {error}": "一部を削除できませんでした: {error}",
     "It was not deleted": "削除されませんでした",
     "Empty address book": "このアドレス帳を空にする",
     "There is nothing in it to delete": "削除するものがありません",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
     "Empty “{name}”?": "「{name}」を空にしますか？",
     "Delete them": "削除する",
     "Nothing was deleted": "何も削除されませんでした",
@@ -2623,6 +2609,24 @@ export const catalog: Catalog = {
       "グループのファイルを完全に削除できるのは管理者だけです。",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "そのうち 1 件は複数のアドレス帳に入っており、すべてから削除されます。",
+      other: "そのうち {n} 件は複数のアドレス帳に入っており、すべてから削除されます。",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} 件の連絡先をこのアドレス帳から削除しました",
+      other: "{n} 件の連絡先をこのアドレス帳から削除しました",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
+        other:
+          "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} 行を新しいキャンペーンへ引き継ぎました",
+      other: "{n} 行を新しいキャンペーンへ引き継ぎました",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} 件の古い通話はここに保存されていません",

@@ -83,8 +83,6 @@ export const catalog: Catalog = {
     "Call recorded": "Chiamata registrata",
     "Wants a quote for January": "Chiede un preventivo per gennaio",
     "“{purpose}” is closed": "«{purpose}» è chiusa",
-    "{n} row carried into a new campaign": "{n} riga portata in una nuova campagna",
-    "{n} rows carried into a new campaign": "{n} righe portate in una nuova campagna",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Quando la lista è finita, chiudila — portando le righe ancora aperte in una nuova campagna — oppure consegna a un collega le righe finite in un certo modo.",
     "No number blocked": "Nessun numero bloccato",
@@ -1781,8 +1779,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "Vengono tolti da questa rubrica; un contatto che è solo qui viene eliminato. Questo non può essere annullato.",
     "Removed from this address book": "Tolto da questa rubrica",
-    "Removed {n} contact from this address book": "{n} contatto tolto da questa rubrica",
-    "Removed {n} contacts from this address book": "{n} contatti tolti da questa rubrica",
 
     "Contact saved": "Contatto salvato",
     Copied: "Copiato",
@@ -2635,10 +2631,6 @@ export const catalog: Catalog = {
     // ── Emptying an address book, and deleting a selection (#277) ──
 
     "This cannot be undone.": "Questo non può essere annullato.",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "Uno di loro è in più di una rubrica e viene eliminato da tutte.",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "{n} di loro sono in più di una rubrica e vengono eliminati da tutte.",
 
     "Some could not be deleted: {error}":
       "Alcuni non hanno potuto essere eliminati: {error}",
@@ -2648,10 +2640,6 @@ export const catalog: Catalog = {
     "Empty address book": "Svuota la rubrica",
 
     "There is nothing in it to delete": "Non c'è nulla da eliminare",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "{n} di loro è anche in un’altra rubrica e verrà tolto solo da questa.",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "{n} di loro sono anche in altre rubriche e verranno tolti solo da questa.",
 
     "Empty “{name}”?": "Svuotare «{name}»?",
 
@@ -3599,6 +3587,24 @@ export const catalog: Catalog = {
       "Gilbert non ha potuto chiedere al server di posta informazioni su {need} di questo gruppo, quindi non può dire se il Master vi acceda: nulla è stato modificato e nulla è stato letto. Riprova, e se continua a rispondere così è il server di posta da controllare.",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "Uno di loro è in più di una rubrica e viene eliminato da tutte.",
+      other: "{n} di loro sono in più di una rubrica e vengono eliminati da tutte.",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} contatto tolto da questa rubrica",
+      other: "{n} contatti tolti da questa rubrica",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "{n} di loro è anche in un’altra rubrica e verrà tolto solo da questa.",
+        other:
+          "{n} di loro sono anche in altre rubriche e verranno tolti solo da questa.",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} riga portata in una nuova campagna",
+      other: "{n} righe portate in una nuova campagna",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} chiamata più vecchia non è più conservata qui",

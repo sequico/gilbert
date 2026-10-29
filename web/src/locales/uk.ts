@@ -102,8 +102,6 @@ export const catalog: Catalog = {
     "Call recorded": "Дзвінок записано",
     "Wants a quote for January": "Просить кошторис на січень",
     "“{purpose}” is closed": "«{purpose}» закрито",
-    "{n} row carried into a new campaign": "{n} рядок перенесено в нову кампанію",
-    "{n} rows carried into a new campaign": "{n} рядків перенесено в нову кампанію",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Коли список завершено, закрийте його — відкриті рядки перейдуть у нову кампанію — або передайте колезі рядки з певним результатом.",
     "No number blocked": "Жодного заблокованого номера",
@@ -1151,10 +1149,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "Їх буде вилучено з цієї адресної книги; контакт, який є лише в ній, буде видалено повністю. Це не можна скасувати.",
     "Removed from this address book": "Вилучено з цієї адресної книги",
-    "Removed {n} contact from this address book":
-      "{n} контакт вилучено з цієї адресної книги",
-    "Removed {n} contacts from this address book":
-      "{n} контактів вилучено з цієї адресної книги",
     "Contact saved": "Контакт збережено",
     Copied: "Скопійовано",
     "Could not cancel: {error}": "Не вдалося скасувати: {error}",
@@ -1655,18 +1649,10 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Цю дію не можна скасувати.",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "Один із них є в кількох адресних книгах і буде вилучений з усіх.",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "{n} із них є в кількох адресних книгах і будуть вилучені з усіх.",
     "Some could not be deleted: {error}": "Деякі не вдалося видалити: {error}",
     "It was not deleted": "Контакт не було видалено",
     "Empty address book": "Очистити цю адресну книгу",
     "There is nothing in it to delete": "У ній немає чого видаляти",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "{n} із них є і в іншій адресній книзі та буде вилучений лише з цієї.",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "{n} із них є і в інших адресних книгах та будуть вилучені лише з цієї.",
     "Empty “{name}”?": "Очистити «{name}»?",
     "Delete them": "Видалити їх",
     "Nothing was deleted": "Нічого не видалено",
@@ -2617,6 +2603,23 @@ export const catalog: Catalog = {
       "Остаточно видалити файли групи може лише адміністратор.",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "Один із них є в кількох адресних книгах і буде вилучений з усіх.",
+      other: "{n} із них є в кількох адресних книгах і будуть вилучені з усіх.",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} контакт вилучено з цієї адресної книги",
+      other: "{n} контактів вилучено з цієї адресної книги",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "{n} із них є і в іншій адресній книзі та буде вилучений лише з цієї.",
+        other: "{n} із них є і в інших адресних книгах та будуть вилучені лише з цієї.",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} рядок перенесено в нову кампанію",
+      other: "{n} рядків перенесено в нову кампанію",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} старий дзвінок тут більше не зберігається",

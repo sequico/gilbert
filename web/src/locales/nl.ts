@@ -101,9 +101,6 @@ export const catalog: Catalog = {
     "Call recorded": "Gesprek vastgelegd",
     "Wants a quote for January": "Wil een offerte voor januari",
     "“{purpose}” is closed": "‘{purpose}’ is gesloten",
-    "{n} row carried into a new campaign": "{n} rij overgedragen aan een nieuwe campagne",
-    "{n} rows carried into a new campaign":
-      "{n} rijen overgedragen aan een nieuwe campagne",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Als de lijst klaar is, sluit je hem — de nog open rijen gaan naar een nieuwe campagne — of geef je de rijen die op één manier eindigden aan een collega.",
     "No number blocked": "Geen nummer geblokkeerd",
@@ -1154,10 +1151,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "Ze worden uit dit adresboek verwijderd; een contact dat er alleen in staat wordt verwijderd. Dit kan niet ongedaan worden gemaakt.",
     "Removed from this address book": "Uit dit adresboek verwijderd",
-    "Removed {n} contact from this address book":
-      "{n} contact uit dit adresboek verwijderd",
-    "Removed {n} contacts from this address book":
-      "{n} contacten uit dit adresboek verwijderd",
     "Contact saved": "Contact opgeslagen",
     Copied: "Gekopieerd",
     "Could not cancel: {error}": "Annuleren mislukt: {error}",
@@ -1663,19 +1656,11 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Dit kan niet ongedaan worden gemaakt.",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "Een ervan staat in meer dan één adresboek en wordt uit alle verwijderd.",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "{n} ervan staan in meer dan één adresboek en worden uit alle verwijderd.",
     "Some could not be deleted: {error}":
       "Sommige konden niet worden verwijderd: {error}",
     "It was not deleted": "Het is niet verwijderd",
     "Empty address book": "Dit adresboek leegmaken",
     "There is nothing in it to delete": "Er staat niets in om te verwijderen",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "{n} ervan staat ook in een ander adresboek en wordt alleen uit dit verwijderd.",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "{n} ervan staan ook in andere adresboeken en worden alleen uit dit verwijderd.",
     "Empty “{name}”?": "„{name}” leegmaken?",
     "Delete them": "Verwijderen",
     "Nothing was deleted": "Er is niets verwijderd",
@@ -2629,6 +2614,24 @@ export const catalog: Catalog = {
       "Alleen een beheerder kan de bestanden van een groep definitief verwijderen.",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "Een ervan staat in meer dan één adresboek en wordt uit alle verwijderd.",
+      other: "{n} ervan staan in meer dan één adresboek en worden uit alle verwijderd.",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} contact uit dit adresboek verwijderd",
+      other: "{n} contacten uit dit adresboek verwijderd",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "{n} ervan staat ook in een ander adresboek en wordt alleen uit dit verwijderd.",
+        other:
+          "{n} ervan staan ook in andere adresboeken en worden alleen uit dit verwijderd.",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} rij overgedragen aan een nieuwe campagne",
+      other: "{n} rijen overgedragen aan een nieuwe campagne",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} ouder gesprek wordt hier niet meer bewaard",

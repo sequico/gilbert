@@ -111,10 +111,6 @@ export const catalog: Catalog = {
     "Call recorded": "Appel enregistré",
     "Wants a quote for January": "Veut un devis pour janvier",
     "“{purpose}” is closed": "« {purpose} » est fermée",
-    "{n} row carried into a new campaign":
-      "{n} ligne reportée dans une nouvelle campagne",
-    "{n} rows carried into a new campaign":
-      "{n} lignes reportées dans une nouvelle campagne",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Quand la liste est terminée, fermez-la — les lignes encore ouvertes passent dans une nouvelle campagne — ou transmettez à un collègue les lignes qui se sont terminées d'une certaine façon.",
     "No number blocked": "Aucun numéro bloqué",
@@ -1170,8 +1166,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "Ils sont retirés de ce carnet ; un contact qui n’y figure que là est supprimé. Cela ne peut pas être annulé.",
     "Removed from this address book": "Retiré de ce carnet",
-    "Removed {n} contact from this address book": "{n} contact retiré de ce carnet",
-    "Removed {n} contacts from this address book": "{n} contacts retirés de ce carnet",
     "Contact saved": "Contact enregistré",
     Copied: "Copié",
     "Could not cancel: {error}": "Impossible d’annuler : {error}",
@@ -1679,19 +1673,11 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Cette action est irréversible.",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "L’un d’eux figure dans plusieurs carnets et est supprimé de tous.",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "{n} d’entre eux figurent dans plusieurs carnets et sont supprimés de tous.",
     "Some could not be deleted: {error}":
       "Certains n’ont pas pu être supprimés : {error}",
     "It was not deleted": "Il n’a pas été supprimé",
     "Empty address book": "Vider ce carnet d’adresses",
     "There is nothing in it to delete": "Il n’y a rien à supprimer dedans",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "{n} d’entre eux figure aussi dans un autre carnet et sera seulement retiré de celui-ci.",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "{n} d’entre eux figurent aussi dans d’autres carnets et seront seulement retirés de celui-ci.",
     "Empty “{name}”?": "Vider « {name} » ?",
     "Delete them": "Les supprimer",
     "Nothing was deleted": "Rien n’a été supprimé",
@@ -2656,6 +2642,24 @@ export const catalog: Catalog = {
       "Seul un administrateur peut supprimer définitivement les fichiers d'un groupe.",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "L’un d’eux figure dans plusieurs carnets et est supprimé de tous.",
+      other: "{n} d’entre eux figurent dans plusieurs carnets et sont supprimés de tous.",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} contact retiré de ce carnet",
+      other: "{n} contacts retirés de ce carnet",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "{n} d’entre eux figure aussi dans un autre carnet et sera seulement retiré de celui-ci.",
+        other:
+          "{n} d’entre eux figurent aussi dans d’autres carnets et seront seulement retirés de celui-ci.",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} ligne reportée dans une nouvelle campagne",
+      other: "{n} lignes reportées dans une nouvelle campagne",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} appel plus ancien n'est plus conservé ici",

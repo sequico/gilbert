@@ -81,8 +81,6 @@ export const catalog: Catalog = {
     "Call recorded": "Arama kaydedildi",
     "Wants a quote for January": "Ocak için teklif istiyor",
     "“{purpose}” is closed": "“{purpose}” kapatıldı",
-    "{n} row carried into a new campaign": "{n} satır yeni bir kampanyaya taşındı",
-    "{n} rows carried into a new campaign": "{n} satır yeni bir kampanyaya taşındı",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Liste bittiğinde kapatın — açık satırlar yeni bir kampanyaya taşınır — ya da belirli bir sonuçla biten satırları bir iş arkadaşına devredin.",
     "No number blocked": "Engellenen numara yok",
@@ -445,10 +443,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "Bu adres defterinden çıkarılırlar; yalnızca burada olan bir kişi tamamen silinir. Bu geri alınamaz.",
     "Removed from this address book": "Bu adres defterinden çıkarıldı",
-    "Removed {n} contact from this address book":
-      "{n} kişi bu adres defterinden çıkarıldı",
-    "Removed {n} contacts from this address book":
-      "{n} kişi bu adres defterinden çıkarıldı",
     "Contact moved": "Kişi taşındı",
     "Contact options": "Kişi seçenekleri",
     "Contact saved": "Kişi kaydedildi",
@@ -1763,10 +1757,6 @@ export const catalog: Catalog = {
     "Then nothing": "Ardından hiçbiri",
     "There is no preview for this kind of file.": "Bu tür dosya için önizleme yok.",
     "There is nothing in it to delete": "İçinde silinecek bir şey yok",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "{n} tanesi başka bir adres defterinde de var ve yalnızca buradan çıkarılacak.",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "{n} tanesi başka adres defterlerinde de var ve yalnızca buradan çıkarılacak.",
     "There is nothing in it to export": "Dışa aktarılacak bir içerik yok",
     "There is nowhere else to move it.": "Taşınacak başka bir yer yok.",
     "There is nowhere to save files to.": "Dosyaların kaydedileceği bir yer yok.",
@@ -1800,10 +1790,6 @@ export const catalog: Catalog = {
     "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
       "Bu tarayıcı artık bu cihazdaki bildirimler için bir yanıt tutmuyor, dolayısıyla hiçbiri gösterilemez. Bir anahtarı kapatıp yeniden açmak izni ister.",
     "This cannot be undone.": "Bu işlem geri alınamaz.",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "Bunlardan biri birden fazla adres defterinde ve hepsinden silinecek.",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "Bunlardan {n} tanesi birden fazla adres defterinde ve hepsinden silinecek.",
     "This conversation no longer exists.": "Bu yazışma artık yok.",
     "This date cannot be changed on its own": "Bu tarih tek başına değiştirilemez",
     "This file is not UTF-8 text, so editing it here would corrupt it — download it instead.":
@@ -2540,6 +2526,24 @@ export const catalog: Catalog = {
       "Bir grubun dosyalarını yalnızca yönetici kalıcı olarak silebilir.",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "Bunlardan biri birden fazla adres defterinde ve hepsinden silinecek.",
+      other: "Bunlardan {n} tanesi birden fazla adres defterinde ve hepsinden silinecek.",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} kişi bu adres defterinden çıkarıldı",
+      other: "{n} kişi bu adres defterinden çıkarıldı",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "{n} tanesi başka bir adres defterinde de var ve yalnızca buradan çıkarılacak.",
+        other:
+          "{n} tanesi başka adres defterlerinde de var ve yalnızca buradan çıkarılacak.",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} satır yeni bir kampanyaya taşındı",
+      other: "{n} satır yeni bir kampanyaya taşındı",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} eski arama artık burada tutulmuyor",

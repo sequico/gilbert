@@ -113,8 +113,6 @@ export const catalog: Catalog = {
     "Call recorded": "Anruf gespeichert",
     "Wants a quote for January": "Möchte ein Angebot für Januar",
     "“{purpose}” is closed": "„{purpose}“ ist geschlossen",
-    "{n} row carried into a new campaign": "{n} Zeile in eine neue Kampagne übernommen",
-    "{n} rows carried into a new campaign": "{n} Zeilen in eine neue Kampagne übernommen",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Wenn die Liste erledigt ist, schließen Sie sie — die offenen Zeilen wandern in eine neue Kampagne — oder übergeben Sie die Zeilen mit einem bestimmten Ergebnis an eine Kollegin.",
     "No number blocked": "Keine Nummer blockiert",
@@ -1187,10 +1185,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "Sie werden aus diesem Adressbuch entfernt; ein Kontakt, der nur darin steht, wird gelöscht. Das lässt sich nicht rückgängig machen.",
     "Removed from this address book": "Aus diesem Adressbuch entfernt",
-    "Removed {n} contact from this address book":
-      "{n} Kontakt aus diesem Adressbuch entfernt",
-    "Removed {n} contacts from this address book":
-      "{n} Kontakte aus diesem Adressbuch entfernt",
     "Contact saved": "Kontakt gespeichert",
     Copied: "Kopiert",
     "Could not cancel: {error}": "Abbrechen fehlgeschlagen: {error}",
@@ -1705,18 +1699,10 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Dies kann nicht rückgängig gemacht werden.",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "Einer davon steht in mehr als einem Adressbuch und wird aus allen gelöscht.",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "{n} davon stehen in mehr als einem Adressbuch und werden aus allen gelöscht.",
     "Some could not be deleted: {error}": "Einige konnten nicht gelöscht werden: {error}",
     "It was not deleted": "Der Kontakt wurde nicht gelöscht",
     "Empty address book": "Dieses Adressbuch leeren",
     "There is nothing in it to delete": "Es ist nichts darin zum Löschen",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "{n} davon steht auch in einem anderen Adressbuch und wird nur aus diesem entfernt.",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "{n} davon stehen auch in anderen Adressbüchern und werden nur aus diesem entfernt.",
     "Empty “{name}”?": "„{name}“ leeren?",
     "Delete them": "Alle löschen",
     "Nothing was deleted": "Es wurde nichts gelöscht",
@@ -2686,6 +2672,25 @@ export const catalog: Catalog = {
       "Nur ein Administrator kann die Dateien einer Gruppe endgültig löschen.",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "Einer davon steht in mehr als einem Adressbuch und wird aus allen gelöscht.",
+      other:
+        "{n} davon stehen in mehr als einem Adressbuch und werden aus allen gelöscht.",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} Kontakt aus diesem Adressbuch entfernt",
+      other: "{n} Kontakte aus diesem Adressbuch entfernt",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "{n} davon steht auch in einem anderen Adressbuch und wird nur aus diesem entfernt.",
+        other:
+          "{n} davon stehen auch in anderen Adressbüchern und werden nur aus diesem entfernt.",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} Zeile in eine neue Kampagne übernommen",
+      other: "{n} Zeilen in eine neue Kampagne übernommen",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} älterer Anruf wird hier nicht mehr aufbewahrt",

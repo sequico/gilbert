@@ -102,8 +102,6 @@ export const catalog: Catalog = {
     "Call recorded": "通话已记录",
     "Wants a quote for January": "想要一月份的报价",
     "“{purpose}” is closed": "{purpose}已关闭",
-    "{n} row carried into a new campaign": "{n} 行已转入新活动",
-    "{n} rows carried into a new campaign": "{n} 行已转入新活动",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "名单完成后关闭它（未结的行会转入新活动），或把以某种结果结束的行交给同事。",
     "No number blocked": "没有已屏蔽的号码",
@@ -1133,8 +1131,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "将从本通讯录中移除；仅在本通讯录中的联系人会被彻底删除。此操作无法撤销。",
     "Removed from this address book": "已从本通讯录中移除",
-    "Removed {n} contact from this address book": "已从本通讯录中移除 {n} 个联系人",
-    "Removed {n} contacts from this address book": "已从本通讯录中移除 {n} 个联系人",
     "Contact saved": "联系人已保存",
     Copied: "已复制",
     "Could not cancel: {error}": "无法取消：{error}",
@@ -1616,18 +1612,10 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "此操作无法撤销。",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "其中一个位于多个通讯录中，将从所有通讯录中删除。",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "其中 {n} 个位于多个通讯录中，将从所有通讯录中删除。",
     "Some could not be deleted: {error}": "部分无法删除：{error}",
     "It was not deleted": "未被删除",
     "Empty address book": "清空此通讯录",
     "There is nothing in it to delete": "其中没有可删除的内容",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
     "Empty “{name}”?": "清空“{name}”？",
     "Delete them": "删除",
     "Nothing was deleted": "未删除任何内容",
@@ -2533,6 +2521,23 @@ export const catalog: Catalog = {
       "只有管理员可以永久删除群组的文件。",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "其中一个位于多个通讯录中，将从所有通讯录中删除。",
+      other: "其中 {n} 个位于多个通讯录中，将从所有通讯录中删除。",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "已从本通讯录中移除 {n} 个联系人",
+      other: "已从本通讯录中移除 {n} 个联系人",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
+        other: "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} 行已转入新活动",
+      other: "{n} 行已转入新活动",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} 条较早的通话不再保存在这里",

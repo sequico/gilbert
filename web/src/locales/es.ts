@@ -106,8 +106,6 @@ export const catalog: Catalog = {
     "Call recorded": "Llamada registrada",
     "Wants a quote for January": "Quiere un presupuesto para enero",
     "“{purpose}” is closed": "«{purpose}» está cerrada",
-    "{n} row carried into a new campaign": "{n} fila trasladada a una nueva campaña",
-    "{n} rows carried into a new campaign": "{n} filas trasladadas a una nueva campaña",
     "When the list is done, close it — carrying the rows still open into a new campaign — or hand the rows that ended one way to a colleague.":
       "Cuando la lista esté terminada, ciérrala —las filas aún abiertas pasan a una nueva campaña— o entrega a un colega las filas que terminaron de una manera.",
     "No number blocked": "Ningún número bloqueado",
@@ -1164,9 +1162,6 @@ export const catalog: Catalog = {
     "They are removed from this address book; a contact that is only in it is deleted. This cannot be undone.":
       "Se quitan de esta libreta; un contacto que solo está en ella se elimina. Esto no se puede deshacer.",
     "Removed from this address book": "Quitado de esta libreta",
-    "Removed {n} contact from this address book": "{n} contacto quitado de esta libreta",
-    "Removed {n} contacts from this address book":
-      "{n} contactos quitados de esta libreta",
     "Contact saved": "Contacto guardado",
     Copied: "Copiado",
     "Could not cancel: {error}": "No se pudo cancelar: {error}",
@@ -1671,18 +1666,10 @@ export const catalog: Catalog = {
     // to a scan for t("literal"). See #259.
     // ── Emptying an address book, and deleting a selection (#277) ──
     "This cannot be undone.": "Esto no se puede deshacer.",
-    "One of them is in more than one address book, and is deleted from all of them.":
-      "Uno de ellos está en más de una libreta y se elimina de todas.",
-    "{n} of them are in more than one address book, and are deleted from all of them.":
-      "{n} de ellos están en más de una libreta y se eliminan de todas.",
     "Some could not be deleted: {error}": "Algunos no se pudieron eliminar: {error}",
     "It was not deleted": "No se ha eliminado",
     "Empty address book": "Vaciar esta libreta de direcciones",
     "There is nothing in it to delete": "No hay nada dentro que eliminar",
-    "{n} of them is also in another address book, and will only be removed from this one.":
-      "{n} de ellos también está en otra libreta y solo se quitará de esta.",
-    "{n} of them are also in other address books, and will only be removed from this one.":
-      "{n} de ellos también están en otras libretas y solo se quitarán de esta.",
     "Empty “{name}”?": "¿Vaciar «{name}»?",
     "Delete them": "Eliminarlos",
     "Nothing was deleted": "No se ha eliminado nada",
@@ -2647,6 +2634,23 @@ export const catalog: Catalog = {
       "Solo un administrador puede eliminar permanentemente los archivos de un grupo.",
   },
   plurals: {
+    "{n} of them are in more than one address book, and are deleted from all of them.": {
+      one: "Uno de ellos está en más de una libreta y se elimina de todas.",
+      other: "{n} de ellos están en más de una libreta y se eliminan de todas.",
+    },
+    "Removed {n} contacts from this address book": {
+      one: "{n} contacto quitado de esta libreta",
+      other: "{n} contactos quitados de esta libreta",
+    },
+    "{n} of them are also in other address books, and will only be removed from this one.":
+      {
+        one: "{n} de ellos también está en otra libreta y solo se quitará de esta.",
+        other: "{n} de ellos también están en otras libretas y solo se quitarán de esta.",
+      },
+    "{n} rows carried into a new campaign": {
+      one: "{n} fila trasladada a una nueva campaña",
+      other: "{n} filas trasladadas a una nueva campaña",
+    },
     // ── Outbound calling (ADR 0040) ─────────────────────────────────────
     "{n} older calls are no longer kept here": {
       one: "{n} llamada anterior ya no se conserva aquí",
