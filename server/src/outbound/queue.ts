@@ -7,8 +7,9 @@
  * lapsed is free again — which is what makes a caller leaving the desk cost
  * nothing.
  *
- * The counts come back with the queue because a list being worked must say how
- * much is left, and "due today" is not the same number as "in Today".
+ * The counts come back with the queue because a list being worked must say how much
+ * is left: what is ahead of today is not in the queue, and a row in another
+ * caller's hands is neither offered nor counted as work.
  */
 
 import { claimIsLive, heldByOther, type RowDoc } from "../shared/outbound.js";
