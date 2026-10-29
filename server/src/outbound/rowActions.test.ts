@@ -12,7 +12,6 @@ const row = (over: Partial<RowDoc> = {}): RowDoc => ({
   campaignUid: "c1",
   e164: "+393331234567",
   extension: null,
-  label: { company: null, name: null },
   context: null,
   cardUid: null,
   state: "open",

@@ -25,7 +25,7 @@ export interface TodayInput {
 export interface TodayResult {
   /** The rows to work, in the order to work them. */
   queue: RowDoc[];
-  /** Open rows due now and not another caller's. */
+  /** Open rows due now and not another caller's, dated or not. */
   due: number;
   /** Open rows whose next call is still ahead. */
   upcoming: number;
@@ -71,7 +71,9 @@ export function todayQueue(
       upcoming += 1;
       continue;
     }
-    if (band === "due") due += 1;
+    // A row with no date is due now — "as soon as there is time" — so the count is
+    // every row in hand, not only the ones a date made late.
+    due += 1;
     offered.push({ row, band });
   }
 

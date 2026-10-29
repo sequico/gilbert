@@ -8,6 +8,7 @@
  */
 
 import type { Ctx } from "../appFolder.js";
+import { claimIsLive } from "../shared/outbound.js";
 import type {
   CampaignDoc,
   CampaignOutcome,
@@ -203,6 +204,26 @@ export async function take(
   now: Date,
 ): Promise<RowDoc> {
   await openCampaign(ctx, accountId, campaignUid);
+  /*
+   * One row of a list at a time (ADR 0040). The claim is what keeps a list from
+   * being called twice at once, and two rows in one caller's hands is the same
+   * list worked from two screens. The pane already refuses the second take; this
+   * is the rule where every other way in meets it.
+   */
+  const held = (await readRows(ctx, accountId, campaignUid)).docs.find(
+    (row) =>
+      row.uid !== rowUid &&
+      row.claim !== null &&
+      row.claim.by === by &&
+      claimIsLive(row.claim, now),
+  );
+  if (held) {
+    throw new OutboundError(
+      "row_in_hand",
+      `You are already calling ${held.e164}: settle that row before taking another.`,
+      409,
+    );
+  }
   return mutateRow(ctx, accountId, campaignUid, rowUid, (doc) => {
     const taken = takeRow(doc, { by, now });
     if (taken.ok) return taken.row;

@@ -100,7 +100,9 @@ async function newCampaign(purpose: string): Promise<Campaign> {
 
 /** The rows Today offers, with the campaign each belongs to. */
 async function today(): Promise<Row[]> {
-  const res = await call(`/api/outbound/today?group=${encodeURIComponent(GROUP)}`);
+  // The biggest page the route serves, so a campaign written late in this file is
+  // in it: what the page size is not about here is the order of the queue.
+  const res = await call(`/api/outbound/today?group=${encodeURIComponent(GROUP)}&limit=50`);
   assert.equal(res.status, 200, JSON.stringify(res.body));
   return (res.body?.queue ?? []) as Row[];
 }
@@ -120,8 +122,10 @@ test("a campaign is written into the group's account and read back by a member",
     campaigns.some((entry) => entry.uid === campaign.uid),
     "the campaign is in the group's list",
   );
+  // What cannot be read is reported by Today, the screen the reader can act on.
+  const queue = await call(`/api/outbound/today?group=${encodeURIComponent(GROUP)}`);
   assert.deepEqual(
-    listed.body?.problems,
+    queue.body?.problems,
     [],
     "the group's folder holds no unreadable document",
   );
@@ -255,6 +259,37 @@ test("a row is taken before it is dialled, and settling it records the call", as
 
   const after = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
   assert.equal(after.length, 0, "a settled row leaves Today");
+});
+
+test("a caller holds one row of a list at a time", async () => {
+  const campaign = await newCampaign("One in hand");
+  await post(`/api/outbound/campaigns/${campaign.uid}/rows`, {
+    group: GROUP,
+    text: "+39 071 123456\n+39 071 654321",
+  });
+  const rows = (await today()).filter((entry) => entry.campaignUid === campaign.uid);
+  assert.equal(rows.length, 2, "both lines are rows of this campaign");
+
+  const first = await post(
+    `/api/outbound/campaigns/${campaign.uid}/rows/${rows[0].uid}/take`,
+    { group: GROUP },
+  );
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+
+  const second = await post(
+    `/api/outbound/campaigns/${campaign.uid}/rows/${rows[1].uid}/take`,
+    { group: GROUP },
+  );
+  assert.equal(second.status, 409, "the second row waits until the first is settled");
+  assert.equal(second.body?.error, "row_in_hand", JSON.stringify(second.body));
+
+  // The row already in my hand is not a second hand: asking for it again is the
+  // same claim renewed, which is what a refreshed screen does.
+  const again = await post(
+    `/api/outbound/campaigns/${campaign.uid}/rows/${rows[0].uid}/take`,
+    { group: GROUP },
+  );
+  assert.equal(again.status, 200, JSON.stringify(again.body));
 });
 
 test("a number taken off the list is one the import may write again", async () => {
@@ -407,10 +442,30 @@ test("closing a campaign keeps it, and carrying moves the rows still open", asyn
 });
 
 test("a campaign that was never created is refused by every act on it", async () => {
-  const res = await post("/api/outbound/campaigns/missing/rows", {
+  const imported = await post("/api/outbound/campaigns/missing/rows", {
     group: GROUP,
     text: "+39 02 1234567",
   });
-  assert.equal(res.status, 404);
-  assert.equal(res.body?.error, "outbound_not_found");
+  assert.equal(imported.status, 404);
+  assert.equal(imported.body?.error, "outbound_not_found");
+
+  const taken = await post("/api/outbound/campaigns/missing/rows/row/take", {
+    group: GROUP,
+  });
+  assert.equal(taken.status, 404, JSON.stringify(taken.body));
+  assert.equal(taken.body?.error, "outbound_not_found");
+
+  const settled = await post("/api/outbound/campaigns/missing/rows/row/settle", {
+    group: GROUP,
+    outcome: "spoke",
+  });
+  assert.equal(settled.status, 404, JSON.stringify(settled.body));
+  assert.equal(settled.body?.error, "outbound_not_found");
+
+  const closed = await post("/api/outbound/campaigns/missing/close", {
+    group: GROUP,
+    carry: false,
+  });
+  assert.equal(closed.status, 404, JSON.stringify(closed.body));
+  assert.equal(closed.body?.error, "outbound_not_found");
 });

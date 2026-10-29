@@ -136,24 +136,26 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         c.get("session"),
         required(c.req.query("group"), "group"),
       );
-      const { docs, problems } = await listCampaigns(ctx, accountId);
+      const { docs } = await listCampaigns(ctx, accountId);
       /*
        * A window that has passed with rows still open is a finding for the group —
        * closed, extended, or carried into the next campaign — and never a list that
        * quietly stops existing. Only the campaigns past their window are read for
        * it, because that is the only state in which the count means anything.
+       *
+       * What cannot be read is not reported here: Today reads the same documents
+       * and is the screen where the reader can do something about it.
        */
       const now = new Date();
       const findings: Array<{ uid: string; purpose: string; open: number }> = [];
       for (const campaign of docs) {
         if (campaign.state !== "running" || !isPastWindow(campaign, now)) continue;
-        const read = await readRows(ctx, accountId, campaign.uid);
-        problems.push(...read.problems);
-        const open = read.docs.filter((row) => row.state === "open").length;
+        const { docs: rows } = await readRows(ctx, accountId, campaign.uid);
+        const open = rows.filter((row) => row.state === "open").length;
         if (open > 0)
           findings.push({ uid: campaign.uid, purpose: campaign.purpose, open });
       }
-      return c.json({ ok: true, campaigns: docs, problems, findings });
+      return c.json({ ok: true, campaigns: docs, findings });
     } catch (err) {
       return outboundFailure(c, err);
     }
@@ -292,8 +294,8 @@ export function registerOutboundRoutes(api: Hono<Env>): void {
         c.get("session"),
         required(c.req.query("group"), "group"),
       );
-      const { docs, problems } = await readRows(ctx, accountId, c.req.param("uid"));
-      return c.json({ ok: true, rows: docs, problems });
+      const { docs } = await readRows(ctx, accountId, c.req.param("uid"));
+      return c.json({ ok: true, rows: docs });
     } catch (err) {
       return outboundFailure(c, err);
     }

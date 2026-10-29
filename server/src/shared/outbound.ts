@@ -160,13 +160,9 @@ export interface RowCall {
  * What the file said about the row, kept until a card exists for it.
  *
  * A card is created at the first call and never by an import, so an imported row
- * carries only what its line carried.
+ * carries only what its line carried — its number, its extension and the words
+ * around them. Who the number belongs to is the card's, once there is one.
  */
-export interface RowLabel {
-  company: string | null;
-  name: string | null;
-}
-
 export interface RowDoc {
   version: 1;
   uid: string;
@@ -174,7 +170,6 @@ export interface RowDoc {
   /** E.164, the only form a stored number has. */
   e164: string;
   extension: string | null;
-  label: RowLabel;
   /** The words the line carried around the number, as they arrived. */
   context: string | null;
   /** The card this row calls, once one exists. */
@@ -283,12 +278,6 @@ function isCall(value: unknown): value is RowCall {
   );
 }
 
-function isLabel(value: unknown): value is RowLabel {
-  return (
-    isRecord(value) && isNullableString(value.company) && isNullableString(value.name)
-  );
-}
-
 /**
  * Whether a string is a canonical number: `+`, a country code and digits.
  *
@@ -329,7 +318,6 @@ export function isRowDoc(value: unknown): value is RowDoc {
   if (!isString(value.campaignUid) || value.campaignUid === "") return false;
   if (!isE164(value.e164)) return false;
   if (!isNullableString(value.extension)) return false;
-  if (!isLabel(value.label)) return false;
   if (!isNullableString(value.context)) return false;
   if (!isNullableString(value.cardUid)) return false;
   if (!isRowState(value.state)) return false;
@@ -362,6 +350,9 @@ export function isCardCallsDoc(value: unknown): value is CardCallsDoc {
   if (!isRecord(value) || value.version !== 1) return false;
   if (!isString(value.cardUid) || !Array.isArray(value.calls)) return false;
   if (!value.calls.every(isCall)) return false;
+  // The same window a row keeps: one reader of "how many calls are kept" is the
+  // point, or the two grow apart and one of them says what the other does not.
+  if (value.calls.length > MAX_CALLS_KEPT) return false;
   if (!Number.isInteger(value.trimmed) || (value.trimmed as number) < 0) return false;
   return isInstant(value.updatedAt);
 }
@@ -381,12 +372,9 @@ export function isCardIndexDoc(value: unknown): value is CardIndexDoc {
 /** Whether the group's do-not-call document is one this build can read. */
 export function isDoNotCallDoc(value: unknown): value is DoNotCallDoc {
   if (!isRecord(value) || value.version !== 1) return false;
-  if (
-    !Array.isArray(value.numbers) ||
-    !value.numbers.every((number) => isString(number) && number.startsWith("+"))
-  ) {
-    return false;
-  }
+  // The list is matched against rows by the canonical string and by nothing else,
+  // so an entry that is not one could never match the row it exists to stop.
+  if (!Array.isArray(value.numbers) || !value.numbers.every(isE164)) return false;
   return isInstant(value.updatedAt);
 }
 

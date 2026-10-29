@@ -11,7 +11,6 @@ const row = (over: Partial<RowDoc> = {}): RowDoc => ({
   campaignUid: "c1",
   e164: "+393331234567",
   extension: null,
-  label: { company: null, name: null },
   context: null,
   cardUid: null,
   state: "open",
@@ -33,7 +32,8 @@ test("the work that is late comes before the work without a date", () => {
     queue.map((r) => r.uid),
     ["late", "free"],
   );
-  assert.equal(due, 1);
+  // A row with no date is due now, so both are work and neither is ahead.
+  assert.equal(due, 2);
   assert.equal(upcoming, 0);
 });
 

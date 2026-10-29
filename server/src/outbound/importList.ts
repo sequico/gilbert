@@ -12,7 +12,7 @@
  * promised never to call, or a line this build cannot read.
  */
 
-import type { RowDoc, RowLabel } from "../shared/outbound.js";
+import type { RowDoc } from "../shared/outbound.js";
 import { lineEntry, type NumberRefusal, normaliseNumber } from "./phone.js";
 
 /** Why a line became no row. `no_number` is the line that carried none at all. */
@@ -95,14 +95,12 @@ export function planImport({
     const cardUid = cards[number.e164] ?? null;
     if (cardUid) matched += 1;
 
-    const label: RowLabel = { company: null, name: null };
     rows.push({
       version: 1,
       uid: newUid(),
       campaignUid,
       e164: number.e164,
       extension: number.extension,
-      label,
       context,
       cardUid,
       state: "open",
