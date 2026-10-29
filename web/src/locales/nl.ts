@@ -1564,6 +1564,8 @@ export const catalog: Catalog = {
     "It was not deleted": "Het is niet verwijderd",
     "Empty address book": "Dit adresboek leegmaken",
     "There is nothing in it to delete": "Er staat niets in om te verwijderen",
+    "{n} of them is also in another address book, and will only be removed from this one.": "{n} ervan staat ook in een ander adresboek en wordt alleen uit dit verwijderd.",
+    "{n} of them are also in other address books, and will only be removed from this one.": "{n} ervan staan ook in andere adresboeken en worden alleen uit dit verwijderd.",
     "Empty “{name}”?": "„{name}” leegmaken?",
     "Delete them": "Verwijderen",
     "Nothing was deleted": "Er is niets verwijderd",

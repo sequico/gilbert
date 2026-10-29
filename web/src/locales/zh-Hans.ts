@@ -1521,6 +1521,8 @@ export const catalog: Catalog = {
     "It was not deleted": "未被删除",
     "Empty address book": "清空此通讯录",
     "There is nothing in it to delete": "其中没有可删除的内容",
+    "{n} of them is also in another address book, and will only be removed from this one.": "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
+    "{n} of them are also in other address books, and will only be removed from this one.": "其中 {n} 个也在其他通讯录中，只会从此通讯录中移除。",
     "Empty “{name}”?": "清空“{name}”？",
     "Delete them": "删除",
     "Nothing was deleted": "未删除任何内容",

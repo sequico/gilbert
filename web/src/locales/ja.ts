@@ -1565,6 +1565,8 @@ export const catalog: Catalog = {
     "It was not deleted": "削除されませんでした",
     "Empty address book": "このアドレス帳を空にする",
     "There is nothing in it to delete": "削除するものがありません",
+    "{n} of them is also in another address book, and will only be removed from this one.": "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
+    "{n} of them are also in other address books, and will only be removed from this one.": "そのうち {n} 件は別のアドレス帳にも入っており、このアドレス帳からのみ削除されます。",
     "Empty “{name}”?": "「{name}」を空にしますか？",
     "Delete them": "削除する",
     "Nothing was deleted": "何も削除されませんでした",

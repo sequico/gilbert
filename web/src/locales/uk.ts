@@ -1555,6 +1555,8 @@ export const catalog: Catalog = {
     "It was not deleted": "Контакт не було видалено",
     "Empty address book": "Очистити цю адресну книгу",
     "There is nothing in it to delete": "У ній немає чого видаляти",
+    "{n} of them is also in another address book, and will only be removed from this one.": "{n} із них є і в іншій адресній книзі та буде вилучений лише з цієї.",
+    "{n} of them are also in other address books, and will only be removed from this one.": "{n} із них є і в інших адресних книгах та будуть вилучені лише з цієї.",
     "Empty “{name}”?": "Очистити «{name}»?",
     "Delete them": "Видалити їх",
     "Nothing was deleted": "Нічого не видалено",

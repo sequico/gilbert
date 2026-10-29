@@ -620,20 +620,36 @@ export function ContactsSidebar() {
               icon={<Eraser size={16} />}
               label={t("Empty address book")}
               onClick={async () => {
-                const n = Object.values(contacts.cards).filter(
+                const inBook = Object.values(contacts.cards).filter(
                   (c) => c.addressBookIds?.[menuBook.id],
-                ).length;
+                );
+                const n = inBook.length;
                 if (!n) {
                   toast.error(t("There is nothing in it to delete"));
                   return;
                 }
+                /* The cards this book shares with another leave it and live on:
+                   the same fact the toast repeats afterwards, said before the
+                   click. */
+                const several = inBook.filter(
+                  (c) => Object.keys(c.addressBookIds ?? {}).length > 1,
+                ).length;
                 if (
                   !(await confirmDialog({
                     title: t("Empty “{name}”?", { name: menuBook.name }),
-                    message: plural(n, {
-                      one: "{n} contact will be deleted. This cannot be undone.",
-                      other: "{n} contacts will be deleted. This cannot be undone.",
-                    }),
+                    message: several
+                      ? `${plural(n, {
+                          one: "{n} contact will be deleted. This cannot be undone.",
+                          other: "{n} contacts will be deleted. This cannot be undone.",
+                        })} ${plural(several, {
+                          one: "{n} of them is also in another address book, and will only be removed from this one.",
+                          other:
+                            "{n} of them are also in other address books, and will only be removed from this one.",
+                        })}`
+                      : plural(n, {
+                          one: "{n} contact will be deleted. This cannot be undone.",
+                          other: "{n} contacts will be deleted. This cannot be undone.",
+                        }),
                     confirmLabel: t("Delete them"),
                     danger: true,
                   }))

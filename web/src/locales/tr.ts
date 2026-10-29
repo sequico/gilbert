@@ -1658,6 +1658,8 @@ export const catalog: Catalog = {
     "Then nothing": "Ardından hiçbiri",
     "There is no preview for this kind of file.": "Bu tür dosya için önizleme yok.",
     "There is nothing in it to delete": "İçinde silinecek bir şey yok",
+    "{n} of them is also in another address book, and will only be removed from this one.": "{n} tanesi başka bir adres defterinde de var ve yalnızca buradan çıkarılacak.",
+    "{n} of them are also in other address books, and will only be removed from this one.": "{n} tanesi başka adres defterlerinde de var ve yalnızca buradan çıkarılacak.",
     "There is nothing in it to export": "Dışa aktarılacak bir içerik yok",
     "There is nowhere else to move it.": "Taşınacak başka bir yer yok.",
     "There is nowhere to save files to.": "Dosyaların kaydedileceği bir yer yok.",

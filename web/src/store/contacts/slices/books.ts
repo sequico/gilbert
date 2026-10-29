@@ -14,6 +14,7 @@ import { refuseDirectoryWrite } from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { sharedKey } from "@/lib/sharedKey";
+import { bySortOrder } from "@/lib/sortOrder";
 import { useSession } from "../../session";
 import { useSettings } from "../../settings";
 import {
@@ -22,8 +23,21 @@ import {
   restoreBookPlaceOn,
   sessionEpoch,
 } from "../shared";
-import { bySortOrder } from "@/lib/sortOrder";
 import type { ContactsGet, ContactsSet, ContactsState } from "../types";
+
+/**
+ * The membership removals for the cards that are not only in this book.
+ *
+ * A card filed here *and* elsewhere loses this book, not its existence: a destroy
+ * takes the object away from every book at once, which is what emptying or
+ * deleting one book must never do to a card another book still lists. Written as
+ * a patch on the membership, which is the shape JMAP gives it.
+ */
+function unfiledOnly(update: Record<Id, unknown>, cards: ContactCard[], bookId: Id): void {
+  for (const c of cards)
+    if (Object.keys(c.addressBookIds ?? {}).length > 1)
+      update[c.id] = { [`addressBookIds/${bookId}`]: null };
+}
 
 /**
  * One collection at a time. Two sends in flight would otherwise both find the
@@ -166,22 +180,15 @@ export function booksSlice(
 
     async emptyBook(bookId) {
       const accountId = get().accountId!;
-      const inBook = Object.values(get().cards).filter((c) => c.addressBookIds?.[bookId]);
       /*
-       * Two different acts, decided per card.
-       *
-       * A card filed only here is deleted. A card filed here *and* somewhere else
-       * is removed from this book and left where it also lives -- emptying one
-       * book must not empty another, and `ContactCard/set destroy` does not know
-       * the difference: it takes the card away from every book at once.
+       * Two different acts, decided per card: a card filed only here is deleted,
+       * one filed here *and* somewhere else is only taken out of this book (see
+       * `unfiledOnly`). Emptying one book must not empty another.
        */
-      const destroy: Id[] = [];
+      const inBook = get().cardsIn(accountId).filter((c) => c.addressBookIds?.[bookId]);
       const update: Record<Id, unknown> = {};
-      for (const c of inBook) {
-        if (Object.keys(c.addressBookIds ?? {}).length > 1)
-          update[c.id] = { [`addressBookIds/${bookId}`]: null };
-        else destroy.push(c.id);
-      }
+      unfiledOnly(update, inBook, bookId);
+      const destroy = inBook.filter((c) => !update[c.id]).map((c) => c.id);
 
       /* One budget for destroys and updates together, the way `writeCards` shares
          one for creates and updates: `batchedSet` is that loop. */
@@ -414,6 +421,29 @@ export function booksSlice(
       const target = accountId ?? accountOfBook(id, get().books, own, get().sharedBooks);
       if (!target) throw new Error("That address book is not available");
       refuseDirectoryWrite(target);
+      /*
+       * A card this book shares with another loses this book first, and only then
+       * does the book go: the destroy below carries its contents with it, and
+       * what the server does with a card another book also lists is its business
+       * -- so the client does not leave that answer to be discovered. A card
+       * filed only here is still deleted with the book, which is what deleting it
+       * means. Asked of `cardsIn`, so a group's book, when this client offers to
+       * delete one, is treated the same way.
+       */
+      const update: Record<Id, unknown> = {};
+      unfiledOnly(
+        update,
+        get()
+          .cardsIn(target)
+          .filter((c) => c.addressBookIds?.[id]),
+        id,
+      );
+      if (Object.keys(update).length)
+        await batchedSet<ContactCard>({
+          method: "ContactCard",
+          accountId: target,
+          update,
+        });
       const res = await client.call<SetResponse>("AddressBook/set", {
         accountId: target,
         destroy: [id],

@@ -2543,6 +2543,8 @@ export const catalog: Catalog = {
     "Empty address book": "Svuota la rubrica",
 
     "There is nothing in it to delete": "Non c'è nulla da eliminare",
+    "{n} of them is also in another address book, and will only be removed from this one.": "{n} di loro è anche in un’altra rubrica e verrà tolto solo da questa.",
+    "{n} of them are also in other address books, and will only be removed from this one.": "{n} di loro sono anche in altre rubriche e verranno tolti solo da questa.",
 
     "Empty “{name}”?": "Svuotare «{name}»?",
 

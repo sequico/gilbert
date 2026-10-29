@@ -1575,6 +1575,8 @@ export const catalog: Catalog = {
     "It was not deleted": "Não foi excluído",
     "Empty address book": "Esvaziar este catálogo de endereços",
     "There is nothing in it to delete": "Não há nada nele para excluir",
+    "{n} of them is also in another address book, and will only be removed from this one.": "{n} deles também está em outra agenda e será removido apenas desta.",
+    "{n} of them are also in other address books, and will only be removed from this one.": "{n} deles também estão em outras agendas e serão removidos apenas desta.",
     "Empty “{name}”?": "Esvaziar “{name}”?",
     "Delete them": "Excluir todos",
     "Nothing was deleted": "Nada foi excluído",
