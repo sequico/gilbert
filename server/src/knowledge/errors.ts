@@ -30,6 +30,11 @@ export class KnowledgeAdminError extends CodedError {
  * person can act on rather than a silent overwrite. `before` is the draft the
  * last attempt knew — what it read, or the copy it wrote itself when only the
  * state document lost its race.
+ *
+ * shortcut: the guard covers the retry window, not two people who opened the
+ * page at different times — the save carries no base version, so the later
+ * write still lands. Add one when the client can send it (Q13's co-editing), or
+ * when a conflict notice is wanted before the CRDT.
  */
 export function draftConflict(
   before: KnowledgeDraft | null,
