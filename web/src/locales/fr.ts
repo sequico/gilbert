@@ -131,7 +131,6 @@ export const catalog: Catalog = {
       "Chaque ligne ouverte est faite, due plus tard, ou entre les mains d'un autre appelant.",
     "ext. {extension}": "poste {extension}",
     "yours now": "à vous maintenant",
-    Call: "Appeler",
     "No number in this line": "Aucun numéro dans cette ligne",
     "The number does not say which country it is in":
       "Le numéro ne dit pas dans quel pays il se trouve",

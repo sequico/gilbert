@@ -133,7 +133,6 @@ export const catalog: Catalog = {
       "Jede offene Zeile ist erledigt, später fällig oder in der Hand eines anderen Anrufers.",
     "ext. {extension}": "Durchw. {extension}",
     "yours now": "jetzt Ihre",
-    Call: "Anrufen",
     "No number in this line": "Keine Nummer in dieser Zeile",
     "The number does not say which country it is in":
       "Die Nummer sagt nicht, in welchem Land sie liegt",

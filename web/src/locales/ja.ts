@@ -125,7 +125,6 @@ export const catalog: Catalog = {
       "開いている行はすべて完了、後日の期限、または他の発信者の手元にあります。",
     "ext. {extension}": "内線 {extension}",
     "yours now": "あなたの担当",
-    Call: "電話する",
     "No number in this line": "この行に番号がありません",
     "The number does not say which country it is in": "番号から国が分かりません",
     "No country uses this number": "この番号を使う国はありません",

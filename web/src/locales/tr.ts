@@ -101,7 +101,6 @@ export const catalog: Catalog = {
       "Açık her satır ya tamamlandı, ya ileride bir tarihte, ya da başka bir arayanın elinde.",
     "ext. {extension}": "dahili {extension}",
     "yours now": "artık sizin",
-    Call: "Ara",
     "No number in this line": "Bu satırda numara yok",
     "The number does not say which country it is in":
       "Numara hangi ülkede olduğunu söylemiyor",

@@ -103,7 +103,6 @@ export const catalog: Catalog = {
       "Ogni riga aperta è fatta, in scadenza più avanti, o nelle mani di un altro chiamante.",
     "ext. {extension}": "int. {extension}",
     "yours now": "è tua ora",
-    Call: "Chiama",
     "No number in this line": "Nessun numero in questa riga",
     "The number does not say which country it is in": "Il numero non dice in che paese è",
     "No country uses this number": "Nessun paese usa questo numero",

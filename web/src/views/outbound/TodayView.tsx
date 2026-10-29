@@ -581,10 +581,11 @@ function CallPanel({
         <span className="tag">{t("yours now")}</span>
       </div>
       <p className="row call-panel-line">
-        {/* The product has no telephony: the number is dialled by the phone this
-            page is looked at on, which is the whole reason the row was taken. */}
+        {/* The number is on the button, not only behind it: the caller reads what
+            they are about to dial, and the phone dials it. */}
         <a className="btn btn-primary" href={`tel:${row.e164}`}>
-          <Phone size={16} /> {t("Call")}
+          <Phone size={16} /> {row.e164}
+          {row.extension && ` · ${t("ext. {extension}", { extension: row.extension })}`}
         </a>
         <span className="hint">{detailOf(row, card)}</span>
       </p>

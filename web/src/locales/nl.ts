@@ -121,7 +121,6 @@ export const catalog: Catalog = {
       "Elke open rij is gedaan, later aan de beurt, of in handen van een andere beller.",
     "ext. {extension}": "toestel {extension}",
     "yours now": "nu van jou",
-    Call: "Bellen",
     "No number in this line": "Geen nummer in deze regel",
     "The number does not say which country it is in":
       "Het nummer zegt niet in welk land het ligt",

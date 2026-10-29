@@ -126,7 +126,6 @@ export const catalog: Catalog = {
       "Cada fila abierta está hecha, vence más adelante o está en manos de otro llamante.",
     "ext. {extension}": "ext. {extension}",
     "yours now": "ahora es tuya",
-    Call: "Llamar",
     "No number in this line": "Ningún número en esta línea",
     "The number does not say which country it is in":
       "El número no dice en qué país está",

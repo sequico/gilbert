@@ -122,7 +122,6 @@ export const catalog: Catalog = {
       "Кожен відкритий рядок або закрито, або він чекає пізнішого строку, або він у руках іншого телефонуючого.",
     "ext. {extension}": "внутр. {extension}",
     "yours now": "тепер ваш",
-    Call: "Зателефонувати",
     "No number in this line": "У цьому рядку немає номера",
     "The number does not say which country it is in":
       "За номером не зрозуміти, у якій він країні",

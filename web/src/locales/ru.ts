@@ -128,7 +128,6 @@ export const catalog: Catalog = {
       "Каждая открытая строка либо закрыта, либо ждёт срока позже, либо в руках другого звонящего.",
     "ext. {extension}": "доб. {extension}",
     "yours now": "теперь ваша",
-    Call: "Позвонить",
     "No number in this line": "В этой строке нет номера",
     "The number does not say which country it is in":
       "По номеру не понять, в какой он стране",

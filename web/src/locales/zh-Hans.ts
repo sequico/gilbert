@@ -122,7 +122,6 @@ export const catalog: Catalog = {
       "每条未结的行要么已完成，要么稍后到期，要么在另一位致电人手中。",
     "ext. {extension}": "分机 {extension}",
     "yours now": "现在归你",
-    Call: "拨打",
     "No number in this line": "这一行没有号码",
     "The number does not say which country it is in": "号码没有说明是哪个国家",
     "No country uses this number": "没有国家使用这个号码",
