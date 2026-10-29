@@ -849,6 +849,8 @@ export const catalog: Catalog = {
     "Import contacts…": "Kişileri içe aktar…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
       "Bir grubun adres defterine veya kurulumun dizinine içe aktarma ya da bunlardan dışa aktarma yalnızca kurulum yöneticisi tarafından yapılır.",
+    "All contacts is a view, not an address book: export one of its books instead.":
+      "Tüm kişiler bir görünümdür, adres defteri değildir: adres defterlerinden birini dışa aktarın.",
     "Import iCAL file…": "iCAL dosyasını içe aktar…",
     "Import settings": "Ayarları içe aktar",
     Important: "Önemli",

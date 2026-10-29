@@ -600,7 +600,14 @@ export function ContactsView({ id }: { id?: string }) {
   const exportBook = (accountId: string | null, book: string) => {
     // "All contacts" is a view, not a book: its set holds a shared
     // collection's cards, and it carries no export of its own anywhere.
-    if (book === "all") return;
+    if (book === "all") {
+      toast.error(
+        translate(
+          "All contacts is a view, not an address book: export one of its books instead.",
+        ),
+      );
+      return;
+    }
     if (!mayMoveInOrOut(accountId, book)) return;
     const cards = cardsOf(accountId, book);
     if (!cards.length) {
@@ -1510,13 +1517,6 @@ function ContactDetail({
         <button
           className="btn btn-sm"
           disabled={!mayExport}
-          title={
-            mayExport
-              ? undefined
-              : translate(
-                  "Only an installation administrator imports into or exports a group's address book or the installation's directory.",
-                )
-          }
           onClick={() => {
             downloadFile(toVCard(c), "text/vcard", vCardFileName(name));
           }}
@@ -1579,6 +1579,16 @@ function ContactDetail({
         <p className="hint">
           {translate(
             "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.",
+          )}
+        </p>
+      )}
+      {/* Said as text, not as the `title` of a disabled button: a browser does
+          not show one, and the reason an export is not offered has to be
+          readable. */}
+      {!mayExport && (
+        <p className="hint">
+          {translate(
+            "Only an installation administrator imports into or exports a group's address book or the installation's directory.",
           )}
         </p>
       )}

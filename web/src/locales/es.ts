@@ -511,6 +511,8 @@ export const catalog: Catalog = {
     "Import contacts…": "Importar contactos…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
       "Solo un administrador de la instalación importa en la libreta de un grupo o en el directorio de la instalación, o los exporta.",
+    "All contacts is a view, not an address book: export one of its books instead.":
+      "Todos los contactos es una vista, no una libreta: exporta una de sus libretas.",
     "Address book options": "Opciones de la libreta",
     "Email group": "Escribir al grupo",
     "Email everyone": "Escribir a todos",

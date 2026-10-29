@@ -741,6 +741,8 @@ export const catalog: Catalog = {
     "Import contacts…": "Importa contatti…",
     "Only an installation administrator imports into or exports a group's address book or the installation's directory.":
       "Solo un amministratore dell'installazione importa nella rubrica di un gruppo o nella directory dell'installazione, o le esporta.",
+    "All contacts is a view, not an address book: export one of its books instead.":
+      "Tutti i contatti è una vista, non una rubrica: esporta una delle sue rubriche.",
 
 
     "Address book options": "Opzioni rubrica",
