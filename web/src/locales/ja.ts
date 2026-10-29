@@ -47,12 +47,8 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Number": "番号",
-    "Name": "名前",
-    "Details": "詳細",
     "Campaign": "キャンペーン",
-    "Actions": "操作",
     "Take": "取得",
-    "Release": "解放",
     "Skip": "スキップ",
     "“{outcome}” — when to call again?": "「{outcome}」— 次はいつかけますか？",
     "In an hour": "1時間後",
@@ -64,7 +60,6 @@ export const catalog: Catalog = {
     "Import a CSV": "CSVを読み込む",
     "Download the template": "テンプレートをダウンロード",
     "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — 番号は取り込み時に正規化され、同じリストを二度取り込んでも何も増えません。",
-    "Archived": "アーカイブ",
     "Start a campaign": "キャンペーンを始める",
     "Start a campaign, give it its script and outcomes, then import a list.": "キャンペーンを作り、スクリプトと結果を決めてから、リストを取り込んでください。",
     "Settle the row in hand or release it before taking another.": "別の行を取る前に、手元の行を閉じるか解放してください。",

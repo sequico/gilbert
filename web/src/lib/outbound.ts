@@ -12,6 +12,7 @@ import type {
   CampaignOutcome,
   CampaignWindow,
   QueueRow,
+  RowDoc,
 } from "@gilbert/shared/outbound";
 import { apiFetch } from "@/jmap/client";
 

@@ -46,12 +46,8 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Number": "号码",
-    "Name": "姓名",
-    "Details": "详情",
     "Campaign": "活动",
-    "Actions": "操作",
     "Take": "领取",
-    "Release": "释放",
     "Skip": "跳过",
     "“{outcome}” — when to call again?": "“{outcome}” — 何时再拨？",
     "In an hour": "一小时后",
@@ -63,7 +59,6 @@ export const catalog: Catalog = {
     "Import a CSV": "导入 CSV",
     "Download the template": "下载模板",
     "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — 号码在导入时会被规范化，同一份名单导入两次第二次不会新增任何内容。",
-    "Archived": "已归档",
     "Start a campaign": "开始一个活动",
     "Start a campaign, give it its script and outcomes, then import a list.": "创建一个活动，给它脚本和结果，然后导入名单。",
     "Settle the row in hand or release it before taking another.": "在取下一行之前，结束或释放手中的行。",

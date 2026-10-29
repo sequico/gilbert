@@ -44,12 +44,8 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Number": "Номер",
-    "Name": "Ім'я",
-    "Details": "Деталі",
     "Campaign": "Кампанія",
-    "Actions": "Дії",
     "Take": "Взяти",
-    "Release": "Відпустити",
     "Skip": "Пропустити",
     "“{outcome}” — when to call again?": "«{outcome}» — коли передзвонити?",
     "In an hour": "Через годину",
@@ -61,7 +57,6 @@ export const catalog: Catalog = {
     "Import a CSV": "Імпортувати CSV",
     "Download the template": "Завантажити шаблон",
     "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — номер нормалізується під час імпорту, і список, імпортований двічі, вдруге нічого не додає.",
-    "Archived": "Архів",
     "Start a campaign": "Почати кампанію",
     "Start a campaign, give it its script and outcomes, then import a list.": "Почніть кампанію, задайте їй сценарій та результати, потім імпортуйте список.",
     "Settle the row in hand or release it before taking another.": "Закрийте або відпустіть рядок у руках, перш ніж брати інший.",

@@ -24,12 +24,8 @@ import type { Catalog } from "@/lib/i18n";
 export const catalog: Catalog = {
   strings: {
     "Number": "Numara",
-    "Name": "Ad",
-    "Details": "Ayrıntılar",
     "Campaign": "Kampanya",
-    "Actions": "İşlemler",
     "Take": "Al",
-    "Release": "Bırak",
     "Skip": "Atla",
     "“{outcome}” — when to call again?": "“{outcome}” — ne zaman tekrar aranacak?",
     "In an hour": "Bir saat sonra",
@@ -41,7 +37,6 @@ export const catalog: Catalog = {
     "Import a CSV": "CSV içe aktar",
     "Download the template": "Şablonu indir",
     "company, person, role, phone — the number is normalised on the way in, and a list imported twice adds nothing the second time.": "company, person, role, phone — numara içe aktarılırken normalleştirilir ve iki kez aktarılan liste ikinci kez hiçbir şey eklemez.",
-    "Archived": "Arşiv",
     "Start a campaign": "Kampanya başlat",
     "Start a campaign, give it its script and outcomes, then import a list.": "Bir kampanya başlatın, betiğini ve sonuçlarını verin, ardından bir liste aktarın.",
     "Settle the row in hand or release it before taking another.": "Başka bir satır almadan önce elinizdeki satırı kapatın ya da bırakın.",
