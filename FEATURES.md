@@ -1805,8 +1805,10 @@ JMAP Contacts and JSContact.
 - **Re-importing updates rather than duplicates.** A vCard is recognised by its
   UID, an LDIF entry by its distinguished name. The card already here is merged
   with the file's version — what the file carries wins, what it does not mention is
-  left alone. Matching is per address book. An entry no longer recognisable is
-  imported again and counted.
+  left alone. Matching is **per address book, and never across books**: a contact
+  filed in another book is imported again rather than silently joined to it, because
+  the file says nothing about which books its author meant. An entry no longer
+  recognisable is imported again and counted.
 - **Directory lookup** through `Principal/query`. **Recent recipients** are kept on
   the device, and only on a device you said was yours.
 - Contacts in a shared book you have added — or in any book of a group you belong
