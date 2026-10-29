@@ -170,16 +170,19 @@ async function cardsInFile(
   return Array.isArray(entry) ? entry : [entry];
 }
 
+/** A record's values, or none — the shape every card field is held in. */
+function values<T>(record: Record<string, T> | undefined): T[] {
+  return record ? Object.values(record) : [];
+}
+
 /** One parsed card in the directory's small shape (ADR 0019). */
 function directoryInput(card: Partial<ContactCard>): GlobalContactInput {
   return {
     name: contactDisplayName(card as ContactCard).trim(),
-    emails: Object.values(card.emails ?? {}).flatMap((e) =>
-      e.address ? [e.address] : [],
-    ),
-    phones: Object.values(card.phones ?? {}).flatMap((p) => (p.number ? [p.number] : [])),
-    organization: Object.values(card.organizations ?? {})[0]?.name ?? "",
-    notes: Object.values(card.notes ?? {})[0]?.note ?? "",
+    emails: values(card.emails).flatMap((e) => (e.address ? [e.address] : [])),
+    phones: values(card.phones).flatMap((p) => (p.number ? [p.number] : [])),
+    organization: values(card.organizations)[0]?.name ?? "",
+    notes: values(card.notes)[0]?.note ?? "",
   };
 }
 
@@ -192,7 +195,7 @@ function directoryInput(card: Partial<ContactCard>): GlobalContactInput {
 export function importSlice(
   _set: ContactsSet,
   get: ContactsGet,
-): Pick<ContactsState, "importVCard" | "importLdif"> {
+): Pick<ContactsState, "importVCard" | "importLdif" | "importIntoDirectory"> {
   return {
     async importVCard(text, addressBookId, intoAccountId) {
       const accountId = accountFor(get, addressBookId, intoAccountId);
