@@ -4485,6 +4485,21 @@ const handlers: Record<string, Handler> = {
     };
   },
   "CalendarEvent/get": (a) => {
+    /*
+     * The pair is refused outright by a 1.0 server: `recurrenceOverrides` is
+     * read from the series and `utcStart`/`utcEnd` from one expansion of it, and
+     * one read may not ask for both (`calendar_event/get.rs`, v1.0.0; a live
+     * 1.0 answered `invalidArguments` and took every calendar window with it).
+     */
+    const named = (a.properties as string[] | undefined) ?? [];
+    if (
+      named.includes("recurrenceOverrides") &&
+      (named.includes("utcStart") || named.includes("utcEnd"))
+    )
+      throw new MethodError(
+        "invalidArguments",
+        "recurrenceOverrides cannot be requested together with utcStart or utcEnd",
+      );
     const list = eventsFor(a.accountId);
     const ids = a.ids as string[] | null | undefined;
     const properties = a.properties as string[] | null | undefined;

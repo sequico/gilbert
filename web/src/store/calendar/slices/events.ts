@@ -35,7 +35,7 @@ import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
 import { useContacts } from "../../contacts";
 import { useSession } from "../../session";
 import { settings } from "../../settings";
-import { accountOfCalendar, EVENT_PROPS, groupAccountIds } from "../shared";
+import { accountOfCalendar, EVENT_PROPS, groupAccountIds, SERIES_PROPS } from "../shared";
 import type {
   CalendarGet,
   CalendarSet,
@@ -411,12 +411,18 @@ async function ensureCalendarVisible(
     await cal.setSharedSubscribed(accountId, calendarId, true);
 }
 
-/** The event, as the account that holds it stores it. */
+/**
+ * The event, as the account that holds it stores it.
+ *
+ * The series read (`SERIES_PROPS`): what a move re-files into another account
+ * is the whole event, its rule and its overrides among the rest, and those
+ * cannot be asked for beside the utc pair a window read wants.
+ */
 async function readEvent(accountId: Id, id: Id): Promise<CalendarEvent | null> {
   const res = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
     accountId,
     ids: [id],
-    properties: EVENT_PROPS,
+    properties: SERIES_PROPS,
   });
   return res.list[0] ?? null;
 }

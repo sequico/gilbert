@@ -2,7 +2,7 @@ import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { batchedSet, client, setErrorMessage } from "@/jmap/client";
 import type { CalendarEvent, GetResponse, Id, QueryResponse } from "@/jmap/types";
 import { toIcs } from "@/lib/ics";
-import { EVENT_PROPS } from "../shared";
+import { SERIES_PROPS } from "../shared";
 import type { CalendarGet, CalendarSet, CalendarState } from "../types";
 
 function forImport(event: Partial<CalendarEvent>): Partial<CalendarEvent> {
@@ -241,7 +241,7 @@ export function icsSlice(
      */
     async exportIcs(calendarId) {
       const accountId = get().accountId!;
-      const events = await eventsInCalendar(accountId, calendarId, EVENT_PROPS);
+      const events = await eventsInCalendar(accountId, calendarId, SERIES_PROPS);
       if (!events.length) throw new Error("there is nothing in it to export");
       return {
         text: toIcs(events, get().calendars[calendarId]?.name),

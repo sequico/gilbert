@@ -122,6 +122,12 @@ export const CALENDAR_PROPS = [
  * Explicit property list: when `properties` is null Stalwart omits the JMAP-only
  * fields baseEventId / utcStart / utcEnd, and we need baseEventId to update
  * recurring instances (synthetic ids can't be patched directly).
+ *
+ * `recurrenceOverrides` is deliberately absent: Stalwart refuses a read naming
+ * it beside `utcStart` or `utcEnd` with `invalidArguments`
+ * (`calendar_event/get.rs`, v1.0.0), and what this list reads are occurrences,
+ * whose rule and overrides belong to the series instead. The export, which
+ * writes them, asks through `SERIES_PROPS` below.
  */
 export const EVENT_PROPS = [
   /*
@@ -162,7 +168,6 @@ export const EVENT_PROPS = [
   "recurrenceRules",
   "recurrenceRule",
   "excludedRecurrenceRules",
-  "recurrenceOverrides",
   "excluded",
   "priority",
   "freeBusyStatus",
@@ -177,6 +182,18 @@ export const EVENT_PROPS = [
   "start",
   "duration",
   "status",
+];
+
+/**
+ * A series as the account stores it, for the export.
+ *
+ * `recurrenceOverrides` is what the file writes as `EXDATE` and as the moved
+ * occurrences' own `VEVENT`s, and it cannot be asked for beside the utc pair --
+ * an export of masters has no use for an occurrence's utc start and end anyway.
+ */
+export const SERIES_PROPS: string[] = [
+  ...EVENT_PROPS.filter((p) => p !== "utcStart" && p !== "utcEnd"),
+  "recurrenceOverrides",
 ];
 
 /**

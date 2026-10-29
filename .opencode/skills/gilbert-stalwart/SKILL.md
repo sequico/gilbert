@@ -106,6 +106,15 @@ Where the integration lives:
 
 ## Quirks confirmed live — read before assuming
 
+- **`CalendarEvent/get` may not ask for `recurrenceOverrides` together with
+  `utcStart` or `utcEnd`**: the pair is validated before the read and refused
+  with `invalidArguments` ("recurrenceOverrides cannot be requested together
+  with utcStart or utcEnd"), which takes the whole call with it — a calendar
+  asking for both draws nothing at all. `calendar_event/get.rs`, v1.0.0; seen
+  live 2026-10-29. A window read wants the utc pair (exact instants per
+  occurrence), an export wants the overrides, and the two lists are separate
+  (`EVENT_PROPS` / `SERIES_PROPS`, `web/src/store/calendar/shared.ts`). The mock
+  reproduces the refusal (`server/src/mock/index.ts`, and its own test).
 - **A header property's form is checked, and a wrong form refuses the whole
   `Email/get`** (`is_allowed_form`, `crates/jmap-proto/src/object/email.rs` and
   `crates/jmap/src/email/get.rs`, v1.0.0; live: `header:List-Unsubscribe:asText`
