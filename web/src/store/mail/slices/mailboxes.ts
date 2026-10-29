@@ -9,6 +9,7 @@ import type {
   SetResponse,
 } from "@/jmap/types";
 import { descendantsOf, foldersByParent } from "@/lib/folderOrder";
+import { bySortOrder } from "@/lib/sortOrder";
 import { plural, t } from "@/lib/i18n";
 import { destroyRefusal, folderDestroyTakesMail, mayDestroy } from "@/lib/mailDelete";
 import { mailRouteAccount } from "@/lib/mailLink";
@@ -234,7 +235,7 @@ export function mailboxesSlice(
     childrenOf(parentId) {
       return Object.values(get().mailboxes)
         .filter((m) => (m.parentId ?? null) === parentId)
-        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+        .sort(bySortOrder);
     },
 
     descendantMailboxIds(mailboxId) {

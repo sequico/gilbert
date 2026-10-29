@@ -25,6 +25,7 @@ import { EVENTS } from "@/lib/events";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { refreshSharesInto } from "@/lib/sharedCollections";
+import { bySortOrder } from "@/lib/sortOrder";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
@@ -122,9 +123,7 @@ export function ContactsSidebar() {
 
   if (!contacts.available) return null;
 
-  const own = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const own = Object.values(contacts.books).sort(bySortOrder);
   const sel = contacts.selection;
   const isOn = (accountId: string | null, bookId: string) =>
     sel.accountId === accountId && sel.bookId === bookId;
@@ -185,8 +184,7 @@ export function ContactsSidebar() {
     .sort(
       (a, b) =>
         (groupRank.get(a.accountId) ?? 0) - (groupRank.get(b.accountId) ?? 0) ||
-        a.book.sortOrder - b.book.sortOrder ||
-        a.book.name.localeCompare(b.book.name),
+        bySortOrder(a.book, b.book),
     );
   /* Shared rows, used under a group's section and in the read-only area for
      shares that are not a group. Keying is the caller's job. */

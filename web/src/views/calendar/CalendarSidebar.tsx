@@ -36,6 +36,7 @@ import { downloadFile } from "@/lib/download";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { sharedKey } from "@/lib/sharedKey";
+import { bySortOrder } from "@/lib/sortOrder";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
@@ -195,8 +196,7 @@ export function CalendarSidebar() {
     .sort(
       (a, b) =>
         (groupRank.get(a.accountId) ?? 0) - (groupRank.get(b.accountId) ?? 0) ||
-        a.calendar.sortOrder - b.calendar.sortOrder ||
-        a.calendar.name.localeCompare(b.calendar.name),
+        bySortOrder(a.calendar, b.calendar),
     );
 
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
@@ -334,9 +334,7 @@ export function CalendarSidebar() {
   }, [birthdaysOn]);
 
   if (!cal.available) return null;
-  const calendars = Object.values(cal.calendars).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const calendars = Object.values(cal.calendars).sort(bySortOrder);
 
   return (
     <div style={{ padding: "4px 8px" }}>

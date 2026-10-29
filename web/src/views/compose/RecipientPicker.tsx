@@ -5,6 +5,7 @@ import { contactDisplayName, contactEmails, isGlobalContactsBook } from "@/lib/c
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { sharedKey } from "@/lib/sharedKey";
+import { bySortOrder } from "@/lib/sortOrder";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
@@ -88,9 +89,7 @@ export function RecipientPicker({
       b.book.isSubscribed ||
       addedShares.has(sharedKey(b.accountId, b.book.id)),
   );
-  const ownBooks = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const ownBooks = Object.values(contacts.books).sort(bySortOrder);
 
   const rows = useMemo(() => {
     const out: Row[] = [];

@@ -58,6 +58,7 @@ import { GLOBAL_CONTACTS_ACCOUNT_ID } from "@/lib/globalContactsAdmin";
 import { plural, t as translate } from "@/lib/i18n";
 import { isLinkUrl } from "@/lib/linkUrl";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { bySortOrder } from "@/lib/sortOrder";
 import { useMayMoveContact } from "@/lib/useMayMoveContact";
 import { useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
@@ -441,9 +442,7 @@ export function ContactsView({ id }: { id?: string }) {
   const selectedReadOnly = selected
     ? !contacts.cardWritable(selected, selectedAccountId)
     : false;
-  const books = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const books = Object.values(contacts.books).sort(bySortOrder);
   const groups = useMemo(() => {
     const out: Array<{
       letter: string;
@@ -1144,7 +1143,7 @@ function AddToBookDialog({
     // A book the reader may not write is a destination the server refuses; the
     // list says nothing about it rather than offering it and failing.
     .filter((b) => b.myRights?.mayWrite ?? true)
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    .sort(bySortOrder);
   const [busy, setBusy] = useState(false);
 
   const add = async (book: AddressBook) => {
@@ -1223,9 +1222,7 @@ function MoveContactDialog({
      account and one of the reader's own can carry the same id, and an id lookup
      answers with the reader's own. */
   const fromAccount = accountId ?? contacts.accountId;
-  const ownBooks = Object.values(contacts.books).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  const ownBooks = Object.values(contacts.books).sort(bySortOrder);
   /* The groups, each with its own books: a book nobody's member could write is
      still listed, and the server refuses it in its own words rather than the
      picker hiding a destination that exists. */
@@ -1235,7 +1232,7 @@ function MoveContactDialog({
     books: contacts.sharedBooks
       .filter((b) => b.accountId === g.accountId)
       .map((b) => b.book)
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+      .sort(bySortOrder),
   }));
   const elsewhere = fromAccount !== contacts.accountId;
 
