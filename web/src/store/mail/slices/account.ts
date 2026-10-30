@@ -229,7 +229,15 @@ export function accountSlice(
         return;
       }
       get().setAccount(accountId);
-      await Promise.all([get().loadMailboxes(), get().loadIdentities()]);
+      /*
+       * The tree is what the screen needs; the identities serve the composer and
+       * fall back to the group's own. A read that fails is not the switch
+       * failing: the account is already open, and letting it reject here left an
+       * unhandled rejection in every caller that fires this without awaiting (the
+       * route, a folder click) — which is what a `Failed to fetch` blip looked
+       * like on a switch.
+       */
+      await Promise.all([get().loadMailboxes(), get().loadIdentities().catch(() => [])]);
       void get().loadQuota();
     },
   };

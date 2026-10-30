@@ -113,10 +113,23 @@ export function identitiesSlice(
       const read = identitiesReads.get(accountId) ?? 0;
       const spent = () => (identitiesReads.get(accountId) ?? 0) !== read;
       const run = (async () => {
-        const res = await client.call<GetResponse<Identity>>("Identity/get", {
-          accountId,
-          ids: null,
-        });
+        let res: GetResponse<Identity>;
+        try {
+          res = await client.call<GetResponse<Identity>>("Identity/get", {
+            accountId,
+            ids: null,
+          });
+        } catch {
+          /*
+           * A failed read is not an answer: the identities already cached for
+           * this account stay, and the view keeps what it had — the account's own
+           * identity, which is what an unassigned member sends as anyway. This is
+           * read on every account switch, so a rejection here reached every
+           * caller that fires a switch without awaiting it (the mail route, a
+           * folder click) as an unhandled rejection.
+           */
+          return get().identitiesByAccount[accountId] ?? [];
+        }
         /*
          * Cached under the account id, whatever is on screen. The account the
          * reader's own identities live in is rarely the one they are browsing --
