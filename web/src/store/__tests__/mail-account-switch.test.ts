@@ -83,4 +83,34 @@ describe("switching account", () => {
 
     expect(useMail.getState().identitiesByAccount[GROUP]).toEqual([identity("g1")]);
   });
+
+  it("reports a failed identity read once per outage, not once per read", async () => {
+    const warned = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let failing = false;
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Identity/get") {
+        if (failing) throw new TypeError("Failed to fetch");
+        return { list: [], state: "s" };
+      }
+      return { list: [], state: "s", notFound: [] };
+    }) as never);
+
+    // A read that lands first, so the flag starts clear whatever ran before it.
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    warned.mockClear();
+
+    // Two refusals in a row are one outage: the reader hears it once.
+    failing = true;
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    expect(warned).toHaveBeenCalledTimes(1);
+    expect(String(warned.mock.calls[0]?.[0])).toContain("identities");
+
+    // A read that lands ends the outage, so the next refusal is news again.
+    failing = false;
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    failing = true;
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    expect(warned).toHaveBeenCalledTimes(2);
+  });
 });

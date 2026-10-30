@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { GetResponse, Id, Identity, SetResponse } from "@/jmap/types";
@@ -24,6 +25,18 @@ import type { MailGet, MailSet, MailState } from "../types";
  * A slice of the mail store: the state is assembled in `../index`, and this
  * function only says what this job does with `set` and `get`.
  */
+
+/**
+ * Whether this outage's failed identity read has already been reported.
+ *
+ * One line per outage, not per read: the identities are read on every account
+ * switch and by every surface that opens a composer, so a server that keeps
+ * refusing would print on each of them. The next read that lands clears it,
+ * which is what makes a later refusal news again — the same shape the folder
+ * tree's own read keeps (`slices/mailboxes.ts`).
+ */
+let identitiesReadReported = false;
+
 export function identitiesSlice(
   set: MailSet,
   get: MailGet,
@@ -119,17 +132,27 @@ export function identitiesSlice(
             accountId,
             ids: null,
           });
-        } catch {
+        } catch (err) {
           /*
            * A failed read is not an answer: the identities already cached for
            * this account stay, and the view keeps what it had — the account's own
            * identity, which is what an unassigned member sends as anyway. This is
            * read on every account switch, so a rejection here reached every
            * caller that fires a switch without awaiting it (the mail route, a
-           * folder click) as an unhandled rejection.
+           * folder click) as an unhandled rejection. It is still a failure, and
+           * one nothing else reports: a refusal that is real — a permission
+           * changed on a group — would otherwise leave no trace at all.
            */
+          if (!identitiesReadReported) {
+            identitiesReadReported = true;
+            console.warn(
+              `[gilbert] could not read the identities of ${accountId}: ${errorMessage(err)}`,
+            );
+          }
           return get().identitiesByAccount[accountId] ?? [];
         }
+        // The read landed: the outage this flag stood for is over.
+        identitiesReadReported = false;
         /*
          * Cached under the account id, whatever is on screen. The account the
          * reader's own identities live in is rarely the one they are browsing --
