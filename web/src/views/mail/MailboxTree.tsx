@@ -53,6 +53,7 @@ import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
 import { isOwnMailAccount } from "@/lib/mailAccounts";
+import { mailAccountQuery } from "@/lib/mailLink";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { folderDestroyTakesMail } from "@/lib/mailDelete";
 import { EMAILS_MIME, FOLDER_MIME } from "@/lib/mime";
@@ -395,10 +396,20 @@ export function MailboxTree() {
       );
     return out;
   }, [extraAccounts, expanded, showHidden, session]);
-  const openMailbox = async (toAccount: Id, mailboxId: Id) => {
-    if (useMail.getState().accountId !== toAccount)
-      await useMail.getState().openAccount(toAccount);
-    navigate(`/mail/${mailboxId}`);
+  const openMailbox = (toAccount: Id, mailboxId: Id) => {
+    /*
+     * The account travels in the route, as it does in a notification's link
+     * (`lib/mailLink`): a folder id alone is resolved against the account on
+     * screen, and a group whose Inbox carries the same short id as the reader's
+     * own resolved to the wrong one — the click appeared to do nothing until the
+     * store had already switched, and then a second click was needed.
+     *
+     * Nothing is awaited: the address bar is what the reader asked for, and the
+     * route opens the account the link names (`MailView`). Awaiting the switch
+     * here meant the URL still named the previous account while the store
+     * already held the new one, so the route's own effect switched straight back.
+     */
+    navigate(`/mail/${mailboxId}${mailAccountQuery(toAccount)}`);
   };
 
   /*
@@ -952,7 +963,7 @@ const FolderRow = memo(function FolderRow({
 
   return (
     <Link
-      href={`/mail/${m.id}`}
+      href={`/mail/${m.id}${openAccount ? mailAccountQuery(openAccount) : ""}`}
       className={`nav-item folder-row depth-${Math.min(depth, 4)} ${currentId === m.id ? "active" : ""} ${unread ? "unread" : ""} ${dropping ? "drop-target" : ""} ${dragging ? "dragging" : ""}`}
       title={label}
       {...press}
