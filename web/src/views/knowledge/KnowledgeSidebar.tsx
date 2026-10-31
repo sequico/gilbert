@@ -877,9 +877,7 @@ export function KnowledgeSidebar() {
                 )}
               </div>
               {renderTree(tier)}
-              {tier.articles.length === 0 && (
-                <Empty compact title={t("No pages yet.")} />
-              )}
+              {tier.articles.length === 0 && <Empty compact title={t("No pages yet.")} />}
             </Fragment>
           ))}
         </>

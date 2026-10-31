@@ -160,18 +160,17 @@ describe("queryAllIds", () => {
   it("says a page could not be read and hands back nothing to act on", async () => {
     const all = Array.from({ length: 8 }, (_, i) => `e${i}`);
     const refusedPages: number[] = [];
-    const fake = fakeJmapServer()
-      .on("Email/query", ({ args }) => {
-        const position = (args.position as number) ?? 0;
-        return {
-          accountId: "a1",
-          queryState: "q",
-          canCalculateChanges: false,
-          position,
-          ids: all.slice(position, position + PAGE),
-          total: all.length,
-        };
-      });
+    const fake = fakeJmapServer().on("Email/query", ({ args }) => {
+      const position = (args.position as number) ?? 0;
+      return {
+        accountId: "a1",
+        queryState: "q",
+        canCalculateChanges: false,
+        position,
+        ids: all.slice(position, position + PAGE),
+        total: all.length,
+      };
+    });
     // One page lands; the next is refused, which is how a break in the middle reads.
     fake.onError("Email/query", ({ args }) => {
       const position = (args.position as number) ?? 0;

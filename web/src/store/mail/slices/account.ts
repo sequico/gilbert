@@ -237,7 +237,12 @@ export function accountSlice(
        * route, a folder click) — which is what a `Failed to fetch` blip looked
        * like on a switch.
        */
-      await Promise.all([get().loadMailboxes(), get().loadIdentities().catch(() => [])]);
+      await Promise.all([
+        get().loadMailboxes(),
+        get()
+          .loadIdentities()
+          .catch(() => []),
+      ]);
       void get().loadQuota();
     },
   };
