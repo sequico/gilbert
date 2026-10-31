@@ -46,6 +46,7 @@ import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { TabStrip } from "@/ui/tabs";
 import { GroupRuns, StopRun } from "@/views/admin/agents/GroupRuns";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 
@@ -762,6 +763,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
 
   if (!accounts.length) return null;
 
+  // The conversation the switcher marks: the store opens one as soon as the
+  // panel has accounts, and the first is the tab stop for the frame before that
+  // lands.
+  const selectedAccount = openAccountId ?? accounts[0]!.accountId;
+
   const pickAccount = (id: Id) => {
     atBottom.current = true;
     openConv(id);
@@ -876,28 +882,32 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
         </span>
       </div>
       {accounts.length > 1 && (
-        <div className="chat-switcher" role="tablist" aria-label={t("Conversations")}>
-          {accounts.map((a) => {
+        <TabStrip
+          label={t("Conversations")}
+          className="chat-switcher"
+          tabClassName={(_, isSelected) => `chat-switch ${isSelected ? "active" : ""}`}
+          idPrefix="chat"
+          panelId={() => "chat-thread"}
+          selected={selectedAccount}
+          onSelect={pickAccount}
+          tabs={accounts.map((a) => {
             const conv = conversations[a.accountId];
             const unread = conv ? unreadOf(conv) : 0;
-            return (
-              <button
-                key={a.accountId}
-                role="tab"
-                aria-selected={a.accountId === openAccountId}
-                className={`chat-switch ${a.accountId === openAccountId ? "active" : ""}`}
-                onClick={() => pickAccount(a.accountId)}
-              >
-                <span className="chat-switch-name" title={a.name}>
-                  {/* The tab names the team, not the mailbox: the local part is
-                      the space a reader needs, and the address is on hover. */}
-                  {a.name.includes("@") ? `${localPart(a.name)}@` : a.name}
-                </span>
-                {unread > 0 && <span className="chat-badge">{unread}</span>}
-              </button>
-            );
+            return {
+              id: a.accountId,
+              content: (
+                <>
+                  <span className="chat-switch-name" title={a.name}>
+                    {/* The tab names the team, not the mailbox: the local part is
+                        the space a reader needs, and the address is on hover. */}
+                    {a.name.includes("@") ? `${localPart(a.name)}@` : a.name}
+                  </span>
+                  {unread > 0 && <span className="chat-badge">{unread}</span>}
+                </>
+              ),
+            };
           })}
-        </div>
+        />
       )}
       {searchOpen && (
         <div className="chat-search-row">
@@ -921,7 +931,15 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           </button>
         </div>
       )}
-      <div className="chat-thread" ref={threadRef} onScroll={onScroll}>
+      <div
+        className="chat-thread"
+        id="chat-thread"
+        role="tabpanel"
+        // Named by the tab only where the switcher draws one.
+        aria-labelledby={accounts.length > 1 ? `chat-${selectedAccount}` : undefined}
+        ref={threadRef}
+        onScroll={onScroll}
+      >
         {timedOpen && open ? (
           <div className="chat-empty">{t("To be implemented")}</div>
         ) : questionsOpen && open ? (

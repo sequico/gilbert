@@ -1,9 +1,10 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type FactView, fetchFacts } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
+import { TabStrip } from "@/ui/tabs";
 import { AgentGeneral } from "./AgentGeneral";
 import { AgentGroup } from "./AgentGroup";
 import { AgentMemory } from "./AgentMemory";
@@ -100,50 +101,27 @@ export function AgentsView() {
   const select = (id: string) => {
     setVisited((held) => (held.has(id) ? held : new Set(held).add(id)));
     setTab(id);
-    document.getElementById(`agents-${id}`)?.focus();
-  };
-
-  const neighbour = (id: string, delta: number): string => {
-    const index = entries.findIndex((entry) => entry.id === id);
-    const next = (index + delta + entries.length) % entries.length;
-    return entries[next]?.id ?? id;
   };
 
   return (
     <div>
-      <div className="tabs" role="tablist" aria-label={t("AI Agents")}>
-        {entries.map((entry, i) => (
-          <Fragment key={entry.id}>
-            {/* The views and the groups are two different things in one row: a
-                group is a subject, not a page. The heading says which is which
-                without giving the group its own tablist to navigate. */}
-            {entry.accountId && !entries[i - 1]?.accountId && (
+      <TabStrip
+        label={t("AI Agents")}
+        tabs={entries.map((entry, i) => ({
+          id: entry.id,
+          content: entry.label,
+          // The views and the groups are two different things in one row: a
+          // group is a subject, not a page. The heading says which is which
+          // without giving the group its own tablist to navigate.
+          before:
+            entry.accountId && !entries[i - 1]?.accountId ? (
               <span className="tabs-label">{t("Groups")}</span>
-            )}
-            <button
-              type="button"
-              className="tab"
-              role="tab"
-              id={`agents-${entry.id}`}
-              aria-selected={active === entry.id}
-              aria-controls={`agents-${entry.id}-panel`}
-              tabIndex={active === entry.id ? 0 : -1}
-              onClick={() => select(entry.id)}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-                  event.preventDefault();
-                  select(neighbour(entry.id, 1));
-                } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-                  event.preventDefault();
-                  select(neighbour(entry.id, -1));
-                }
-              }}
-            >
-              {entry.label}
-            </button>
-          </Fragment>
-        ))}
-      </div>
+            ) : undefined,
+        }))}
+        selected={active}
+        onSelect={select}
+        idPrefix="agents"
+      />
       {entries
         .filter((entry) => visited.has(entry.id))
         .map((entry) => (
