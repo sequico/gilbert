@@ -152,8 +152,9 @@ export function TodayView({ section }: { section?: string }) {
       // A row in hand starts with nothing said: the note belongs to this call.
       setNote("");
       // The script the campaign pinned travels with the row: the same words were
-      // said to every number of this list (ADR 0040).
-      setScript(await fetchScript(active, row.campaignUid).catch(() => null));
+      // said to every number of this list (ADR 0040). A read that fails belongs
+      // to the catch below — nothing, not even "no script", covers for it.
+      setScript(await fetchScript(active, row.campaignUid));
     } catch (err) {
       setError(errorMessage(err));
       // Somebody else may have taken it while it was on screen.
