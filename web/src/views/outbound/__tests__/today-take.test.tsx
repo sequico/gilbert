@@ -33,19 +33,23 @@ const { ROW, mocks } = vi.hoisted(() => {
     calls: [],
     trimmed: 0,
     createdAt: "2026-10-01T09:00:00Z",
+    card: null,
   };
   return {
     ROW: row,
     mocks: {
-      fetchScript: vi.fn<(group: string, campaignUid: string) => Promise<string | null>>(),
-      takeRow: vi.fn<(group: string, campaignUid: string, rowUid: string) => Promise<typeof row>>(),
+      fetchScript:
+        vi.fn<(group: string, campaignUid: string) => Promise<string | null>>(),
+      takeRow:
+        vi.fn<
+          (group: string, campaignUid: string, rowUid: string) => Promise<typeof row>
+        >(),
     },
   };
 });
 
 vi.mock("@/lib/outbound", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/outbound")>("@/lib/outbound");
+  const actual = await vi.importActual<typeof import("@/lib/outbound")>("@/lib/outbound");
   return {
     ...actual,
     fetchToday: async (): Promise<TodayBoard> => ({
@@ -81,9 +85,7 @@ let root: Root | null = null;
 let host: HTMLElement;
 
 const button = (label: string) =>
-  Array.from(host.querySelectorAll("button")).find(
-    (one) => one.textContent === label,
-  );
+  Array.from(host.querySelectorAll("button")).find((one) => one.textContent === label);
 
 function render() {
   act(() => root!.render(<TodayView />));
