@@ -156,6 +156,37 @@ describe("queryAllIds", () => {
     useMail.setState({ list: null });
     expect(await useMail.getState().queryAllIds()).toEqual([]);
   });
+
+  it("says a page could not be read and hands back nothing to act on", async () => {
+    const all = Array.from({ length: 8 }, (_, i) => `e${i}`);
+    const refusedPages: number[] = [];
+    const fake = fakeJmapServer()
+      .on("Email/query", ({ args }) => {
+        const position = (args.position as number) ?? 0;
+        return {
+          accountId: "a1",
+          queryState: "q",
+          canCalculateChanges: false,
+          position,
+          ids: all.slice(position, position + PAGE),
+          total: all.length,
+        };
+      });
+    // One page lands; the next is refused, which is how a break in the middle reads.
+    fake.onError("Email/query", ({ args }) => {
+      const position = (args.position as number) ?? 0;
+      if (position > 0) {
+        refusedPages.push(position);
+        return { type: "serverFail", description: "down" };
+      }
+      return undefined;
+    });
+
+    expect(await useMail.getState().queryAllIds()).toEqual([]);
+    expect(refusedPages).toEqual([PAGE]);
+    const texts = useToasts.getState().toasts.map((t) => t.message);
+    expect(texts.join(" ")).toContain("Could not read what is selected");
+  });
 });
 
 describe("Undo, once the selection reaches messages that were never loaded", () => {

@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { client } from "@/jmap/client";
 import type { Id, QueryResponse } from "@/jmap/types";
 import { t } from "@/lib/i18n";
@@ -58,6 +59,13 @@ export function selectionSlice(
       const page = client.maxObjectsInSet;
       const out: Id[] = [];
       let progress: number | null = null;
+      /*
+       * A failed page is not half of an answer the action may still act on: the
+       * ids named so far are not everything the list matches, and deleting or
+       * reading them would do part of what was asked. Nothing is handed back
+       * and the failure is said where the progress toast is dismissed — every
+       * caller answers to ids and acts only when there are some.
+       */
       try {
         for (let position = 0; ; position += page) {
           const q = await client.call<QueryResponse>("Email/query", {
@@ -84,10 +92,15 @@ export function selectionSlice(
           // to be told the same thing.
           if (q.ids.length < page) break;
         }
+        return out;
+      } catch (err) {
+        toast.error(
+          t("Could not read what is selected: {error}", { error: errorMessage(err) }),
+        );
+        return [];
       } finally {
         if (progress !== null) toast.dismiss(progress);
       }
-      return out;
     },
     setAnchor(id) {
       set({ anchorId: id });

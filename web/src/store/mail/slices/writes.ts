@@ -393,7 +393,20 @@ export function writesSlice(
           ids.map((id) => emails[id]?.threadId).filter((t): t is Id => Boolean(t)),
         ),
       ];
-      const byThread = await threadMessagesFor(accountId, threadIds, get);
+      /*
+       * The one read this action reaches with no guard of its own: every other
+       * failure inside it is `move`'s or `destroy`'s to say. Uncaught, its
+       * rejection rose past this answer and reached the callers that fire an
+       * action without awaiting it (a swipe, the toolbar) — an archive that
+       * silently did nothing on a network that failed.
+       */
+      let byThread: Awaited<ReturnType<typeof threadMessagesFor>>;
+      try {
+        byThread = await threadMessagesFor(accountId, threadIds, get);
+      } catch (err) {
+        toast.error(t("Archive failed: {error}", { error: errorMessage(err) }));
+        return { ok: false, code: "server_refused" };
+      }
       /*
        * A conversation that has come back to the Inbox goes back to where it was
        * filed; one that was never filed anywhere goes to Archive. A message

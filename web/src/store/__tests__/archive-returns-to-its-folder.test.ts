@@ -180,6 +180,25 @@ describe("archiving a conversation that was filed somewhere", () => {
     await useMail.getState().archive(["e1"]);
     expect(s.moved).toEqual([{ accountId: "a1", id: "e1", to: "mbArchive" }]);
   });
+
+  it("says so and files nothing when the thread cannot be read", async () => {
+    const s = server({
+      threadId: "t1",
+      message: {
+        id: "e0",
+        mailboxIds: { mbCase: true },
+        receivedAt: "2026-09-14T10:00:00Z",
+      },
+    });
+    s.fake.onError("Thread/get", () => ({ type: "serverFail", description: "down" }));
+
+    await useMail.getState().archive(["e1"]);
+
+    // Nothing was filed: without the thread there is no folder to put it back
+    // in, and the answer has to say the action did not happen.
+    expect(s.moved).toEqual([]);
+    expect(messages().join(" ")).toContain("Archive failed");
+  });
 });
 
 describe("the same in a group mailbox", () => {
