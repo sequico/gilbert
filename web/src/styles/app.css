@@ -1252,6 +1252,8 @@ a.menu-item:hover { color: var(--fg); }
 .empty svg { color: var(--fg-faint); }
 .empty h3 { margin: 8px 0 0; font-weight: 600; color: var(--fg); }
 .empty p { margin: 0; max-width: 360px; }
+/* The same sentence in a tree or a sidebar: a hint line, not a centred page. */
+.empty.compact { display: block; padding: 4px 12px; text-align: left; font-size: .85em; color: var(--fg-faint); }
 .error-box { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--danger-soft); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); }
 .info-box { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-soft-fg); }
 .warn-box { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); }

@@ -103,11 +103,25 @@ export function Empty({
   icon,
   title,
   children,
+  compact,
 }: {
   icon?: ReactNode;
   title: string;
   children?: ReactNode;
+  /**
+   * The hint line a tree or a sidebar draws, rather than the block a pane draws:
+   * "nothing here" in a column is a sentence, not a centred page.
+   */
+  compact?: boolean;
 }) {
+  if (compact)
+    return (
+      <div className="empty compact">
+        {icon}
+        <p>{title}</p>
+        {children}
+      </div>
+    );
   return (
     <div className="empty">
       {icon}

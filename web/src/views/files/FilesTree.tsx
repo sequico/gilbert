@@ -30,6 +30,7 @@ import { refreshSharesInto } from "@/lib/sharedCollections";
 import { trashFolderId } from "@/lib/trash";
 import { useFiles } from "@/store/files";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { Empty } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
@@ -310,9 +311,10 @@ export function FilesTree() {
       </div>
       {childrenOf(null).map((d) => row(d, 1))}
       {treeLoaded && !dirs.length && (
-        <p className="hint" style={{ padding: "4px 12px" }}>
-          {viewingShare ? t("Nothing shared here.") : t("No folders yet.")}
-        </p>
+        <Empty
+          compact
+          title={viewingShare ? t("Nothing shared here.") : t("No folders yet.")}
+        />
       )}
 
       {/* Shared folders belong here, beside your own: reaching a share by
@@ -363,9 +365,7 @@ export function FilesTree() {
             </div>
           ))}
           {!sharedAccounts.length && (
-            <p className="hint" style={{ padding: "4px 12px" }}>
-              {t("Nothing is shared with you.")}
-            </p>
+            <Empty compact title={t("Nothing is shared with you.")} />
           )}
         </>
       )}

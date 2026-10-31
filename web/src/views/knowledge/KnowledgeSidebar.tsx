@@ -32,6 +32,7 @@ import {
 } from "@/lib/knowledge";
 import { type KnowledgeSearchResult, useKnowledge } from "@/store/knowledge";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { Empty } from "@/ui/misc";
 import { type Anchor, anchorFromEl, MenuItem, Popover } from "@/ui/popover";
 import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 
@@ -797,9 +798,7 @@ export function KnowledgeSidebar() {
             <span>{t("Results")}</span>
           </div>
           {results.length === 0 && !searching && searchedTerm === search.trim() && (
-            <p className="hint" style={{ padding: "4px 12px" }}>
-              {t("Nothing found.")}
-            </p>
+            <Empty compact title={t("Nothing found.")} />
           )}
           {results.map((hit, i) => {
             return (
@@ -843,11 +842,7 @@ export function KnowledgeSidebar() {
         </>
       ) : (
         <>
-          {tiers.length === 0 && (
-            <p className="hint" style={{ padding: "4px 12px" }}>
-              {t("No knowledge base yet.")}
-            </p>
-          )}
+          {tiers.length === 0 && <Empty compact title={t("No knowledge base yet.")} />}
           {tiers.map((tier) => (
             <Fragment key={`${tier.scope}:${tier.accountId}`}>
               <div className="nav-section">
@@ -883,9 +878,7 @@ export function KnowledgeSidebar() {
               </div>
               {renderTree(tier)}
               {tier.articles.length === 0 && (
-                <p className="hint" style={{ padding: "4px 12px" }}>
-                  {t("No pages yet.")}
-                </p>
+                <Empty compact title={t("No pages yet.")} />
               )}
             </Fragment>
           ))}
