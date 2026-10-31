@@ -770,6 +770,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   // panel has accounts, and the first is the tab stop for the frame before that
   // lands.
   const selectedAccount = openAccountId ?? accounts[0]!.accountId;
+  // One account needs no switcher, and the thread is then a plain region.
+  const switcher = accounts.length > 1;
 
   const pickAccount = (id: Id) => {
     atBottom.current = true;
@@ -884,7 +886,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           </button>
         </span>
       </div>
-      {accounts.length > 1 && (
+      {switcher && (
         <TabStrip
           label={t("Conversations")}
           className="chat-switcher"
@@ -936,12 +938,10 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       )}
       <div
         className="chat-thread"
-        id={CHAT_THREAD_ID}
-        role="tabpanel"
+        id={switcher ? CHAT_THREAD_ID : undefined}
+        role={switcher ? "tabpanel" : undefined}
         // Named by the tab only where the switcher draws one.
-        aria-labelledby={
-          accounts.length > 1 ? tabElementId("chat", selectedAccount) : undefined
-        }
+        aria-labelledby={switcher ? tabElementId("chat", selectedAccount) : undefined}
         ref={threadRef}
         onScroll={onScroll}
       >
