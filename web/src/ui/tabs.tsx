@@ -30,13 +30,18 @@ export function tabElementId(idPrefix: string, id: string): string {
   return `${idPrefix}-${id}`;
 }
 
+/** The id the panel of a tab carries, from the same two. */
+export function panelElementId(idPrefix: string, id: string): string {
+  return `${idPrefix}-${id}-panel`;
+}
+
 export function TabStrip({
   label,
   tabs,
   selected,
   onSelect,
   idPrefix,
-  panelId = (id) => `${idPrefix}-${id}-panel`,
+  panelId = (id) => panelElementId(idPrefix, id),
   className = "tabs",
   tabClassName = () => "tab",
 }: {

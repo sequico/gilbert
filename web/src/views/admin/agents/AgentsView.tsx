@@ -4,7 +4,7 @@ import { type FactView, fetchFacts } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
-import { TabStrip } from "@/ui/tabs";
+import { panelElementId, TabStrip, tabElementId } from "@/ui/tabs";
 import { AgentGeneral } from "./AgentGeneral";
 import { AgentGroup } from "./AgentGroup";
 import { AgentMemory } from "./AgentMemory";
@@ -127,9 +127,9 @@ export function AgentsView() {
         .map((entry) => (
           <div
             key={entry.id}
-            id={`agents-${entry.id}-panel`}
+            id={panelElementId("agents", entry.id)}
             role="tabpanel"
-            aria-labelledby={`agents-${entry.id}`}
+            aria-labelledby={tabElementId("agents", entry.id)}
             hidden={active !== entry.id}
           >
             {entry.id === OVERVIEW && (

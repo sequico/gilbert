@@ -46,7 +46,7 @@ import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
-import { TabStrip } from "@/ui/tabs";
+import { TabStrip, tabElementId } from "@/ui/tabs";
 import { GroupRuns, StopRun } from "@/views/admin/agents/GroupRuns";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 
@@ -57,6 +57,9 @@ interface ChatPanelProps {
 
 /** The facts a run recalled, for a surface that does not list the memory. */
 const NO_FACTS: readonly FactView[] = [];
+
+/** The one panel the conversation tabs control: the thread below them. */
+const CHAT_THREAD_ID = "chat-thread";
 
 /** One line of a message, for the search results list. */
 function snippet(text: string): string {
@@ -887,7 +890,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           className="chat-switcher"
           tabClassName={(_, isSelected) => `chat-switch ${isSelected ? "active" : ""}`}
           idPrefix="chat"
-          panelId={() => "chat-thread"}
+          panelId={() => CHAT_THREAD_ID}
           selected={selectedAccount}
           onSelect={pickAccount}
           tabs={accounts.map((a) => {
@@ -933,10 +936,12 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       )}
       <div
         className="chat-thread"
-        id="chat-thread"
+        id={CHAT_THREAD_ID}
         role="tabpanel"
         // Named by the tab only where the switcher draws one.
-        aria-labelledby={accounts.length > 1 ? `chat-${selectedAccount}` : undefined}
+        aria-labelledby={
+          accounts.length > 1 ? tabElementId("chat", selectedAccount) : undefined
+        }
         ref={threadRef}
         onScroll={onScroll}
       >

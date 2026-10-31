@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import { t } from "@/lib/i18n";
-import { TabStrip } from "@/ui/tabs";
+import { panelElementId, TabStrip, tabElementId } from "@/ui/tabs";
 import { GroupIdentities } from "@/views/admin/GroupIdentities";
 import { UserIdentities } from "@/views/admin/UserIdentities";
 
@@ -36,9 +36,9 @@ export function Identities() {
       {list.map((entry) => (
         <div
           key={entry.id}
-          id={`identities-${entry.id}-panel`}
+          id={panelElementId("identities", entry.id)}
           role="tabpanel"
-          aria-labelledby={`identities-${entry.id}`}
+          aria-labelledby={tabElementId("identities", entry.id)}
           hidden={tab !== entry.id}
         >
           {entry.el}
