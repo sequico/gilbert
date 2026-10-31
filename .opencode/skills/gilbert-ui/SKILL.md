@@ -21,7 +21,7 @@ spelling of the same action is that defect wearing a costume**.
    including the icon.
 2. **Find the primitive, not the nearest copy.** `web/src/ui/` holds the shared
    ones: `dialog.tsx` (Dialog, confirmDialog, promptDialog), `popover.tsx`
-   (Popover, MenuItem, MenuSep, MenuTitle), `toast.tsx`, `tabs.tsx`,
+   (Popover, MenuItem, MenuSep, MenuTitle), `toast.tsx`,
    `SectionShell.tsx`, `misc.tsx` (`Empty`), `LoadState.tsx`, `selection.tsx`,
    `datefield.tsx`, `JsonDocumentEditor.tsx`, `Splitter.tsx`.
 3. **If the pattern is wrong, fix the pattern.** A local override that makes one

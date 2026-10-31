@@ -2956,10 +2956,6 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 }
 .chat-input-rich .chat-emoji-img { vertical-align: -0.2em; }
 
-/* The tablist the group surface draws (see `web/src/ui/tabs.tsx`). */
-.agent-tabs { margin-bottom: 16px; max-width: 100%; overflow-x: auto; }
-.agent-tabs button { height: 34px; }
-
 /* What arrived from the operating system's share sheet, shown before it is opened. */
 .share-summary { margin: 0 0 8px; padding-left: 1ex; border-left: 2px solid var(--border-strong); color: var(--fg-muted); overflow-wrap: anywhere; }
 .share-summary-files { margin: 0 0 8px; padding-left: 1.2em; color: var(--fg-muted); overflow-wrap: anywhere; }
