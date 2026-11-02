@@ -258,6 +258,17 @@ the row.
 | `7f98b994` | not taken (CI: upstream's fallback runners, where this repository runs GitHub Actions) | 0% | CI fallback: the Stalwart compatibility job on Gitea's own runners |
 | `34d481bd` | not taken (`README.md` is this project's, and the Stalwart line it supports is stated there) | 100% | README: a Support section with the Stalwart versions ihasmail supports |
 
+## Release `v2026.10.30-ge8e7e01`
+
+`upstream/main` is at `e8e7e01` (`v2026.10.30-ge8e7e01`). From `ba68b4f1` it
+carries two work commits, the rest being pull-request merges. Each row records
+where the reading stands, and a decision moves the row.
+
+| upstream | disposition | overlap | subject |
+|---|---|---|---|
+| `590edd50` | already ours — the calendar read has kept `recurrenceOverrides` apart from the `utcStart`/`utcEnd` pair since the property lists were split (`EVENT_PROPS` / `SERIES_PROPS`, `web/src/store/calendar/shared.ts`), and the FileNode wire names are translated at the client's one boundary (`server/src/shared/filenode.ts`), assumed 1.0 rather than probed per session because 1.0 is this product's floor | 93% | Stalwart 1.0: load calendars, and keep settings and Files working |
+| `42bbe344` | not taken (`README.md` is this project's, and the Stalwart line it supports is stated there) | — | README: Stalwart 1.0 needs ihasmail v2026.10.30 or newer |
+
 ## Keeping it current
 
 A merge or a hand-take appends its row in the same change that lands the code
