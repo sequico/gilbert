@@ -9,7 +9,10 @@
  * a report of it cannot be searched for.
  *
  * Nothing here is clever on purpose: an `Error` carries a message a person was
- * meant to read, and anything else is stringified rather than hidden.
+ * meant to read, and anything else is stringified rather than hidden. The one
+ * exception is the browser's own words for a request that never arrived: those
+ * are turned into a sentence about reaching the server (`isNetworkFailure`),
+ * because "Failed to fetch" is neither translated nor about the product.
  */
 
 /** The sentence a request that never reached the server reads as. */
