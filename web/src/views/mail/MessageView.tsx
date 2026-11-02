@@ -608,7 +608,7 @@ export const MessageView = memo(function MessageView({
                 one, which is why the tooltip names the action and not a key.
               */}
               <button
-                className="icon-btn sm hide-mobile"
+                className="icon-btn sm"
                 title={translate("Reply all")}
                 onClick={(ev) => {
                   ev.stopPropagation();
