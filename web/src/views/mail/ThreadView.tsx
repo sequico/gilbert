@@ -541,14 +541,13 @@ export function ThreadView({
           </div>
         )}
         {pending && !shown.length && <Spinner label={t("Loading conversation…")} />}
-        {shown.map((e, i) => (
+        {shown.map((e) => (
           <MessageView
             key={e.id}
             email={e}
             expanded={isExpanded(e)}
             wasUnread={wasUnread.has(e.id)}
             onToggle={() => setExpanded((x) => ({ ...x, [e.id]: !isExpanded(e) }))}
-            isLast={i === messages.length - 1}
           />
         ))}
       </div>

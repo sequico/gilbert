@@ -96,7 +96,6 @@ interface Props {
   /** Unread when the conversation was opened, which is what the bar marks. */
   wasUnread?: boolean;
   onToggle: () => void;
-  isLast: boolean;
 }
 
 export const MessageView = memo(function MessageView({
