@@ -262,7 +262,7 @@ export function MenuItem({
 }
 
 export function MenuSep() {
-  return <div className="menu-sep" />;
+  return <div className="menu-sep" role="separator" />;
 }
 
 export function MenuTitle({ children }: { children: ReactNode }) {
