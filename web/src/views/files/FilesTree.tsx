@@ -22,6 +22,7 @@ import {
   fileNodeLabel,
   isShared,
   NODE_MIME,
+  nodeRights,
   readDraggedIds,
 } from "@/lib/filenode";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
@@ -416,7 +417,7 @@ export function FilesTree() {
             <MenuItem
               icon={<Pencil size={16} />}
               label={t("Rename")}
-              disabled={!menuNode.myRights?.mayRename}
+              disabled={nodeRights(menuNode, nodes)?.mayRename === false}
               onClick={async () => {
                 const name = await promptDialog({
                   title: t("Rename"),
@@ -433,7 +434,7 @@ export function FilesTree() {
             <MenuItem
               icon={<Share2 size={16} />}
               label={t("Share…")}
-              disabled={!menuNode.myRights?.mayShare}
+              disabled={nodeRights(menuNode, nodes)?.mayShare === false}
               onClick={() => setShareNode(menuNode)}
             />
             <MenuSep />
@@ -441,7 +442,7 @@ export function FilesTree() {
               danger
               icon={<Trash2 size={16} />}
               label={t("Delete")}
-              disabled={!menuNode.myRights?.mayDelete}
+              disabled={nodeRights(menuNode, nodes)?.mayDelete === false}
               onClick={async () => {
                 if (
                   !(await confirmDialog({

@@ -877,7 +877,12 @@ export interface FileNode {
   changed?: UTCDate;
   executable?: boolean;
   isSubscribed?: boolean;
-  myRights: FilesRights;
+  /**
+   * The caller's rights on this node. Answered on directories only: Stalwart
+   * 1.0 skips the property on a file, whose rights are its container's (the
+   * ACLs are inherited from the ancestors) — read them through `nodeRights`.
+   */
+  myRights?: FilesRights;
   shareWith?: Record<Id, FilesRights> | null;
   role?: string | null;
 }

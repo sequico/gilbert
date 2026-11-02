@@ -86,6 +86,52 @@ test("a create in 1.0's words is written, and the read answers in them", async (
   );
 });
 
+test("myRights is answered on a directory and absent on a file, as 1.0 does", async () => {
+  const made = await jmap([
+    [
+      "FileNode/set",
+      { accountId: ACCOUNT, create: { d: { name: "rights-dir", "@type": "Directory" } } },
+      "s",
+    ],
+  ]);
+  const dirId = (
+    responseOf(made, "s")[1] as { created: Record<string, { id: string }> }
+  ).created.d!.id;
+  const madeFile = await jmap([
+    [
+      "FileNode/set",
+      {
+        accountId: ACCOUNT,
+        create: {
+          f: {
+            name: "rights.txt",
+            "@type": "File",
+            mediaType: "text/plain",
+            parentId: dirId,
+          },
+        },
+      },
+      "s2",
+    ],
+  ]);
+  const fileId = (
+    responseOf(madeFile, "s2")[1] as { created: Record<string, { id: string }> }
+  ).created.f!.id;
+
+  const read = await jmap([
+    [
+      "FileNode/get",
+      { accountId: ACCOUNT, ids: [dirId, fileId], properties: ["id", "@type", "myRights"] },
+      "g",
+    ],
+  ]);
+  const list = responseOf(read, "g")[1].list as Array<Record<string, unknown>>;
+  const dir = list.find((one) => one.id === dirId)!;
+  const file = list.find((one) => one.id === fileId)!;
+  assert.ok(dir.myRights, "a directory answers myRights");
+  assert.ok(!("myRights" in file), "a file does not: its rights are its folder's");
+});
+
 test("the filter's value is case-sensitive, as 1.0 matches it", async () => {
   const asked = async (value: string) => {
     const responses = await jmap([

@@ -1,14 +1,14 @@
 /**
- * FileNode shapes, as Stalwart 0.16 defines them.
+ * FileNode shapes, as Stalwart 1.0 defines them.
  *
- * Gilbert requires Stalwart 0.16 — sign-in refuses anything older — so a node
- * always has the 0.16 shape and nothing here probes for a version. The
- * differences are not ones a response reveals: 0.15 has no `nodeType` and fails
- * a create that sends it, masks directories out of `FileNode/query` results,
- * and reports rights as a single `mayWrite` rather than the four separate ones.
+ * Gilbert requires Stalwart 1.0 — sign-in refuses anything older — so a node
+ * always has the 1.0 shape and nothing here probes for a version. The wire
+ * spells a node's kind `@type` and its MIME `mediaType`; the translation to
+ * the tree's own `nodeType`/`type` happens at the client's one boundary
+ * (`server/src/shared/filenode.ts`).
  */
 import { isTrashFolder } from "@gilbert/shared/trash";
-import type { FileNode, Id } from "@/jmap/types";
+import type { FileNode, FilesRights, Id } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import { descendantIds } from "./folderMove";
 import { NODE_MIME } from "./mime";
@@ -130,8 +130,37 @@ export function canDropFileNode(
    * whose restore can only guess the top level, so no drag lands there.
    */
   if (isTrashFolder(target)) return false;
-  if (target.myRights && !target.myRights.mayAddChildren) return false;
+  if (nodeRights(target, nodes)?.mayAddChildren === false) return false;
   return !descendantIds(nodes, draggedId).has(targetId);
+}
+
+/**
+ * The rights a node carries, and the one level Stalwart leaves out.
+ *
+ * `FileNode/get` answers `myRights` on directories only (`jmap/src/file/get.rs`,
+ * v1.0.0: the property is skipped for a file), because a file's rights *are* its
+ * container's — the ACLs are inherited from the ancestors. So a file reads the
+ * rights of the folder it sits in, walking up while a level is not held.
+ *
+ * No answer is not a denial: the actions ask the server by doing, and a refusal
+ * is reported where it happens. That is the side every write gate here takes,
+ * so a node at the account root — where there is no folder to borrow from — is
+ * not silently made read-only.
+ */
+export function nodeRights(
+  node: Pick<FileNode, "myRights" | "parentId">,
+  nodes: Record<Id, Pick<FileNode, "myRights" | "parentId">>,
+): FilesRights | undefined {
+  let current: Pick<FileNode, "myRights" | "parentId"> = node;
+  // A FileNode's parents are a tree; the bound guards a cycle, not a depth.
+  for (let up = 0; up < 64; up++) {
+    if (current.myRights) return current.myRights;
+    if (!current.parentId) return undefined;
+    const parent = nodes[current.parentId];
+    if (!parent) return undefined;
+    current = parent;
+  }
+  return undefined;
 }
 
 /**

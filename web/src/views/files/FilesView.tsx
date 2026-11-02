@@ -35,6 +35,7 @@ import {
   fileNodeLabel,
   isShared,
   NODE_MIME,
+  nodeRights,
   readDraggedIds,
 } from "@/lib/filenode";
 import { sortFiles, useFilesSort } from "@/lib/fileSort";
@@ -536,7 +537,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     !list.some(isTrashFolder) &&
     list.every((n) => n.nodeType === "directory") &&
     list.every(
-      (n) => n.myRights?.mayDelete !== false && n.myRights?.mayAddChildren !== false,
+      (n) =>
+        nodeRights(n, files.nodes)?.mayDelete !== false &&
+        nodeRights(n, files.nodes)?.mayAddChildren !== false,
     );
 
   const allSelected = nodes.length > 0 && nodes.every((n) => selection.has(n.id));
@@ -560,7 +563,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    * ends the nodes for good, which is the rule `mayEndFiles` states.
    */
   const mayDeleteNodes = (list: FileNode[]) =>
-    inTrash ? mayEnd : list.every((node) => node.myRights?.mayDelete !== false);
+    inTrash ? mayEnd : list.every((node) => nodeRights(node, files.nodes)?.mayDelete !== false);
 
   const groupActions = (list: FileNode[]) => {
     const withBytes = downloadable(list);
@@ -721,7 +724,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const canEditFile = (n: FileNode) =>
     canPreview(n) &&
     previewKind(n.type, n.name) === "text" &&
-    Boolean(n.myRights?.mayModifyContent);
+    nodeRights(n, files.nodes)?.mayModifyContent !== false;
 
   /*
    * Only offered where the reader may actually write: a folder shared read-only
@@ -729,7 +732,8 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    * blob it started from, so two people editing the same file get told rather
    * than one of them losing the work.
    */
-  const canEditNode = (n: FileNode | undefined) => Boolean(n?.myRights?.mayModifyContent);
+  const canEditNode = (n: FileNode | undefined) =>
+    n !== undefined && nodeRights(n, files.nodes)?.mayModifyContent !== false;
   const saveEdited = async (text: string) => {
     const target = editTarget;
     if (!target) return;
@@ -1190,7 +1194,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             <MenuItem
               icon={<Pencil size={16} />}
               label={t("Rename")}
-              disabled={!menuNode.myRights?.mayRename}
+              disabled={nodeRights(menuNode, files.nodes)?.mayRename === false}
               onClick={async () => {
                 const n = await promptDialog({
                   title: t("Rename"),
@@ -1213,7 +1217,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             <MenuItem
               icon={<Share2 size={16} />}
               label={t("Share…")}
-              disabled={!menuNode.myRights?.mayShare}
+              disabled={nodeRights(menuNode, files.nodes)?.mayShare === false}
               onClick={() => setShareNode(menuNode)}
             />
             <MenuSep />

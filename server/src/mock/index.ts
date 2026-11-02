@@ -4950,7 +4950,21 @@ const handlers: Record<string, Handler> = {
         one === "@type" ? "nodeType" : one === "mediaType" ? "type" : one,
       );
     const answer = genericGet(nodesFor(a.accountId), "FileNode")(request);
-    return { ...answer, list: answer.list.map(wireFileNode) };
+    return {
+      ...answer,
+      /*
+       * 1.0 answers `myRights` on directories only: a file's rights are its
+       * container's, so the property is absent on a file rather than copied
+       * onto it (`jmap/src/file/get.rs`, v1.0.0). The client reads it through
+       * `nodeRights`, and a mock that copied it onto every node would hide a
+       * gate that had started trusting a property the server never sends.
+       */
+      list: answer.list.map((node) => {
+        const wired = wireFileNode(node);
+        if (wired["@type"] !== "Directory") delete wired.myRights;
+        return wired;
+      }),
+    };
   },
   [FILENODE_CHANGES]: (a) => {
     // FileNode/changes on a real 0.16 server works from a `sinceState` and

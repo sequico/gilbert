@@ -1962,6 +1962,9 @@ JMAP Contacts and JSContact.
 
 JMAP `FileNode`, in the shape 1.0 defines (`@type`, `mediaType`, four separate
 rights), translated at the transport so the tree keeps `nodeType` and `type`.
+The server answers those rights on **folders only** — a file's are its folder's
+— so a file reads the rights of the folder it sits in, and a right the server
+did not answer is never taken as a refusal.
 
 - **Folder tree** in the left pane, read up to a thousand folders in pages of what
   the server resolves, so opening a folder never waits on a round trip. **Collapsed by default, and remembered per reader**,
