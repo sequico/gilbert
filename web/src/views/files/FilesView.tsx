@@ -563,7 +563,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
    * ends the nodes for good, which is the rule `mayEndFiles` states.
    */
   const mayDeleteNodes = (list: FileNode[]) =>
-    inTrash ? mayEnd : list.every((node) => nodeRights(node, files.nodes)?.mayDelete !== false);
+    inTrash
+      ? mayEnd
+      : list.every((node) => nodeRights(node, files.nodes)?.mayDelete !== false);
 
   const groupActions = (list: FileNode[]) => {
     const withBytes = downloadable(list);

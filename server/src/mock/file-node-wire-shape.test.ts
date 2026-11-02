@@ -94,9 +94,8 @@ test("myRights is answered on a directory and absent on a file, as 1.0 does", as
       "s",
     ],
   ]);
-  const dirId = (
-    responseOf(made, "s")[1] as { created: Record<string, { id: string }> }
-  ).created.d!.id;
+  const dirId = (responseOf(made, "s")[1] as { created: Record<string, { id: string }> })
+    .created.d!.id;
   const madeFile = await jmap([
     [
       "FileNode/set",
@@ -121,7 +120,11 @@ test("myRights is answered on a directory and absent on a file, as 1.0 does", as
   const read = await jmap([
     [
       "FileNode/get",
-      { accountId: ACCOUNT, ids: [dirId, fileId], properties: ["id", "@type", "myRights"] },
+      {
+        accountId: ACCOUNT,
+        ids: [dirId, fileId],
+        properties: ["id", "@type", "myRights"],
+      },
       "g",
     ],
   ]);

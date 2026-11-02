@@ -48,10 +48,7 @@ describe("a request that never arrived", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      client.request(
-        [["Email/set", { accountId: "a1", update: {} }, "c1"]],
-        [CAP.mail],
-      ),
+      client.request([["Email/set", { accountId: "a1", update: {} }, "c1"]], [CAP.mail]),
     ).rejects.toThrow("Failed to fetch");
     expect(fetch).toHaveBeenCalledTimes(1);
   });
