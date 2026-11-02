@@ -1,5 +1,5 @@
 import { CAPABILITIES } from "@gilbert/shared/capabilities";
-import { errorMessage } from "@gilbert/shared/errors";
+import { errorMessage, isNetworkFailure } from "@gilbert/shared/errors";
 import {
   fileNodeRequestArguments,
   fileNodeResponseArguments,
@@ -254,6 +254,14 @@ export async function apiFetch<T = unknown>(
   }
   if (status === 204) return undefined as T;
   return body as T;
+}
+
+/**
+ * Whether a call only reads. A read that never arrived may be asked again; a
+ * write may not, because the first attempt may have happened.
+ */
+function isReadCall([name]: Invocation): boolean {
+  return name.endsWith("/get") || name.endsWith("/query") || name.endsWith("/changes");
 }
 
 export class JmapClient {
@@ -513,11 +521,27 @@ export class JmapClient {
       methodCalls: wireCalls,
     };
     if (createdIds) body.createdIds = createdIds;
-    const res = await apiFetch<JmapResponse>("/api/jmap", {
-      method: "POST",
-      body: JSON.stringify(body),
-      ...(signal ? { signal } : {}),
-    });
+    const send = () =>
+      apiFetch<JmapResponse>("/api/jmap", {
+        method: "POST",
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      });
+    let res: JmapResponse;
+    try {
+      res = await send();
+    } catch (err) {
+      /*
+       * A read that never arrived is asked once more. Opening a folder, a
+       * conversation or a calendar is a burst of reads on a page that has been
+       * idle, and a connection closed under it fails the whole burst with the
+       * browser's "Failed to fetch" — no answer, nothing to act on, and the
+       * next look works. A batch carrying any write is never sent twice: the
+       * write may already have happened.
+       */
+      if (!isNetworkFailure(err) || !methodCalls.every(isReadCall)) throw err;
+      res = await send();
+    }
     res.methodResponses = res.methodResponses.map(
       ([name, args, id]): Invocation => [name, fileNodeResponseArguments(name, args), id],
     );

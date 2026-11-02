@@ -12,8 +12,27 @@
  * meant to read, and anything else is stringified rather than hidden.
  */
 
+/** The sentence a request that never reached the server reads as. */
+export const UNREACHABLE = "The server could not be reached.";
+
+/**
+ * Whether a thrown value is the browser saying the request never arrived:
+ * Chrome and Edge answer "Failed to fetch", Firefox "NetworkError when
+ * attempting to fetch resource.", Safari "Load failed", and Node's fetch
+ * "fetch failed". A real outage and a socket closed under a reused connection
+ * look the same here, which is why what a person reads is a sentence about
+ * reaching the server rather than the browser's own words.
+ */
+export function isNetworkFailure(err: unknown): boolean {
+  return (
+    err instanceof TypeError &&
+    /failed to fetch|networkerror|load failed|fetch failed/i.test(err.message)
+  );
+}
+
 /** The message of a thrown value, whatever it was thrown as. */
 export function errorMessage(err: unknown): string {
+  if (isNetworkFailure(err)) return UNREACHABLE;
   return err instanceof Error ? err.message : String(err);
 }
 
