@@ -249,7 +249,7 @@ describe("the reply keys", () => {
   });
 
   it("leaves the app's one-tap reply to everyone", () => {
-    // The header button, the reply strip and the list's affordances have one
+    // The message header's quick button and the list's affordances have one
     // button each, and that button reaches the list.
     expect(DEFAULT_REPLY_MODE).toBe(REPLY_ALL);
   });

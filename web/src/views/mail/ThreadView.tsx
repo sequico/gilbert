@@ -8,15 +8,10 @@ import {
   ChevronUp,
   Download,
   FolderInput,
-  Forward,
   Mail,
   MailOpen,
-  MailPlus,
   MoreVertical,
-  Paperclip,
   Printer,
-  Reply,
-  ReplyAll,
   ShieldCheck,
   Star,
   Tag,
@@ -44,13 +39,7 @@ import { anyCarries, anyLacks } from "@/lib/rowScope";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
 import { useMayDestroy } from "@/lib/useMayDestroy";
-import {
-  DEFAULT_REPLY_MODE,
-  REPLY,
-  REPLY_ALL,
-  type ReplyMode,
-  useCompose,
-} from "@/store/compose";
+import { type ReplyMode, useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
 import { Spinner, useIsNarrow, useIsTouch } from "@/ui/misc";
@@ -119,8 +108,6 @@ export function ThreadView({
   const [allExpanded, setAllExpanded] = useState(false);
   const [labelAnchor, setLabelAnchor] = useState<{ x: number; y: number } | null>(null);
   const moreMenu = useMenu();
-  /** The overflow on the reply strip, which is the only per-message menu a phone offers easily. */
-  const replyMore = useMenu();
   const scrollRef = useRef<HTMLDivElement>(null);
   const markTimer = useRef<number | null>(null);
   const isTouch = useIsTouch();
@@ -394,10 +381,6 @@ export function ThreadView({
   }, [messages, mailboxes, mailboxId]);
 
   const last = messages[messages.length - 1];
-  /* What the reply strip's first button does, and the other one beside it: the
-     app's default reply all, and the plain reply to the sender alone. */
-  const defaultReply = DEFAULT_REPLY_MODE;
-  const otherReply: ReplyMode = defaultReply === REPLY_ALL ? REPLY : REPLY_ALL;
 
   return (
     <div className="thread-view" ref={setViewEl}>
@@ -568,66 +551,6 @@ export function ThreadView({
             isLast={i === messages.length - 1}
           />
         ))}
-        {last && (
-          <div className="reply-box">
-            <div className="reply-prompt">
-              {/*
-                The app's default reply first and the plain reply beside it, so
-                the one-tap action cannot be mistaken for the other: each
-                button says which it is, and the reply that reaches one person
-                is the one that says "Reply".
-              */}
-              <button onClick={() => void reply(last, defaultReply)}>
-                {defaultReply === "replyAll" ? (
-                  <ReplyAll size={16} />
-                ) : (
-                  <Reply size={16} />
-                )}{" "}
-                {t(defaultReply === "replyAll" ? "Reply all" : "Reply")}
-              </button>
-              <button onClick={() => void reply(last, otherReply)}>
-                {otherReply === "replyAll" ? <ReplyAll size={16} /> : <Reply size={16} />}{" "}
-                {t(otherReply === "replyAll" ? "Reply all" : "Reply")}
-              </button>
-              <button onClick={() => void reply(last, "forward")}>
-                <Forward size={16} /> {t("Forward")}
-              </button>
-              {/*
-                On a phone this strip is where a thumb goes, and the per-message
-                menu at the top of a card is not somewhere anybody looks for
-                "send this again" -- which is how an action that is there reads
-                as missing on mobile (#181). A fourth full button does not fit
-                at 500px; this does, and it spells the action out once opened.
-              */}
-              <span className="spacer" />
-              <button
-                className="icon-btn"
-                onClick={replyMore.open}
-                aria-label={t("More ways to send this")}
-              >
-                <MoreVertical size={18} />
-              </button>
-              <Popover
-                anchor={replyMore.anchor}
-                onClose={replyMore.close}
-                trigger={replyMore.trigger}
-                align="end"
-                width={220}
-              >
-                <MenuItem
-                  icon={<Paperclip size={16} />}
-                  label={t("Forward as attachment")}
-                  onClick={() => useCompose.getState().forwardAsAttachment(last)}
-                />
-                <MenuItem
-                  icon={<MailPlus size={16} />}
-                  label={t("Compose as new")}
-                  onClick={() => void useCompose.getState().composeAsNew(last)}
-                />
-              </Popover>
-            </div>
-          </div>
-        )}
       </div>
       {labelAnchor && (
         <LabelPicker

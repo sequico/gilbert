@@ -1457,7 +1457,6 @@ export const catalog: Catalog = {
     "Marked as spam": "迷惑メールとして判定",
     "Message order": "メールの並び順",
     "Month view": "月表示",
-    "More ways to send this": "ほかの送信方法",
     "Names the outside recipients and asks, rather than refusing.":
       "拒否するのではなく、社外の宛先を示して確認します。",
     Navigation: "移動",

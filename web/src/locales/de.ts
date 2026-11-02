@@ -1497,7 +1497,6 @@ export const catalog: Catalog = {
     "Mark messages from outside": "Nachrichten von außerhalb kennzeichnen",
     "Marked as spam": "Als Spam markiert",
     "Message order": "Reihenfolge der Nachrichten",
-    "More ways to send this": "Weitere Möglichkeiten zum Senden",
     "Names the outside recipients and asks, rather than refusing.":
       "Nennt die externen Empfänger und fragt nach, statt abzulehnen.",
     "Nested under": "Untergeordnet unter",

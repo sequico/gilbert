@@ -1028,7 +1028,6 @@ export const catalog: Catalog = {
     "More actions": "Diğer eylemler",
     "More name fields": "Diğer ad alanları",
     "More options": "Diğer seçenekler",
-    "More ways to send this": "Bunu göndermenin diğer yolları",
     "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.":
       "Pazarlama ve fiş postalarının çoğu bir yerde bir renk ayarlar, bu yüzden yukarıdaki ayar neredeyse hepsini beyaz bir kart üzerinde bırakır. Bu açıkken tema, gönderenin kendi renklerinin üzerine zorlanır: iletinin üzerine yerleştirdikleri arka planlar düşürülür, düğmeler ve renkli banner'lar metinleri okunur kalsın diye korunur. Bazı postalar bundan sağlam çıkmaz; ayrı bir ayar olmasının nedeni de budur.",
     "Move down": "Aşağı taşı",

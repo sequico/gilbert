@@ -1525,8 +1525,8 @@ unread-only, and composes the same query string.
   body is deliberately not decoded.
 - **Forward as attachment** sends the message itself — headers, structure and every
   attachment intact — with **no upload at all**, because a message's `blobId` is
-  its own RFC822 blob. Offered in the message's ⋮ menu, the list's right-click menu,
-  and the reply strip's overflow.
+  its own RFC822 blob. Offered in the message's ⋮ menu and the list's right-click
+  menu.
 - Saved and attached `.eml` files are **named from the subject in whatever script
   it is written in**, keeping letters and dropping only what a filesystem cannot
   take (path separators, Windows-reserved names, control characters).
@@ -1553,6 +1553,9 @@ unread-only, and composes the same query string.
 - With conversation view on, a conversation opens on its **first unread message**;
   the opening scroll is held until the thread settles.
 - `n` / `p` move between messages in the thread; `]` archives and opens the next.
+- **Every message can be answered and passed on**, not only the last: its ⋮ menu
+  carries Reply all, Reply and Forward first, then a separator and the rest, and
+  the app's default reply stays one tap away beside the menu.
 - **Auto-advance** after archive or delete: back to the list (default), onward to
   the next, or previous.
 - **Mark as read** immediately, after 2s, after 5s, or never automatically.
@@ -1662,8 +1665,7 @@ minimisable and maximisable; full-screen on mobile.
 - **Compose as new** — the same mail again rather than passed on. Recipients,
   Reply-To, subject, body and attachments come across as they stand; the
   Message-ID, date and threading headers do not, and the original is neither
-  altered nor marked. Offered in the message menu, the list's right-click menu, and
-  the reply strip's overflow.
+  altered nor marked. Offered in the message menu and the list's right-click menu.
 - **Send and archive**, and **archive on reply**, as options.
 
 ### Undo send, and scheduled send

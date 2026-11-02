@@ -1470,7 +1470,6 @@ export const catalog: Catalog = {
     "Marked as spam": "Marqué comme spam",
     "Message order": "Ordre des messages",
     "Month view": "Vue mois",
-    "More ways to send this": "Autres façons de l'envoyer",
     "Names the outside recipients and asks, rather than refusing.":
       "Nomme les destinataires externes et demande, au lieu de refuser.",
     Navigation: "Navigation",

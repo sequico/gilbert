@@ -1420,7 +1420,6 @@ export const catalog: Catalog = {
     "Marked as spam": "已标记为垃圾邮件",
     "Message order": "邮件排序",
     "Month view": "月视图",
-    "More ways to send this": "其他发送方式",
     "Names the outside recipients and asks, rather than refusing.":
       "列出外部收件人并询问，而不是直接拒绝。",
     Navigation: "导航",

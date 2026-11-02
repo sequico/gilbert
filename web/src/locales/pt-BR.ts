@@ -1463,7 +1463,6 @@ export const catalog: Catalog = {
     "Marked as spam": "Marcada como spam",
     "Message order": "Ordem das mensagens",
     "Month view": "Visualização de mês",
-    "More ways to send this": "Outras formas de enviar isto",
     "Names the outside recipients and asks, rather than refusing.":
       "Nomeia os destinatários externos e pergunta, em vez de recusar.",
     Navigation: "Navegação",

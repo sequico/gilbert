@@ -12,12 +12,14 @@ import {
   Eye,
   Filter,
   FolderDown,
+  Forward,
   Image as ImageIcon,
   Mail,
   MailPlus,
   MoreVertical,
   Paperclip,
   Printer,
+  Reply,
   ReplyAll,
   Share2,
   ShieldAlert,
@@ -67,7 +69,7 @@ import { findInTree } from "@/lib/tree";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
 import { useCalendar } from "@/store/calendar";
-import { DEFAULT_REPLY_MODE, draftFromMailto, useCompose } from "@/store/compose";
+import { DEFAULT_REPLY_MODE, draftFromMailto, REPLY, REPLY_ALL, useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
@@ -594,11 +596,11 @@ export const MessageView = memo(function MessageView({
                 always, and the tooltip says so. One click is all the header has
                 room for, and the list is who people mean in a conversation with
                 more than one other person, so what is one click away is the
-                reply that reaches everyone. The plain **Reply** -- to the
-                sender alone -- is the item beside it in the menu, where a
-                deliberate choice belongs and where it can say what it does;
-                `r` is that plain reply and `a` is this one, which is why the
-                tooltip names the action and not a key.
+                reply that reaches everyone. The other two — the plain **Reply**
+                to the sender alone, and **Forward** — are the first items of
+                the menu beside it, where a deliberate choice belongs and where
+                it can say what it does; `r` is that plain reply and `a` is this
+                one, which is why the tooltip names the action and not a key.
               */}
               <button
                 className="icon-btn sm hide-mobile"
@@ -631,10 +633,28 @@ export const MessageView = memo(function MessageView({
         align="end"
         width={240}
       >
-        {/* The reply strip below the conversation carries Reply, Reply all and
-            Forward in full, and this header keeps Reply all as its one quick
-            action, so the menu does not repeat those three; it carries the rest
-            of what can be done with the message. */}
+        {/*
+          Answering this message comes first, then the separator and the rest:
+          the three ways to answer travel with the message they answer, so any
+          message of a conversation can be written back to — a strip under the
+          whole conversation could only ever answer its last one.
+        */}
+        <MenuItem
+          icon={<ReplyAll size={16} />}
+          label={translate("Reply all")}
+          onClick={() => void reply(e, REPLY_ALL)}
+        />
+        <MenuItem
+          icon={<Reply size={16} />}
+          label={translate("Reply")}
+          onClick={() => void reply(e, REPLY)}
+        />
+        <MenuItem
+          icon={<Forward size={16} />}
+          label={translate("Forward")}
+          onClick={() => void reply(e, "forward")}
+        />
+        <MenuSep />
         {/* The same message rather than a quotation of it: headers, attachments
             and all, for passing one on to be looked at rather than read. */}
         <MenuItem
