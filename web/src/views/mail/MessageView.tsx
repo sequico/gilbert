@@ -69,7 +69,13 @@ import { findInTree } from "@/lib/tree";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
 import { useCalendar } from "@/store/calendar";
-import { DEFAULT_REPLY_MODE, draftFromMailto, REPLY, REPLY_ALL, useCompose } from "@/store/compose";
+import {
+  DEFAULT_REPLY_MODE,
+  draftFromMailto,
+  REPLY,
+  REPLY_ALL,
+  useCompose,
+} from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";

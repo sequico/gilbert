@@ -2298,7 +2298,6 @@ export const catalog: Catalog = {
 
     "Month view": "Vista mese",
 
-
     "Names the outside recipients and asks, rather than refusing.":
       "Nomina i destinatari esterni e chiede, invece di rifiutare.",
 
