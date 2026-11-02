@@ -1005,6 +1005,7 @@ export function MessageList({
           label={t("Reply")}
           onClick={() => {
             const e = ctxRow ? emails[ctxRow] : undefined;
+            ctxMenu.close();
             if (e) void useCompose.getState().reply(e, "reply");
           }}
         />
@@ -1013,6 +1014,7 @@ export function MessageList({
           label={t("Reply all")}
           onClick={() => {
             const e = ctxRow ? emails[ctxRow] : undefined;
+            ctxMenu.close();
             if (e) void useCompose.getState().reply(e, "replyAll");
           }}
         />
@@ -1021,6 +1023,7 @@ export function MessageList({
           label={t("Forward")}
           onClick={() => {
             const e = ctxRow ? emails[ctxRow] : undefined;
+            ctxMenu.close();
             if (e) void useCompose.getState().reply(e, "forward");
           }}
         />

@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Email, Id } from "@/jmap/types";
+import { EVENTS } from "@/lib/events";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
 import type { ListActions } from "../MessageList";
@@ -118,14 +119,35 @@ describe("replying from a message that is not the last", () => {
 
     const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
     expect(items.slice(0, 4).map((one) => one.textContent)).toEqual([
-      "Reply all",
       "Reply",
+      "Reply all",
       "Forward",
       "Forward as attachment",
     ]);
 
-    await act(async () => items[0]!.click());
+    const replyAll = items.find((one) => one.textContent === "Reply all")!;
+    await act(async () => replyAll.click());
     expect(reply).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }), "replyAll");
+    // The menu closes with the command: what it opens is a surface of its own.
+    expect(document.querySelector('[role="menuitem"]')).toBeNull();
+  });
+
+  it("answers the message the reader is on with the keyboard", async () => {
+    await show();
+    const earlier = host.querySelector('[data-msg-id="m1"]') as HTMLElement;
+    await act(async () => earlier.click());
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(EVENTS.reply, { detail: "replyAll" }));
+    });
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }), "replyAll");
+  });
+
+  it("falls back to the conversation's last message when nothing is opened", async () => {
+    await show();
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(EVENTS.reply, { detail: "reply" }));
+    });
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ id: "m2" }), "reply");
   });
 
   it("no longer draws a reply strip under the conversation", async () => {

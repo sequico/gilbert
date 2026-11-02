@@ -316,12 +316,24 @@ export function ThreadView({
     };
   }, [threadId, messages.length > 0]);
 
+  /*
+   * The message the reader is on: the one they last opened, or the one the
+   * route names, or the conversation's last. The keyboard answers this one —
+   * with the reply menu on every message, "r" answering the last message of a
+   * thread the reader is not on would be the one place the rule still did not
+   * hold.
+   */
+  const onScreen = useRef<Id | null>(null);
+
   // Keyboard: reply/forward events from MailView
   useEffect(() => {
     const onReply = (ev: Event) => {
       const mode = (ev as CustomEvent<ReplyMode>).detail;
-      const last = messages[messages.length - 1];
-      if (last) void reply(last, mode);
+      const target =
+        messages.find((m) => m.id === onScreen.current) ??
+        messages.find((m) => m.id === messageId) ??
+        messages[messages.length - 1];
+      if (target) void reply(target, mode);
     };
     const onNav = (ev: Event) => {
       const delta = (ev as CustomEvent<number>).detail;
@@ -336,6 +348,7 @@ export function ThreadView({
         els[Math.max(0, Math.min(els.length - 1, delta > 0 ? idx : idx - 2))];
       if (target) {
         const id = target.dataset.msgId!;
+        onScreen.current = id;
         setExpanded((x) => ({ ...x, [id]: true }));
         target.scrollIntoView({ block: "start", behavior: "smooth" });
       }
@@ -346,7 +359,7 @@ export function ThreadView({
       window.removeEventListener(EVENTS.reply, onReply);
       window.removeEventListener(EVENTS.messageNav, onNav);
     };
-  }, [messages, reply]);
+  }, [messages, reply, messageId]);
 
   const subject =
     messages[0]?.subject || emails[thread?.emailIds[0] ?? ""]?.subject || "(no subject)";
@@ -547,7 +560,10 @@ export function ThreadView({
             email={e}
             expanded={isExpanded(e)}
             wasUnread={wasUnread.has(e.id)}
-            onToggle={() => setExpanded((x) => ({ ...x, [e.id]: !isExpanded(e) }))}
+            onToggle={() => {
+              if (!isExpanded(e)) onScreen.current = e.id;
+              setExpanded((x) => ({ ...x, [e.id]: !isExpanded(e) }));
+            }}
           />
         ))}
       </div>

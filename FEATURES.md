@@ -1554,7 +1554,7 @@ unread-only, and composes the same query string.
   the opening scroll is held until the thread settles.
 - `n` / `p` move between messages in the thread; `]` archives and opens the next.
 - **Every message can be answered and passed on**, not only the last: its ⋮ menu
-  carries Reply all, Reply and Forward first, then a separator and the rest, and
+  carries Reply, Reply all and Forward first, then a separator and the rest, and
   the app's default reply stays one tap away beside the menu.
 - **Auto-advance** after archive or delete: back to the list (default), onward to
   the next, or previous.

@@ -601,11 +601,12 @@ export const MessageView = memo(function MessageView({
                 always, and the tooltip says so. One click is all the header has
                 room for, and the list is who people mean in a conversation with
                 more than one other person, so what is one click away is the
-                reply that reaches everyone. The other two — the plain **Reply**
-                to the sender alone, and **Forward** — are the first items of
-                the menu beside it, where a deliberate choice belongs and where
-                it can say what it does; `r` is that plain reply and `a` is this
-                one, which is why the tooltip names the action and not a key.
+                reply that reaches everyone. The two others — the plain
+                **Reply** to the sender alone and **Forward** — are the first
+                items of the menu beside it, where a deliberate choice belongs
+                and where it can say what it does; `r` is that plain reply and
+                `a` is this one, which is why the tooltip names the action and
+                not a key.
               */}
               <button
                 className="icon-btn sm"
@@ -645,19 +646,28 @@ export const MessageView = memo(function MessageView({
           whole conversation could only ever answer its last one.
         */}
         <MenuItem
-          icon={<ReplyAll size={16} />}
-          label={translate("Reply all")}
-          onClick={() => void reply(e, REPLY_ALL)}
-        />
-        <MenuItem
           icon={<Reply size={16} />}
           label={translate("Reply")}
-          onClick={() => void reply(e, REPLY)}
+          onClick={() => {
+            moreMenu.close();
+            void reply(e, REPLY);
+          }}
+        />
+        <MenuItem
+          icon={<ReplyAll size={16} />}
+          label={translate("Reply all")}
+          onClick={() => {
+            moreMenu.close();
+            void reply(e, REPLY_ALL);
+          }}
         />
         <MenuItem
           icon={<Forward size={16} />}
           label={translate("Forward")}
-          onClick={() => void reply(e, "forward")}
+          onClick={() => {
+            moreMenu.close();
+            void reply(e, "forward");
+          }}
         />
         <MenuSep />
         {/* The same message rather than a quotation of it: headers, attachments
