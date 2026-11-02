@@ -435,6 +435,16 @@ export function MailboxTree() {
   }, [isMobile, currentId, mailboxes]);
 
   /*
+   * Coming back to Mail asks the probe again for what the last run left
+   * unanswered: a group whose `Mailbox/get` failed while the session was
+   * refreshing would otherwise stay off the tree until the next session
+   * change. A probe with nothing left to ask skips itself.
+   */
+  useEffect(() => {
+    void useMail.getState().discoverMailAccounts();
+  }, []);
+
+  /*
    * The rows' one stable handle on the tree's live state. `moveFolder`,
    * `openMailbox` and the menu's opener are rebuilt every render, so the
    * actions object reads them from here at call time instead of closing over

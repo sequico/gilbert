@@ -1,5 +1,5 @@
 import { client } from "@/jmap/client";
-import type { GetResponse, Id, Mailbox } from "@/jmap/types";
+import type { GetResponse, Id, JmapSession, Mailbox } from "@/jmap/types";
 import { forgetOpenAccounts } from "@/lib/accountFold";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { type MailAccountInfo, mailAccountCandidates } from "@/lib/mailAccounts";
@@ -29,7 +29,19 @@ export function accountSlice(
   | "openAccount"
 > {
   /** The discovery run already on its way, shared by every caller that joins it. */
-  let discoverInFlight: Promise<void> | null = null;
+  let discoverInFlight: { session: JmapSession | null; promise: Promise<void> } | null =
+    null;
+  /**
+   * Whether the last discovery left an account unasked.
+   *
+   * A `Mailbox/get` that never answered proves nothing about the account, so it
+   * is not recorded as "no mailbox": the next run asks again. Without this the
+   * skip below — "every account known is still a candidate" — makes one failed
+   * probe permanent, and a group drops off the tree until the session changes.
+   */
+  let unasked = false;
+  /** The session the answers belong to; another one starts from nothing. */
+  let probed: JmapSession | null = null;
 
   return {
     setOpenThread(id) {
@@ -112,10 +124,22 @@ export function accountSlice(
      * answer -- rather than a second caller returning as if it had one.
      */
     async discoverMailAccounts() {
-      if (discoverInFlight) return discoverInFlight;
-      discoverInFlight = (async () => {
+      const session = useSession.getState().session;
+      /*
+       * A run for the session that is gone must not answer for this one: its
+       * answer is discarded when it lands, and a caller of the new session
+       * joining it would be handed nothing at all. Another session starts its
+       * own run beside it.
+       */
+      if (discoverInFlight && discoverInFlight.session === session)
+        return discoverInFlight.promise;
+      let run: Promise<void> | null = null;
+      run = (async () => {
         try {
-          const session = useSession.getState().session;
+          if (probed !== session) {
+            probed = session;
+            unasked = false;
+          }
           const candidates = mailAccountCandidates(session);
           const current = get().mailAccounts;
           /*
@@ -128,6 +152,7 @@ export function accountSlice(
            */
           const byCandidate = new Map(candidates.map((c) => [c.accountId, c]));
           if (
+            !unasked &&
             current.length > 0 &&
             current.every((a) => {
               const c = byCandidate.get(a.accountId);
@@ -138,6 +163,7 @@ export function accountSlice(
           const ownInfo = candidates.find((c) => c.kind === "own") ?? null;
           const groups: MailAccountInfo[] = [];
           const trees: Record<Id, Record<Id, Mailbox>> = {};
+          let failed = false;
           for (const c of candidates) {
             if (c.kind !== "group") continue;
             try {
@@ -157,12 +183,15 @@ export function accountSlice(
                * take the group off the screen, which is how its whole membership
                * ends up in the From list. The entry already known for that
                * account is kept instead; an answer with no folder tree still
-               * drops it, just above.
+               * drops it, just above. And the probe is marked unfinished, so the
+               * next run asks this account again rather than skipping it.
                */
+              failed = true;
               const known = current.find((a) => a.accountId === c.accountId);
               if (known) groups.push(known);
             }
           }
+          unasked = failed;
           /*
            * The answer belongs to the session it was asked of. A sign-out, or a
            * fresh session, can land while the probe is in flight, and writing
@@ -195,10 +224,11 @@ export function accountSlice(
           const again = rememberedMailAccount(get().mailAccounts);
           if (again && again !== get().accountId) void get().openAccount(again);
         } finally {
-          discoverInFlight = null;
+          if (discoverInFlight?.promise === run) discoverInFlight = null;
         }
       })();
-      return discoverInFlight;
+      discoverInFlight = { session, promise: run };
+      return run;
     },
 
     async refreshAccountTree(accountId) {

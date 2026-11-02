@@ -222,4 +222,55 @@ describe("the mail probe", () => {
     expect(useMail.getState().ownAccountId).toBeNull();
     expect(useMail.getState().accountTrees).toEqual({});
   });
+
+  it("asks a group again after a probe that failed, and lists it then", async () => {
+    // A fresh session object per test: the probe's answers belong to one
+    // session, and this is what makes the previous test's answers stale.
+    const session = { ...SESSION } as unknown as JmapSession;
+    let failGroup = true;
+    vi.spyOn(client, "call").mockImplementation(async (method, args) => {
+      if (method !== "Mailbox/get") return { accountId: args.accountId } as never;
+      if (args.accountId === "gg" && failGroup) throw new TypeError("Failed to fetch");
+      return {
+        accountId: args.accountId,
+        state: "1",
+        list: [{ id: "mb1", name: "Inbox" }],
+        notFound: [],
+      } as never;
+    });
+    useSession.setState({ session });
+
+    await useMail.getState().discoverMailAccounts();
+    // The failed probe is not an answer: the group is missing, not refused.
+    expect(useMail.getState().mailAccounts.map((a) => a.accountId)).toEqual(["own"]);
+
+    // The server is back: the next run asks again instead of skipping it.
+    failGroup = false;
+    await useMail.getState().discoverMailAccounts();
+    expect(useMail.getState().mailAccounts.map((a) => a.accountId)).toEqual([
+      "own",
+      "gg",
+    ]);
+  });
+
+  it("does not ask again once every candidate has answered", async () => {
+    const session = { ...SESSION } as unknown as JmapSession;
+    const probed: string[] = [];
+    vi.spyOn(client, "call").mockImplementation(async (method, args) => {
+      if (method !== "Mailbox/get") return { accountId: args.accountId } as never;
+      probed.push(String(args.accountId));
+      return {
+        accountId: args.accountId,
+        state: "1",
+        list: [{ id: "mb1", name: "Inbox" }],
+        notFound: [],
+      } as never;
+    });
+    useSession.setState({ session });
+
+    await useMail.getState().discoverMailAccounts();
+    await useMail.getState().discoverMailAccounts();
+    // The skip still holds where it should: one answer per candidate, no beat.
+    expect(probed).toEqual(["gg"]);
+  });
 });
