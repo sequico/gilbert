@@ -434,7 +434,15 @@ export function FilesTree() {
             <MenuItem
               icon={<Share2 size={16} />}
               label={t("Share…")}
-              disabled={nodeRights(menuNode, nodes)?.mayShare === false}
+              /*
+               * A share is a folder's: Stalwart keeps the ACLs on containers
+               * and answers `shareWith` on directories only, so sharing a file
+               * would write a grant nothing reads.
+               */
+              disabled={
+                menuNode.nodeType !== "directory" ||
+                nodeRights(menuNode, nodes)?.mayShare === false
+              }
               onClick={() => setShareNode(menuNode)}
             />
             <MenuSep />

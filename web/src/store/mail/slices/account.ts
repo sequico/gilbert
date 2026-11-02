@@ -191,7 +191,10 @@ export function accountSlice(
               if (known) groups.push(known);
             }
           }
-          unasked = failed;
+          // Only the run whose session this still is may record its outcome: a
+          // probe for a session that has been replaced finishes last sometimes,
+          // and its failure must not clear what the new session's run answered.
+          if (probed === session) unasked = failed;
           /*
            * The answer belongs to the session it was asked of. A sign-out, or a
            * fresh session, can land while the probe is in flight, and writing

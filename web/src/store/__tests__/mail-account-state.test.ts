@@ -273,4 +273,46 @@ describe("the mail probe", () => {
     // The skip still holds where it should: one answer per candidate, no beat.
     expect(probed).toEqual(["gg"]);
   });
+
+  it("starts its own run for a new session rather than joining the old one", async () => {
+    const firstSession = { ...SESSION } as unknown as JmapSession;
+    const secondSession = { ...SESSION } as unknown as JmapSession;
+    let releaseFirst!: () => void;
+    let asks = 0;
+    vi.spyOn(client, "call").mockImplementation(async (method, args) => {
+      if (method !== "Mailbox/get") return { accountId: args.accountId } as never;
+      asks += 1;
+      // The first session's probe is held; the second session's answers at once.
+      if (asks === 1)
+        await new Promise<void>((res) => {
+          releaseFirst = () => res();
+        });
+      return {
+        accountId: args.accountId,
+        state: "1",
+        list: [{ id: "mb1", name: "Inbox" }],
+        notFound: [],
+      } as never;
+    });
+
+    useSession.setState({ session: firstSession });
+    const stale = useMail.getState().discoverMailAccounts();
+    await flush();
+
+    // The session is replaced while the first probe is still on its way.
+    useSession.setState({ session: secondSession });
+    await useMail.getState().discoverMailAccounts();
+    expect(useMail.getState().mailAccounts.map((a) => a.accountId)).toEqual([
+      "own",
+      "gg",
+    ]);
+
+    // The old run's answer lands late and is discarded, not written over it.
+    releaseFirst();
+    await stale;
+    expect(useMail.getState().mailAccounts.map((a) => a.accountId)).toEqual([
+      "own",
+      "gg",
+    ]);
+  });
 });

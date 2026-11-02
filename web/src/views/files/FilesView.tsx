@@ -1217,7 +1217,10 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             <MenuItem
               icon={<Share2 size={16} />}
               label={t("Share…")}
-              disabled={nodeRights(menuNode, files.nodes)?.mayShare === false}
+              disabled={
+                menuNode.nodeType !== "directory" ||
+                nodeRights(menuNode, files.nodes)?.mayShare === false
+              }
               onClick={() => setShareNode(menuNode)}
             />
             <MenuSep />
