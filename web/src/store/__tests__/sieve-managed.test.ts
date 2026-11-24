@@ -160,7 +160,21 @@ describe("a server that keeps its own script", () => {
     await expect(
       useSieve.getState().saveScript("0", "managed", "discard;", false),
     ).rejects.toThrow("cannot be edited");
+    // Nor can a second script carry the name the server resolves to its own.
+    await expect(
+      useSieve.getState().saveScript(null, "managed", "discard;", false),
+    ).rejects.toThrow("cannot be edited");
     await expect(useSieve.getState().destroy("0")).rejects.toThrow("cannot be deleted");
+  });
+
+  it("does not download the server's script, which it never shows", async () => {
+    server([{ id: "0", name: "managed", blobId: "bm", isActive: true }], { bm: "keep;" });
+    await useSieve.getState().load();
+    expect(client.fetchBlobText).not.toHaveBeenCalledWith(
+      "a1",
+      "bm",
+      "application/sieve",
+    );
   });
 });
 

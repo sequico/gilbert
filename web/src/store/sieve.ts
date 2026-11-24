@@ -99,17 +99,21 @@ export const useSieve = create<SieveState>((set, get) => ({
       // unknown, and `saveRules` refuses rather than guessing.
       const fetched: Record<Id, string> = {};
       await Promise.all(
-        res.list.map(async (s) => {
-          try {
-            fetched[s.id] = await client.fetchBlobText(
-              accountId,
-              s.blobId,
-              "application/sieve",
-            );
-          } catch {
-            /* leave absent: unknown, not empty */
-          }
-        }),
+        res.list
+          // The compiled script is never shown or edited here, so its text is
+          // a download nobody reads.
+          .filter((s) => !isManagedScript(s))
+          .map(async (s) => {
+            try {
+              fetched[s.id] = await client.fetchBlobText(
+                accountId,
+                s.blobId,
+                "application/sieve",
+              );
+            } catch {
+              /* leave absent: unknown, not empty */
+            }
+          }),
       );
       // Merged, not replaced: saveScript caches the content it just wrote, and
       // a reload whose fetch failed must not throw that away.
@@ -218,10 +222,13 @@ export const useSieve = create<SieveState>((set, get) => ({
     /*
      * The server's own script is compiled from the rules and the away reply it
      * keeps; writing it here would be overwritten by the next compile, and the
-     * person would be told a change was saved that is not there.
+     * person would be told a change was saved that is not there. A script merely
+     * *named* `managed` is the same lie in a second shape: the server resolves
+     * that name to its own script, so the include would keep pointing at the
+     * compiled one while this row claimed another.
      */
     const target = id ? get().scripts.find((s) => s.id === id) : null;
-    if (target && isManagedScript(target))
+    if ((target && isManagedScript(target)) || isManagedScript({ name }))
       throw new Error(
         "The server compiles the “managed” script from your rules and out-of-office reply; it cannot be edited here.",
       );
@@ -308,6 +315,8 @@ export const useSieve = create<SieveState>((set, get) => ({
  * the rules are re-serialized from the text already there, so nothing is lost.
  * A hand-written script is left alone — it is not ours to rewrite.
  */
+const repairTried = new Set<string>();
+
 async function adoptManaged(get: () => SieveState): Promise<void> {
   const { scripts, contents } = get();
   // An older server has no such script, and naming one would fail to compile.
@@ -318,6 +327,13 @@ async function adoptManaged(get: () => SieveState): Promise<void> {
   if (content === undefined || content.includes(MANAGED_INCLUDE)) return;
   const rules = sieveToRules(content);
   if (rules === null) return;
+  /*
+   * Once per script and session: the repair ends in a reload, and a server
+   * whose answer did not keep the line would otherwise write it on every read.
+   */
+  const key = `${get().accountId}:${ours.id}`;
+  if (repairTried.has(key)) return;
+  repairTried.add(key);
   await get().saveScript(
     ours.id,
     GILBERT_SCRIPT,
@@ -336,6 +352,7 @@ async function adoptManaged(get: () => SieveState): Promise<void> {
  */
 useSession.subscribe((s, prev) => {
   if (s.status === "authenticated" || prev.status !== "authenticated") return;
+  repairTried.clear();
   useSieve.setState({
     accountId: null,
     available: false,
