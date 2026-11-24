@@ -3,7 +3,7 @@ import {
   OCCURRENCE_REJECTED,
 } from "@gilbert/shared/calendarOccurrence";
 import { ref } from "@gilbert/shared/jmapQuery";
-import { client, setErrorMessage } from "@/jmap/client";
+import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type {
   Calendar,
   CalendarEvent,
@@ -12,6 +12,7 @@ import type {
   JSCalendarParticipant,
   JSCalendarRecurrenceRule,
   ParticipantIdentity,
+  QueryResponse,
   SetResponse,
 } from "@/jmap/types";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@/lib/birthdays";
 import {
   addDays,
+  browserTimeZone,
   DAY_MS,
   formatDuration,
   parseDuration,
@@ -29,6 +31,12 @@ import {
   zonedToDate,
 } from "@/lib/dates";
 import { shiftStoredStart } from "@/lib/eventDrag";
+import {
+  expandWindowMs,
+  icsEventMatches,
+  occurrenceQueries,
+  searchCalls,
+} from "@/lib/calendarSearch";
 import { t } from "@/lib/i18n";
 import type { IcsEvent } from "@/lib/ics";
 import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
@@ -42,6 +50,7 @@ import type {
   CalendarState,
   EventInstance,
   EventScope,
+  SearchHit,
 } from "../types";
 
 /**
@@ -596,6 +605,8 @@ export function eventsSlice(
   | "rsvp"
   | "findByUid"
   | "setDraft"
+  | "searchEvents"
+  | "searchSubscriptions"
 > {
   return {
     instancesIn(start, end) {
@@ -1056,6 +1067,136 @@ export function eventsSlice(
 
     setDraft(draft) {
       set({ draft });
+    },
+
+    /*
+     * Searched account by account: the reader's own, and each account that
+     * shared a calendar the reader draws. Everything the reader has, hidden
+     * calendars included, because a search is for finding what is not on
+     * screen. A shared account that refuses is left out rather than failing the
+     * rest; the reader's own refusing is an error worth showing.
+     */
+    async searchEvents(text) {
+      const own = get().accountId;
+      const tz = settings().timeZone ?? browserTimeZone;
+      const now = new Date();
+      const added = new Set(settings().addedShares);
+      const drawn: Record<Id, Record<Id, Calendar>> = {};
+      for (const c of get().sharedCalendars) {
+        // Reachable is not shared; see the same check in `instancesIn`.
+        if (!c.calendar.isSubscribed && !added.has(sharedKey(c.accountId, c.calendar.id)))
+          continue;
+        (drawn[c.accountId] ??= {})[c.calendar.id] = c.calendar;
+      }
+      const accounts: {
+        accountId: Id;
+        calendars: Record<Id, Calendar>;
+        shared: boolean;
+      }[] = [];
+      if (own) accounts.push({ accountId: own, calendars: get().calendars, shared: false });
+      for (const [accountId, calendars] of Object.entries(drawn))
+        accounts.push({ accountId, calendars, shared: true });
+
+      const answers = await Promise.all(
+        accounts.map(async ({ accountId, calendars, shared }): Promise<SearchHit[]> => {
+          try {
+            const res = await client.chain(searchCalls(accountId, text, tz, EVENT_PROPS));
+            const found = (
+              res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>
+            ).list.filter((e) => {
+              const calId = Object.keys(e.calendarIds ?? {})[0];
+              return !shared || Boolean(calId && calendars[calId]);
+            });
+
+            /*
+             * Each series' next date, or its latest: asked for by uid, every one
+             * in the same request (`client.call` batches a tick's calls). A
+             * series whose lookup fails is listed at its first date.
+             */
+            const windowMs = expandWindowMs(
+              client.accountCapability<{ maxExpandedQueryDuration?: string }>(
+                accountId,
+                CAP.calendars,
+              )?.maxExpandedQueryDuration,
+            );
+            const series = found.filter((e) => isRecurring(e) && e.uid);
+            const wanted = await Promise.all(
+              series.map(async (e) => {
+                const q = occurrenceQueries(accountId, e.uid!, now, windowMs, tz);
+                const [next, last] = await Promise.all([
+                  client
+                    .call<QueryResponse>("CalendarEvent/query", q.next)
+                    .catch(() => null),
+                  client.call<QueryResponse>("CalendarEvent/query", q.last).catch(() => null),
+                ]);
+                return next?.ids?.[0] ?? last?.ids?.[0];
+              }),
+            );
+            const ids = wanted.filter((id): id is Id => Boolean(id));
+            const placed = new Map<Id, CalendarEvent>();
+            for (let i = 0; i < ids.length; i += client.maxObjectsInGet) {
+              const g = await client.call<GetResponse<CalendarEvent>>(
+                "CalendarEvent/get",
+                {
+                  accountId,
+                  ids: ids.slice(i, i + client.maxObjectsInGet),
+                  properties: EVENT_PROPS,
+                  timeZone: tz,
+                },
+              );
+              // Keyed by the master it came from: a uid can name the same event
+              // in two calendars, and only this master's own date will do.
+              for (const occ of g.list)
+                if (occ.baseEventId) placed.set(occ.baseEventId, occ);
+            }
+
+            const hits: SearchHit[] = [];
+            for (const e of found) {
+              const recurring = isRecurring(e);
+              const inst = toInstance(
+                (recurring && placed.get(e.id)) || e,
+                calendars,
+                accountId,
+              );
+              if (!inst) continue;
+              if (shared) {
+                inst.key = sharedKey(accountId, inst.event.id);
+                inst.accountId = accountId;
+              }
+              hits.push({ inst, rule: recurring ? eventRule(e) : undefined });
+            }
+            return hits;
+          } catch (err) {
+            if (!shared) throw err;
+            return [];
+          }
+        }),
+      );
+      return answers.flat();
+    },
+
+    searchSubscriptions(text) {
+      const hits: SearchHit[] = [];
+      const own = get().accountId ?? "";
+      for (const sub of settings().icalSubscriptions) {
+        const calId = subscriptionCalendarId(sub.id);
+        const cal = subscriptionCalendar(sub);
+        for (const e of get().subscriptionEvents[sub.id] ?? []) {
+          if (!icsEventMatches(e, text)) continue;
+          hits.push({
+            inst: {
+              key: `${calId}:${e.uid}:${e.start.getTime()}`,
+              accountId: own,
+              event: synthesiseSubscriptionEvent(sub.id, e),
+              start: e.start,
+              end: e.end,
+              allDay: e.allDay,
+              calendar: cal,
+            },
+          });
+        }
+      }
+      return hits;
     },
   };
 }

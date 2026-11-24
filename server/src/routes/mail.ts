@@ -14,7 +14,7 @@ import { gateAdministration } from "../adminGate.js";
 import { config } from "../config.js";
 import { icsProxyHandler } from "../icsproxy.js";
 import { imageProxyHandler } from "../imageproxy.js";
-import { followAccount, attach as pushAttach } from "../push.js";
+import { followAccount, ALIVE_FRAME, attach as pushAttach } from "../push.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { writesTheTree } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
@@ -381,7 +381,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
          */
         out.writeHead(200, SSE_HEADERS);
         out.flushHeaders();
-        out.write(": subscribed\n\n");
+        out.write(`: subscribed\n\n${ALIVE_FRAME}`);
         if (follow)
           followAccount(follow.username, follow.id, follow.authorization, out, origin);
         return RESPONSE_ALREADY_SENT;
@@ -390,18 +390,48 @@ export function registerMailRoutes(api: Hono<Env>): void {
         return relayPushRaw(c, url, session.authorization, session.username);
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
-      const res = await fetch(url, {
+      const upstreamRes = fetch(url, {
         headers: { authorization: session.authorization, accept: "text/event-stream" },
         signal: controller.signal,
       });
-      if (!res.ok || !res.body) return c.json({ error: "upstream_error" }, 502);
-      const headers = new Headers({
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
+      // Read in pull(); a tab gone first must not leave it unhandled.
+      upstreamRes.catch(() => {});
+      /*
+       * Answer the browser at once, as relayPushRaw does, and end the stream if
+       * the upstream fails. The mail server sends nothing on its event stream,
+       * not even response headers, until its first ping -- thirty seconds in
+       * with `ping=30` -- so waiting for it left the live-updates dot on
+       * "reconnecting" for half a minute on every connect, and a proxy that
+       * gives up on a response that slow kept it there for good (issue #71).
+       */
+      let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+      const body = new ReadableStream<Uint8Array>({
+        start(ctrl) {
+          ctrl.enqueue(new TextEncoder().encode(": relay\n\n"));
+        },
+        async pull(ctrl) {
+          try {
+            if (!reader) {
+              const res = await upstreamRes;
+              if (!res.ok || !res.body) {
+                await res.body?.cancel();
+                ctrl.close();
+                return;
+              }
+              reader = res.body.getReader();
+            }
+            const { done, value } = await reader.read();
+            if (done) ctrl.close();
+            else ctrl.enqueue(value);
+          } catch {
+            ctrl.close();
+          }
+        },
+        cancel() {
+          controller.abort();
+        },
       });
-      return new Response(res.body, { status: 200, headers });
+      return new Response(body, { status: 200, headers: new Headers(SSE_HEADERS) });
     } catch (err) {
       return upstreamFailure(c, err);
     }

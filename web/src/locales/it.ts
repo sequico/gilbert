@@ -443,6 +443,11 @@ export const catalog: Catalog = {
       "In programma: clicca per annullare la programmazione",
 
     "Nothing scheduled": "Niente in programma",
+    "Search events": "Cerca eventi",
+    "Upcoming": "In arrivo",
+    "Results for “{query}”": "Risultati per “{query}”",
+    "No matching events": "Nessun evento corrispondente",
+    "Nothing in your calendars matches “{query}”.": "Niente nei tuoi calendari corrisponde a “{query}”.",
 
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "Il messaggio resta in attesa sul server, quindi parte che Gilbert sia aperto o meno.",

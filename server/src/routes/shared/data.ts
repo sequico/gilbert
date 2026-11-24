@@ -11,7 +11,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context } from "hono";
-import { attachRelay as pushAttachRelay, reconnectRelay } from "../../push.js";
+import { ALIVE_FRAME, attachRelay as pushAttachRelay, reconnectRelay } from "../../push.js";
 import {
   GENERIC_TYPES,
   isPdfType,
@@ -165,17 +165,27 @@ export function relayPushRaw(
   const abort = () => req.destroy();
   signal.addEventListener("abort", abort);
   out.on("close", abort);
-  const fail = () => {
-    if (!out.headersSent) {
-      out.writeHead(502, {
-        "content-type": "application/json",
-        "cache-control": "no-store",
-      });
-      out.end(JSON.stringify({ error: "upstream_error" }));
-    } else {
-      out.end();
-    }
-  };
+  /*
+   * Answer the browser before the upstream has. The mail server sends nothing
+   * on its event stream, not even response headers, until its first ping --
+   * thirty seconds in with `ping=30` -- and a proxy that gives up on a response
+   * that slow kept the live-updates dot on "reconnecting" for good (issue #71).
+   * A comment is a body byte, so no hop waits for one; EventSource ignores it.
+   * Whether the stream is *live* is proven by the first event, and on fan-out
+   * by `ALIVE_FRAME`.
+   */
+  if (!out.headersSent) {
+    out.writeHead(200, SSE_HEADERS);
+    out.flushHeaders();
+    out.write(": relay\n\n");
+  }
+  /*
+   * The headers are already out, so a failure can only end the stream: the
+   * browser's EventSource reconnects on its own, and what the dot says comes
+   * from the reachability probe, not from a status a streaming response never
+   * carries.
+   */
+  const fail = () => out.end();
   /*
    * Once this account's subscription verifies, the upstream request goes and
    * the browser stream below is served by fan-out instead. Three things have
@@ -197,6 +207,7 @@ export function relayPushRaw(
     req.removeAllListeners();
     req.on("error", () => {});
     req.destroy();
+    out.write(ALIVE_FRAME);
   };
   if (username) pushAttachRelay(username, out, () => reconnectRelay(out, migrate));
   req.on("response", (res) => {
@@ -208,10 +219,6 @@ export function relayPushRaw(
       res.resume();
       fail();
       return;
-    }
-    if (!out.headersSent) {
-      out.writeHead(200, SSE_HEADERS);
-      out.flushHeaders();
     }
     // end: false -- the browser stream outlives the upstream if we migrate.
     res.pipe(out, { end: false });

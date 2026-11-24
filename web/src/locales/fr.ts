@@ -340,7 +340,7 @@ export const catalog: Catalog = {
       "En attente sur le serveur — envoi {when}.",
     "Scheduled — click to clear the schedule":
       "Programmé — cliquez pour annuler la programmation",
-    "Nothing scheduled": "Rien de programmé",
+    "Nothing scheduled": "Rien de prévu",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "Le message attend sur le serveur : il part que Gilbert soit ouvert ou non.",
     "This server holds a message for up to {span}.":
@@ -1141,6 +1141,11 @@ export const catalog: Catalog = {
     "Saved {when}": "Enregistré {when}",
     Unsaved: "Non enregistré",
     "Agenda from {date}": "Agenda à partir du {date}",
+    "Search events": "Rechercher des événements",
+    "Upcoming": "À venir",
+    "Results for “{query}”": "Résultats pour « {query} »",
+    "No matching events": "Aucun événement correspondant",
+    "Nothing in your calendars matches “{query}”.": "Rien dans vos calendriers ne correspond à « {query} ».",
 
     // ── Toasts, dialogs and computed labels (second extraction pass) ───
     "(no subject)": "(sans objet)",

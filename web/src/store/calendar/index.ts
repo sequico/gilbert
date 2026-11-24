@@ -40,7 +40,13 @@ export {
   subscriptionCalendarId,
   toInstance,
 } from "./slices/events";
-export type { CalendarState, EventDraft, EventInstance, EventScope } from "./types";
+export type {
+  CalendarState,
+  EventDraft,
+  EventInstance,
+  EventScope,
+  SearchHit,
+} from "./types";
 
 export const useCalendar = create<CalendarState>((set, get) => ({
   accountId: null,

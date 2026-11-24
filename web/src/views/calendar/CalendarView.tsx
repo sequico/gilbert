@@ -1,7 +1,7 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { Calendar as CalIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalIcon, ChevronLeft, ChevronRight, Repeat, Search as SearchIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import {
   addDays,
   addMonths,
@@ -37,11 +37,14 @@ import {
   snap,
 } from "@/lib/eventDrag";
 import { EVENTS } from "@/lib/events";
+import { splitByNow } from "@/lib/calendarSearch";
+import { describeRule } from "@/lib/recurrence";
 import { t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { useSwipeNav } from "@/lib/touch";
 import {
   type EventInstance,
+  type SearchHit,
   isOccurrence,
   isRecurring,
   myParticipantKeys,
@@ -98,6 +101,9 @@ export function CalendarView({
   const cal = useCalendar();
   const settings = useSettings((s) => s.settings);
   const isMobile = useIsMobile();
+  // `/calendar/search?q=`: the search bar's results, in place of a period.
+  const searching = viewParam === "search";
+  const query = (new URLSearchParams(useSearch()).get("q") ?? "").trim();
   const view: View = (
     ["month", "week", "day", "agenda"].includes(viewParam ?? "")
       ? viewParam
@@ -130,8 +136,8 @@ export function CalendarView({
   }, [effectiveView, anchor, weekStart]);
 
   useEffect(() => {
-    if (cal.available) void cal.loadRange(range.start, range.end);
-  }, [cal.available, range.start.getTime(), range.end.getTime()]);
+    if (cal.available && !searching) void cal.loadRange(range.start, range.end);
+  }, [cal.available, searching, range.start.getTime(), range.end.getTime()]);
 
   /*
    * An event begun elsewhere -- from a message -- opens here, because this is
@@ -307,8 +313,9 @@ export function CalendarView({
     );
   }
 
-  const title =
-    effectiveView === "month"
+  const title = searching
+    ? translate("Results for “{query}”", { query })
+    : effectiveView === "month"
       ? formatMonthYear(anchor)
       : effectiveView === "week"
         ? `${formatDayMonth(range.start)} – ${formatDate(addDays(range.end, -1))}`
@@ -381,6 +388,7 @@ export function CalendarView({
           className="icon-btn sm"
           onClick={() => step(-1)}
           aria-label={translate("Previous")}
+          hidden={searching}
         >
           <ChevronLeft size={18} />
         </button>
@@ -388,6 +396,7 @@ export function CalendarView({
           className="icon-btn sm"
           onClick={() => step(1)}
           aria-label={translate("Next")}
+          hidden={searching}
         >
           <ChevronRight size={18} />
         </button>
@@ -400,7 +409,7 @@ export function CalendarView({
             .map((v) => (
               <button
                 key={v}
-                className={effectiveView === v ? "active" : ""}
+                className={!searching && effectiveView === v ? "active" : ""}
                 onClick={() => go(v, anchor)}
               >
                 {VIEW_LABELS[v]()}
@@ -415,7 +424,15 @@ export function CalendarView({
           {cal.sharedError}
         </div>
       )}
-      {effectiveView === "month" && (
+      {searching && (
+        <EventSearch
+          query={query}
+          onEvent={onEvent}
+          onOpenEvent={onOpenEvent}
+          onEventContext={onEventContext}
+        />
+      )}
+      {!searching && effectiveView === "month" && (
         <MonthView
           onDragCommit={(i, patch) => void commitDrag(i, patch)}
           anchor={anchor}
@@ -428,7 +445,7 @@ export function CalendarView({
           onCreate={(d) => openNew(new Date(d.getTime() + 9 * 3600_000))}
         />
       )}
-      {(effectiveView === "week" || effectiveView === "day") && (
+      {!searching && (effectiveView === "week" || effectiveView === "day") && (
         <TimeGrid
           onDragCommit={(i, patch) => void commitDrag(i, patch)}
           days={effectiveView === "week" ? weekDays(anchor, weekStart) : [anchor]}
@@ -442,7 +459,7 @@ export function CalendarView({
           workEnd={settings.workDayEnd}
         />
       )}
-      {effectiveView === "agenda" && (
+      {!searching && effectiveView === "agenda" && (
         <AgendaView
           start={anchor}
           onEvent={onEvent}
@@ -721,7 +738,7 @@ function EventChip({
     >
       {!spansDay && <span className="ev-dot" style={{ background: color }} />}
       {!spansDay && <span className="ev-time">{formatClock(inst.start)}</span>}
-      <span className="truncate">{inst.event.title || "(untitled)"}</span>
+      <span className="truncate">{inst.event.title || translate("(untitled)")}</span>
     </div>
   );
 }
@@ -1145,7 +1162,7 @@ function TimeGrid({
                           aria-hidden="true"
                         />
                       )}
-                      <div className="ev-title">{inst.event.title || "(untitled)"}</div>
+                      <div className="ev-title">{inst.event.title || translate("(untitled)")}</div>
                       {height > 30 && (
                         <div className="ev-time">
                           {formatClock(inst.start)} – {formatClock(inst.end)}
@@ -1307,7 +1324,7 @@ function AgendaView({
                 <span className="ev-dot" style={{ background: colorOf(i) }} />
                 <span className="ev-when">
                   {i.allDay
-                    ? "All day"
+                    ? translate("All day")
                     : `${formatClock(i.start)} – ${formatClock(i.end)}`}
                 </span>
                 <span className="grow truncate">{i.event.title || "(untitled)"}</span>
@@ -1322,5 +1339,189 @@ function AgendaView({
         </div>
       ))}
     </div>
+  );
+}
+
+/* ---------------- Search ---------------- */
+
+/*
+ * The search bar's results: upcoming soonest first, then past most recent
+ * first and faded, each under its day as in the agenda. Asked for again when
+ * events change, so an edit made from a result shows in the list.
+ */
+function EventSearch({
+  query,
+  onEvent,
+  onOpenEvent,
+  onEventContext,
+}: {
+  query: string;
+  onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
+  onEventContext: EvCtx;
+}) {
+  const searchEvents = useCalendar((s) => s.searchEvents);
+  const searchSubscriptions = useCalendar((s) => s.searchSubscriptions);
+  const events = useCalendar((s) => s.events);
+  const sharedEvents = useCalendar((s) => s.sharedEvents);
+  const subscriptionEvents = useCalendar((s) => s.subscriptionEvents);
+  const [found, setFound] = useState<{ query: string; hits: SearchHit[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!query) return;
+    let current = true;
+    setError(null);
+    searchEvents(query).then(
+      (hits) => {
+        if (current) setFound({ query, hits });
+      },
+      (err: Error) => {
+        if (current) {
+          setFound({ query, hits: [] });
+          setError(err.message);
+        }
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [query, events, sharedEvents, searchEvents]);
+
+  // Subscriptions are matched here, so ones that finish loading after the
+  // search still appear.
+  const subscribed = useMemo(
+    () => (query ? searchSubscriptions(query) : []),
+    [query, subscriptionEvents, searchSubscriptions],
+  );
+  const { upcoming, past } = useMemo(() => {
+    const hits = found?.query === query ? [...found.hits, ...subscribed] : [];
+    const split = splitByNow(
+      hits.map((h) => ({ ...h, start: h.inst.start, end: h.inst.end })),
+      new Date(),
+    );
+    return { upcoming: split.upcoming, past: split.past };
+  }, [found, query, subscribed]);
+
+  if (!query)
+    return <Empty icon={<SearchIcon size={36} />} title={translate("Search events")} />;
+  if (found?.query !== query)
+    return (
+      <div className="row" style={{ justifyContent: "center", padding: 16 }}>
+        <span className="spinner" />
+      </div>
+    );
+  if (error)
+    return (
+      <div className="error-box" style={{ margin: 12 }}>
+        {error}
+      </div>
+    );
+  if (!upcoming.length && !past.length)
+    return (
+      <Empty icon={<SearchIcon size={36} />} title={translate("No matching events")}>
+        {translate("Nothing in your calendars matches “{query}”.", { query })}
+      </Empty>
+    );
+  return (
+    <div className="agenda event-search">
+      {upcoming.length > 0 && (
+        <h3 className="search-section">{translate("Upcoming")}</h3>
+      )}
+      <SearchRows
+        hits={upcoming}
+        onEvent={onEvent}
+        onOpenEvent={onOpenEvent}
+        onEventContext={onEventContext}
+      />
+      {past.length > 0 && <h3 className="search-section">{translate("Past")}</h3>}
+      <SearchRows
+        hits={past}
+        past
+        onEvent={onEvent}
+        onOpenEvent={onOpenEvent}
+        onEventContext={onEventContext}
+      />
+    </div>
+  );
+}
+
+function SearchRows({
+  hits,
+  past,
+  onEvent,
+  onOpenEvent,
+  onEventContext,
+}: {
+  hits: SearchHit[];
+  past?: boolean;
+  onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
+  onEventContext: EvCtx;
+}) {
+  const colorOf = useEventColor();
+  const isTouch = useIsTouch();
+  // Consecutive results on one day share its heading; the list is already in
+  // order.
+  const byDay: { day: Date; hits: SearchHit[] }[] = [];
+  for (const h of hits) {
+    const day = startOfDay(h.inst.start);
+    const last = byDay[byDay.length - 1];
+    if (last && isSameDay(last.day, day)) last.hits.push(h);
+    else byDay.push({ day, hits: [h] });
+  }
+  return (
+    <>
+      {byDay.map(({ day, hits: items }) => (
+        <div
+          key={`${past ? "p" : "u"}${day.toISOString()}`}
+          className={`agenda-day ${past ? "past" : ""}`}
+        >
+          <div className={`ad-date ${isToday(day) ? "today" : ""}`}>
+            {formatWeekday(day, "long")}
+            <small>{formatDateLong(day, false)}</small>
+          </div>
+          <div>
+            {items.map(({ inst: i, rule }) => (
+              <div
+                key={i.key}
+                className={`agenda-ev ${statusClass(i)}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isTouch) onEvent(i, e.currentTarget);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  if (isTouch) onEvent(i, e.currentTarget);
+                  else onOpenEvent(i, e.currentTarget);
+                }}
+                onContextMenu={(e) => onEventContext(i, e)}
+              >
+                <span className="ev-dot" style={{ background: colorOf(i) }} />
+                <span className="ev-when">
+                  {i.allDay
+                    ? translate("All day")
+                    : `${formatClock(i.start)} – ${formatClock(i.end)}`}
+                </span>
+                <span className="grow truncate">
+                  {i.event.title || translate("(untitled)")}
+                </span>
+                {rule && (
+                  <span className="hint truncate row" style={{ maxWidth: 220, gap: 4 }}>
+                    <Repeat size={13} />
+                    {describeRule(rule)}
+                  </span>
+                )}
+                {Object.values(i.event.locations ?? {})[0]?.name && (
+                  <span className="hint truncate" style={{ maxWidth: 200 }}>
+                    {Object.values(i.event.locations ?? {})[0]!.name}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
   );
 }

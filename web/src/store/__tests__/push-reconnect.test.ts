@@ -40,6 +40,17 @@ class FakeEventSource {
   open(): void {
     this.onopen?.(new Event("open"));
   }
+  /**
+   * An event the server sent. The first one is what proves the stream is live:
+   * a ping, or a state change.
+   */
+  emit(type: string, data = "{}"): void {
+    this.handlers.get(type)?.(new MessageEvent(type, { data }));
+  }
+  /** An event carrying a state change, as the server sends it. */
+  state(changed: Record<string, Record<string, string>> = {}): void {
+    this.emit("state", JSON.stringify({ "@type": "StateChange", changed }));
+  }
   /** The network dropping the connection. */
   fail(): void {
     this.onerror?.(new Event("error"));
@@ -62,12 +73,27 @@ afterEach(() => {
 });
 
 describe("push reconnect", () => {
+  it("an opened stream is not connected until an event arrives", () => {
+    const fn = vi.fn();
+    const unsub = push.onReconnect(fn);
+    push.start();
+    latest().open();
+    // The relay answers before the mail server has, so an open stream can still
+    // be one that never delivers anything (issue #71).
+    expect(push.state).toBe("connecting");
+    latest().emit("ping");
+    expect(push.state).toBe("connected");
+    expect(fn).not.toHaveBeenCalled();
+    unsub();
+  });
+
   it("does not fire onReconnect on the first connect of a session", () => {
     const fn = vi.fn();
     const unsub = push.onReconnect(fn);
     push.start();
     expect(FakeEventSource.instances).toHaveLength(1);
     latest().open();
+    latest().emit("ping");
     expect(push.state).toBe("connected");
     expect(fn).not.toHaveBeenCalled();
     unsub();
@@ -78,12 +104,16 @@ describe("push reconnect", () => {
     const unsub = push.onReconnect(fn);
     push.start();
     latest().open();
+    latest().emit("ping");
     latest().fail();
     expect(push.state).toBe("connecting");
     // The retry waits the fixed one second, then reconnects.
     await vi.advanceTimersByTimeAsync(1000);
     expect(FakeEventSource.instances).toHaveLength(2);
     latest().open();
+    // The catch-up waits for proof the new stream is live.
+    expect(fn).not.toHaveBeenCalled();
+    latest().state({ a1: { Email: "s1" } });
     expect(push.state).toBe("connected");
     expect(fn).toHaveBeenCalledTimes(1);
     unsub();
@@ -94,15 +124,18 @@ describe("push reconnect", () => {
     const unsub = push.onReconnect(fn);
     push.start();
     latest().open();
+    latest().emit("ping");
     latest().fail();
     await vi.advanceTimersByTimeAsync(1000);
     latest().open();
+    latest().emit("ping");
     expect(fn).toHaveBeenCalledTimes(1);
     // The second drop waits the same fixed second before reconnecting.
     latest().fail();
     await vi.advanceTimersByTimeAsync(2000);
     expect(FakeEventSource.instances).toHaveLength(3);
     latest().open();
+    latest().emit("ping");
     expect(fn).toHaveBeenCalledTimes(2);
     unsub();
   });
@@ -112,6 +145,7 @@ describe("push reconnect", () => {
     push.onReconnect(fn);
     push.start();
     latest().open();
+    latest().emit("ping");
     latest().fail();
     await vi.advanceTimersByTimeAsync(1000);
     // An account switch tears the connection down and starts a fresh one; the
@@ -120,6 +154,7 @@ describe("push reconnect", () => {
     push.start();
     expect(FakeEventSource.instances).toHaveLength(3);
     latest().open();
+    latest().emit("ping");
     expect(fn).not.toHaveBeenCalled();
   });
 });

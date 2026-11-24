@@ -269,6 +269,19 @@ where the reading stands, and a decision moves the row.
 | `590edd50` | already ours — the calendar read has kept `recurrenceOverrides` apart from the `utcStart`/`utcEnd` pair since the property lists were split (`EVENT_PROPS` / `SERIES_PROPS`, `web/src/store/calendar/shared.ts`), and the FileNode wire names are translated at the client's one boundary (`server/src/shared/filenode.ts`), assumed 1.0 rather than probed per session because 1.0 is this product's floor | 93% | Stalwart 1.0: load calendars, and keep settings and Files working |
 | `42bbe344` | not taken (`README.md` is this project's, and the Stalwart line it supports is stated there) | — | README: Stalwart 1.0 needs ihasmail v2026.10.30 or newer |
 
+## Release `v2026.11.19-gd6528ac`
+
+`upstream/main` is at `d6528ac` (`v2026.11.19`). From `e8e7e01` it carries four
+work commits, the rest being pull-request merges. Each row records where the
+reading stands, and a decision moves the row.
+
+| upstream | disposition | overlap | subject |
+|---|---|---|---|
+| `3ad9e2e9` | in (adapted: both relay paths answer the browser at once — headers and a comment — and stream the mail server's bytes as they arrive, ending the stream if it fails; the raw path writes its own headers before the first ping) | — | Push relay: answer the browser before Stalwart does |
+| `3661e0fd` | in (adapted: the first event — a ping or a state change — is what proves a stream, so the dot and the reconnect catch-up wait for it; fan-out sends that ping when a tab joins, and a relayed tab gets the mail server's own) | — | Live-updates dot: connected only once an event arrives |
+| `759a9a7b` | in (adapted: the search slice on this tree's split calendar store, our date helpers and the same whole-word rule; the mock honours text, sort and limit, and the calendar's `(untitled)` and `All day` go through the catalogue) | — | Calendar: search events from the search bar |
+| `848c3a5c` | not taken (CI: GitHub Actions here) | — | ci: bump discourse-release |
+
 ## Keeping it current
 
 A merge or a hand-take appends its row in the same change that lands the code

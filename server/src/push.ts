@@ -45,6 +45,14 @@ import {
 import { absoluteUpstream, getUpstreamSession, upstreamFor } from "./upstream.js";
 
 const USING = [CAPABILITIES.core, CAPABILITIES.mail];
+/**
+ * An event the browser can see, sent when a stream is known to be live: at
+ * once on fan-out, and when a relayed tab moves to fan-out. The client shows
+ * "connected" only after an event arrives, not when the response opens -- the
+ * relay answers before the mail server has (issue #71), so an open response
+ * alone proves nothing. Relayed tabs get the mail server's own first ping.
+ */
+export const ALIVE_FRAME = "event: ping\ndata: {}\n\n";
 const RENEW_BEFORE_MS = 60 * 60_000; // renew an hour before Stalwart expires it
 const VERIFY_TIMEOUT_MS = 3 * 60_000; // Stalwart's first attempt waits 60 s; allow retries
 const SWEEP_MS = 30_000;

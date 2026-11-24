@@ -335,7 +335,7 @@ export const catalog: Catalog = {
     "Waiting on the server — goes out {when}.":
       "Ожидает на сервере — будет отправлено {when}.",
     "Scheduled — click to clear the schedule": "Отложено — нажмите, чтобы отменить",
-    "Nothing scheduled": "Ничего не отложено",
+    "Nothing scheduled": "Ничего не запланировано",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "Письмо ждёт на сервере и будет отправлено независимо от того, открыт Gilbert или нет.",
     "This server holds a message for up to {span}.":
@@ -1130,6 +1130,11 @@ export const catalog: Catalog = {
     "Saved {when}": "Сохранено {when}",
     Unsaved: "Не сохранено",
     "Agenda from {date}": "Расписание с {date}",
+    "Search events": "Поиск событий",
+    "Upcoming": "Предстоящие",
+    "Results for “{query}”": "Результаты по запросу «{query}»",
+    "No matching events": "Нет подходящих событий",
+    "Nothing in your calendars matches “{query}”.": "В ваших календарях нет ничего по запросу «{query}».",
 
     // ── Toasts, dialogs and computed labels (second extraction pass) ───
     "(no subject)": "(без темы)",

@@ -3319,6 +3319,24 @@ const ACCOUNT_REGISTRY: Obj[] = [
   },
 ];
 
+/**
+ * The search bar's text against one event, by whole word, as a live server
+ * matches it: every word of the query is a word of the title, the description
+ * or a location's name.
+ */
+function eventMatchesText(e: Obj, text: string): boolean {
+  const words = (s: string) => s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const wanted = words(text);
+  if (!wanted.length) return false;
+  const locations = Object.values((e.locations as Obj | undefined) ?? {}).map(
+    (l) => String((l as Obj).name ?? ""),
+  );
+  const have = new Set(
+    words([String(e.title ?? ""), String(e.description ?? ""), ...locations].join(" ")),
+  );
+  return wanted.every((w) => have.has(w));
+}
+
 const handlers: Record<string, Handler> = {
   // 0.16 exposes the account locale here, under a permission ordinary users
   // actually have (unlike x:Account below, which needs sysAccountGet).
@@ -4466,19 +4484,34 @@ const handlers: Record<string, Handler> = {
   "CalendarEvent/query": (a) => {
     const list = eventsFor(a.accountId);
     const filter = (a.filter as Obj) ?? {};
+    const startOf = (e: Obj) =>
+      new Date(String(e.utcStart ?? e.start ?? 0)).getTime();
+    const sort = Array.isArray(a.sort) ? ((a.sort as Obj[])[0] ?? null) : null;
+    const ascending = sort ? sort.isAscending !== false : true;
+    const limit = typeof a.limit === "number" ? a.limit : undefined;
     const matching = list.filter(
       (e) =>
         (!filter.uid || e.uid === filter.uid) &&
         (!filter.inCalendar ||
-          Boolean((e.calendarIds as Obj | undefined)?.[filter.inCalendar as string])),
+          Boolean((e.calendarIds as Obj | undefined)?.[filter.inCalendar as string])) &&
+        // The search bar's text: whole words, in any case, of the title, the
+        // description or a location -- the rule a live server applies.
+        (!filter.text || eventMatchesText(e, String(filter.text))),
     );
+    const ordered =
+      sort?.property === "start"
+        ? [...matching].sort(
+            (x, y) => (startOf(x) - startOf(y)) * (ascending ? 1 : -1),
+          )
+        : matching;
     if (!a.expandRecurrences) {
+      const ids = ordered.map((e) => e.id as string);
       return {
         accountId: a.accountId ?? ACCOUNT,
         queryState: "1",
         canCalculateChanges: false,
         position: 0,
-        ids: matching.map((e) => e.id),
+        ids: limit === undefined ? ids : ids.slice(0, limit),
         ...(a.calculateTotal ? { total: matching.length } : {}),
       };
     }
@@ -4488,16 +4521,23 @@ const handlers: Record<string, Handler> = {
     const to = filter.before
       ? new Date(filter.before as string)
       : new Date(8640000000000);
-    const ids: string[] = [];
-    for (const e of matching)
-      for (const occ of expandOccurrences(e, from, to))
-        ids.push(syntheticId(e.id as string, occ.recurrenceId));
+    const occurrences = ordered.flatMap((e) =>
+      expandOccurrences(e, from, to).map((occ) => ({
+        id: syntheticId(e.id as string, occ.recurrenceId),
+        at: new Date(occ.recurrenceId).getTime(),
+      })),
+    );
+    const sorted =
+      sort?.property === "start"
+        ? occurrences.sort((x, y) => (x.at - y.at) * (ascending ? 1 : -1))
+        : occurrences;
+    const ids = sorted.map((one) => one.id);
     return {
       accountId: a.accountId ?? ACCOUNT,
       queryState: "1",
       canCalculateChanges: false,
       position: 0,
-      ids,
+      ids: limit === undefined ? ids : ids.slice(0, limit),
       ...(a.calculateTotal ? { total: ids.length } : {}),
     };
   },

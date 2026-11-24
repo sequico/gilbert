@@ -217,12 +217,18 @@ class PushManager {
     const url = withBase(`/api/events?types=*&closeafter=no&ping=30`);
     const es = new EventSource(url, { withCredentials: true });
     this.es = es;
-    es.onopen = () => {
-      this.authChecked = false;
+    /*
+     * Whether an event has arrived on this stream. An open stream is not proof
+     * that updates flow: since the relay answers before the mail server has
+     * (issue #71), a response can open and deliver nothing at all. Every live
+     * stream sends a ping soon after it starts -- the mail server's own, or
+     * ours on fan-out -- so the first event is the proof.
+     */
+    let proven = false;
+    const alive = () => {
+      if (proven) return;
+      proven = true;
       this.setState("connected");
-      // After the state, so a reachability listener does not read this as a
-      // blocked stream that still needs the probe-driven catch-up.
-      this.emitReachability(true);
       if (!this.everConnected) {
         this.everConnected = true;
         return;
@@ -231,7 +237,14 @@ class PushManager {
       // was down was missed, so listeners catch up from their last state.
       for (const fn of this.reconnectListeners) fn();
     };
+    es.onopen = () => {
+      this.authChecked = false;
+      // The server answered, so the line is up -- but see `alive`: that is not
+      // the same claim as "updates are arriving".
+      this.emitReachability(true);
+    };
     es.addEventListener("state", (ev) => {
+      alive();
       try {
         const data = JSON.parse((ev as MessageEvent).data as string) as StateChange;
         if (data["@type"] !== "StateChange") return;
@@ -261,9 +274,7 @@ class PushManager {
         /* ignore malformed */
       }
     });
-    es.addEventListener("ping", () => {
-      /* keepalive */
-    });
+    es.addEventListener("ping", alive);
     es.onerror = () => {
       // A drop and a first-attempt failure are the same thing here: close and
       // retry on a fixed one-second heartbeat, for as long as the tab is open.

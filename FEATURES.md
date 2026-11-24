@@ -1718,6 +1718,17 @@ Month, week, day and agenda, each addressable by URL
 next/previous by keyboard (`n`/`p`) or button. The default view, week start,
 working hours and default event duration are settings.
 
+## Search
+
+In the calendar the search bar searches events (`/calendar/search?q=`), through
+`CalendarEvent/query` with a `text` filter: titles, descriptions and locations,
+across your own calendars, hidden ones included, the shared calendars you've
+added, and subscribed calendars, which are matched in the browser. Results
+come in one list, upcoming soonest first, then past most recent first and
+faded. A repeating event is listed once, at its next date (or its latest, once
+it has ended), with how it repeats. The server matches whole words, so "japan"
+does not find "Japanese".
+
 ## Calendars
 
 The sidebar keeps the panes apart:
@@ -2300,8 +2311,10 @@ half.
   reconnection on a fixed one-second heartbeat while the tab is open. Each failed
   attempt probes a cheap route: if it answers, the stream is blocked rather than the
   line, and the same catch-up runs there too. On desktop the header shows connected,
-  reconnecting, or off and polling, and the dot beside the brand says on hover
-  whether the server answered or could not be reached.
+  reconnecting, or off and polling — **connected once an event has arrived**, since
+  the relay answers before the mail server has and an open stream alone proves
+  nothing — and the dot beside the brand says on hover whether the server answered
+  or could not be reached.
 - **Unread count in the tab title and painted onto the favicon.**
 - **Desktop notifications** for new mail and chat while Gilbert is open and the tab
   is in the background, with a sound. Both switches start **on** for a new device;

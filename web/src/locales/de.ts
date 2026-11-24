@@ -340,6 +340,11 @@ export const catalog: Catalog = {
       "Wartet auf dem Server — geht {when} raus.",
     "Scheduled — click to clear the schedule": "Geplant — zum Aufheben klicken",
     "Nothing scheduled": "Nichts geplant",
+    "Search events": "Termine durchsuchen",
+    "Upcoming": "Bevorstehend",
+    "Results for “{query}”": "Ergebnisse für „{query}“",
+    "No matching events": "Keine passenden Termine",
+    "Nothing in your calendars matches “{query}”.": "Nichts in Ihren Kalendern passt zu „{query}“.",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "Die Nachricht wartet auf dem Server und wird gesendet, ob Gilbert geöffnet ist oder nicht.",
     "This server holds a message for up to {span}.":

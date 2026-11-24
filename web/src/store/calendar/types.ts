@@ -5,9 +5,20 @@ import type {
   CalendarEvent,
   EmailAddress,
   Id,
+  JSCalendarRecurrenceRule,
   ParticipantIdentity,
 } from "@/jmap/types";
 import type { IcsEvent } from "@/lib/ics";
+
+/**
+ * One event search result. A series is one result, placed at its next date
+ * (or its latest, once it has ended), and `rule` says how it repeats: the
+ * occurrence it is placed at carries no rule of its own.
+ */
+export interface SearchHit {
+  inst: EventInstance;
+  rule?: JSCalendarRecurrenceRule;
+}
 
 export interface EventInstance {
   /** Unique key for rendering: `${id}` (synthetic ids already unique per instance). */
@@ -121,6 +132,10 @@ export interface CalendarState {
   instancesIn(start: Date, end: Date): EventInstance[];
   /** Re-fetch every subscribed calendar. */
   refreshSubscriptions(): Promise<void>;
+  /** Events matching `text`, from the reader's own calendars and the shared ones drawn beside them. */
+  searchEvents(text: string): Promise<SearchHit[]>;
+  /** The same search over subscribed calendars, which the server never sees. */
+  searchSubscriptions(text: string): SearchHit[];
   /**
    * `accountId` defaults to the reader's own. Pass it when the event lives in
    * a shared or group account: an id means nothing outside the account that

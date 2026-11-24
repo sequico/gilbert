@@ -330,7 +330,7 @@ export const catalog: Catalog = {
       "サーバーで待機中です。{when} に送信されます。",
     "Scheduled — click to clear the schedule":
       "予約済み — クリックすると予約を解除します",
-    "Nothing scheduled": "予約されたメールはありません",
+    "Nothing scheduled": "予定はありません",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "メールはサーバーで待機するため、Gilbert を開いていなくても送信されます。",
     "This server holds a message for up to {span}.":
@@ -1133,6 +1133,11 @@ export const catalog: Catalog = {
     "Saved {when}": "{when} に保存",
     Unsaved: "未保存",
     "Agenda from {date}": "{date}からの予定",
+    "Search events": "予定を検索",
+    "Upcoming": "今後",
+    "Results for “{query}”": "「{query}」の結果",
+    "No matching events": "一致する予定はありません",
+    "Nothing in your calendars matches “{query}”.": "カレンダーに「{query}」に一致するものはありません。",
 
     // ── Toasts, dialogs and computed labels (second extraction pass) ───
     "(no subject)": "(件名なし)",

@@ -323,7 +323,7 @@ export const catalog: Catalog = {
     "From: {sender}": "发件人：{sender}",
     "Waiting on the server — goes out {when}.": "正在服务器上等待，将于 {when} 发出。",
     "Scheduled — click to clear the schedule": "已定时，点击可取消定时",
-    "Nothing scheduled": "没有定时邮件",
+    "Nothing scheduled": "没有安排",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "邮件在服务器上等待，无论 Gilbert 是否打开都会发出。",
     "This server holds a message for up to {span}.": "此服务器最多可将邮件保留 {span}。",
@@ -1112,6 +1112,11 @@ export const catalog: Catalog = {
     "Saved {when}": "已保存 {when}",
     Unsaved: "未保存",
     "Agenda from {date}": "从 {date} 起的日程",
+    "Search events": "搜索事件",
+    "Upcoming": "即将到来",
+    "Results for “{query}”": "“{query}”的结果",
+    "No matching events": "没有匹配的事件",
+    "Nothing in your calendars matches “{query}”.": "你的日历中没有与“{query}”匹配的内容。",
 
     // ── Toasts, dialogs and computed labels (second extraction pass) ───
     "(no subject)": "(无主题)",

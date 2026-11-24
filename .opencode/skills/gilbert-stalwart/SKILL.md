@@ -156,6 +156,16 @@ Where the integration lives:
 - `FileNode/query` **cannot filter by `name`**; name filters are matched
   client-side (`web/src/lib/appFolder.ts`). A filter the server does not know
   fails the whole query.
+- **`CalendarEvent/query` text and expansion**: `filter: { text }` matches the
+  title, the description and the locations, in any case, **by whole word** and
+  with every word required ("japan" does not find "Japanese Garden Cafe");
+  without `expandRecurrences` a series answers once, as its master at its first
+  date; with it both `after` and `before` are required and the span must stay
+  inside `maxExpandedQueryDuration` (P52W1D, refused above it with
+  `expandDurationTooLarge`). The search index is built in the background, so an
+  event saved a moment ago can be missing from the first search after it.
+  `web/src/lib/calendarSearch.ts` carries the window arithmetic and the
+  browser-side match for subscribed feeds.
 - `FileNode/query` masks directories out of its own results before 0.16, so the
   client asks for them explicitly: on 1.0 the filter keeps the key `nodeType`
   and takes `File`/`Directory`/`SymLink`, **matched case-sensitively** — a
