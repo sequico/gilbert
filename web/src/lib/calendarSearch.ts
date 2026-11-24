@@ -65,7 +65,9 @@ export function searchCalls(
  * margin, not arithmetic: the cost of a shorter one is only that a series
  * meeting less than once a year shows its first date.
  */
-export function expandWindowMs(maxExpandedQueryDuration: string | null | undefined): number {
+export function expandWindowMs(
+  maxExpandedQueryDuration: string | null | undefined,
+): number {
   const year = 365 * DAY_MS;
   const limit = parseDuration(maxExpandedQueryDuration) * 1000;
   return (limit > 0 ? Math.min(limit, year) : year) - DAY_MS;

@@ -108,7 +108,12 @@ describe("an event search", () => {
 
   it("shows a one-off where it is, without a second query", async () => {
     const server = fakeJmapServer()
-      .on("CalendarEvent/query", () => ({ accountId: "a1", ids: ["e1"], total: 1, position: 0 }))
+      .on("CalendarEvent/query", () => ({
+        accountId: "a1",
+        ids: ["e1"],
+        total: 1,
+        position: 0,
+      }))
       .on("CalendarEvent/get", () => ({
         accountId: "a1",
         state: "s1",

@@ -1134,10 +1134,11 @@ export const catalog: Catalog = {
     Unsaved: "未保存",
     "Agenda from {date}": "{date}からの予定",
     "Search events": "予定を検索",
-    "Upcoming": "今後",
+    Upcoming: "今後",
     "Results for “{query}”": "「{query}」の結果",
     "No matching events": "一致する予定はありません",
-    "Nothing in your calendars matches “{query}”.": "カレンダーに「{query}」に一致するものはありません。",
+    "Nothing in your calendars matches “{query}”.":
+      "カレンダーに「{query}」に一致するものはありません。",
 
     // ── Toasts, dialogs and computed labels (second extraction pass) ───
     "(no subject)": "(件名なし)",

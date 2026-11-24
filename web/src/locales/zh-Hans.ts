@@ -1113,10 +1113,11 @@ export const catalog: Catalog = {
     Unsaved: "未保存",
     "Agenda from {date}": "从 {date} 起的日程",
     "Search events": "搜索事件",
-    "Upcoming": "即将到来",
+    Upcoming: "即将到来",
     "Results for “{query}”": "“{query}”的结果",
     "No matching events": "没有匹配的事件",
-    "Nothing in your calendars matches “{query}”.": "你的日历中没有与“{query}”匹配的内容。",
+    "Nothing in your calendars matches “{query}”.":
+      "你的日历中没有与“{query}”匹配的内容。",
 
     // ── Toasts, dialogs and computed labels (second extraction pass) ───
     "(no subject)": "(无主题)",

@@ -331,10 +331,11 @@ export const catalog: Catalog = {
     "Scheduled — click to clear the schedule": "Заплановано — натисніть, щоб скасувати",
     "Nothing scheduled": "Нічого не заплановано",
     "Search events": "Пошук подій",
-    "Upcoming": "Найближчі",
+    Upcoming: "Найближчі",
     "Results for “{query}”": "Результати для «{query}»",
     "No matching events": "Немає відповідних подій",
-    "Nothing in your calendars matches “{query}”.": "У ваших календарях немає нічого за запитом «{query}».",
+    "Nothing in your calendars matches “{query}”.":
+      "У ваших календарях немає нічого за запитом «{query}».",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "Лист чекає на сервері й буде надісланий незалежно від того, чи відкрито Gilbert.",
     "This server holds a message for up to {span}.": "Цей сервер утримує лист до {span}.",

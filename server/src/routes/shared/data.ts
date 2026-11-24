@@ -11,7 +11,11 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context } from "hono";
-import { ALIVE_FRAME, attachRelay as pushAttachRelay, reconnectRelay } from "../../push.js";
+import {
+  ALIVE_FRAME,
+  attachRelay as pushAttachRelay,
+  reconnectRelay,
+} from "../../push.js";
 import {
   GENERIC_TYPES,
   isPdfType,

@@ -253,10 +253,11 @@ export const catalog: Catalog = {
     Agenda: "Gündem",
     "Agenda from {date}": "{date} tarihinden itibaren gündem",
     "Search events": "Etkinlik ara",
-    "Upcoming": "Yaklaşan",
+    Upcoming: "Yaklaşan",
     "Results for “{query}”": "“{query}” için sonuçlar",
     "No matching events": "Eşleşen etkinlik yok",
-    "Nothing in your calendars matches “{query}”.": "Takvimlerinizde “{query}” ile eşleşen bir şey yok.",
+    "Nothing in your calendars matches “{query}”.":
+      "Takvimlerinizde “{query}” ile eşleşen bir şey yok.",
     "Agenda view": "Ajanda görünümü",
     "Align left": "Sola hizala",
     "Align right": "Sağa hizala",

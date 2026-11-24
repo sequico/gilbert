@@ -14,7 +14,7 @@ import { gateAdministration } from "../adminGate.js";
 import { config } from "../config.js";
 import { icsProxyHandler } from "../icsproxy.js";
 import { imageProxyHandler } from "../imageproxy.js";
-import { followAccount, ALIVE_FRAME, attach as pushAttach } from "../push.js";
+import { ALIVE_FRAME, followAccount, attach as pushAttach } from "../push.js";
 import { forgetRemembered } from "../requestMemory.js";
 import { writesTheTree } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";

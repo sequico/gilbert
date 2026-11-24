@@ -328,10 +328,11 @@ export const catalog: Catalog = {
     "Scheduled — click to clear the schedule": "Gepland — klik om de planning te wissen",
     "Nothing scheduled": "Niets gepland",
     "Search events": "Gebeurtenissen zoeken",
-    "Upcoming": "Aankomend",
+    Upcoming: "Aankomend",
     "Results for “{query}”": "Resultaten voor ‘{query}’",
     "No matching events": "Geen overeenkomende gebeurtenissen",
-    "Nothing in your calendars matches “{query}”.": "Niets in je agenda’s komt overeen met ‘{query}’.",
+    "Nothing in your calendars matches “{query}”.":
+      "Niets in je agenda’s komt overeen met ‘{query}’.",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "Het bericht wacht op de server en wordt verzonden, of Gilbert nu open is of niet.",
     "This server holds a message for up to {span}.":

@@ -22,6 +22,12 @@ import {
   isBirthdayEvent,
 } from "@/lib/birthdays";
 import {
+  expandWindowMs,
+  icsEventMatches,
+  occurrenceQueries,
+  searchCalls,
+} from "@/lib/calendarSearch";
+import {
   addDays,
   browserTimeZone,
   DAY_MS,
@@ -31,12 +37,6 @@ import {
   zonedToDate,
 } from "@/lib/dates";
 import { shiftStoredStart } from "@/lib/eventDrag";
-import {
-  expandWindowMs,
-  icsEventMatches,
-  occurrenceQueries,
-  searchCalls,
-} from "@/lib/calendarSearch";
 import { t } from "@/lib/i18n";
 import type { IcsEvent } from "@/lib/ics";
 import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
@@ -1093,7 +1093,8 @@ export function eventsSlice(
         calendars: Record<Id, Calendar>;
         shared: boolean;
       }[] = [];
-      if (own) accounts.push({ accountId: own, calendars: get().calendars, shared: false });
+      if (own)
+        accounts.push({ accountId: own, calendars: get().calendars, shared: false });
       for (const [accountId, calendars] of Object.entries(drawn))
         accounts.push({ accountId, calendars, shared: true });
 
@@ -1101,9 +1102,10 @@ export function eventsSlice(
         accounts.map(async ({ accountId, calendars, shared }): Promise<SearchHit[]> => {
           try {
             const res = await client.chain(searchCalls(accountId, text, tz, EVENT_PROPS));
-            const found = (
-              res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>
-            ).list.filter((e) => {
+            const read = res.get("g")?.[0] as unknown as
+              | GetResponse<CalendarEvent>
+              | undefined;
+            const found = (read?.list ?? []).filter((e) => {
               const calId = Object.keys(e.calendarIds ?? {})[0];
               return !shared || Boolean(calId && calendars[calId]);
             });
@@ -1127,7 +1129,9 @@ export function eventsSlice(
                   client
                     .call<QueryResponse>("CalendarEvent/query", q.next)
                     .catch(() => null),
-                  client.call<QueryResponse>("CalendarEvent/query", q.last).catch(() => null),
+                  client
+                    .call<QueryResponse>("CalendarEvent/query", q.last)
+                    .catch(() => null),
                 ]);
                 return next?.ids?.[0] ?? last?.ids?.[0];
               }),

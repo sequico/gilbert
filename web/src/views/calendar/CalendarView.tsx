@@ -1,7 +1,14 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { Calendar as CalIcon, ChevronLeft, ChevronRight, Repeat, Search as SearchIcon } from "lucide-react";
+import {
+  Calendar as CalIcon,
+  ChevronLeft,
+  ChevronRight,
+  Repeat,
+  Search as SearchIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
+import { splitByNow } from "@/lib/calendarSearch";
 import {
   addDays,
   addMonths,
@@ -37,17 +44,16 @@ import {
   snap,
 } from "@/lib/eventDrag";
 import { EVENTS } from "@/lib/events";
-import { splitByNow } from "@/lib/calendarSearch";
-import { describeRule } from "@/lib/recurrence";
 import { t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
+import { describeRule } from "@/lib/recurrence";
 import { useSwipeNav } from "@/lib/touch";
 import {
   type EventInstance,
-  type SearchHit,
   isOccurrence,
   isRecurring,
   myParticipantKeys,
+  type SearchHit,
   useCalendar,
 } from "@/store/calendar";
 import { useSettings } from "@/store/settings";
@@ -1162,7 +1168,9 @@ function TimeGrid({
                           aria-hidden="true"
                         />
                       )}
-                      <div className="ev-title">{inst.event.title || translate("(untitled)")}</div>
+                      <div className="ev-title">
+                        {inst.event.title || translate("(untitled)")}
+                      </div>
                       {height > 30 && (
                         <div className="ev-time">
                           {formatClock(inst.start)} – {formatClock(inst.end)}
@@ -1425,9 +1433,7 @@ function EventSearch({
     );
   return (
     <div className="agenda event-search">
-      {upcoming.length > 0 && (
-        <h3 className="search-section">{translate("Upcoming")}</h3>
-      )}
+      {upcoming.length > 0 && <h3 className="search-section">{translate("Upcoming")}</h3>}
       <SearchRows
         hits={upcoming}
         onEvent={onEvent}

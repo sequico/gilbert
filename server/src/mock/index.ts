@@ -3328,8 +3328,8 @@ function eventMatchesText(e: Obj, text: string): boolean {
   const words = (s: string) => s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
   const wanted = words(text);
   if (!wanted.length) return false;
-  const locations = Object.values((e.locations as Obj | undefined) ?? {}).map(
-    (l) => String((l as Obj).name ?? ""),
+  const locations = Object.values((e.locations as Obj | undefined) ?? {}).map((l) =>
+    String((l as Obj).name ?? ""),
   );
   const have = new Set(
     words([String(e.title ?? ""), String(e.description ?? ""), ...locations].join(" ")),
@@ -4484,8 +4484,7 @@ const handlers: Record<string, Handler> = {
   "CalendarEvent/query": (a) => {
     const list = eventsFor(a.accountId);
     const filter = (a.filter as Obj) ?? {};
-    const startOf = (e: Obj) =>
-      new Date(String(e.utcStart ?? e.start ?? 0)).getTime();
+    const startOf = (e: Obj) => new Date(String(e.utcStart ?? e.start ?? 0)).getTime();
     const sort = Array.isArray(a.sort) ? ((a.sort as Obj[])[0] ?? null) : null;
     const ascending = sort ? sort.isAscending !== false : true;
     const limit = typeof a.limit === "number" ? a.limit : undefined;
@@ -4500,9 +4499,7 @@ const handlers: Record<string, Handler> = {
     );
     const ordered =
       sort?.property === "start"
-        ? [...matching].sort(
-            (x, y) => (startOf(x) - startOf(y)) * (ascending ? 1 : -1),
-          )
+        ? [...matching].sort((x, y) => (startOf(x) - startOf(y)) * (ascending ? 1 : -1))
         : matching;
     if (!a.expandRecurrences) {
       const ids = ordered.map((e) => e.id as string);

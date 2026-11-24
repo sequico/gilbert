@@ -1,14 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import type { IcsEvent } from "@/lib/ics";
 import {
   expandWindowMs,
   icsEventMatches,
   occurrenceQueries,
-  searchCalls,
   SEARCH_LIMIT,
+  searchCalls,
   splitByNow,
 } from "@/lib/calendarSearch";
+import type { IcsEvent } from "@/lib/ics";
 
 const DAY = 86_400_000;
 
@@ -127,17 +127,27 @@ describe("icsEventMatches", () => {
   it("matches whole words in any case, in the title, description or location", () => {
     expect(icsEventMatches(ev({ summary: "Japanese class" }), "JAPANESE")).toBe(true);
     expect(
-      icsEventMatches(ev({ summary: "Dentist", description: "then the Japanese place" }), "japanese"),
+      icsEventMatches(
+        ev({ summary: "Dentist", description: "then the Japanese place" }),
+        "japanese",
+      ),
     ).toBe(true);
     expect(
-      icsEventMatches(ev({ summary: "Lunch", location: "Japanese Garden Cafe" }), "garden"),
+      icsEventMatches(
+        ev({ summary: "Lunch", location: "Japanese Garden Cafe" }),
+        "garden",
+      ),
     ).toBe(true);
     expect(icsEventMatches(ev({ summary: "Japanese class" }), "japan")).toBe(false);
   });
 
   it("needs every word of the query", () => {
-    expect(icsEventMatches(ev({ summary: "Weekly Japanese class" }), "japanese class")).toBe(true);
-    expect(icsEventMatches(ev({ summary: "Weekly Japanese class" }), "japanese dinner")).toBe(false);
+    expect(
+      icsEventMatches(ev({ summary: "Weekly Japanese class" }), "japanese class"),
+    ).toBe(true);
+    expect(
+      icsEventMatches(ev({ summary: "Weekly Japanese class" }), "japanese dinner"),
+    ).toBe(false);
   });
 
   it("finds nothing for a query with no words", () => {
