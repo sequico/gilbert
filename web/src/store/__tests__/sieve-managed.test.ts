@@ -116,17 +116,18 @@ afterEach(() => {
 
 describe("a server that keeps its own script", () => {
   it("never reads the server's script as the baseline of a person's rules", async () => {
-    server(
-      [{ id: "0", name: "managed", blobId: "bm", isActive: true }],
-      { bm: rulesToSieve([rule()]) },
-    );
+    server([{ id: "0", name: "managed", blobId: "bm", isActive: true }], {
+      bm: rulesToSieve([rule()]),
+    });
     await useSieve.getState().load();
     // No script of ours: the rules are empty, not the server's own content.
     expect(useSieve.getState().rules()).toMatchObject({ script: null, rules: [] });
   });
 
   it("writes the include into the filter script it saves", async () => {
-    server([{ id: "0", name: "managed", blobId: "bm", isActive: false }], { bm: "keep;" });
+    server([{ id: "0", name: "managed", blobId: "bm", isActive: false }], {
+      bm: "keep;",
+    });
     await useSieve.getState().load();
     await useSieve.getState().saveRules([rule()]);
     expect(contentOf(ours())).toContain(MANAGED_INCLUDE);
@@ -154,7 +155,9 @@ describe("a server that keeps its own script", () => {
   });
 
   it("leaves the server's script alone", async () => {
-    server([{ id: "0", name: "managed", blobId: "bm", isActive: false }], { bm: "keep;" });
+    server([{ id: "0", name: "managed", blobId: "bm", isActive: false }], {
+      bm: "keep;",
+    });
     await useSieve.getState().load();
 
     await expect(

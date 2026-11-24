@@ -5,8 +5,8 @@ import {
   newRule,
   reorderRules,
   rulesToSieve,
-  scriptDamage,
   type SieveRule,
+  scriptDamage,
   sieveComment,
   sieveString,
   sieveToRules,
@@ -111,8 +111,9 @@ describe("sieve codec", () => {
 
   it("refuses a script with text after the server's include", () => {
     const text = rulesToSieve([], { includeManaged: true });
-    expect(scriptDamage(text.replace(MANAGED_INCLUDE, `${MANAGED_INCLUDE}\nkeep;`)))
-      .toBe("has lines after the server's include");
+    expect(scriptDamage(text.replace(MANAGED_INCLUDE, `${MANAGED_INCLUDE}\nkeep;`))).toBe(
+      "has lines after the server's include",
+    );
   });
 
   it("flattens a comment value, since a comment cannot be escaped", () => {

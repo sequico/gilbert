@@ -1214,7 +1214,8 @@ export const catalog: Catalog = {
     "Filter saved, but applying it failed: {error}":
       "Filter opgeslagen, maar toepassen is mislukt: {error}",
     "Filters saved": "Filters opgeslagen",
-    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.": "Door de server samengesteld uit je regels en afwezigheidsbericht. Het blijft actief als een eigen script het opneemt.",
+    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.":
+      "Door de server samengesteld uit je regels en afwezigheidsbericht. Het blijft actief als een eigen script het opneemt.",
     "Folder changed, but its filter rules could not be updated: {error}":
       "Map gewijzigd, maar de filterregels konden niet worden bijgewerkt: {error}",
     "Folder created": "Map aangemaakt",

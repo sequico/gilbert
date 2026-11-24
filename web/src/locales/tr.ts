@@ -709,7 +709,8 @@ export const catalog: Catalog = {
       "Filtre kaydedildi ancak uygulanması başarısız oldu: {error}",
     "Filters & rules": "Filtreler ve kurallar",
     "Filters saved": "Filtreler kaydedildi",
-    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.": "Sunucu tarafından kurallarınızdan ve yokluk yanıtınızdan derlenir. Kendi betiğinizden eklediğinizde etkin kalır.",
+    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.":
+      "Sunucu tarafından kurallarınızdan ve yokluk yanıtınızdan derlenir. Kendi betiğinizden eklediğinizde etkin kalır.",
     "Filters unavailable": "Filtreler kullanılamıyor",
     Fingerprint: "Parmak izi",
     "First day of the week: 0 Sunday, 1 Monday, 6 Saturday.":

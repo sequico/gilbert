@@ -1220,7 +1220,8 @@ export const catalog: Catalog = {
     "Filter saved, but applying it failed: {error}":
       "フィルターは保存しましたが、適用できませんでした: {error}",
     "Filters saved": "フィルターを保存しました",
-    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.": "サーバーがあなたのルールと不在応答から生成します。自分のスクリプトから include すると有効なままになります。",
+    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.":
+      "サーバーがあなたのルールと不在応答から生成します。自分のスクリプトから include すると有効なままになります。",
     "Folder changed, but its filter rules could not be updated: {error}":
       "フォルダーは変更しましたが、そのフィルタールールを更新できませんでした: {error}",
     "Folder created": "フォルダーを作成しました",

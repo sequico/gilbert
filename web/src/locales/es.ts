@@ -1227,7 +1227,8 @@ export const catalog: Catalog = {
     "Filter saved, but applying it failed: {error}":
       "Filtro guardado, pero no se pudo aplicar: {error}",
     "Filters saved": "Filtros guardados",
-    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.": "Compilado por el servidor a partir de tus reglas y tu respuesta de ausencia. Se mantiene activo si lo incluyes desde un script propio.",
+    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.":
+      "Compilado por el servidor a partir de tus reglas y tu respuesta de ausencia. Se mantiene activo si lo incluyes desde un script propio.",
     "Folder changed, but its filter rules could not be updated: {error}":
       "Carpeta modificada, pero no se pudieron actualizar sus reglas de filtrado: {error}",
     "Folder created": "Carpeta creada",
