@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
+  MANAGED_INCLUDE,
   newRule,
   reorderRules,
   rulesToSieve,
@@ -106,6 +107,12 @@ describe("sieve codec", () => {
     const plain = rulesToSieve([], { includeManaged: false });
     expect(plain).not.toContain("managed");
     expect(scriptDamage(plain)).toBeNull();
+  });
+
+  it("refuses a script with text after the server's include", () => {
+    const text = rulesToSieve([], { includeManaged: true });
+    expect(scriptDamage(text.replace(MANAGED_INCLUDE, `${MANAGED_INCLUDE}\nkeep;`)))
+      .toBe("has lines after the server's include");
   });
 
   it("flattens a comment value, since a comment cannot be escaped", () => {

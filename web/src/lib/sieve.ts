@@ -320,6 +320,12 @@ export function scriptDamage(content: string): string | null {
     // line by construction, so the walk ends here.
     if (line === MANAGED_INCLUDE) {
       managed = true;
+      i++;
+      // Anything after it would be dropped by the next save, which writes the
+      // shape above and stops at the include. Text there is a hand edit this
+      // editor cannot carry.
+      if (lines.slice(i).some((rest) => rest !== ""))
+        return "has lines after the server's include";
       break;
     }
     if (!line.startsWith("# rule:")) return "has a stray line where a rule should start";
