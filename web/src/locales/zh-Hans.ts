@@ -1193,6 +1193,7 @@ export const catalog: Catalog = {
     "Filter saved — it will run on new mail": "过滤器已保存——它将对新邮件生效",
     "Filter saved, but applying it failed: {error}": "过滤器已保存，但应用失败：{error}",
     "Filters saved": "过滤器已保存",
+    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.": "由服务器根据你的规则和外出回复生成。在你自己的脚本中包含它即可保持启用。",
     "Folder changed, but its filter rules could not be updated: {error}":
       "文件夹已修改，但其过滤规则无法更新：{error}",
     "Folder created": "文件夹已创建",

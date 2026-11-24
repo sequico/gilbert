@@ -1212,6 +1212,7 @@ export const catalog: Catalog = {
     "Filter saved, but applying it failed: {error}":
       "Фільтр збережено, але застосувати його не вдалося: {error}",
     "Filters saved": "Фільтри збережено",
+    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.": "Складається сервером з ваших правил і відповіді про відсутність. Лишається активним, якщо ваш сценарій його включає.",
     "Folder changed, but its filter rules could not be updated: {error}":
       "Теку змінено, але оновити її правила фільтрування не вдалося: {error}",
     "Folder created": "Теку створено",

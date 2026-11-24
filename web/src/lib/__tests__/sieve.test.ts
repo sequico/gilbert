@@ -4,6 +4,7 @@ import {
   newRule,
   reorderRules,
   rulesToSieve,
+  scriptDamage,
   type SieveRule,
   sieveComment,
   sieveString,
@@ -81,6 +82,30 @@ describe("sieve codec", () => {
   it("reports hand-written scripts as raw", () => {
     expect(sieveToRules('require ["fileinto"];\nif true { keep; }')).toBeNull();
     expect(sieveToRules("")).toEqual([]);
+  });
+
+  it("includes the server's own script on a server that keeps one", () => {
+    const rules = [
+      newRule({
+        id: "r1",
+        name: "Newsletters",
+        tests: [{ type: "header", header: "list-id", op: "exists", value: "" }],
+        actions: [{ type: "fileinto", mailbox: "Newsletters" }],
+      }),
+    ];
+    const script = rulesToSieve(rules, { includeManaged: true });
+    expect(script).toContain('require ["fileinto", "include"];');
+    expect(script.trimEnd().endsWith('include :personal "managed";')).toBe(true);
+    expect(sieveToRules(script)).toEqual(rules);
+    expect(scriptDamage(script)).toBeNull();
+    // A person with no rules yet is not a truncated script.
+    expect(scriptDamage(rulesToSieve([], { includeManaged: true }))).toBeNull();
+  });
+
+  it("leaves the include out for a server that has no such script", () => {
+    const plain = rulesToSieve([], { includeManaged: false });
+    expect(plain).not.toContain("managed");
+    expect(scriptDamage(plain)).toBeNull();
   });
 
   it("flattens a comment value, since a comment cannot be escaped", () => {

@@ -2073,6 +2073,13 @@ remove a flag, mark read, star, and stop.
 - **Nothing is discarded without asking.** Both editors keep their edits until
   save, and every way off the page asks first, offering to save. The save bar is
   pinned to the foot of the pane.
+- **A server that keeps its own rules still runs them.** On Stalwart 1.2 the
+  server compiles its server-side rules and the away reply into a read-only
+  `managed` script; the filter script carries `include :personal "managed";` on
+  such a server (and not on an older one, where the name does not exist), and a
+  script written before 1.2 gains the line on its first read. That script is
+  listed under Advanced as the server's own and is never edited or deleted from
+  here.
 - **Refuse to save from a script only partly read** — a save is checked for
   completeness against the shape the generator emits.
 - **Filter messages like this…** from a message's context menu, pre-filled from the

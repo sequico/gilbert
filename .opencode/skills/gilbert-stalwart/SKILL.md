@@ -27,9 +27,11 @@ account data.
   and `README.md`'s badge names it, while a version in a dated comment below is
   the version *that check* ran against. Assume 1.0 semantics, and when the
   server moves, re-read the dated comments before trusting them.
-- **1.0.0 is the release the tree follows**: the README's badge names it. The
-  four client-visible `CalendarEvent/get` and `ContactCard/get` behaviours the
-  client rests on are reproduced by the mock's `eventGetView`
+- **1.2.0 is the release the tree follows**: the README's badge names it, and
+  1.0.x remains supported (the only version-specific shapes the client reads
+  are the ones noted below). The four client-visible `CalendarEvent/get` and
+  `ContactCard/get` behaviours the client rests on are reproduced by the mock's
+  `eventGetView`
   (`server/src/mock/recurrence.ts`): `baseEventId` is the master's id on a
   synthetic id and `null` otherwise; `recurrenceRule` and `recurrenceOverrides`
   named on a synthetic id answer `null` rather than being absent;
@@ -37,6 +39,26 @@ account data.
   empty `properties` list returns `id` alone, where it used to mean
   "everything". The dated comments elsewhere still name whatever release *they*
   ran against.
+- **1.2 compiles a person's server-side rules and away reply into a read-only
+  Sieve script named `managed`** (document id 0). It runs only while it is the
+  active script or the active script includes it — `include :personal
+  "managed";`, a personal (non-global) include in a script that `require`s the
+  `include` extension. Gilbert's own filter script therefore carries that line
+  when the server lists such a script, and not when it does not (naming a script
+  that is absent fails to compile on 1.0/1.1); a script written before 1.2 is
+  repaired on the first read that finds the line missing
+  (`adoptManaged`, `web/src/store/sieve.ts`). The script is listed under
+  Filters › Advanced but is never edited or deleted from the client, and
+  `SieveScript/set` refuses to destroy the active script with `sieveIsActive` —
+  the store deactivates first, which is the step the refusal names. `1.2` also
+  adds `MDN/send` and `MDN/parse` (`urn:ietf:params:jmap:mdn`), availability
+  working hours (`BUSY-UNAVAILABLE` in `Principal/getAvailability`, a status
+  RFC 9591 already defines), `Identity/set`/`EmailSubmission/set` state tokens,
+  server-side `x:MailRule` and `x:CalendarSettings`, and destroys push
+  subscriptions whose endpoint answers 404/410. `FileNode/get` still answers
+  `myRights` on directories only, and `CalendarEvent/get` still refuses
+  `recurrenceOverrides` beside `utcStart`/`utcEnd` — both live-checked against
+  the 1.2.0 source (2026-11-24).
 - **The mock server** (`server/src/mock/index.ts`) emulates a 1.0 server
   in memory for `npm run dev:mock` (demo@example.com / demo) and for tests. It
   is deliberately faithful on the behaviours that bit us (see quirks) and
@@ -45,7 +67,10 @@ account data.
   as 0.16 did, which is what the sign-in probe's test needs. Keep mock parity
   when you change JMAP behaviour, and remember the mock proves nothing about a
   server nobody has asked: the two questions below are the ones only a live
-  instance can answer.
+  instance can answer. It carries no `managed` script and does not refuse a
+  destroy of the active one: those 1.2 behaviours are pinned in the web store
+  tests (`web/src/store/__tests__/sieve-managed.test.ts`), which drive the
+  client against both answers.
 
 ## The JMAP surface Gilbert uses
 

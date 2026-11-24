@@ -27,6 +27,8 @@ interface SieveScriptRow {
   name: string;
   isActive: boolean;
   description?: string | null;
+  /** The server compiles this one: it is listed, not edited or deleted here. */
+  readOnly?: boolean;
 }
 
 export function SieveScriptList<T extends SieveScriptRow>({
@@ -54,9 +56,11 @@ export function SieveScriptList<T extends SieveScriptRow>({
                 </span>
               )}
             </h3>
-            <button className="btn btn-sm" onClick={() => onEdit(s)}>
-              {t("Edit")}
-            </button>
+            {!s.readOnly && (
+              <button className="btn btn-sm" onClick={() => onEdit(s)}>
+                {t("Edit")}
+              </button>
+            )}
             <button
               className="btn btn-sm"
               onClick={async () => {
@@ -69,27 +73,29 @@ export function SieveScriptList<T extends SieveScriptRow>({
             >
               <Power size={14} /> {s.isActive ? t("Deactivate") : t("Activate")}
             </button>
-            <button
-              className="icon-btn sm danger"
-              aria-label={t("Delete script")}
-              onClick={async () => {
-                if (
-                  await confirmDialog({
-                    title: t("Delete script “{name}”?", { name: s.name }),
-                    confirmLabel: t("Delete"),
-                    danger: true,
-                  })
-                ) {
-                  try {
-                    await onDelete(s);
-                  } catch (err) {
-                    toast.error(errorMessage(err));
+            {!s.readOnly && (
+              <button
+                className="icon-btn sm danger"
+                aria-label={t("Delete script")}
+                onClick={async () => {
+                  if (
+                    await confirmDialog({
+                      title: t("Delete script “{name}”?", { name: s.name }),
+                      confirmLabel: t("Delete"),
+                      danger: true,
+                    })
+                  ) {
+                    try {
+                      await onDelete(s);
+                    } catch (err) {
+                      toast.error(errorMessage(err));
+                    }
                   }
-                }
-              }}
-            >
-              <Trash2 size={16} />
-            </button>
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
           {s.description && <p className="hint">{s.description}</p>}
         </div>

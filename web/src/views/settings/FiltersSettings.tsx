@@ -15,6 +15,7 @@ import { t, tNode } from "@/lib/i18n";
 import { SIEVE_RULE_MIME } from "@/lib/mime";
 import {
   describeRule,
+  isManagedScript,
   newRule,
   reorderRules,
   rulesToSieve,
@@ -126,7 +127,8 @@ function RulesEditor() {
     return y > b.top + b.height / 2;
   };
   /** The script that is actually running, which may not be the one being edited. */
-  const activeScript = sieve.scripts.find((s) => s.isActive) ?? null;
+  const activeScript =
+    sieve.scripts.find((s) => s.isActive && !isManagedScript(s)) ?? null;
   /*
    * Warn when saving rules changes which script runs: the editor writes the
    * managed script, and a save activates it, silently retiring the live one.
@@ -521,7 +523,17 @@ function ScriptsEditor() {
         )}
       </p>
       <SieveScriptList
-        scripts={sieve.scripts}
+        scripts={sieve.scripts.map((s) =>
+          isManagedScript(s)
+            ? {
+                ...s,
+                readOnly: true,
+                description: t(
+                  "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.",
+                ),
+              }
+            : s,
+        )}
         onEdit={(s) => void open(s)}
         // A person's own filters hold one active script, so arming any of them
         // disarms the rest: `null` is what the store means by "none active".

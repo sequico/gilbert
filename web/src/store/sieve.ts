@@ -2,7 +2,14 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse, SieveScript } from "@/jmap/types";
-import { rulesToSieve, type SieveRule, scriptDamage, sieveToRules } from "@/lib/sieve";
+import {
+  isManagedScript,
+  MANAGED_INCLUDE,
+  rulesToSieve,
+  type SieveRule,
+  scriptDamage,
+  sieveToRules,
+} from "@/lib/sieve";
 import { useSession } from "./session";
 
 const GILBERT_SCRIPT = "gilbert";
@@ -107,6 +114,7 @@ export const useSieve = create<SieveState>((set, get) => ({
       // Merged, not replaced: saveScript caches the content it just wrote, and
       // a reload whose fetch failed must not throw that away.
       set((st) => ({ contents: { ...st.contents, ...fetched } }));
+      await adoptManaged(get);
     } catch (err) {
       set({ loading: false, error: errorMessage(err) });
     }
@@ -130,7 +138,9 @@ export const useSieve = create<SieveState>((set, get) => ({
     const { scripts, contents } = get();
     const script =
       scripts.find((s) => s.name === GILBERT_SCRIPT) ??
-      scripts.find((s) => s.isActive) ??
+      // The server's own script is never the baseline of these rules: editing
+      // it is refused by the server and it is not one a person wrote here.
+      scripts.find((s) => s.isActive && !isManagedScript(s)) ??
       null;
     if (!script)
       return { script: null, rules: [], content: "", loaded: true, damage: null };
@@ -151,6 +161,15 @@ export const useSieve = create<SieveState>((set, get) => ({
 
   async saveRules(rules) {
     const existing = get().scripts.find((s) => s.name === GILBERT_SCRIPT) ?? null;
+    /*
+     * Stalwart 1.2 keeps a person's rules and away reply in a script it
+     * compiles, which applies only while it is active or the active script
+     * includes it. The list says whether this server has one; on an older one
+     * the include would name a script that does not exist and fail to compile.
+     */
+    const text = rulesToSieve(rules, {
+      includeManaged: get().scripts.some(isManagedScript),
+    });
     // The last line of defence. Writing rules replaces the whole script, so
     // doing it from a baseline we never managed to read deletes whatever was
     // there. Refusing is recoverable; overwriting is not.
@@ -187,20 +206,25 @@ export const useSieve = create<SieveState>((set, get) => ({
         });
         const err = res.notUpdated?.[existing.id];
         if (err) throw new Error(setErrorMessage(err));
-        await get().saveScript(null, GILBERT_SCRIPT, rulesToSieve(rules), true);
+        await get().saveScript(null, GILBERT_SCRIPT, text, true);
         return;
       }
     }
-    await get().saveScript(
-      existing?.id ?? null,
-      GILBERT_SCRIPT,
-      rulesToSieve(rules),
-      true,
-    );
+    await get().saveScript(existing?.id ?? null, GILBERT_SCRIPT, text, true);
   },
 
   async saveScript(id, name, content, activate) {
     const accountId = get().accountId!;
+    /*
+     * The server's own script is compiled from the rules and the away reply it
+     * keeps; writing it here would be overwritten by the next compile, and the
+     * person would be told a change was saved that is not there.
+     */
+    const target = id ? get().scripts.find((s) => s.id === id) : null;
+    if (target && isManagedScript(target))
+      throw new Error(
+        "The server compiles the “managed” script from your rules and out-of-office reply; it cannot be edited here.",
+      );
     const up = await client.upload(
       accountId,
       new Blob([content], { type: "application/sieve" }),
@@ -231,6 +255,17 @@ export const useSieve = create<SieveState>((set, get) => ({
 
   async destroy(id) {
     const accountId = get().accountId!;
+    const script = get().scripts.find((s) => s.id === id);
+    if (script && isManagedScript(script))
+      throw new Error(
+        "The server compiles the “managed” script from your rules and out-of-office reply; it cannot be deleted here.",
+      );
+    /*
+     * A server that answers `sieveIsActive` refuses to destroy the script it is
+     * running. Deactivating first is the same outcome on every version, and it
+     * is the step the refusal names.
+     */
+    if (script?.isActive) await get().activate(null);
     const res = await client.call<SetResponse>("SieveScript/set", {
       accountId,
       destroy: [id],
@@ -261,6 +296,35 @@ export const useSieve = create<SieveState>((set, get) => ({
     if (types.has("SieveScript")) void get().load();
   },
 }));
+
+/**
+ * Keep the server's own script in play on Stalwart 1.2.
+ *
+ * 1.2 compiles a person's server-side rules and away reply into a read-only
+ * script named `managed`, which runs only while it is the active script or the
+ * active script includes it. A filter script written before that version
+ * carries no include, so activating it silently disabled the server's rules and
+ * away reply. One write, on the first read that finds the gap, adds the line:
+ * the rules are re-serialized from the text already there, so nothing is lost.
+ * A hand-written script is left alone — it is not ours to rewrite.
+ */
+async function adoptManaged(get: () => SieveState): Promise<void> {
+  const { scripts, contents } = get();
+  // An older server has no such script, and naming one would fail to compile.
+  if (!scripts.some(isManagedScript)) return;
+  const ours = scripts.find((s) => s.name === GILBERT_SCRIPT);
+  if (!ours?.isActive) return;
+  const content = contents[ours.id];
+  if (content === undefined || content.includes(MANAGED_INCLUDE)) return;
+  const rules = sieveToRules(content);
+  if (rules === null) return;
+  await get().saveScript(
+    ours.id,
+    GILBERT_SCRIPT,
+    rulesToSieve(rules, { includeManaged: true }),
+    false,
+  );
+}
 
 /*
  * A session ending drops the scripts and the content read for them.

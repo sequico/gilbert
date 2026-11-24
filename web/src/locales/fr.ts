@@ -1231,6 +1231,7 @@ export const catalog: Catalog = {
     "Filter saved, but applying it failed: {error}":
       "Filtre enregistré, mais son application a échoué : {error}",
     "Filters saved": "Filtres enregistrés",
+    "Compiled by the server from your rules and away reply. It is kept on by including it from a script of your own.": "Compilé par le serveur à partir de vos règles et de votre réponse d'absence. Il reste actif si un script à vous l'inclut.",
     "Folder changed, but its filter rules could not be updated: {error}":
       "Dossier modifié, mais ses règles de filtrage n’ont pas pu être mises à jour : {error}",
     "Folder created": "Dossier créé",

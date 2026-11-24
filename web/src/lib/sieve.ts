@@ -202,8 +202,31 @@ function requiredExtensions(rules: SieveRule[]): string[] {
 const SCRIPT_HEADER =
   "# Gilbert filters v1 - edit with care; rules are stored in the `# rule:` comments";
 
-export function rulesToSieve(rules: SieveRule[]): string {
+/** The script Stalwart compiles from a person's server-side rules and away reply (1.2+). */
+export const MANAGED_SCRIPT_NAME = "managed";
+
+/**
+ * The line that keeps the server's own script applying.
+ *
+ * Stalwart 1.2 compiles its rules and the out-of-office reply into a read-only
+ * script named `managed`, which runs only while it is the active script or the
+ * active script includes it. Activating Gilbert's own filters therefore has to
+ * carry this line, or setting up a filter would turn the server's rules off.
+ */
+export const MANAGED_INCLUDE = 'include :personal "managed";';
+
+/** Whether a script is the one the server compiles rather than one a person wrote. */
+export function isManagedScript(script: { name: string }): boolean {
+  return script.name.toLowerCase() === MANAGED_SCRIPT_NAME;
+}
+
+export function rulesToSieve(
+  rules: SieveRule[],
+  { includeManaged = false }: { includeManaged?: boolean } = {},
+): string {
   const ext = requiredExtensions(rules);
+  if (includeManaged) ext.push("include");
+  ext.sort();
   const lines: string[] = [SCRIPT_HEADER];
   if (ext.length) lines.push(`require [${ext.map(sieveString).join(", ")}];`);
   lines.push("");
@@ -225,6 +248,12 @@ export function rulesToSieve(rules: SieveRule[]): string {
     lines.push("{");
     lines.push(...body);
     lines.push("}");
+    lines.push("");
+  }
+  if (includeManaged) {
+    // Last, so a message the person's own rules handle is handled by them
+    // first; whatever they leave alone still meets the server's rules.
+    lines.push(MANAGED_INCLUDE);
     lines.push("");
   }
   return lines.join("\n");
@@ -283,9 +312,16 @@ export function scriptDamage(content: string): string | null {
   // structural: the condition and action lines are read only for their
   // presence, so a serializer that words them differently is still intact.
   let seen = 0;
+  let managed = false;
   const cut = (r: SieveRule, what: string) => `has a rule in it (“${r.name}”) ${what}`;
   while (i < lines.length) {
     const line = lines[i]!;
+    // The server's own script, included at the end by `rulesToSieve`: the last
+    // line by construction, so the walk ends here.
+    if (line === MANAGED_INCLUDE) {
+      managed = true;
+      break;
+    }
     if (!line.startsWith("# rule:")) return "has a stray line where a rule should start";
     let rule: SieveRule | null = null;
     try {
@@ -327,8 +363,10 @@ export function scriptDamage(content: string): string | null {
     i++;
   }
   // A require line is written only for rules that need it, so one standing over
-  // no rules at all means the rules it was written for are gone.
-  if (hadRequire && seen === 0) return "breaks off before the first rule";
+  // no rules at all means the rules it was written for are gone -- unless the
+  // require is the include's own and the script is that of a person with no
+  // rules yet.
+  if (hadRequire && seen === 0 && !managed) return "breaks off before the first rule";
   return null;
 }
 

@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-2dd4bf?style=flat-square"></a>
-  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 1.0 or newer; followed against 1.0.0" src="https://img.shields.io/badge/Stalwart-1.0.0-6366f1?style=flat-square"></a>
+  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 1.0 or newer; followed against 1.2.0" src="https://img.shields.io/badge/Stalwart-1.2.0-6366f1?style=flat-square"></a>
   <a href="CONTRIBUTING.md"><img alt="Node 24 on the latest LTS line" src="https://img.shields.io/badge/Node-24-5fa04e?style=flat-square"></a>
   <a href="INSTALL.md"><img alt="Ships as a container image and a docker compose stack" src="https://img.shields.io/badge/Docker-image_%2B_compose-2496ed?style=flat-square"></a>
   <br>
