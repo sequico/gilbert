@@ -2074,7 +2074,8 @@ Each header and address test takes: contains, is, matches (wildcards `*` `?`),
 regex, exists — and the negation of each.
 
 **Actions**: file into a folder (creating it on the spot, optionally keeping a
-copy), redirect to an address, discard, keep, reject with a reason, add / set /
+copy), redirect to an address, discard, keep, reject with a reason (refused at
+delivery, not accepted with a notice), add / set /
 remove a flag, mark read, star, and stop.
 
 - **Enable or disable** a rule without deleting it, and reorder them by dragging or

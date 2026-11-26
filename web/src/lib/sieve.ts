@@ -156,7 +156,12 @@ function actionToSieve(a: SieveAction): string[] {
     case "keep":
       return ["keep;"];
     case "reject":
-      return [`reject ${sieveString(a.reason || "Message rejected")};`];
+      /*
+       * `ereject`, not `reject`: the first refuses the message at delivery,
+       * while `reject` accepts it and mails the sender a notice (RFC 5429).
+       * A rule that says "reject" means the message must not be delivered.
+       */
+      return [`ereject ${sieveString(a.reason || "Message rejected")};`];
     case "addflag":
       return [`addflag ${sieveString(a.flag)};`];
     case "setflag":
@@ -182,7 +187,6 @@ function requiredExtensions(rules: SieveRule[]): string[] {
         (t.op === "regex" || t.op === "notregex")
       )
         req.add("regex");
-      if (t.type === "address") req.add("envelope");
     }
     for (const a of r.actions) {
       if (a.type === "fileinto") {
@@ -190,12 +194,11 @@ function requiredExtensions(rules: SieveRule[]): string[] {
         if (a.copy) req.add("copy");
       }
       if (a.type === "redirect" && a.copy) req.add("copy");
-      if (a.type === "reject") req.add("reject");
+      if (a.type === "reject") req.add("ereject");
       if (["addflag", "setflag", "removeflag", "markread", "flag"].includes(a.type))
         req.add("imap4flags");
     }
   }
-  req.delete("envelope");
   return [...req].sort();
 }
 

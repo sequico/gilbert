@@ -59,6 +59,12 @@ account data.
   `myRights` on directories only, and `CalendarEvent/get` still refuses
   `recurrenceOverrides` beside `utcStart`/`utcEnd` — both live-checked against
   the 1.2.0 source (2026-11-24).
+- **Sieve `reject` accepts and mails a notice; `ereject` refuses** (RFC 5429).
+  Since 1.2.1 the server's own mail rules use `ereject`, and its `reject` sends
+  the sender an MDN rather than refusing the message. Gilbert's filter builder
+  emits `ereject` and requires the extension (`rulesToSieve`,
+  `web/src/lib/sieve.ts`); the stored rule keeps the word `reject`, which is
+  what the editor shows.
 - **The mock server** (`server/src/mock/index.ts`) emulates a 1.0 server
   in memory for `npm run dev:mock` (demo@example.com / demo) and for tests. It
   is deliberately faithful on the behaviours that bit us (see quirks) and

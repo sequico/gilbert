@@ -80,6 +80,22 @@ describe("sieve codec", () => {
     ]);
     expect(rules.map((r) => r.name)).toEqual(["r1", "r2", "r3"]);
   });
+  it("refuses a rejected message at delivery, which is what the rule says", () => {
+    const script = rulesToSieve([
+      newRule({
+        id: "r1",
+        name: "No spam please",
+        tests: [{ type: "header", header: "subject", op: "contains", value: "viagra" }],
+        actions: [{ type: "reject", reason: "No thanks" }],
+      }),
+    ]);
+    // `reject` would accept the message and mail a notice (RFC 5429); `ereject`
+    // refuses it, and the extension it needs is required.
+    expect(script).toContain('require ["ereject"];');
+    expect(script).toContain('ereject "No thanks";');
+    expect(script).not.toMatch(/^reject /m);
+  });
+
   it("reports hand-written scripts as raw", () => {
     expect(sieveToRules('require ["fileinto"];\nif true { keep; }')).toBeNull();
     expect(sieveToRules("")).toEqual([]);
